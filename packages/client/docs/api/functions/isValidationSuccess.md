@@ -6,9 +6,9 @@
 
 # Function: isValidationSuccess()
 
-> **isValidationSuccess**(`result`): `result is { valid: true }`
+> **isValidationSuccess**(`result`): `result is OkResult<void>`
 
-Defined in: packages/client/src/types/validation.ts:54
+Defined in: packages/client/src/types/validation.ts:63
 
 Check if validation result is successful.
 
@@ -20,4 +20,4 @@ Check if validation result is successful.
 
 ## Returns
 
-`result is { valid: true }`
+`result is OkResult<void>`

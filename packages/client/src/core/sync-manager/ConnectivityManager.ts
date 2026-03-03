@@ -23,7 +23,7 @@ export interface ConnectivityState {
   /** Whether we've confirmed API connectivity */
   apiReachable: boolean
   /** Last successful API contact timestamp */
-  lastContact: number | null
+  lastContact?: number
 }
 
 /**
@@ -44,20 +44,19 @@ export interface ConnectivityManagerConfig {
 export class ConnectivityManager {
   private readonly eventBus: EventBus
   private readonly checkInterval: number
-  private readonly healthCheckUrl: string | null
+  private readonly healthCheckUrl: string | undefined
 
   private readonly state$ = new BehaviorSubject<ConnectivityState>({
     online: typeof navigator !== 'undefined' ? navigator.onLine : true,
     apiReachable: false,
-    lastContact: null,
   })
 
-  private checkTimer: ReturnType<typeof setInterval> | null = null
+  private checkTimer: ReturnType<typeof setInterval> | undefined
 
   constructor(config: ConnectivityManagerConfig) {
     this.eventBus = config.eventBus
     this.checkInterval = config.checkInterval ?? 30000
-    this.healthCheckUrl = config.healthCheckUrl ?? null
+    this.healthCheckUrl = config.healthCheckUrl
   }
 
   /**
@@ -109,7 +108,9 @@ export class ConnectivityManager {
 
         if (online) {
           // Try to verify API connectivity
-          this.checkApiConnectivity()
+          this.checkApiConnectivity().catch((err) => {
+            logProvider.log.error({ err }, 'API connectivity check failed')
+          })
         }
       })
 
@@ -117,12 +118,16 @@ export class ConnectivityManager {
     if (this.healthCheckUrl) {
       this.checkTimer = setInterval(() => {
         if (this.state$.getValue().online) {
-          this.checkApiConnectivity()
+          this.checkApiConnectivity().catch((err) => {
+            logProvider.log.error({ err }, 'API connectivity check failed')
+          })
         }
       }, this.checkInterval)
 
       // Initial check
-      this.checkApiConnectivity()
+      this.checkApiConnectivity().catch((err) => {
+        logProvider.log.error({ err }, 'API connectivity check failed')
+      })
     } else {
       // No health check URL - assume API is reachable when browser is online
       this.updateState({ apiReachable: navigator.onLine })
@@ -135,7 +140,7 @@ export class ConnectivityManager {
   stop(): void {
     if (this.checkTimer) {
       clearInterval(this.checkTimer)
-      this.checkTimer = null
+      this.checkTimer = undefined
     }
   }
 

@@ -6,7 +6,7 @@
 
 # Interface: IDomainExecutor\<TCommand, TEvent\>
 
-Defined in: packages/client/src/types/domain.ts:53
+Defined in: packages/client/src/types/domain.ts:54
 
 Domain executor interface - consumer implements this.
 The library is agnostic to how validation is performed internally.
@@ -31,7 +31,7 @@ Event type produced by the executor
 
 > **execute**(`command`): [`DomainExecutionResult`](../type-aliases/DomainExecutionResult.md)\<`TEvent`\>
 
-Defined in: packages/client/src/types/domain.ts:66
+Defined in: packages/client/src/types/domain.ts:67
 
 Execute a command and produce anticipated events.
 Validation happens here - return errors if command is invalid.

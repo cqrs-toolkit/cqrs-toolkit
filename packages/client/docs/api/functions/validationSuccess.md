@@ -8,7 +8,7 @@
 
 > **validationSuccess**(): [`ValidationResult`](../type-aliases/ValidationResult.md)
 
-Defined in: packages/client/src/types/validation.ts:40
+Defined in: packages/client/src/types/validation.ts:49
 
 Helper to create a successful validation result.
 

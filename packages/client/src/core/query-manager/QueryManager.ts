@@ -5,15 +5,8 @@
  * It wraps the ReadModelStore with cache key management.
  */
 
-import {
-  Observable,
-  ReplaySubject,
-  Subject,
-  distinctUntilChanged,
-  filter,
-  map,
-  takeUntil,
-} from 'rxjs'
+import { logProvider } from '@meticoeus/ddd-es'
+import { Observable, Subject, distinctUntilChanged, filter, map, takeUntil } from 'rxjs'
 import type { CacheManager } from '../cache-manager/CacheManager.js'
 import type { EventBus } from '../events/EventBus.js'
 import type { ReadModelQueryOptions, ReadModelStore } from '../read-model-store/index.js'
@@ -41,8 +34,8 @@ export interface QueryOptions extends ReadModelQueryOptions {
  * Query result with metadata.
  */
 export interface QueryResult<T> {
-  /** The data, or null if not found */
-  data: T | null
+  /** The data, or undefined if not found */
+  data: T | undefined
   /** Whether the data has local changes pending sync */
   hasLocalChanges: boolean
   /** Cache key used for this query */
@@ -101,7 +94,7 @@ export class QueryManager {
     const model = await this.readModelStore.getById<T>(collection, id)
 
     return {
-      data: model?.data ?? null,
+      data: model?.data,
       hasLocalChanges: model?.hasLocalChanges ?? false,
       cacheKey,
     }
@@ -131,7 +124,7 @@ export class QueryManager {
     for (const id of ids) {
       const model = models.get(id)
       results.set(id, {
-        data: model?.data ?? null,
+        data: model?.data,
         hasLocalChanges: model?.hasLocalChanges ?? false,
         cacheKey,
       })
@@ -191,31 +184,41 @@ export class QueryManager {
    * @param id - Entity ID
    * @returns Observable of the entity data
    */
-  watchById<T>(collection: string, id: string): Observable<T | null> {
-    // Use ReplaySubject(1) to buffer the last value for late subscribers
-    // This ensures the initial load completes before subscribers receive data
-    const current$ = new ReplaySubject<T | null>(1)
-
-    // Load initial value
-    this.readModelStore.getById<T>(collection, id).then((model) => {
-      current$.next(model?.data ?? null)
-    })
-
-    // Subscribe to updates
-    this.eventBus
-      .on('readmodel:updated')
-      .pipe(
-        filter(
-          (event) => event.payload.collection === collection && event.payload.ids.includes(id),
-        ),
-        takeUntil(this.destroy$),
+  watchById<T>(collection: string, id: string): Observable<T | undefined> {
+    return new Observable<T | undefined>((subscriber) => {
+      // Initial load
+      this.readModelStore.getById<T>(collection, id).then(
+        (model) => subscriber.next(model?.data),
+        (err) => {
+          logProvider.log.error(
+            { err, collection, id },
+            'Failed to load initial value for watchById',
+          )
+          subscriber.next(undefined)
+        },
       )
-      .subscribe(async () => {
-        const model = await this.readModelStore.getById<T>(collection, id)
-        current$.next(model?.data ?? null)
-      })
 
-    return current$.pipe(distinctUntilChanged(), takeUntil(this.destroy$))
+      // Inner subscription — tied to consumer lifecycle
+      const innerSub = this.eventBus
+        .on('readmodel:updated')
+        .pipe(
+          filter(
+            (event) => event.payload.collection === collection && event.payload.ids.includes(id),
+          ),
+        )
+        .subscribe(() => {
+          this.readModelStore.getById<T>(collection, id).then(
+            (model) => subscriber.next(model?.data),
+            (err) =>
+              logProvider.log.error(
+                { err, collection, id },
+                'Failed to refresh value for watchById',
+              ),
+          )
+        })
+
+      return () => innerSub.unsubscribe()
+    }).pipe(distinctUntilChanged(), takeUntil(this.destroy$))
   }
 
   /**
@@ -294,9 +297,9 @@ export class QueryManager {
   /**
    * Destroy the query manager.
    */
-  destroy(): void {
+  async destroy(): Promise<void> {
     this.destroy$.next()
     this.destroy$.complete()
-    this.releaseAll()
+    await this.releaseAll()
   }
 }

@@ -6,9 +6,9 @@
 
 # Type Alias: DomainExecutionResult\<TEvent\>
 
-> **DomainExecutionResult**\<`TEvent`\> = [`DomainExecutionSuccess`](../interfaces/DomainExecutionSuccess.md)\<`TEvent`\> \| [`DomainExecutionFailure`](../interfaces/DomainExecutionFailure.md)
+> **DomainExecutionResult**\<`TEvent`\> = `Result`\<[`DomainExecutionSuccess`](../interfaces/DomainExecutionSuccess.md)\<`TEvent`\>, `ValidationException`\<[`ValidationError`](../interfaces/ValidationError.md)[]\>\>
 
-Defined in: packages/client/src/types/domain.ts:44
+Defined in: packages/client/src/types/domain.ts:42
 
 Result of domain command execution.
 

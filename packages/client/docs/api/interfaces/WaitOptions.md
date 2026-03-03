@@ -6,7 +6,7 @@
 
 # Interface: WaitOptions
 
-Defined in: packages/client/src/types/commands.ts:100
+Defined in: packages/client/src/types/commands.ts:105
 
 Options for waitForCompletion operation.
 
@@ -20,6 +20,6 @@ Options for waitForCompletion operation.
 
 > `optional` **timeout**: `number`
 
-Defined in: packages/client/src/types/commands.ts:102
+Defined in: packages/client/src/types/commands.ts:107
 
 Timeout in milliseconds (default: 30000)

@@ -8,7 +8,7 @@
 
 > **createFailedCommand**\<`TPayload`\>(`error`, `overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TPayload`\>
 
-Defined in: packages/client/src/testing/factories/command.ts:76
+Defined in: packages/client/src/testing/factories/command.ts:75
 
 Create a failed command.
 

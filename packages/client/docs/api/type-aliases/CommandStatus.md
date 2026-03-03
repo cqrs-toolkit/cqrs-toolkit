@@ -8,6 +8,6 @@
 
 > **CommandStatus** = `"pending"` \| `"blocked"` \| `"sending"` \| `"succeeded"` \| `"failed"` \| `"cancelled"`
 
-Defined in: packages/client/src/types/commands.ts:10
+Defined in: packages/client/src/types/commands.ts:17
 
 Command lifecycle status.

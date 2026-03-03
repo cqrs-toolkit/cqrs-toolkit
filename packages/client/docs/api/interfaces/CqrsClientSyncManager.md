@@ -39,7 +39,7 @@ Get sync status for all collections.
 
 ### getCollectionStatus()
 
-> **getCollectionStatus**(`collection`): [`CollectionSyncStatus`](CollectionSyncStatus.md) \| `null`
+> **getCollectionStatus**(`collection`): [`CollectionSyncStatus`](CollectionSyncStatus.md) \| `undefined`
 
 Defined in: packages/client/src/createCqrsClient.ts:49
 
@@ -53,7 +53,7 @@ Get sync status for a specific collection.
 
 #### Returns
 
-[`CollectionSyncStatus`](CollectionSyncStatus.md) \| `null`
+[`CollectionSyncStatus`](CollectionSyncStatus.md) \| `undefined`
 
 ***
 

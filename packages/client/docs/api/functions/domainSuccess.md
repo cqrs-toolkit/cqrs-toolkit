@@ -6,9 +6,9 @@
 
 # Function: domainSuccess()
 
-> **domainSuccess**\<`TEvent`\>(`anticipatedEvents`, `postProcessPlan?`): [`DomainExecutionSuccess`](../interfaces/DomainExecutionSuccess.md)\<`TEvent`\>
+> **domainSuccess**\<`TEvent`\>(`anticipatedEvents`, `postProcessPlan?`): [`DomainExecutionResult`](../type-aliases/DomainExecutionResult.md)\<`TEvent`\>
 
-Defined in: packages/client/src/types/domain.ts:90
+Defined in: packages/client/src/types/domain.ts:91
 
 Helper to create a successful domain execution result.
 
@@ -30,4 +30,4 @@ Helper to create a successful domain execution result.
 
 ## Returns
 
-[`DomainExecutionSuccess`](../interfaces/DomainExecutionSuccess.md)\<`TEvent`\>
+[`DomainExecutionResult`](../type-aliases/DomainExecutionResult.md)\<`TEvent`\>

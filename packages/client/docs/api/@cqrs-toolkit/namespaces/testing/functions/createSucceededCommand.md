@@ -8,7 +8,7 @@
 
 > **createSucceededCommand**\<`TPayload`, `TResponse`\>(`response`, `overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TPayload`, `TResponse`\>
 
-Defined in: packages/client/src/testing/factories/command.ts:60
+Defined in: packages/client/src/testing/factories/command.ts:59
 
 Create a succeeded command.
 

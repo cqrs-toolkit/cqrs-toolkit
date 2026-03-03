@@ -80,9 +80,9 @@ export interface ICommandQueue {
    * Get a command by ID.
    *
    * @param commandId - Command ID
-   * @returns Command record or null
+   * @returns Command record or undefined
    */
-  getCommand(commandId: string): Promise<CommandRecord | null>
+  getCommand(commandId: string): Promise<CommandRecord | undefined>
 
   /**
    * List commands matching a filter.

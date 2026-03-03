@@ -3,7 +3,7 @@
  */
 
 import { firstValueFrom, timeout } from 'rxjs'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import { CacheManager } from '../cache-manager/CacheManager.js'
 import { EventBus } from '../events/EventBus.js'
@@ -28,7 +28,7 @@ describe('QueryManager', () => {
     await storage.initialize()
     eventBus = new EventBus()
     cacheManager = new CacheManager({ storage, eventBus })
-    readModelStore = new ReadModelStore({ storage, eventBus })
+    readModelStore = new ReadModelStore({ storage })
     queryManager = new QueryManager({ eventBus, cacheManager, readModelStore })
 
     // Add some test data
@@ -52,8 +52,8 @@ describe('QueryManager', () => {
     })
   })
 
-  afterEach(() => {
-    queryManager.destroy()
+  afterEach(async () => {
+    await queryManager.destroy()
   })
 
   describe('getById', () => {
@@ -68,7 +68,7 @@ describe('QueryManager', () => {
     it('returns null for non-existent entity', async () => {
       const result = await queryManager.getById<Todo>('todos', 'non-existent')
 
-      expect(result.data).toBeNull()
+      expect(result.data).toBeUndefined()
       expect(result.hasLocalChanges).toBe(false)
     })
 
@@ -87,7 +87,7 @@ describe('QueryManager', () => {
       expect(results.size).toBe(3)
       expect(results.get('todo-1')?.data?.title).toBe('First')
       expect(results.get('todo-2')?.data?.title).toBe('Second Modified')
-      expect(results.get('todo-3')?.data).toBeNull()
+      expect(results.get('todo-3')?.data).toBeUndefined()
     })
   })
 
@@ -167,7 +167,7 @@ describe('QueryManager', () => {
     })
 
     it('emits updated value when entity changes', async () => {
-      const values: (Todo | null)[] = []
+      const values: (Todo | undefined)[] = []
 
       queryManager.watchById<Todo>('todos', 'todo-1').subscribe((v) => {
         values.push(v)
@@ -194,6 +194,28 @@ describe('QueryManager', () => {
 
       expect(values.length).toBeGreaterThanOrEqual(2)
       expect(values[values.length - 1]?.title).toBe('Updated')
+    })
+
+    it('does not call getById after unsubscribe', async () => {
+      const getByIdSpy = vi.spyOn(readModelStore, 'getById')
+
+      const sub = queryManager.watchById<Todo>('todos', 'todo-1').subscribe(() => {})
+
+      // Wait for initial load
+      await new Promise((r) => setTimeout(r, 10))
+
+      const callCountBeforeUnsub = getByIdSpy.mock.calls.length
+
+      // Unsubscribe
+      sub.unsubscribe()
+
+      // Emit update after unsubscribe
+      eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'] })
+
+      await new Promise((r) => setTimeout(r, 10))
+
+      // getById should NOT have been called again after unsubscribe
+      expect(getByIdSpy.mock.calls.length).toBe(callCountBeforeUnsub)
     })
   })
 

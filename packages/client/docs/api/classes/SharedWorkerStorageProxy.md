@@ -216,7 +216,7 @@ Delete a command.
 
 > **deleteReadModel**(`collection`, `id`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:201
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:204
 
 Delete a read model record.
 
@@ -244,7 +244,7 @@ Delete a read model record.
 
 > **deleteReadModelsByCacheKey**(`cacheKey`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:205
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:208
 
 Delete all read model records for a cache key.
 
@@ -268,7 +268,7 @@ Delete all read model records for a cache key.
 
 > **deleteReadModelsByCollection**(`collection`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:209
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:212
 
 Delete all read model records for a collection.
 
@@ -350,7 +350,7 @@ Get anticipated events for a command.
 
 ### getCachedEvent()
 
-> **getCachedEvent**(`id`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md) \| `null`\>
+> **getCachedEvent**(`id`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md) \| `undefined`\>
 
 Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:134
 
@@ -364,7 +364,7 @@ Get a cached event by ID.
 
 #### Returns
 
-`Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md) \| `null`\>
+`Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md) \| `undefined`\>
 
 #### Implementation of
 
@@ -422,7 +422,7 @@ Get cached events for a stream.
 
 ### getCacheKey()
 
-> **getCacheKey**(`key`): `Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md) \| `null`\>
+> **getCacheKey**(`key`): `Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md) \| `undefined`\>
 
 Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:62
 
@@ -436,7 +436,7 @@ Get a cache key record.
 
 #### Returns
 
-`Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md) \| `null`\>
+`Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md) \| `undefined`\>
 
 #### Implementation of
 
@@ -446,7 +446,7 @@ Get a cache key record.
 
 ### getCommand()
 
-> **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\> \| `null`\>
+> **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\> \| `undefined`\>
 
 Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:101
 
@@ -460,7 +460,7 @@ Get a command by ID.
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\> \| `null`\>
+`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\> \| `undefined`\>
 
 #### Implementation of
 
@@ -566,7 +566,7 @@ Get cache keys eligible for eviction (holdCount = 0, not frozen).
 
 ### getReadModel()
 
-> **getReadModel**(`collection`, `id`): `Promise`\<[`ReadModelRecord`](../interfaces/ReadModelRecord.md) \| `null`\>
+> **getReadModel**(`collection`, `id`): `Promise`\<[`ReadModelRecord`](../interfaces/ReadModelRecord.md) \| `undefined`\>
 
 Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:175
 
@@ -584,7 +584,7 @@ Get a read model record.
 
 #### Returns
 
-`Promise`\<[`ReadModelRecord`](../interfaces/ReadModelRecord.md) \| `null`\>
+`Promise`\<[`ReadModelRecord`](../interfaces/ReadModelRecord.md) \| `undefined`\>
 
 #### Implementation of
 
@@ -596,7 +596,7 @@ Get a read model record.
 
 > **getReadModelsByCacheKey**(`cacheKey`): `Promise`\<[`ReadModelRecord`](../interfaces/ReadModelRecord.md)[]\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:189
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:192
 
 Get read model records by cache key.
 
@@ -620,7 +620,7 @@ Get read model records by cache key.
 
 > **getReadModelsByCollection**(`collection`, `options?`): `Promise`\<[`ReadModelRecord`](../interfaces/ReadModelRecord.md)[]\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:179
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:182
 
 Get all read model records for a collection.
 
@@ -646,7 +646,7 @@ Get all read model records for a collection.
 
 ### getSession()
 
-> **getSession**(): `Promise`\<[`SessionRecord`](../interfaces/SessionRecord.md) \| `null`\>
+> **getSession**(): `Promise`\<[`SessionRecord`](../interfaces/SessionRecord.md) \| `undefined`\>
 
 Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:45
 
@@ -654,7 +654,7 @@ Get the current session, if any.
 
 #### Returns
 
-`Promise`\<[`SessionRecord`](../interfaces/SessionRecord.md) \| `null`\>
+`Promise`\<[`SessionRecord`](../interfaces/SessionRecord.md) \| `undefined`\>
 
 #### Implementation of
 
@@ -829,7 +829,7 @@ Save a new command.
 
 > **saveReadModel**(`record`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:193
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:196
 
 Save a read model record.
 
@@ -853,7 +853,7 @@ Save a read model record.
 
 > **saveReadModels**(`records`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:197
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:200
 
 Save multiple read model records in a batch.
 

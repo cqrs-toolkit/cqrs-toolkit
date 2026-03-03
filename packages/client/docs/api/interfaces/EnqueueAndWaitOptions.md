@@ -6,7 +6,7 @@
 
 # Interface: EnqueueAndWaitOptions
 
-Defined in: packages/client/src/types/commands.ts:108
+Defined in: packages/client/src/types/commands.ts:113
 
 Options for enqueueAndWait operation.
 
@@ -20,7 +20,7 @@ Options for enqueueAndWait operation.
 
 > `optional` **commandId**: `string`
 
-Defined in: packages/client/src/types/commands.ts:94
+Defined in: packages/client/src/types/commands.ts:99
 
 Custom command ID (defaults to generated UUID)
 
@@ -34,7 +34,7 @@ Custom command ID (defaults to generated UUID)
 
 > `optional` **skipValidation**: `boolean`
 
-Defined in: packages/client/src/types/commands.ts:92
+Defined in: packages/client/src/types/commands.ts:97
 
 Skip local domain validation
 
@@ -48,7 +48,7 @@ Skip local domain validation
 
 > `optional` **timeout**: `number`
 
-Defined in: packages/client/src/types/commands.ts:102
+Defined in: packages/client/src/types/commands.ts:107
 
 Timeout in milliseconds (default: 30000)
 

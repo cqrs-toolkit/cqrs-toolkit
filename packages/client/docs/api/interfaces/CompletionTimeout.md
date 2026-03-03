@@ -6,7 +6,7 @@
 
 # Interface: CompletionTimeout
 
-Defined in: packages/client/src/types/commands.ts:163
+Defined in: packages/client/src/types/commands.ts:161
 
 Command completion result - timeout.
 
@@ -16,4 +16,4 @@ Command completion result - timeout.
 
 > **status**: `"timeout"`
 
-Defined in: packages/client/src/types/commands.ts:164
+Defined in: packages/client/src/types/commands.ts:162

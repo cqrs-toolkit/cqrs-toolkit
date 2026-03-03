@@ -11,6 +11,7 @@
 /// <reference lib="webworker" />
 
 import { createConsoleLogger, logProvider } from '@meticoeus/ddd-es'
+import assert from 'node:assert'
 import { EventBus } from '../../core/events/EventBus.js'
 import { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
 import type { IStorage } from '../../storage/IStorage.js'
@@ -37,8 +38,8 @@ const LIVENESS_CHECK_INTERVAL_MS = 10000
 class StorageWorker {
   private readonly messageHandler: WorkerMessageHandler
   private readonly eventBus: EventBus
-  private storage: IStorage | null = null
-  private livenessCheckInterval: ReturnType<typeof setInterval> | null = null
+  private storage: IStorage | undefined
+  private livenessCheckInterval: ReturnType<typeof setInterval> | undefined
 
   /** Active window holds by cache key */
   private readonly activeWindowIdsByKey = new Map<string, Set<string>>()
@@ -91,7 +92,7 @@ class StorageWorker {
     this.messageHandler.registerMethod('storage.close', async () => {
       if (this.storage) {
         await this.storage.close()
-        this.storage = null
+        this.storage = undefined
       }
     })
 
@@ -266,9 +267,7 @@ class StorageWorker {
   }
 
   private getStorage(): IStorage {
-    if (!this.storage) {
-      throw new Error('Storage not initialized')
-    }
+    assert(this.storage, 'Storage not initialized')
     return this.storage
   }
 

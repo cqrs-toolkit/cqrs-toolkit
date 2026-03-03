@@ -6,6 +6,7 @@
  */
 
 import { logProvider } from '@meticoeus/ddd-es'
+import assert from 'node:assert'
 import type { CommandFilter, CommandRecord, CommandStatus } from '../types/commands.js'
 import type {
   CacheKeyRecord,
@@ -19,17 +20,25 @@ import { ALL_TABLES, getPendingMigrations } from './schema/index.js'
 
 /**
  * SQLite database instance type (from @sqlite.org/sqlite-wasm).
- * Using 'any' here as the actual type is complex and comes from external lib.
+ *
+ * The generic on the query overload declares the row shape we expect back.
+ * Since we control the schema through migrations and SQLite enforces column
+ * types, the row type parameter is a sound declaration of what we know we're
+ * getting — not a speculative cast.
  */
-type SqliteDb = {
-  exec(sql: string, options?: { bind?: unknown[]; rowMode?: string; returnValue?: string }): unknown
+interface SqliteDb {
+  exec<T = Record<string, unknown>>(
+    sql: string,
+    options: { bind?: unknown[]; rowMode: 'object'; returnValue: 'resultRows' },
+  ): T[]
+  exec(sql: string, options?: { bind?: unknown[] }): void
   close(): void
 }
 
 /**
  * SQLite WASM module type.
  */
-type SqliteModule = {
+interface SqliteModule {
   oo1: {
     DB: new (filename: string, mode?: string) => SqliteDb
     OpfsDb?: new (filename: string) => SqliteDb
@@ -59,14 +68,14 @@ export interface SQLiteStorageConfig {
 export class SQLiteStorage implements IStorage {
   private readonly dbName: string
   private readonly vfs: VfsType
-  private sqliteModule: SqliteModule | null = null
-  private db: SqliteDb | null = null
+  private sqliteModule: SqliteModule | undefined
+  private db: SqliteDb | undefined
   private initialized = false
 
   constructor(config: SQLiteStorageConfig = {}) {
     this.dbName = config.dbName ?? 'cqrs-client.db'
     this.vfs = config.vfs ?? 'memory'
-    this.sqliteModule = config.sqlite ?? null
+    this.sqliteModule = config.sqlite
   }
 
   // Lifecycle
@@ -94,7 +103,7 @@ export class SQLiteStorage implements IStorage {
   async close(): Promise<void> {
     if (this.db) {
       this.db.close()
-      this.db = null
+      this.db = undefined
     }
     this.initialized = false
   }
@@ -111,18 +120,17 @@ export class SQLiteStorage implements IStorage {
 
   // Session operations
 
-  async getSession(): Promise<SessionRecord | null> {
+  async getSession(): Promise<SessionRecord | undefined> {
     this.assertInitialized()
-    const rows = this.query<{
+    const row = this.queryOne<{
       id: number
       user_id: string
       created_at: number
       last_seen_at: number
     }>('SELECT * FROM session WHERE id = 1')
 
-    if (rows.length === 0) return null
+    if (!row) return undefined
 
-    const row = rows[0]!
     return {
       id: 1,
       userId: row.user_id,
@@ -157,9 +165,9 @@ export class SQLiteStorage implements IStorage {
 
   // Cache key operations
 
-  async getCacheKey(key: string): Promise<CacheKeyRecord | null> {
+  async getCacheKey(key: string): Promise<CacheKeyRecord | undefined> {
     this.assertInitialized()
-    const rows = this.query<{
+    const row = this.queryOne<{
       key: string
       last_accessed_at: number
       hold_count: number
@@ -168,9 +176,8 @@ export class SQLiteStorage implements IStorage {
       created_at: number
     }>('SELECT * FROM cache_keys WHERE key = ?', [key])
 
-    if (rows.length === 0) return null
+    if (!row) return undefined
 
-    const row = rows[0]!
     return {
       key: row.key,
       lastAccessedAt: row.last_accessed_at,
@@ -269,13 +276,15 @@ export class SQLiteStorage implements IStorage {
 
   // Command operations
 
-  async getCommand(commandId: string): Promise<CommandRecord | null> {
+  async getCommand(commandId: string): Promise<CommandRecord | undefined> {
     this.assertInitialized()
-    const rows = this.query<CommandRow>('SELECT * FROM commands WHERE command_id = ?', [commandId])
+    const row = this.queryOne<CommandRow>('SELECT * FROM commands WHERE command_id = ?', [
+      commandId,
+    ])
 
-    if (rows.length === 0) return null
+    if (!row) return undefined
 
-    return this.rowToCommand(rows[0]!)
+    return this.rowToCommand(row)
   }
 
   async getCommands(filter?: CommandFilter): Promise<CommandRecord[]> {
@@ -315,11 +324,11 @@ export class SQLiteStorage implements IStorage {
     if (filter?.limit !== undefined) {
       sql += ' LIMIT ?'
       params.push(filter.limit)
-    }
 
-    if (filter?.offset !== undefined) {
-      sql += ' OFFSET ?'
-      params.push(filter.offset)
+      if (filter?.offset !== undefined) {
+        sql += ' OFFSET ?'
+        params.push(filter.offset)
+      }
     }
 
     const rows = this.query<CommandRow>(sql, params)
@@ -344,8 +353,8 @@ export class SQLiteStorage implements IStorage {
     this.exec(
       `INSERT OR REPLACE INTO commands
        (command_id, service, type, payload, status, depends_on, blocked_by, attempts,
-        last_attempt_at, anticipated_event_ids, error, server_response, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        last_attempt_at, error, server_response, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         command.commandId,
         command.service,
@@ -356,7 +365,6 @@ export class SQLiteStorage implements IStorage {
         JSON.stringify(command.blockedBy),
         command.attempts,
         command.lastAttemptAt ?? null,
-        JSON.stringify(command.anticipatedEventIds),
         command.error ? JSON.stringify(command.error) : null,
         command.serverResponse !== undefined ? JSON.stringify(command.serverResponse) : null,
         command.createdAt,
@@ -388,13 +396,13 @@ export class SQLiteStorage implements IStorage {
 
   // Event cache operations
 
-  async getCachedEvent(id: string): Promise<CachedEventRecord | null> {
+  async getCachedEvent(id: string): Promise<CachedEventRecord | undefined> {
     this.assertInitialized()
-    const rows = this.query<EventRow>('SELECT * FROM cached_events WHERE id = ?', [id])
+    const row = this.queryOne<EventRow>('SELECT * FROM cached_events WHERE id = ?', [id])
 
-    if (rows.length === 0) return null
+    if (!row) return undefined
 
-    return this.rowToEvent(rows[0]!)
+    return this.rowToEvent(row)
   }
 
   async getCachedEventsByCacheKey(cacheKey: string): Promise<CachedEventRecord[]> {
@@ -470,16 +478,16 @@ export class SQLiteStorage implements IStorage {
 
   // Read model operations
 
-  async getReadModel(collection: string, id: string): Promise<ReadModelRecord | null> {
+  async getReadModel(collection: string, id: string): Promise<ReadModelRecord | undefined> {
     this.assertInitialized()
-    const rows = this.query<ReadModelRow>(
+    const row = this.queryOne<ReadModelRow>(
       'SELECT * FROM read_models WHERE collection = ? AND id = ?',
       [collection, id],
     )
 
-    if (rows.length === 0) return null
+    if (!row) return undefined
 
-    return this.rowToReadModel(rows[0]!)
+    return this.rowToReadModel(row)
   }
 
   async getReadModelsByCollection(
@@ -499,11 +507,11 @@ export class SQLiteStorage implements IStorage {
     if (options?.limit !== undefined) {
       sql += ' LIMIT ?'
       params.push(options.limit)
-    }
 
-    if (options?.offset !== undefined) {
-      sql += ' OFFSET ?'
-      params.push(options.offset)
+      if (options?.offset !== undefined) {
+        sql += ' OFFSET ?'
+        params.push(options.offset)
+      }
     }
 
     const rows = this.query<ReadModelRow>(sql, params)
@@ -620,18 +628,21 @@ export class SQLiteStorage implements IStorage {
   }
 
   private exec(sql: string, params?: unknown[]): void {
-    if (!this.db) throw new Error('Database not initialized')
+    assert(this.db, 'Database not initialized')
     this.db.exec(sql, { bind: params })
   }
 
   private query<T>(sql: string, params?: unknown[]): T[] {
-    if (!this.db) throw new Error('Database not initialized')
-    const result = this.db.exec(sql, {
+    assert(this.db, 'Database not initialized')
+    return this.db.exec<T>(sql, {
       bind: params,
       rowMode: 'object',
       returnValue: 'resultRows',
     })
-    return (result as T[]) ?? []
+  }
+
+  private queryOne<T>(sql: string, params?: unknown[]): T | undefined {
+    return this.query<T>(sql, params)[0]
   }
 
   private assertInitialized(): void {
@@ -653,7 +664,6 @@ export class SQLiteStorage implements IStorage {
       blockedBy: JSON.parse(row.blocked_by),
       attempts: row.attempts,
       lastAttemptAt: row.last_attempt_at ?? undefined,
-      anticipatedEventIds: JSON.parse(row.anticipated_event_ids),
       error: row.error ? JSON.parse(row.error) : undefined,
       serverResponse: row.server_response ? JSON.parse(row.server_response) : undefined,
       createdAt: row.created_at,
@@ -701,7 +711,6 @@ interface CommandRow {
   blocked_by: string
   attempts: number
   last_attempt_at: number | null
-  anticipated_event_ids: string
   error: string | null
   server_response: string | null
   created_at: number

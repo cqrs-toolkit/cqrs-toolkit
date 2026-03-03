@@ -6,7 +6,7 @@
 
 # Interface: CompletionFailed
 
-Defined in: packages/client/src/types/commands.ts:147
+Defined in: packages/client/src/types/commands.ts:145
 
 Command completion result - failed.
 
@@ -16,7 +16,7 @@ Command completion result - failed.
 
 > **error**: [`CommandError`](CommandError.md)
 
-Defined in: packages/client/src/types/commands.ts:150
+Defined in: packages/client/src/types/commands.ts:148
 
 Error information
 
@@ -26,4 +26,4 @@ Error information
 
 > **status**: `"failed"`
 
-Defined in: packages/client/src/types/commands.ts:148
+Defined in: packages/client/src/types/commands.ts:146

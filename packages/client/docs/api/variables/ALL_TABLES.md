@@ -8,6 +8,6 @@
 
 > `const` **ALL\_TABLES**: `string`[]
 
-Defined in: packages/client/src/storage/schema/tables.ts:121
+Defined in: packages/client/src/storage/schema/tables.ts:120
 
 All table creation statements in order.

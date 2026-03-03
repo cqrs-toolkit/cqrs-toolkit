@@ -6,9 +6,9 @@
 
 # Function: domainFailure()
 
-> **domainFailure**(`errors`): [`DomainExecutionFailure`](../interfaces/DomainExecutionFailure.md)
+> **domainFailure**(`errors`): [`DomainExecutionResult`](../type-aliases/DomainExecutionResult.md)\<`never`\>
 
-Defined in: packages/client/src/types/domain.ts:100
+Defined in: packages/client/src/types/domain.ts:101
 
 Helper to create a failed domain execution result.
 
@@ -20,4 +20,4 @@ Helper to create a failed domain execution result.
 
 ## Returns
 
-[`DomainExecutionFailure`](../interfaces/DomainExecutionFailure.md)
+[`DomainExecutionResult`](../type-aliases/DomainExecutionResult.md)\<`never`\>

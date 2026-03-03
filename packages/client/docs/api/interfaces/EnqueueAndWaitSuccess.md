@@ -6,9 +6,9 @@
 
 # Interface: EnqueueAndWaitSuccess\<TResponse\>
 
-Defined in: packages/client/src/types/commands.ts:179
+Defined in: packages/client/src/types/commands.ts:177
 
-Successful enqueueAndWait result.
+Successful enqueueAndWait payload.
 
 ## Type Parameters
 
@@ -22,17 +22,9 @@ Successful enqueueAndWait result.
 
 > **commandId**: `string`
 
-Defined in: packages/client/src/types/commands.ts:182
+Defined in: packages/client/src/types/commands.ts:179
 
 Assigned command ID
-
-***
-
-### ok
-
-> **ok**: `true`
-
-Defined in: packages/client/src/types/commands.ts:180
 
 ***
 
@@ -40,6 +32,6 @@ Defined in: packages/client/src/types/commands.ts:180
 
 > **response**: `TResponse`
 
-Defined in: packages/client/src/types/commands.ts:184
+Defined in: packages/client/src/types/commands.ts:181
 
 Server response

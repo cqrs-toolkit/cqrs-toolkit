@@ -6,7 +6,7 @@
 
 # Interface: MessageChannelConfig
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:32
+Defined in: packages/client/src/protocol/MessageChannel.ts:33
 
 Message channel configuration.
 
@@ -16,7 +16,7 @@ Message channel configuration.
 
 > `optional` **requestTimeout**: `number`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:34
+Defined in: packages/client/src/protocol/MessageChannel.ts:35
 
 Request timeout in milliseconds
 
@@ -26,6 +26,6 @@ Request timeout in milliseconds
 
 > `optional` **serializeMessages**: `boolean`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:36
+Defined in: packages/client/src/protocol/MessageChannel.ts:37
 
 Whether to serialize messages (default: true)

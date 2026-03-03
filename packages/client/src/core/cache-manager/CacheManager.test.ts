@@ -246,6 +246,20 @@ describe('CacheManager', () => {
       expect(await cacheManager.exists(key)).toBe(true)
     })
 
+    it('emits cache:evicted with reason expired', async () => {
+      const key = await cacheManager.acquire('todos', undefined, { ttl: 1 })
+      const events: unknown[] = []
+      eventBus.on('cache:evicted').subscribe((e) => events.push(e))
+
+      await new Promise((r) => setTimeout(r, 50))
+      await cacheManager.evictExpired()
+
+      expect(events).toHaveLength(1)
+      expect(events[0]).toMatchObject({
+        payload: { cacheKey: key, reason: 'expired' },
+      })
+    })
+
     it('does not evict expired but held cache keys', async () => {
       const key = await cacheManager.acquire('todos', undefined, { ttl: 1, hold: true })
 

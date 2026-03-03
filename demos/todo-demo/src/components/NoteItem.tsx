@@ -4,7 +4,7 @@ import { useClient } from '../cqrs-context'
 
 interface NoteItemProps {
   note: Note
-  onError: (message: string | null) => void
+  onError: (message: string | undefined) => void
 }
 
 export default function NoteItem(props: NoteItemProps) {
@@ -34,7 +34,7 @@ export default function NoteItem(props: NoteItemProps) {
       return
     }
 
-    props.onError(null)
+    props.onError(undefined)
 
     if (titleChanged) {
       const result = await commandQueue.enqueueAndWait({
@@ -42,7 +42,7 @@ export default function NoteItem(props: NoteItemProps) {
         payload: { id: props.note.id, title: trimmedTitle, revision: props.note.latestRevision },
       })
       if (!result.ok) {
-        props.onError(result.errors[0]?.message ?? 'Command failed')
+        props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
         return
       }
     }
@@ -53,7 +53,7 @@ export default function NoteItem(props: NoteItemProps) {
         payload: { id: props.note.id, body: editBody(), revision: props.note.latestRevision },
       })
       if (!result.ok) {
-        props.onError(result.errors[0]?.message ?? 'Command failed')
+        props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
         return
       }
     }
@@ -70,13 +70,13 @@ export default function NoteItem(props: NoteItemProps) {
   }
 
   async function handleDelete() {
-    props.onError(null)
+    props.onError(undefined)
     const result = await commandQueue.enqueueAndWait({
       type: 'DeleteNote',
       payload: { id: props.note.id, revision: props.note.latestRevision },
     })
     if (!result.ok) {
-      props.onError(result.errors[0]?.message ?? 'Command failed')
+      props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
     }
   }
 

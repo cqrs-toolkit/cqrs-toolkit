@@ -304,7 +304,7 @@ Get anticipated events for a command.
 
 ### getCachedEvent()
 
-> **getCachedEvent**(`id`): `Promise`\<[`CachedEventRecord`](CachedEventRecord.md) \| `null`\>
+> **getCachedEvent**(`id`): `Promise`\<[`CachedEventRecord`](CachedEventRecord.md) \| `undefined`\>
 
 Defined in: packages/client/src/storage/IStorage.ts:225
 
@@ -318,7 +318,7 @@ Get a cached event by ID.
 
 #### Returns
 
-`Promise`\<[`CachedEventRecord`](CachedEventRecord.md) \| `null`\>
+`Promise`\<[`CachedEventRecord`](CachedEventRecord.md) \| `undefined`\>
 
 ***
 
@@ -364,7 +364,7 @@ Get cached events for a stream.
 
 ### getCacheKey()
 
-> **getCacheKey**(`key`): `Promise`\<[`CacheKeyRecord`](CacheKeyRecord.md) \| `null`\>
+> **getCacheKey**(`key`): `Promise`\<[`CacheKeyRecord`](CacheKeyRecord.md) \| `undefined`\>
 
 Defined in: packages/client/src/storage/IStorage.ts:143
 
@@ -378,13 +378,13 @@ Get a cache key record.
 
 #### Returns
 
-`Promise`\<[`CacheKeyRecord`](CacheKeyRecord.md) \| `null`\>
+`Promise`\<[`CacheKeyRecord`](CacheKeyRecord.md) \| `undefined`\>
 
 ***
 
 ### getCommand()
 
-> **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`unknown`, `unknown`\> \| `null`\>
+> **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`unknown`, `unknown`\> \| `undefined`\>
 
 Defined in: packages/client/src/storage/IStorage.ts:184
 
@@ -398,7 +398,7 @@ Get a command by ID.
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](CommandRecord.md)\<`unknown`, `unknown`\> \| `null`\>
+`Promise`\<[`CommandRecord`](CommandRecord.md)\<`unknown`, `unknown`\> \| `undefined`\>
 
 ***
 
@@ -484,7 +484,7 @@ Get cache keys eligible for eviction (holdCount = 0, not frozen).
 
 ### getReadModel()
 
-> **getReadModel**(`collection`, `id`): `Promise`\<[`ReadModelRecord`](ReadModelRecord.md) \| `null`\>
+> **getReadModel**(`collection`, `id`): `Promise`\<[`ReadModelRecord`](ReadModelRecord.md) \| `undefined`\>
 
 Defined in: packages/client/src/storage/IStorage.ts:271
 
@@ -502,7 +502,7 @@ Get a read model record.
 
 #### Returns
 
-`Promise`\<[`ReadModelRecord`](ReadModelRecord.md) \| `null`\>
+`Promise`\<[`ReadModelRecord`](ReadModelRecord.md) \| `undefined`\>
 
 ***
 
@@ -552,7 +552,7 @@ Get all read model records for a collection.
 
 ### getSession()
 
-> **getSession**(): `Promise`\<[`SessionRecord`](SessionRecord.md) \| `null`\>
+> **getSession**(): `Promise`\<[`SessionRecord`](SessionRecord.md) \| `undefined`\>
 
 Defined in: packages/client/src/storage/IStorage.ts:122
 
@@ -560,7 +560,7 @@ Get the current session, if any.
 
 #### Returns
 
-`Promise`\<[`SessionRecord`](SessionRecord.md) \| `null`\>
+`Promise`\<[`SessionRecord`](SessionRecord.md) \| `undefined`\>
 
 ***
 

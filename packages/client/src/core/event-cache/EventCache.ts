@@ -197,9 +197,9 @@ export class EventCache {
    * Get a cached event by ID.
    *
    * @param id - Event ID
-   * @returns Cached event record or null
+   * @returns Cached event record or undefined
    */
-  async getEvent(id: string): Promise<CachedEventRecord | null> {
+  async getEvent(id: string): Promise<CachedEventRecord | undefined> {
     return this.storage.getCachedEvent(id)
   }
 
@@ -241,26 +241,6 @@ export class EventCache {
    */
   async deleteAnticipatedEvents(commandId: string): Promise<void> {
     await this.storage.deleteAnticipatedEventsByCommand(commandId)
-  }
-
-  /**
-   * Replace anticipated events with confirmed server events.
-   * Called when a command succeeds and server returns actual events.
-   *
-   * @param commandId - Command identifier
-   * @param confirmedEvents - Server-confirmed events
-   * @param cacheKey - Cache key for the confirmed events
-   */
-  async replaceAnticipatedWithConfirmed(
-    commandId: string,
-    confirmedEvents: IPersistedEvent[],
-    cacheKey: string,
-  ): Promise<void> {
-    // Delete anticipated events
-    await this.storage.deleteAnticipatedEventsByCommand(commandId)
-
-    // Cache confirmed events
-    await this.cacheServerEvents(confirmedEvents, { cacheKey })
   }
 
   /**
@@ -319,15 +299,20 @@ export class EventCache {
 
   /**
    * Clear gap buffer.
-   * With arguments: clears for a specific stream up to a position.
+   * With both arguments: clears for a specific stream up to a position.
+   * With streamId only: clears all gap tracking state for that stream.
    * Without arguments: clears all gap tracking state.
    *
    * @param streamId - Optional stream identifier
    * @param upToPosition - Optional position to clear up to
    */
   clearGapBuffer(streamId?: string, upToPosition?: bigint): void {
-    if (streamId !== undefined && upToPosition !== undefined) {
-      this.gapBuffer.clearUpTo(streamId, upToPosition)
+    if (streamId !== undefined) {
+      if (upToPosition !== undefined) {
+        this.gapBuffer.clearUpTo(streamId, upToPosition)
+      } else {
+        this.gapBuffer.clearStream(streamId)
+      }
     } else {
       this.gapBuffer.clear()
     }

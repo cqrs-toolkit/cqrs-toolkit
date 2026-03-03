@@ -3,15 +3,15 @@
  * Handles command persistence, validation, retry, and status tracking.
  */
 
-import { logProvider } from '@meticoeus/ddd-es'
+import { Err, logProvider, Ok } from '@meticoeus/ddd-es'
 import {
-  Observable,
-  Subject,
   filter,
   firstValueFrom,
   map,
+  Observable,
   race,
   share,
+  Subject,
   takeUntil,
   timer,
 } from 'rxjs'
@@ -30,9 +30,10 @@ import type {
   EnqueueResult,
   WaitOptions,
 } from '../../types/commands.js'
-import { isTerminalStatus } from '../../types/commands.js'
+import { EnqueueAndWaitException, isTerminalStatus } from '../../types/commands.js'
 import type { RetryConfig } from '../../types/config.js'
 import type { DomainExecutionResult, IDomainExecutor } from '../../types/domain.js'
+import type { ValidationError } from '../../types/validation.js'
 import { calculateBackoffDelay, shouldRetry } from '../../utils/retry.js'
 import { generateId } from '../../utils/uuid.js'
 import type { EventBus } from '../events/EventBus.js'
@@ -75,8 +76,10 @@ export class CommandQueue implements ICommandQueue {
   private readonly commandEvents = new Subject<CommandEvent>()
   private readonly destroy$ = new Subject<void>()
 
+  private readonly retryTimers = new Set<ReturnType<typeof setTimeout>>()
+
   private _paused = true
-  private processingPromise: Promise<void> | null = null
+  private processingPromise: Promise<void> | undefined
   private _pendingReprocess = false
 
   readonly events$: Observable<CommandEvent>
@@ -103,18 +106,19 @@ export class CommandQueue implements ICommandQueue {
 
     // Run domain validation if executor is available and not skipped
     let anticipatedEvents: TEvent[] = []
-    let anticipatedEventIds: string[] = []
 
     if (this.domainExecutor && !options?.skipValidation) {
+      // Trust boundary: the consumer-provided domainExecutor is expected to produce
+      // TEvent-compatible anticipated events. TypeScript cannot verify this without
+      // making CommandQueue generic in TEvent, which would propagate through the
+      // entire client factory.
       const result = this.domainExecutor.execute(command) as DomainExecutionResult<TEvent>
 
       if (!result.ok) {
-        return { ok: false, errors: result.errors }
+        return Err(result.error)
       }
 
-      anticipatedEvents = result.anticipatedEvents
-      // Generate IDs for anticipated events (they'll be stored separately)
-      anticipatedEventIds = anticipatedEvents.map(() => generateId())
+      anticipatedEvents = result.value.anticipatedEvents
     }
 
     // Calculate blockedBy from dependsOn (only non-terminal commands)
@@ -141,7 +145,6 @@ export class CommandQueue implements ICommandQueue {
       dependsOn: command.dependsOn ?? [],
       blockedBy,
       attempts: 0,
-      anticipatedEventIds,
       createdAt: now,
       updatedAt: now,
     }
@@ -162,10 +165,12 @@ export class CommandQueue implements ICommandQueue {
 
     // Trigger processing for the newly enqueued command
     if (!this._paused && initialStatus === 'pending') {
-      this.processPendingCommands()
+      this.processPendingCommands().catch((err) => {
+        logProvider.log.error({ err }, 'Failed to process pending commands')
+      })
     }
 
-    return { ok: true, commandId, anticipatedEvents }
+    return Ok({ commandId, anticipatedEvents })
   }
 
   async waitForCompletion(
@@ -204,38 +209,35 @@ export class CommandQueue implements ICommandQueue {
     const enqueueResult = await this.enqueue<TPayload, TEvent>(command, options)
 
     if (!enqueueResult.ok) {
-      return { ok: false, errors: enqueueResult.errors, source: 'local' }
+      const errors: ValidationError[] = enqueueResult.error.details ?? []
+      return Err(new EnqueueAndWaitException(errors, 'local'))
     }
 
-    const completionResult = await this.waitForCompletion(enqueueResult.commandId, options)
+    const completionResult = await this.waitForCompletion(enqueueResult.value.commandId, options)
 
     switch (completionResult.status) {
       case 'succeeded':
-        return {
-          ok: true,
-          commandId: enqueueResult.commandId,
+        return Ok({
+          commandId: enqueueResult.value.commandId,
           response: completionResult.response as TResponse,
-        }
+        })
       case 'failed':
-        return {
-          ok: false,
-          errors: completionResult.error.validationErrors ?? [
-            { path: '', message: completionResult.error.message },
-          ],
-          source: completionResult.error.source,
-        }
+        return Err(
+          new EnqueueAndWaitException(
+            completionResult.error.validationErrors ?? [
+              { path: '', message: completionResult.error.message },
+            ],
+            completionResult.error.source,
+          ),
+        )
       case 'cancelled':
-        return {
-          ok: false,
-          errors: [{ path: '', message: 'Command was cancelled' }],
-          source: 'local',
-        }
+        return Err(
+          new EnqueueAndWaitException([{ path: '', message: 'Command was cancelled' }], 'local'),
+        )
       case 'timeout':
-        return {
-          ok: false,
-          errors: [{ path: '', message: 'Command timed out' }],
-          source: 'local',
-        }
+        return Err(
+          new EnqueueAndWaitException([{ path: '', message: 'Command timed out' }], 'local'),
+        )
     }
   }
 
@@ -243,7 +245,7 @@ export class CommandQueue implements ICommandQueue {
     return this.events$.pipe(filter((event) => event.commandId === commandId))
   }
 
-  async getCommand(commandId: string): Promise<CommandRecord | null> {
+  async getCommand(commandId: string): Promise<CommandRecord | undefined> {
     return this.storage.getCommand(commandId)
   }
 
@@ -296,7 +298,7 @@ export class CommandQueue implements ICommandQueue {
     try {
       await this.processingPromise
     } finally {
-      this.processingPromise = null
+      this.processingPromise = undefined
     }
 
     // Commands may have been enqueued while we were processing.
@@ -334,14 +336,21 @@ export class CommandQueue implements ICommandQueue {
       return
     }
 
+    // Re-read from storage to detect cancellation that occurred while an earlier
+    // command was mid-send (the `command` parameter may be a stale snapshot).
+    const current = await this.storage.getCommand(command.commandId)
+    if (!current || current.status !== 'pending') {
+      return
+    }
+
     logProvider.log.debug(
-      { commandId: command.commandId, type: command.type, attempt: command.attempts + 1 },
+      { commandId: current.commandId, type: current.type, attempt: current.attempts + 1 },
       'Processing command',
     )
 
     // Update to sending
-    const updatedCommand = await this.updateCommandStatus(command, 'sending', {
-      attempts: command.attempts + 1,
+    const updatedCommand = await this.updateCommandStatus(current, 'sending', {
+      attempts: current.attempts + 1,
       lastAttemptAt: Date.now(),
     })
 
@@ -355,7 +364,7 @@ export class CommandQueue implements ICommandQueue {
           await this.onCommandResponse(updatedCommand, response)
         } catch (err) {
           logProvider.log.error(
-            { err, commandId: command.commandId },
+            { err, commandId: current.commandId },
             'Failed to process command response events',
           )
         }
@@ -367,9 +376,12 @@ export class CommandQueue implements ICommandQueue {
       })
 
       // Unblock dependent commands
-      await this.unblockDependentCommands(command.commandId)
+      await this.unblockDependentCommands(current.commandId)
 
-      this.eventBus.emit('command:completed', { commandId: command.commandId, type: command.type })
+      this.eventBus.emit('command:completed', {
+        commandId: current.commandId,
+        type: current.type,
+      })
     } catch (error) {
       const commandError = this.toCommandError(error)
 
@@ -385,7 +397,13 @@ export class CommandQueue implements ICommandQueue {
 
         // Schedule retry with backoff
         const delay = calculateBackoffDelay(updatedCommand.attempts, this.retryConfig)
-        setTimeout(() => this.processPendingCommands(), delay)
+        const timerId = setTimeout(() => {
+          this.retryTimers.delete(timerId)
+          this.processPendingCommands().catch((err) => {
+            logProvider.log.error({ err }, 'Failed to process pending commands after retry')
+          })
+        }, delay)
+        this.retryTimers.add(timerId)
       } else {
         // Mark as failed
         await this.updateCommandStatus(updatedCommand, 'failed', {
@@ -393,11 +411,11 @@ export class CommandQueue implements ICommandQueue {
         })
 
         // Cancel dependent commands
-        await this.cancelDependentCommands(command.commandId)
+        await this.cancelDependentCommands(current.commandId)
 
         this.eventBus.emit('command:failed', {
-          commandId: command.commandId,
-          type: command.type,
+          commandId: current.commandId,
+          type: current.type,
           error: commandError.message,
         })
       }
@@ -550,7 +568,9 @@ export class CommandQueue implements ICommandQueue {
     this._paused = false
     logProvider.log.debug('Command queue resumed')
     // Trigger processing
-    this.processPendingCommands()
+    this.processPendingCommands().catch((err) => {
+      logProvider.log.error({ err }, 'Failed to process pending commands on resume')
+    })
   }
 
   isPaused(): boolean {
@@ -561,6 +581,11 @@ export class CommandQueue implements ICommandQueue {
    * Destroy the command queue and release resources.
    */
   destroy(): void {
+    for (const timerId of this.retryTimers) {
+      clearTimeout(timerId)
+    }
+    this.retryTimers.clear()
+
     this.destroy$.next()
     this.destroy$.complete()
     this.commandEvents.complete()

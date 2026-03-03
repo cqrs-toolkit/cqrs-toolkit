@@ -15,8 +15,8 @@ export default function DashboardPage() {
   const [notes, setNotes] = createSignal<Note[]>([])
   const [todosState, setTodosState] = createSignal<PanelState>('loading')
   const [notesState, setNotesState] = createSignal<PanelState>('loading')
-  const [todosSync, setTodosSync] = createSignal<CollectionSyncStatus | null>(null)
-  const [notesSync, setNotesSync] = createSignal<CollectionSyncStatus | null>(null)
+  const [todosSync, setTodosSync] = createSignal<CollectionSyncStatus>()
+  const [notesSync, setNotesSync] = createSignal<CollectionSyncStatus>()
 
   async function fetchTodos(): Promise<void> {
     const result = await client.queryManager.list<Todo>('todos')
@@ -54,7 +54,7 @@ export default function DashboardPage() {
     return notes().slice(-5).reverse()
   }
 
-  function syncLabel(status: CollectionSyncStatus | null): string {
+  function syncLabel(status: CollectionSyncStatus | undefined): string {
     if (!status) return '?'
     if (status.error) return 'error'
     if (status.syncing) return 'syncing'

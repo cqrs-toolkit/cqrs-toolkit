@@ -6,22 +6,14 @@
 
 # Interface: ReadModelStoreConfig
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:16
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:15
 
 Read model store configuration.
 
 ## Properties
 
-### eventBus
-
-> **eventBus**: [`EventBus`](../classes/EventBus.md)
-
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:18
-
-***
-
 ### storage
 
 > **storage**: [`IStorage`](IStorage.md)
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:17
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:16

@@ -22,9 +22,9 @@ Whether we've confirmed API connectivity
 
 ***
 
-### lastContact
+### lastContact?
 
-> **lastContact**: `number` \| `null`
+> `optional` **lastContact**: `number`
 
 Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:26
 

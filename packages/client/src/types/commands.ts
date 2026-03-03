@@ -2,6 +2,13 @@
  * Command types for the CQRS Client command queue.
  */
 
+import {
+  type ErrResult,
+  Exception,
+  type OkResult,
+  type Result,
+  ValidationException,
+} from '@meticoeus/ddd-es'
 import type { ValidationError } from './validation.js'
 
 /**
@@ -58,8 +65,6 @@ export interface CommandRecord<TPayload = unknown, TResponse = unknown> {
   attempts: number
   /** Timestamp of last send attempt */
   lastAttemptAt?: number
-  /** IDs of anticipated events produced by this command */
-  anticipatedEventIds: string[]
   /** Error information if failed */
   error?: CommandError
   /** Server response on success */
@@ -108,10 +113,9 @@ export interface WaitOptions {
 export interface EnqueueAndWaitOptions extends EnqueueOptions, WaitOptions {}
 
 /**
- * Successful enqueue result.
+ * Successful enqueue payload.
  */
 export interface EnqueueSuccess<TEvent> {
-  ok: true
   /** Assigned command ID */
   commandId: string
   /** Anticipated events produced */
@@ -119,18 +123,12 @@ export interface EnqueueSuccess<TEvent> {
 }
 
 /**
- * Failed enqueue result (validation errors).
- */
-export interface EnqueueFailure {
-  ok: false
-  /** Validation errors */
-  errors: ValidationError[]
-}
-
-/**
  * Result of enqueue operation.
  */
-export type EnqueueResult<TEvent> = EnqueueSuccess<TEvent> | EnqueueFailure
+export type EnqueueResult<TEvent> = Result<
+  EnqueueSuccess<TEvent>,
+  ValidationException<ValidationError[]>
+>
 
 /**
  * Command completion result - succeeded.
@@ -174,10 +172,9 @@ export type CommandCompletionResult =
   | CompletionTimeout
 
 /**
- * Successful enqueueAndWait result.
+ * Successful enqueueAndWait payload.
  */
 export interface EnqueueAndWaitSuccess<TResponse> {
-  ok: true
   /** Assigned command ID */
   commandId: string
   /** Server response */
@@ -185,22 +182,25 @@ export interface EnqueueAndWaitSuccess<TResponse> {
 }
 
 /**
- * Failed enqueueAndWait result.
+ * Exception for enqueueAndWait failures, carrying validation errors and their source.
  */
-export interface EnqueueAndWaitFailure {
-  ok: false
-  /** Validation errors */
+export class EnqueueAndWaitException extends Exception<{
   errors: ValidationError[]
-  /** Error source */
   source: CommandErrorSource
+}> {
+  constructor(errors: ValidationError[], source: CommandErrorSource) {
+    super('EnqueueAndWaitFailed', errors[0]?.message ?? 'Command failed')
+    this._details = { errors, source }
+  }
 }
 
 /**
  * Result of enqueueAndWait operation.
  */
-export type EnqueueAndWaitResult<TResponse> =
-  | EnqueueAndWaitSuccess<TResponse>
-  | EnqueueAndWaitFailure
+export type EnqueueAndWaitResult<TResponse> = Result<
+  EnqueueAndWaitSuccess<TResponse>,
+  EnqueueAndWaitException
+>
 
 /**
  * Command event types emitted by the command queue.
@@ -254,14 +254,16 @@ export interface CommandFilter {
  */
 export function isEnqueueSuccess<TEvent>(
   result: EnqueueResult<TEvent>,
-): result is EnqueueSuccess<TEvent> {
+): result is OkResult<EnqueueSuccess<TEvent>> {
   return result.ok
 }
 
 /**
  * Type guard for failed enqueue result.
  */
-export function isEnqueueFailure<TEvent>(result: EnqueueResult<TEvent>): result is EnqueueFailure {
+export function isEnqueueFailure<TEvent>(
+  result: EnqueueResult<TEvent>,
+): result is ErrResult<ValidationException<ValidationError[]>> {
   return !result.ok
 }
 

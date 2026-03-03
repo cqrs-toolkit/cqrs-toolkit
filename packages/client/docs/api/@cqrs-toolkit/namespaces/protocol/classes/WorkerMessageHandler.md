@@ -6,7 +6,7 @@
 
 # Class: WorkerMessageHandler
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:316
+Defined in: packages/client/src/protocol/MessageChannel.ts:317
 
 Message handler for worker-side communication.
 
@@ -16,7 +16,7 @@ Message handler for worker-side communication.
 
 > **new WorkerMessageHandler**(`config?`): `WorkerMessageHandler`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:326
+Defined in: packages/client/src/protocol/MessageChannel.ts:327
 
 #### Parameters
 
@@ -36,7 +36,7 @@ Defined in: packages/client/src/protocol/MessageChannel.ts:326
 
 > **get** **instanceId**(): `string`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:337
+Defined in: packages/client/src/protocol/MessageChannel.ts:338
 
 Get the worker instance ID.
 
@@ -50,7 +50,7 @@ Get the worker instance ID.
 
 > **broadcastEvent**(`eventName`, `payload`): `void`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:387
+Defined in: packages/client/src/protocol/MessageChannel.ts:388
 
 Broadcast an event to all connected windows.
 
@@ -78,7 +78,7 @@ Event payload
 
 > **getDeadWindows**(`ttlMs`): `string`[]
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:438
+Defined in: packages/client/src/protocol/MessageChannel.ts:441
 
 Get dead windows (exceeded TTL).
 
@@ -102,7 +102,7 @@ Array of dead window IDs
 
 > **getRegisteredWindows**(): `string`[]
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:413
+Defined in: packages/client/src/protocol/MessageChannel.ts:416
 
 Get registered window IDs.
 
@@ -116,7 +116,7 @@ Get registered window IDs.
 
 > **handleConnect**(`port`): `void`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:346
+Defined in: packages/client/src/protocol/MessageChannel.ts:347
 
 Handle a new connection (SharedWorker).
 
@@ -138,7 +138,7 @@ MessagePort from the connect event
 
 > **handleMessageEvent**(`event`): `void`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:367
+Defined in: packages/client/src/protocol/MessageChannel.ts:368
 
 Handle a message (Dedicated Worker).
 
@@ -160,7 +160,7 @@ Message event
 
 > **isWindowAlive**(`windowId`, `ttlMs`): `boolean`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:424
+Defined in: packages/client/src/protocol/MessageChannel.ts:427
 
 Check if a window is still alive (within TTL).
 
@@ -190,7 +190,7 @@ Whether the window is alive
 
 > **registerMethod**(`method`, `handler`): `void`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:377
+Defined in: packages/client/src/protocol/MessageChannel.ts:378
 
 Register a method handler.
 
@@ -218,7 +218,7 @@ Handler function
 
 > **removeWindow**(`windowId`): `void`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:456
+Defined in: packages/client/src/protocol/MessageChannel.ts:459
 
 Remove a window registration.
 
@@ -240,7 +240,7 @@ Window identifier
 
 > **sendResponse**(`response`): `void`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:404
+Defined in: packages/client/src/protocol/MessageChannel.ts:405
 
 Send response to requester (Dedicated Worker).
 

@@ -6,7 +6,7 @@
 
 # Type Alias: EventProcessor()\<TEvent, TModel\>
 
-> **EventProcessor**\<`TEvent`, `TModel`\> = (`event`, `context`) => [`ProcessorResult`](../interfaces/ProcessorResult.md)\<`TModel`\>[] \| [`ProcessorResult`](../interfaces/ProcessorResult.md)\<`TModel`\> \| `null`
+> **EventProcessor**\<`TEvent`, `TModel`\> = (`event`, `context`) => [`ProcessorResult`](../interfaces/ProcessorResult.md)\<`TModel`\>[] \| [`ProcessorResult`](../interfaces/ProcessorResult.md)\<`TModel`\> \| `undefined`
 
 Defined in: packages/client/src/core/event-processor/types.ts:34
 
@@ -35,4 +35,4 @@ Receives an event and returns zero or more read model updates.
 
 ## Returns
 
-[`ProcessorResult`](../interfaces/ProcessorResult.md)\<`TModel`\>[] \| [`ProcessorResult`](../interfaces/ProcessorResult.md)\<`TModel`\> \| `null`
+[`ProcessorResult`](../interfaces/ProcessorResult.md)\<`TModel`\>[] \| [`ProcessorResult`](../interfaces/ProcessorResult.md)\<`TModel`\> \| `undefined`

@@ -6,7 +6,7 @@
 
 # Interface: SharedWorkerAdapterConfig
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:24
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:25
 
 Configuration for SharedWorkerAdapter.
 
@@ -84,7 +84,7 @@ Defined in: packages/client/src/types/config.ts:295
 
 > `optional` **heartbeatInterval**: `number`
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:28
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:29
 
 Heartbeat interval in milliseconds (default: 10000)
 
@@ -189,7 +189,7 @@ Defined in: packages/client/src/types/config.ts:298
 
 > **workerUrl**: `string`
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:26
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:27
 
 URL to the SharedWorker script
 

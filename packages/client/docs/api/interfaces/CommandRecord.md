@@ -6,7 +6,7 @@
 
 # Interface: CommandRecord\<TPayload, TResponse\>
 
-Defined in: packages/client/src/types/commands.ts:42
+Defined in: packages/client/src/types/commands.ts:49
 
 Persisted command record.
 
@@ -22,21 +22,11 @@ Persisted command record.
 
 ## Properties
 
-### anticipatedEventIds
-
-> **anticipatedEventIds**: `string`[]
-
-Defined in: packages/client/src/types/commands.ts:62
-
-IDs of anticipated events produced by this command
-
-***
-
 ### attempts
 
 > **attempts**: `number`
 
-Defined in: packages/client/src/types/commands.ts:58
+Defined in: packages/client/src/types/commands.ts:65
 
 Number of send attempts
 
@@ -46,7 +36,7 @@ Number of send attempts
 
 > **blockedBy**: `string`[]
 
-Defined in: packages/client/src/types/commands.ts:56
+Defined in: packages/client/src/types/commands.ts:63
 
 Commands blocked by this command
 
@@ -56,7 +46,7 @@ Commands blocked by this command
 
 > **commandId**: `string`
 
-Defined in: packages/client/src/types/commands.ts:44
+Defined in: packages/client/src/types/commands.ts:51
 
 Unique command identifier (client-generated)
 
@@ -66,7 +56,7 @@ Unique command identifier (client-generated)
 
 > **createdAt**: `number`
 
-Defined in: packages/client/src/types/commands.ts:68
+Defined in: packages/client/src/types/commands.ts:73
 
 Creation timestamp
 
@@ -76,7 +66,7 @@ Creation timestamp
 
 > **dependsOn**: `string`[]
 
-Defined in: packages/client/src/types/commands.ts:54
+Defined in: packages/client/src/types/commands.ts:61
 
 Commands this command depends on (must complete first)
 
@@ -86,7 +76,7 @@ Commands this command depends on (must complete first)
 
 > `optional` **error**: [`CommandError`](CommandError.md)
 
-Defined in: packages/client/src/types/commands.ts:64
+Defined in: packages/client/src/types/commands.ts:69
 
 Error information if failed
 
@@ -96,7 +86,7 @@ Error information if failed
 
 > `optional` **lastAttemptAt**: `number`
 
-Defined in: packages/client/src/types/commands.ts:60
+Defined in: packages/client/src/types/commands.ts:67
 
 Timestamp of last send attempt
 
@@ -106,7 +96,7 @@ Timestamp of last send attempt
 
 > **payload**: `TPayload`
 
-Defined in: packages/client/src/types/commands.ts:50
+Defined in: packages/client/src/types/commands.ts:57
 
 Command payload
 
@@ -116,7 +106,7 @@ Command payload
 
 > `optional` **serverResponse**: `TResponse`
 
-Defined in: packages/client/src/types/commands.ts:66
+Defined in: packages/client/src/types/commands.ts:71
 
 Server response on success
 
@@ -126,7 +116,7 @@ Server response on success
 
 > **service**: `string`
 
-Defined in: packages/client/src/types/commands.ts:46
+Defined in: packages/client/src/types/commands.ts:53
 
 Target service for the command
 
@@ -136,7 +126,7 @@ Target service for the command
 
 > **status**: [`CommandStatus`](../type-aliases/CommandStatus.md)
 
-Defined in: packages/client/src/types/commands.ts:52
+Defined in: packages/client/src/types/commands.ts:59
 
 Current status
 
@@ -146,7 +136,7 @@ Current status
 
 > **type**: `string`
 
-Defined in: packages/client/src/types/commands.ts:48
+Defined in: packages/client/src/types/commands.ts:55
 
 Command type (e.g., 'CreateTodo', 'UpdateUser')
 
@@ -156,6 +146,6 @@ Command type (e.g., 'CreateTodo', 'UpdateUser')
 
 > **updatedAt**: `number`
 
-Defined in: packages/client/src/types/commands.ts:70
+Defined in: packages/client/src/types/commands.ts:75
 
 Last update timestamp

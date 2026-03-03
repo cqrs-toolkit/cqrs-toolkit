@@ -27,7 +27,6 @@ export {
 
 // Domain
 export type {
-  DomainExecutionFailure,
   DomainExecutionResult,
   DomainExecutionSuccess,
   IDomainExecutor,
@@ -50,19 +49,22 @@ export type {
   CompletionFailed,
   CompletionSucceeded,
   CompletionTimeout,
-  EnqueueAndWaitFailure,
   EnqueueAndWaitOptions,
   EnqueueAndWaitResult,
   EnqueueAndWaitSuccess,
   EnqueueCommand,
-  EnqueueFailure,
   EnqueueOptions,
   EnqueueResult,
   EnqueueSuccess,
   WaitOptions,
 } from './commands.js'
 
-export { isEnqueueFailure, isEnqueueSuccess, isTerminalStatus } from './commands.js'
+export {
+  EnqueueAndWaitException,
+  isEnqueueFailure,
+  isEnqueueSuccess,
+  isTerminalStatus,
+} from './commands.js'
 
 // Config
 export type {

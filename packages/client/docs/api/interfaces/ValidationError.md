@@ -6,7 +6,7 @@
 
 # Interface: ValidationError
 
-Defined in: packages/client/src/types/validation.ts:9
+Defined in: packages/client/src/types/validation.ts:18
 
 Generic validation error for a single field.
 
@@ -16,7 +16,7 @@ Generic validation error for a single field.
 
 > `optional` **code**: `string`
 
-Defined in: packages/client/src/types/validation.ts:15
+Defined in: packages/client/src/types/validation.ts:24
 
 Error code for programmatic handling (optional)
 
@@ -26,7 +26,7 @@ Error code for programmatic handling (optional)
 
 > `optional` **context**: `Record`\<`string`, `unknown`\>
 
-Defined in: packages/client/src/types/validation.ts:17
+Defined in: packages/client/src/types/validation.ts:26
 
 Additional context (optional)
 
@@ -36,7 +36,7 @@ Additional context (optional)
 
 > **message**: `string`
 
-Defined in: packages/client/src/types/validation.ts:13
+Defined in: packages/client/src/types/validation.ts:22
 
 Error message for display
 
@@ -46,6 +46,6 @@ Error message for display
 
 > **path**: `string`
 
-Defined in: packages/client/src/types/validation.ts:11
+Defined in: packages/client/src/types/validation.ts:20
 
 Field path (e.g., "email", "address.city", "items[0].name")

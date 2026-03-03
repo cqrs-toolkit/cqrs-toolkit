@@ -123,7 +123,7 @@ export class EventProcessorRunner {
     try {
       const result = processor(event.data, context)
 
-      if (result === null) {
+      if (result === undefined) {
         return []
       }
 
@@ -147,9 +147,9 @@ export class EventProcessorRunner {
       persistence: event.persistence,
       commandId: event.commandId,
       revision: event.revision,
-      getCurrentState: async <T>(collection: string, id: string): Promise<T | null> => {
+      getCurrentState: async <T>(collection: string, id: string): Promise<T | undefined> => {
         const record = await this.storage.getReadModel(collection, id)
-        if (!record) return null
+        if (!record) return undefined
         return JSON.parse(record.effectiveData) as T
       },
     }
@@ -187,22 +187,22 @@ export class EventProcessorRunner {
 
     if (update.type === 'merge') {
       // Merge with existing data
-      let currentData: unknown = {}
+      let currentData: Record<string, unknown> = {}
       if (existing) {
-        currentData = JSON.parse(existing.effectiveData)
+        currentData = JSON.parse(existing.effectiveData) as Record<string, unknown>
       }
 
-      const merged = { ...(currentData as object), ...update.data }
+      const merged = { ...currentData, ...update.data }
       const dataJson = JSON.stringify(merged)
 
       let serverData = existing?.serverData ?? null
       if (isServerUpdate) {
         // Also merge into server baseline
-        let serverBaseline: unknown = {}
+        let serverBaseline: Record<string, unknown> = {}
         if (serverData) {
-          serverBaseline = JSON.parse(serverData)
+          serverBaseline = JSON.parse(serverData) as Record<string, unknown>
         }
-        serverData = JSON.stringify({ ...(serverBaseline as object), ...update.data })
+        serverData = JSON.stringify({ ...serverBaseline, ...update.data })
       }
 
       const record: ReadModelRecord = {

@@ -10,6 +10,7 @@
 /// <reference lib="webworker" />
 
 import { createConsoleLogger, logProvider } from '@meticoeus/ddd-es'
+import assert from 'node:assert'
 import { EventBus } from '../../core/events/EventBus.js'
 import { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
 import type { IStorage } from '../../storage/IStorage.js'
@@ -26,7 +27,7 @@ declare const self: DedicatedWorkerGlobalScope
 class DedicatedStorageWorker {
   private readonly messageHandler: WorkerMessageHandler
   private readonly eventBus: EventBus
-  private storage: IStorage | null = null
+  private storage: IStorage | undefined
 
   constructor() {
     this.messageHandler = new WorkerMessageHandler()
@@ -73,7 +74,7 @@ class DedicatedStorageWorker {
     this.messageHandler.registerMethod('storage.close', async () => {
       if (this.storage) {
         await this.storage.close()
-        this.storage = null
+        this.storage = undefined
       }
     })
 
@@ -248,9 +249,7 @@ class DedicatedStorageWorker {
   }
 
   private getStorage(): IStorage {
-    if (!this.storage) {
-      throw new Error('Storage not initialized')
-    }
+    assert(this.storage, 'Storage not initialized')
     return this.storage
   }
 }

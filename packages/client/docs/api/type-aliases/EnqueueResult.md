@@ -6,9 +6,9 @@
 
 # Type Alias: EnqueueResult\<TEvent\>
 
-> **EnqueueResult**\<`TEvent`\> = [`EnqueueSuccess`](../interfaces/EnqueueSuccess.md)\<`TEvent`\> \| [`EnqueueFailure`](../interfaces/EnqueueFailure.md)
+> **EnqueueResult**\<`TEvent`\> = `Result`\<[`EnqueueSuccess`](../interfaces/EnqueueSuccess.md)\<`TEvent`\>, `ValidationException`\<[`ValidationError`](../interfaces/ValidationError.md)[]\>\>
 
-Defined in: packages/client/src/types/commands.ts:133
+Defined in: packages/client/src/types/commands.ts:128
 
 Result of enqueue operation.
 

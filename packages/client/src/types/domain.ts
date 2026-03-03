@@ -3,6 +3,14 @@
  * The domain layer is consumer-provided, not library-provided.
  */
 
+import {
+  Err,
+  type ErrResult,
+  Ok,
+  type OkResult,
+  type Result,
+  ValidationException,
+} from '@meticoeus/ddd-es'
 import type { ValidationError } from './validation.js'
 
 /**
@@ -19,10 +27,9 @@ export interface PostProcessPlan {
 }
 
 /**
- * Successful domain execution result.
+ * Successful domain execution payload.
  */
 export interface DomainExecutionSuccess<TEvent> {
-  ok: true
   /** Events to apply optimistically */
   anticipatedEvents: TEvent[]
   /** Optional post-processing instructions */
@@ -30,18 +37,12 @@ export interface DomainExecutionSuccess<TEvent> {
 }
 
 /**
- * Failed domain execution result.
- */
-export interface DomainExecutionFailure {
-  ok: false
-  /** Validation errors from domain layer */
-  errors: ValidationError[]
-}
-
-/**
  * Result of domain command execution.
  */
-export type DomainExecutionResult<TEvent> = DomainExecutionSuccess<TEvent> | DomainExecutionFailure
+export type DomainExecutionResult<TEvent> = Result<
+  DomainExecutionSuccess<TEvent>,
+  ValidationException<ValidationError[]>
+>
 
 /**
  * Domain executor interface - consumer implements this.
@@ -71,7 +72,7 @@ export interface IDomainExecutor<TCommand = unknown, TEvent = unknown> {
  */
 export function isDomainSuccess<TEvent>(
   result: DomainExecutionResult<TEvent>,
-): result is DomainExecutionSuccess<TEvent> {
+): result is OkResult<DomainExecutionSuccess<TEvent>> {
   return result.ok
 }
 
@@ -80,7 +81,7 @@ export function isDomainSuccess<TEvent>(
  */
 export function isDomainFailure<TEvent>(
   result: DomainExecutionResult<TEvent>,
-): result is DomainExecutionFailure {
+): result is ErrResult<ValidationException<ValidationError[]>> {
   return !result.ok
 }
 
@@ -90,13 +91,13 @@ export function isDomainFailure<TEvent>(
 export function domainSuccess<TEvent>(
   anticipatedEvents: TEvent[],
   postProcessPlan?: PostProcessPlan,
-): DomainExecutionSuccess<TEvent> {
-  return { ok: true, anticipatedEvents, postProcessPlan }
+): DomainExecutionResult<TEvent> {
+  return Ok({ anticipatedEvents, postProcessPlan })
 }
 
 /**
  * Helper to create a failed domain execution result.
  */
-export function domainFailure(errors: ValidationError[]): DomainExecutionFailure {
-  return { ok: false, errors }
+export function domainFailure(errors: ValidationError[]): DomainExecutionResult<never> {
+  return Err(new ValidationException(undefined, errors))
 }

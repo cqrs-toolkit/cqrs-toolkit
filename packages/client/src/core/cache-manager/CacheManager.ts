@@ -112,16 +112,16 @@ export class CacheManager {
    */
   async exists(key: string): Promise<boolean> {
     const record = await this.storage.getCacheKey(key)
-    return record !== null
+    return record !== undefined
   }
 
   /**
    * Get a cache key record.
    *
    * @param key - Cache key identifier
-   * @returns Cache key record or null
+   * @returns Cache key record or undefined
    */
-  async get(key: string): Promise<CacheKeyRecord | null> {
+  async get(key: string): Promise<CacheKeyRecord | undefined> {
     return this.storage.getCacheKey(key)
   }
 
@@ -285,7 +285,7 @@ export class CacheManager {
       }
 
       await this.storage.deleteCacheKey(record.key)
-      this.eventBus.emit('cache:evicted', { cacheKey: record.key, reason: 'lru' })
+      this.eventBus.emit('cache:evicted', { cacheKey: record.key, reason: 'expired' })
       count++
     }
 

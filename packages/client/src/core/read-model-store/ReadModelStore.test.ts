@@ -22,13 +22,13 @@ describe('ReadModelStore', () => {
     storage = new InMemoryStorage()
     await storage.initialize()
     eventBus = new EventBus()
-    store = new ReadModelStore({ storage, eventBus })
+    store = new ReadModelStore({ storage })
   })
 
   describe('getById', () => {
-    it('returns null for non-existent record', async () => {
+    it('returns undefined for non-existent record', async () => {
       const result = await store.getById<Todo>('todos', 'non-existent')
-      expect(result).toBeNull()
+      expect(result).toBeUndefined()
     })
 
     it('returns read model with data', async () => {
@@ -156,6 +156,23 @@ describe('ReadModelStore', () => {
 
       expect(models).toHaveLength(1)
     })
+
+    it('applies pagination when cacheKey is provided', async () => {
+      // Add a third record with the same cacheKey
+      await storage.saveReadModel({
+        id: 'todo-3',
+        collection: 'todos',
+        cacheKey: 'cache-1',
+        serverData: JSON.stringify({ id: 'todo-3', title: 'Third', done: false }),
+        effectiveData: JSON.stringify({ id: 'todo-3', title: 'Third', done: false }),
+        hasLocalChanges: false,
+        updatedAt: 3000,
+      })
+
+      const models = await store.list<Todo>('todos', { cacheKey: 'cache-1', limit: 1, offset: 1 })
+
+      expect(models).toHaveLength(1)
+    })
   })
 
   describe('setServerData', () => {
@@ -173,6 +190,36 @@ describe('ReadModelStore', () => {
         JSON.stringify({ id: 'todo-1', title: 'Test', done: false }),
       )
       expect(record?.hasLocalChanges).toBe(false)
+    })
+
+    it('preserves local property deletions when updating server baseline', async () => {
+      // Create record where description has been locally deleted
+      await storage.saveReadModel({
+        id: 'todo-1',
+        collection: 'todos',
+        cacheKey: 'cache-1',
+        serverData: JSON.stringify({ id: 'todo-1', title: 'Original', description: 'A note' }),
+        effectiveData: JSON.stringify({ id: 'todo-1', title: 'Original' }),
+        hasLocalChanges: true,
+        updatedAt: 1000,
+      })
+
+      // Server sends new data that still has description
+      await store.setServerData(
+        'todos',
+        'todo-1',
+        { id: 'todo-1', title: 'New', description: 'A note' },
+        'cache-1',
+      )
+
+      const record = await storage.getReadModel('todos', 'todo-1')
+      const effectiveData = JSON.parse(record!.effectiveData)
+      // description was locally deleted, so it should stay deleted
+      expect(effectiveData.description).toBeUndefined()
+      // title was not locally changed (still 'Original' vs server 'Original'),
+      // so new server value should be adopted
+      expect(effectiveData.title).toBe('New')
+      expect(record?.hasLocalChanges).toBe(true)
     })
 
     it('preserves local changes when updating server baseline', async () => {
@@ -276,7 +323,7 @@ describe('ReadModelStore', () => {
       await store.clearLocalChanges('todos', 'todo-1')
 
       const record = await storage.getReadModel('todos', 'todo-1')
-      expect(record).toBeNull()
+      expect(record).toBeUndefined()
     })
 
     it('does nothing if no local changes', async () => {

@@ -42,8 +42,8 @@ export class SharedWorkerStorageProxy implements IStorage {
   }
 
   // Session operations
-  async getSession(): Promise<SessionRecord | null> {
-    return this.channel.request<SessionRecord | null>('storage.getSession', [])
+  async getSession(): Promise<SessionRecord | undefined> {
+    return this.channel.request<SessionRecord | undefined>('storage.getSession', [])
   }
 
   async saveSession(session: SessionRecord): Promise<void> {
@@ -59,8 +59,8 @@ export class SharedWorkerStorageProxy implements IStorage {
   }
 
   // Cache key operations
-  async getCacheKey(key: string): Promise<CacheKeyRecord | null> {
-    return this.channel.request<CacheKeyRecord | null>('storage.getCacheKey', [key])
+  async getCacheKey(key: string): Promise<CacheKeyRecord | undefined> {
+    return this.channel.request<CacheKeyRecord | undefined>('storage.getCacheKey', [key])
   }
 
   async getAllCacheKeys(): Promise<CacheKeyRecord[]> {
@@ -98,8 +98,8 @@ export class SharedWorkerStorageProxy implements IStorage {
   }
 
   // Command operations
-  async getCommand(commandId: string): Promise<CommandRecord | null> {
-    return this.channel.request<CommandRecord | null>('storage.getCommand', [commandId])
+  async getCommand(commandId: string): Promise<CommandRecord | undefined> {
+    return this.channel.request<CommandRecord | undefined>('storage.getCommand', [commandId])
   }
 
   async getCommands(filter?: CommandFilter): Promise<CommandRecord[]> {
@@ -131,8 +131,8 @@ export class SharedWorkerStorageProxy implements IStorage {
   }
 
   // Event cache operations
-  async getCachedEvent(id: string): Promise<CachedEventRecord | null> {
-    return this.channel.request<CachedEventRecord | null>('storage.getCachedEvent', [id])
+  async getCachedEvent(id: string): Promise<CachedEventRecord | undefined> {
+    return this.channel.request<CachedEventRecord | undefined>('storage.getCachedEvent', [id])
   }
 
   async getCachedEventsByCacheKey(cacheKey: string): Promise<CachedEventRecord[]> {
@@ -172,8 +172,11 @@ export class SharedWorkerStorageProxy implements IStorage {
   }
 
   // Read model operations
-  async getReadModel(collection: string, id: string): Promise<ReadModelRecord | null> {
-    return this.channel.request<ReadModelRecord | null>('storage.getReadModel', [collection, id])
+  async getReadModel(collection: string, id: string): Promise<ReadModelRecord | undefined> {
+    return this.channel.request<ReadModelRecord | undefined>('storage.getReadModel', [
+      collection,
+      id,
+    ])
   }
 
   async getReadModelsByCollection(

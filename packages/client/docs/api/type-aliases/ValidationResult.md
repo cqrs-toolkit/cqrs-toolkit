@@ -6,8 +6,8 @@
 
 # Type Alias: ValidationResult
 
-> **ValidationResult** = \{ `valid`: `true`; \} \| \{ `errors`: [`ValidationError`](../interfaces/ValidationError.md)[]; `valid`: `false`; \}
+> **ValidationResult** = `Result`\<`void`, `ValidationException`\<[`ValidationError`](../interfaces/ValidationError.md)[]\>\>
 
-Defined in: packages/client/src/types/validation.ts:23
+Defined in: packages/client/src/types/validation.ts:32
 
-Validation result type - either success or failure with errors.
+Validation result type - either success or failure with validation errors.

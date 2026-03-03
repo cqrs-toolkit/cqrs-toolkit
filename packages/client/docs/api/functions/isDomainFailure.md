@@ -6,9 +6,9 @@
 
 # Function: isDomainFailure()
 
-> **isDomainFailure**\<`TEvent`\>(`result`): `result is DomainExecutionFailure`
+> **isDomainFailure**\<`TEvent`\>(`result`): `result is ErrResult<ValidationException<ValidationError[]>>`
 
-Defined in: packages/client/src/types/domain.ts:81
+Defined in: packages/client/src/types/domain.ts:82
 
 Type guard for failed domain execution.
 
@@ -26,4 +26,4 @@ Type guard for failed domain execution.
 
 ## Returns
 
-`result is DomainExecutionFailure`
+`result is ErrResult<ValidationException<ValidationError[]>>`

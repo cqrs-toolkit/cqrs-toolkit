@@ -2,7 +2,7 @@ import { createSignal } from 'solid-js'
 import { useClient } from '../cqrs-context'
 
 interface AddTodoProps {
-  onError: (message: string | null) => void
+  onError: (message: string | undefined) => void
 }
 
 export default function AddTodo(props: AddTodoProps) {
@@ -14,7 +14,7 @@ export default function AddTodo(props: AddTodoProps) {
     const text = content().trim()
     if (text.length === 0) return
 
-    props.onError(null)
+    props.onError(undefined)
 
     const result = await commandQueue.enqueueAndWait({
       type: 'CreateTodo',
@@ -24,7 +24,7 @@ export default function AddTodo(props: AddTodoProps) {
     if (result.ok) {
       setContent('')
     } else {
-      props.onError(result.errors[0]?.message ?? 'Command failed')
+      props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
     }
   }
 

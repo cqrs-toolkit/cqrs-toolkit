@@ -24,7 +24,7 @@ Defined in: packages/client/src/types/events.ts:66
 
 #### reason
 
-> **reason**: `"explicit"` \| `"lru"` \| `"session-change"`
+> **reason**: `"explicit"` \| `"lru"` \| `"expired"` \| `"session-change"`
 
 ***
 

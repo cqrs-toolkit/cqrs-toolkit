@@ -8,7 +8,7 @@
 
 > **validationFailure**(`errors`): [`ValidationResult`](../type-aliases/ValidationResult.md)
 
-Defined in: packages/client/src/types/validation.ts:47
+Defined in: packages/client/src/types/validation.ts:56
 
 Helper to create a failed validation result.
 

@@ -6,7 +6,7 @@
 
 # Interface: PostProcessPlan
 
-Defined in: packages/client/src/types/domain.ts:12
+Defined in: packages/client/src/types/domain.ts:20
 
 Post-processing plan for after server confirmation.
 Used for temp ID replacement, cleanup, etc.
@@ -23,7 +23,7 @@ Additional plan-specific data
 
 > **kind**: `string`
 
-Defined in: packages/client/src/types/domain.ts:14
+Defined in: packages/client/src/types/domain.ts:22
 
 Plan type identifier
 
@@ -33,6 +33,6 @@ Plan type identifier
 
 > `optional` **tempIds**: `Record`\<`string`, `string`\>
 
-Defined in: packages/client/src/types/domain.ts:16
+Defined in: packages/client/src/types/domain.ts:24
 
 Mapping of temporary IDs to placeholders

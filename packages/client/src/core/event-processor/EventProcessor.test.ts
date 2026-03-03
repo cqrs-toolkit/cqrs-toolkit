@@ -20,7 +20,7 @@ describe('EventProcessorRegistry', () => {
     it('registers a processor for a single event type', () => {
       registry.register({
         eventTypes: 'TodoCreated',
-        processor: () => null,
+        processor: () => undefined,
       })
 
       expect(registry.hasProcessors('TodoCreated')).toBe(true)
@@ -30,7 +30,7 @@ describe('EventProcessorRegistry', () => {
     it('registers a processor for multiple event types', () => {
       registry.register({
         eventTypes: ['TodoCreated', 'TodoUpdated'],
-        processor: () => null,
+        processor: () => undefined,
       })
 
       expect(registry.hasProcessors('TodoCreated')).toBe(true)
@@ -40,11 +40,11 @@ describe('EventProcessorRegistry', () => {
     it('allows multiple processors for same event type', () => {
       registry.register({
         eventTypes: 'TodoCreated',
-        processor: () => null,
+        processor: () => undefined,
       })
       registry.register({
         eventTypes: 'TodoCreated',
-        processor: () => null,
+        processor: () => undefined,
       })
 
       const processors = registry.getProcessors('TodoCreated', 'Permanent')
@@ -97,8 +97,8 @@ describe('EventProcessorRegistry', () => {
 
   describe('getEventTypes', () => {
     it('returns all registered event types', () => {
-      registry.register({ eventTypes: 'EventA', processor: () => null })
-      registry.register({ eventTypes: ['EventB', 'EventC'], processor: () => null })
+      registry.register({ eventTypes: 'EventA', processor: () => undefined })
+      registry.register({ eventTypes: ['EventB', 'EventC'], processor: () => undefined })
 
       const types = registry.getEventTypes()
       expect(types).toContain('EventA')
@@ -109,7 +109,7 @@ describe('EventProcessorRegistry', () => {
 
   describe('clear', () => {
     it('removes all registrations', () => {
-      registry.register({ eventTypes: 'TodoCreated', processor: () => null })
+      registry.register({ eventTypes: 'TodoCreated', processor: () => undefined })
       registry.clear()
 
       expect(registry.hasProcessors('TodoCreated')).toBe(false)
@@ -179,7 +179,7 @@ describe('EventProcessorRunner', () => {
     it('handles processor returning null', async () => {
       registry.register({
         eventTypes: 'TodoCreated',
-        processor: () => null,
+        processor: () => undefined,
       })
 
       const event: ParsedEvent = {
@@ -300,7 +300,7 @@ describe('EventProcessorRunner', () => {
       await runner.processEvent(event)
 
       const record = await storage.getReadModel('todos', 'todo-1')
-      expect(record).toBeNull()
+      expect(record).toBeUndefined()
     })
 
     it('provides context with getCurrentState', async () => {
@@ -315,12 +315,12 @@ describe('EventProcessorRunner', () => {
         updatedAt: Date.now(),
       })
 
-      let capturedContext: ProcessorContext | null = null
-      let currentState: { id: string; count: number } | null = null
+      let capturedContext: ProcessorContext | undefined
+      let currentState: { id: string; count: number } | undefined
 
       registry.register({
         eventTypes: 'CountIncremented',
-        processor: (_event, context): ProcessorResult | null => {
+        processor: (_event, context): ProcessorResult => {
           capturedContext = context
           // Note: getCurrentState is async but we need to handle it synchronously here
           // In real usage, processors would be called with pre-loaded state
@@ -345,7 +345,7 @@ describe('EventProcessorRunner', () => {
 
       await runner.processEvent(event)
 
-      expect(capturedContext).not.toBeNull()
+      expect(capturedContext).toBeDefined()
       expect(capturedContext!.persistence).toBe('Permanent')
       expect(typeof capturedContext!.getCurrentState).toBe('function')
 

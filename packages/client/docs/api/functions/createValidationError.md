@@ -8,7 +8,7 @@
 
 > **createValidationError**(`path`, `message`, `code?`, `context?`): [`ValidationError`](../interfaces/ValidationError.md)
 
-Defined in: packages/client/src/types/validation.ts:28
+Defined in: packages/client/src/types/validation.ts:37
 
 Helper to create a validation error.
 

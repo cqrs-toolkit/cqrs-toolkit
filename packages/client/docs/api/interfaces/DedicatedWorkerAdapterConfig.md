@@ -6,7 +6,7 @@
 
 # Interface: DedicatedWorkerAdapterConfig
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:24
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:25
 
 Configuration for DedicatedWorkerAdapter.
 
@@ -179,7 +179,7 @@ Defined in: packages/client/src/types/config.ts:298
 
 > **workerUrl**: `string`
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:26
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:27
 
 URL to the Dedicated Worker script
 

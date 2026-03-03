@@ -6,7 +6,7 @@
 
 # Class: TabLockError
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:32
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:33
 
 Error thrown when tab lock cannot be acquired.
 
@@ -20,7 +20,7 @@ Error thrown when tab lock cannot be acquired.
 
 > **new TabLockError**(`message`): `TabLockError`
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:33
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:34
 
 #### Parameters
 

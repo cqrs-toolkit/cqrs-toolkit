@@ -8,14 +8,12 @@
  */
 
 import type { IStorage, QueryOptions, ReadModelRecord } from '../../storage/IStorage.js'
-import type { EventBus } from '../events/EventBus.js'
 
 /**
  * Read model store configuration.
  */
 export interface ReadModelStoreConfig {
   storage: IStorage
-  eventBus: EventBus
 }
 
 /**
@@ -30,8 +28,8 @@ export interface ReadModel<T = unknown> {
   data: T
   /** Whether there are uncommitted local changes */
   hasLocalChanges: boolean
-  /** Server baseline data (null if only local) */
-  serverData: T | null
+  /** Server baseline data (undefined if only local) */
+  serverData?: T
   /** Last update timestamp */
   updatedAt: number
 }
@@ -51,11 +49,9 @@ export interface ReadModelQueryOptions extends QueryOptions {
  */
 export class ReadModelStore {
   private readonly storage: IStorage
-  private readonly eventBus: EventBus
 
   constructor(config: ReadModelStoreConfig) {
     this.storage = config.storage
-    this.eventBus = config.eventBus
   }
 
   /**
@@ -63,11 +59,11 @@ export class ReadModelStore {
    *
    * @param collection - Collection name
    * @param id - Entity ID
-   * @returns Read model or null
+   * @returns Read model or undefined
    */
-  async getById<T>(collection: string, id: string): Promise<ReadModel<T> | null> {
+  async getById<T>(collection: string, id: string): Promise<ReadModel<T> | undefined> {
     const record = await this.storage.getReadModel(collection, id)
-    if (!record) return null
+    if (!record) return undefined
     return this.recordToReadModel<T>(record)
   }
 
@@ -103,8 +99,13 @@ export class ReadModelStore {
 
     if (options?.cacheKey) {
       records = await this.storage.getReadModelsByCacheKey(options.cacheKey)
-      // Filter to collection
       records = records.filter((r) => r.collection === collection)
+      if (options.offset !== undefined) {
+        records = records.slice(options.offset)
+      }
+      if (options.limit !== undefined) {
+        records = records.slice(0, options.limit)
+      }
     } else {
       records = await this.storage.getReadModelsByCollection(collection, options)
     }
@@ -126,7 +127,6 @@ export class ReadModelStore {
    */
   async getLocalChanges<T>(): Promise<ReadModel<T>[]> {
     // This is a full scan - in production would need an index
-    const allCollections = new Set<string>()
     const allKeys = await this.storage.getAllCacheKeys()
 
     // Get all read models from all cache keys
@@ -152,7 +152,7 @@ export class ReadModelStore {
    */
   async exists(collection: string, id: string): Promise<boolean> {
     const record = await this.storage.getReadModel(collection, id)
-    return record !== null
+    return record !== undefined
   }
 
   /**
@@ -175,7 +175,12 @@ export class ReadModelStore {
    * @param data - Read model data
    * @param cacheKey - Cache key to associate with
    */
-  async setServerData<T>(collection: string, id: string, data: T, cacheKey: string): Promise<void> {
+  async setServerData<T extends object>(
+    collection: string,
+    id: string,
+    data: T,
+    cacheKey: string,
+  ): Promise<void> {
     const dataJson = JSON.stringify(data)
     const now = Date.now()
 
@@ -187,14 +192,21 @@ export class ReadModelStore {
 
     if (existing?.hasLocalChanges) {
       // Keep local overlay on top of new server baseline
-      const serverData = data as object
-      const localData = JSON.parse(existing.effectiveData) as object
+      const localData = JSON.parse(existing.effectiveData) as Record<string, unknown>
 
       // Find the diff between old server and local, apply to new server
       if (existing.serverData) {
-        const oldServer = JSON.parse(existing.serverData) as object
+        const oldServer = JSON.parse(existing.serverData) as Record<string, unknown>
         const localChanges = this.getObjectDiff(oldServer, localData)
-        effectiveData = JSON.stringify({ ...serverData, ...localChanges })
+        const merged: Record<string, unknown> = Object.fromEntries(Object.entries(data))
+        for (const [key, value] of Object.entries(localChanges)) {
+          if (value === undefined) {
+            delete merged[key]
+          } else {
+            merged[key] = value
+          }
+        }
+        effectiveData = JSON.stringify(merged)
         hasLocalChanges = Object.keys(localChanges).length > 0
       } else {
         effectiveData = existing.effectiveData
@@ -232,9 +244,9 @@ export class ReadModelStore {
     const existing = await this.storage.getReadModel(collection, id)
     const now = Date.now()
 
-    let currentData: object = {}
+    let currentData: Record<string, unknown> = {}
     if (existing) {
-      currentData = JSON.parse(existing.effectiveData)
+      currentData = JSON.parse(existing.effectiveData) as Record<string, unknown>
     }
 
     const effectiveData = JSON.stringify({ ...currentData, ...changes })
@@ -295,7 +307,7 @@ export class ReadModelStore {
       collection: record.collection,
       data: JSON.parse(record.effectiveData) as T,
       hasLocalChanges: record.hasLocalChanges,
-      serverData: record.serverData ? (JSON.parse(record.serverData) as T) : null,
+      serverData: record.serverData ? (JSON.parse(record.serverData) as T) : undefined,
       updatedAt: record.updatedAt,
     }
   }
@@ -304,15 +316,22 @@ export class ReadModelStore {
    * Get the difference between two objects.
    * Returns properties in 'current' that differ from 'baseline'.
    */
-  private getObjectDiff(baseline: object, current: object): object {
+  private getObjectDiff(
+    baseline: Record<string, unknown>,
+    current: Record<string, unknown>,
+  ): Record<string, unknown> {
     const diff: Record<string, unknown> = {}
 
     for (const [key, value] of Object.entries(current)) {
-      if (
-        !(key in baseline) ||
-        JSON.stringify(value) !== JSON.stringify((baseline as Record<string, unknown>)[key])
-      ) {
+      if (!(key in baseline) || JSON.stringify(value) !== JSON.stringify(baseline[key])) {
         diff[key] = value
+      }
+    }
+
+    // Detect deletions: keys in baseline absent from current
+    for (const key of Object.keys(baseline)) {
+      if (!(key in current)) {
+        diff[key] = undefined
       }
     }
 

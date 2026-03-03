@@ -155,6 +155,16 @@ export class GapBuffer<TEvent = unknown> {
   }
 
   /**
+   * Clear all buffered events and known positions for a single stream.
+   *
+   * @param streamId - Stream identifier
+   */
+  clearStream(streamId: string): void {
+    this.buffer.delete(streamId)
+    this.knownPositions.delete(streamId)
+  }
+
+  /**
    * Clear all buffered events.
    */
   clear(): void {

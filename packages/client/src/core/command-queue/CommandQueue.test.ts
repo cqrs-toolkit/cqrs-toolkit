@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import type { CommandRecord } from '../../types/commands.js'
 import type { IDomainExecutor } from '../../types/domain.js'
+import { domainFailure, domainSuccess } from '../../types/domain.js'
 import { EventBus } from '../events/EventBus.js'
 import { CommandQueue } from './CommandQueue.js'
 import type { ICommandSender } from './types.js'
@@ -32,8 +33,8 @@ describe('CommandQueue', () => {
 
       expect(result.ok).toBe(true)
       if (result.ok) {
-        expect(result.commandId).toBeDefined()
-        expect(result.anticipatedEvents).toEqual([])
+        expect(result.value.commandId).toBeDefined()
+        expect(result.value.anticipatedEvents).toEqual([])
       }
     })
 
@@ -45,7 +46,7 @@ describe('CommandQueue', () => {
 
       expect(result.ok).toBe(true)
       if (result.ok) {
-        expect(result.commandId).toBe('custom-id-123')
+        expect(result.value.commandId).toBe('custom-id-123')
       }
     })
 
@@ -58,7 +59,7 @@ describe('CommandQueue', () => {
 
       if (!result.ok) throw new Error('Expected success')
 
-      const stored = await storage.getCommand(result.commandId)
+      const stored = await storage.getCommand(result.value.commandId)
       expect(stored).toMatchObject({
         type: 'CreateTodo',
         payload: { title: 'Test' },
@@ -102,10 +103,9 @@ describe('CommandQueue', () => {
     })
 
     it('returns validation errors when domain validation fails', async () => {
-      vi.mocked(domainExecutor.execute).mockReturnValue({
-        ok: false,
-        errors: [{ path: 'title', message: 'Title is required' }],
-      })
+      vi.mocked(domainExecutor.execute).mockReturnValue(
+        domainFailure([{ path: 'title', message: 'Title is required' }]),
+      )
 
       const result = await commandQueue.enqueue({
         type: 'CreateTodo',
@@ -114,16 +114,16 @@ describe('CommandQueue', () => {
 
       expect(result.ok).toBe(false)
       if (!result.ok) {
-        expect(result.errors).toHaveLength(1)
-        expect(result.errors[0]).toMatchObject({ path: 'title', message: 'Title is required' })
+        const errors = result.error.details
+        expect(errors).toHaveLength(1)
+        expect(errors?.[0]).toMatchObject({ path: 'title', message: 'Title is required' })
       }
     })
 
     it('returns anticipated events on successful validation', async () => {
-      vi.mocked(domainExecutor.execute).mockReturnValue({
-        ok: true,
-        anticipatedEvents: [{ type: 'TodoCreated', data: { id: '1', title: 'Test' } }],
-      })
+      vi.mocked(domainExecutor.execute).mockReturnValue(
+        domainSuccess([{ type: 'TodoCreated', data: { id: '1', title: 'Test' } }]),
+      )
 
       const result = await commandQueue.enqueue({
         type: 'CreateTodo',
@@ -132,8 +132,8 @@ describe('CommandQueue', () => {
 
       expect(result.ok).toBe(true)
       if (result.ok) {
-        expect(result.anticipatedEvents).toHaveLength(1)
-        expect(result.anticipatedEvents[0]).toMatchObject({
+        expect(result.value.anticipatedEvents).toHaveLength(1)
+        expect(result.value.anticipatedEvents[0]).toMatchObject({
           type: 'TodoCreated',
           data: { id: '1', title: 'Test' },
         })
@@ -141,10 +141,9 @@ describe('CommandQueue', () => {
     })
 
     it('skips validation when skipValidation is true', async () => {
-      vi.mocked(domainExecutor.execute).mockReturnValue({
-        ok: false,
-        errors: [{ path: 'title', message: 'Title is required' }],
-      })
+      vi.mocked(domainExecutor.execute).mockReturnValue(
+        domainFailure([{ path: 'title', message: 'Title is required' }]),
+      )
 
       const result = await commandQueue.enqueue(
         { type: 'CreateTodo', payload: { title: '' } },
@@ -166,14 +165,14 @@ describe('CommandQueue', () => {
       const second = await commandQueue.enqueue({
         type: 'Second',
         payload: {},
-        dependsOn: [first.commandId],
+        dependsOn: [first.value.commandId],
       })
 
       if (!second.ok) throw new Error('Expected success')
 
-      const storedSecond = await storage.getCommand(second.commandId)
+      const storedSecond = await storage.getCommand(second.value.commandId)
       expect(storedSecond?.status).toBe('blocked')
-      expect(storedSecond?.blockedBy).toContain(first.commandId)
+      expect(storedSecond?.blockedBy).toContain(first.value.commandId)
     })
 
     it('marks command as pending when all dependencies are resolved', async () => {
@@ -187,7 +186,7 @@ describe('CommandQueue', () => {
         dependsOn: [],
         blockedBy: [],
         attempts: 1,
-        anticipatedEventIds: [],
+
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }
@@ -202,7 +201,7 @@ describe('CommandQueue', () => {
 
       if (!second.ok) throw new Error('Expected success')
 
-      const storedSecond = await storage.getCommand(second.commandId)
+      const storedSecond = await storage.getCommand(second.value.commandId)
       expect(storedSecond?.status).toBe('pending')
       expect(storedSecond?.blockedBy).toHaveLength(0)
     })
@@ -219,7 +218,7 @@ describe('CommandQueue', () => {
         dependsOn: [],
         blockedBy: [],
         attempts: 1,
-        anticipatedEventIds: [],
+
         serverResponse: { id: '123' },
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -244,7 +243,7 @@ describe('CommandQueue', () => {
         dependsOn: [],
         blockedBy: [],
         attempts: 1,
-        anticipatedEventIds: [],
+
         error: { source: 'server', message: 'Bad request' },
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -272,7 +271,7 @@ describe('CommandQueue', () => {
       const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
       if (!result.ok) throw new Error('Expected success')
 
-      const completionResult = await commandQueue.waitForCompletion(result.commandId, {
+      const completionResult = await commandQueue.waitForCompletion(result.value.commandId, {
         timeout: 50,
       })
 
@@ -285,14 +284,14 @@ describe('CommandQueue', () => {
 
       // Simulate completion in background
       setTimeout(async () => {
-        await storage.updateCommand(result.commandId, {
+        await storage.updateCommand(result.value.commandId, {
           status: 'succeeded',
           serverResponse: { done: true },
         })
         // Manually emit event since we're updating storage directly
         ;(commandQueue as any).commandEvents.next({
           eventType: 'status-changed',
-          commandId: result.commandId,
+          commandId: result.value.commandId,
           type: 'Test',
           status: 'succeeded',
           response: { done: true },
@@ -300,7 +299,7 @@ describe('CommandQueue', () => {
         })
       }, 20)
 
-      const completionResult = await commandQueue.waitForCompletion(result.commandId, {
+      const completionResult = await commandQueue.waitForCompletion(result.value.commandId, {
         timeout: 1000,
       })
 
@@ -311,10 +310,7 @@ describe('CommandQueue', () => {
   describe('enqueueAndWait', () => {
     it('returns validation errors immediately', async () => {
       const domainExecutor: IDomainExecutor = {
-        execute: () => ({
-          ok: false,
-          errors: [{ path: 'email', message: 'Invalid email' }],
-        }),
+        execute: () => domainFailure([{ path: 'email', message: 'Invalid email' }]),
       }
       commandQueue = new CommandQueue({ storage, eventBus, domainExecutor })
 
@@ -325,8 +321,8 @@ describe('CommandQueue', () => {
 
       expect(result.ok).toBe(false)
       if (!result.ok) {
-        expect(result.source).toBe('local')
-        expect(result.errors[0]).toMatchObject({ path: 'email' })
+        expect(result.error.details?.source).toBe('local')
+        expect(result.error.details?.errors[0]).toMatchObject({ path: 'email' })
       }
     })
   })
@@ -337,7 +333,7 @@ describe('CommandQueue', () => {
       const result1 = await commandQueue.enqueue({ type: 'First', payload: {} })
       if (!result1.ok) throw new Error('Expected success')
 
-      commandQueue.commandEvents$(result1.commandId).subscribe((e) => events.push(e))
+      commandQueue.commandEvents$(result1.value.commandId).subscribe((e) => events.push(e))
 
       await commandQueue.enqueue({ type: 'Second', payload: {} })
 
@@ -352,9 +348,9 @@ describe('CommandQueue', () => {
       const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
       if (!result.ok) throw new Error('Expected success')
 
-      await commandQueue.cancelCommand(result.commandId)
+      await commandQueue.cancelCommand(result.value.commandId)
 
-      const stored = await storage.getCommand(result.commandId)
+      const stored = await storage.getCommand(result.value.commandId)
       expect(stored?.status).toBe('cancelled')
     })
 
@@ -372,7 +368,7 @@ describe('CommandQueue', () => {
         dependsOn: [],
         blockedBy: [],
         attempts: 1,
-        anticipatedEventIds: [],
+
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }
@@ -386,9 +382,9 @@ describe('CommandQueue', () => {
       if (!result.ok) throw new Error('Expected success')
 
       const events: unknown[] = []
-      commandQueue.commandEvents$(result.commandId).subscribe((e) => events.push(e))
+      commandQueue.commandEvents$(result.value.commandId).subscribe((e) => events.push(e))
 
-      await commandQueue.cancelCommand(result.commandId)
+      await commandQueue.cancelCommand(result.value.commandId)
 
       expect(events).toHaveLength(1)
       expect(events[0]).toMatchObject({
@@ -410,7 +406,7 @@ describe('CommandQueue', () => {
         dependsOn: [],
         blockedBy: [],
         attempts: 1,
-        anticipatedEventIds: [],
+
         error: { source: 'server', message: 'Failed' },
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -428,7 +424,7 @@ describe('CommandQueue', () => {
       const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
       if (!result.ok) throw new Error('Expected success')
 
-      await expect(commandQueue.retryCommand(result.commandId)).rejects.toThrow(
+      await expect(commandQueue.retryCommand(result.value.commandId)).rejects.toThrow(
         'Can only retry failed commands',
       )
     })
@@ -458,7 +454,7 @@ describe('CommandQueue', () => {
 
       expect(commandSender.send).toHaveBeenCalledTimes(1)
 
-      const stored = await storage.getCommand(result.commandId)
+      const stored = await storage.getCommand(result.value.commandId)
       expect(stored?.status).toBe('succeeded')
       expect(stored?.serverResponse).toEqual({ id: '123' })
     })
@@ -489,7 +485,7 @@ describe('CommandQueue', () => {
 
       expect(commandSender.send).toHaveBeenCalledTimes(3)
 
-      const stored = await storage.getCommand(result.commandId)
+      const stored = await storage.getCommand(result.value.commandId)
       expect(stored?.status).toBe('succeeded')
     })
 
@@ -508,7 +504,7 @@ describe('CommandQueue', () => {
 
       expect(commandSender.send).toHaveBeenCalledTimes(3)
 
-      const stored = await storage.getCommand(result.commandId)
+      const stored = await storage.getCommand(result.value.commandId)
       expect(stored?.status).toBe('failed')
     })
 
@@ -525,7 +521,7 @@ describe('CommandQueue', () => {
 
       expect(commandSender.send).toHaveBeenCalledTimes(1)
 
-      const stored = await storage.getCommand(result.commandId)
+      const stored = await storage.getCommand(result.value.commandId)
       expect(stored?.status).toBe('failed')
     })
 
@@ -536,22 +532,22 @@ describe('CommandQueue', () => {
       const second = await commandQueue.enqueue({
         type: 'Second',
         payload: {},
-        dependsOn: [first.commandId],
+        dependsOn: [first.value.commandId],
       })
       if (!second.ok) throw new Error('Expected success')
 
       // Second should be blocked
-      let storedSecond = await storage.getCommand(second.commandId)
+      let storedSecond = await storage.getCommand(second.value.commandId)
       expect(storedSecond?.status).toBe('blocked')
 
       commandQueue.resume()
       await new Promise((resolve) => setTimeout(resolve, 50))
 
       // First should be succeeded and second should be unblocked
-      const storedFirst = await storage.getCommand(first.commandId)
+      const storedFirst = await storage.getCommand(first.value.commandId)
       expect(storedFirst?.status).toBe('succeeded')
 
-      storedSecond = await storage.getCommand(second.commandId)
+      storedSecond = await storage.getCommand(second.value.commandId)
       expect(storedSecond?.status).toBe('pending')
       expect(storedSecond?.blockedBy).toHaveLength(0)
     })
@@ -585,8 +581,74 @@ describe('CommandQueue', () => {
       // Without the reprocess fix, the second command stays pending forever
       expect(commandSender.send).toHaveBeenCalledTimes(2)
 
-      const storedSecond = await storage.getCommand(second.commandId)
+      const storedSecond = await storage.getCommand(second.value.commandId)
       expect(storedSecond?.status).toBe('succeeded')
+    })
+
+    it('does not process a command cancelled during an earlier send', async () => {
+      // First send blocks via deferred promise; second should never be called
+      let resolveSend: ((value: unknown) => void) | undefined
+      vi.mocked(commandSender.send)
+        .mockImplementationOnce(() => new Promise((resolve) => (resolveSend = resolve)))
+        .mockResolvedValue({ id: '2' })
+
+      // Enqueue both commands while paused so they are in the same batch
+      const first = await commandQueue.enqueue({ type: 'First', payload: {} })
+      if (!first.ok) throw new Error('Expected success')
+
+      const second = await commandQueue.enqueue({ type: 'Second', payload: {} })
+      if (!second.ok) throw new Error('Expected success')
+
+      // Resume — processing snapshots both commands
+      commandQueue.resume()
+
+      // Wait for first command to start sending (blocks on deferred)
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      expect(commandSender.send).toHaveBeenCalledTimes(1)
+
+      // Cancel the second command while the first is mid-send
+      await commandQueue.cancelCommand(second.value.commandId)
+
+      // Resolve the first send — processing loop continues to second
+      resolveSend!({ id: '1' })
+      await new Promise((resolve) => setTimeout(resolve, 10))
+
+      // Second command should remain cancelled, send should only have been called once
+      const storedSecond = await storage.getCommand(second.value.commandId)
+      expect(storedSecond?.status).toBe('cancelled')
+      expect(commandSender.send).toHaveBeenCalledTimes(1)
+    })
+
+    it('clears retry timers on destroy', async () => {
+      // Use a long retry delay so the timer is still pending when we destroy
+      commandQueue = new CommandQueue({
+        storage,
+        eventBus,
+        commandSender,
+        retryConfig: { maxAttempts: 3, initialDelay: 500 },
+      })
+
+      vi.mocked(commandSender.send).mockRejectedValue(
+        new CommandSendError('Network error', 'NETWORK', true),
+      )
+
+      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      if (!result.ok) throw new Error('Expected success')
+
+      commandQueue.resume()
+
+      // Wait for the first attempt to fail and schedule a retry timer
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(commandSender.send).toHaveBeenCalledTimes(1)
+
+      // Destroy the queue while retry timer is pending
+      commandQueue.destroy()
+
+      // Wait long enough for any scheduled retry to have fired if not cleared
+      await new Promise((resolve) => setTimeout(resolve, 600))
+
+      // Send should not have been called again after destroy
+      expect(commandSender.send).toHaveBeenCalledTimes(1)
     })
 
     it('cancels dependent commands on failure', async () => {
@@ -598,17 +660,17 @@ describe('CommandQueue', () => {
       const second = await commandQueue.enqueue({
         type: 'Second',
         payload: {},
-        dependsOn: [first.commandId],
+        dependsOn: [first.value.commandId],
       })
       if (!second.ok) throw new Error('Expected success')
 
       commandQueue.resume()
       await new Promise((resolve) => setTimeout(resolve, 50))
 
-      const storedFirst = await storage.getCommand(first.commandId)
+      const storedFirst = await storage.getCommand(first.value.commandId)
       expect(storedFirst?.status).toBe('failed')
 
-      const storedSecond = await storage.getCommand(second.commandId)
+      const storedSecond = await storage.getCommand(second.value.commandId)
       expect(storedSecond?.status).toBe('cancelled')
     })
   })
@@ -628,7 +690,7 @@ describe('CommandQueue', () => {
       const second = await commandQueue.enqueue({ type: 'Second', payload: {} })
       if (!second.ok) throw new Error('Expected success')
 
-      await commandQueue.cancelCommand(second.commandId)
+      await commandQueue.cancelCommand(second.value.commandId)
 
       const pending = await commandQueue.listCommands({ status: 'pending' })
       const cancelled = await commandQueue.listCommands({ status: 'cancelled' })

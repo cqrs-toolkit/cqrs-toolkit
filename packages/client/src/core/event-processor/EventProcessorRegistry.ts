@@ -12,7 +12,7 @@ import type { EventProcessor, ProcessorRegistration } from './types.js'
 interface NormalizedRegistration {
   eventTypes: Set<string>
   processor: EventProcessor
-  persistenceTypes: Set<EventPersistence> | null
+  persistenceTypes?: Set<EventPersistence>
 }
 
 /**
@@ -39,7 +39,7 @@ export class EventProcessorRegistry {
       processor: registration.processor as EventProcessor,
       persistenceTypes: registration.persistenceTypes
         ? new Set(registration.persistenceTypes)
-        : null,
+        : undefined,
     }
 
     this.registrations.push(normalized)

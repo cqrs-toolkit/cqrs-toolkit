@@ -2,7 +2,7 @@ import { createSignal } from 'solid-js'
 import { useClient } from '../cqrs-context'
 
 interface AddNoteProps {
-  onError: (message: string | null) => void
+  onError: (message: string | undefined) => void
 }
 
 export default function AddNote(props: AddNoteProps) {
@@ -15,7 +15,7 @@ export default function AddNote(props: AddNoteProps) {
     const trimmedTitle = title().trim()
     if (trimmedTitle.length === 0) return
 
-    props.onError(null)
+    props.onError(undefined)
 
     const result = await commandQueue.enqueueAndWait({
       type: 'CreateNote',
@@ -26,7 +26,7 @@ export default function AddNote(props: AddNoteProps) {
       setTitle('')
       setBody('')
     } else {
-      props.onError(result.errors[0]?.message ?? 'Command failed')
+      props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
     }
   }
 

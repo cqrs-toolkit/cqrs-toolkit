@@ -119,7 +119,7 @@ export interface IStorage {
   /**
    * Get the current session, if any.
    */
-  getSession(): Promise<SessionRecord | null>
+  getSession(): Promise<SessionRecord | undefined>
 
   /**
    * Save or update the session.
@@ -140,7 +140,7 @@ export interface IStorage {
   /**
    * Get a cache key record.
    */
-  getCacheKey(key: string): Promise<CacheKeyRecord | null>
+  getCacheKey(key: string): Promise<CacheKeyRecord | undefined>
 
   /**
    * Get all cache keys.
@@ -181,7 +181,7 @@ export interface IStorage {
   /**
    * Get a command by ID.
    */
-  getCommand(commandId: string): Promise<CommandRecord | null>
+  getCommand(commandId: string): Promise<CommandRecord | undefined>
 
   /**
    * Get commands matching a filter.
@@ -222,7 +222,7 @@ export interface IStorage {
   /**
    * Get a cached event by ID.
    */
-  getCachedEvent(id: string): Promise<CachedEventRecord | null>
+  getCachedEvent(id: string): Promise<CachedEventRecord | undefined>
 
   /**
    * Get cached events for a cache key.
@@ -268,7 +268,7 @@ export interface IStorage {
   /**
    * Get a read model record.
    */
-  getReadModel(collection: string, id: string): Promise<ReadModelRecord | null>
+  getReadModel(collection: string, id: string): Promise<ReadModelRecord | undefined>
 
   /**
    * Get all read model records for a collection.

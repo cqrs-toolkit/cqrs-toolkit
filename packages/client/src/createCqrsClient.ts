@@ -38,7 +38,7 @@ import type {
   ResolvedConfig,
 } from './types/config.js'
 import { resolveConfig } from './types/config.js'
-import type { LibraryEvent } from './types/events.js'
+import type { EventPersistence, LibraryEvent } from './types/events.js'
 
 /**
  * Restricted view of SyncManager exposed to consumers.
@@ -46,7 +46,7 @@ import type { LibraryEvent } from './types/events.js'
  */
 export interface CqrsClientSyncManager {
   /** Get sync status for a specific collection. */
-  getCollectionStatus(collection: string): CollectionSyncStatus | null
+  getCollectionStatus(collection: string): CollectionSyncStatus | undefined
   /** Get sync status for all collections. */
   getAllStatus(): CollectionSyncStatus[]
   /** Force-sync a specific collection from the server. */
@@ -134,7 +134,7 @@ export class CqrsClient {
    */
   async close(): Promise<void> {
     this.internalSyncManager.stop()
-    this.queryManager.destroy()
+    await this.queryManager.destroy()
     this.internalCommandQueue.destroy()
     await this.adapter.close()
   }
@@ -212,7 +212,6 @@ export async function createCqrsClient(config: CqrsClientConfig): Promise<CqrsCl
 
   const readModelStore = new ReadModelStore({
     storage,
-    eventBus,
   })
 
   const eventProcessorRunner = new EventProcessorRunner({
@@ -309,6 +308,7 @@ interface ResponseEvent {
   type: string
   streamId: string
   data: unknown
+  persistence?: EventPersistence
   revision?: string
 }
 
@@ -318,8 +318,7 @@ interface ResponseEvent {
 function hasResponseEvents(response: unknown): response is { events: ResponseEvent[] } {
   if (typeof response !== 'object' || response === null) return false
   if (!('events' in response)) return false
-  const { events } = response as { events: unknown }
-  return Array.isArray(events)
+  return Array.isArray(response.events)
 }
 
 /**
@@ -327,12 +326,14 @@ function hasResponseEvents(response: unknown): response is { events: ResponseEve
  */
 function isResponseEvent(value: unknown): value is ResponseEvent {
   if (typeof value !== 'object' || value === null) return false
-  const obj = value as Record<string, unknown>
   return (
-    typeof obj['id'] === 'string' &&
-    typeof obj['type'] === 'string' &&
-    typeof obj['streamId'] === 'string' &&
-    'data' in obj
+    'id' in value &&
+    typeof value.id === 'string' &&
+    'type' in value &&
+    typeof value.type === 'string' &&
+    'streamId' in value &&
+    typeof value.streamId === 'string' &&
+    'data' in value
   )
 }
 
@@ -373,7 +374,7 @@ function createCommandResponseHandler(
         id: raw.id,
         type: raw.type,
         streamId: raw.streamId,
-        persistence: 'Permanent',
+        persistence: raw.persistence ?? 'Permanent',
         data: raw.data,
         commandId: command.commandId,
         revision: raw.revision,

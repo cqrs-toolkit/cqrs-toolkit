@@ -51,13 +51,8 @@ export type {
   ICommandQueue,
   ICommandSender,
 } from './core/command-queue/index.js'
-export { EventCache, GapBuffer, detectGaps } from './core/event-cache/index.js'
-export type {
-  CacheEventOptions,
-  EventCacheConfig,
-  EventGap,
-  GapDetectionResult,
-} from './core/event-cache/index.js'
+export { EventCache, GapBuffer } from './core/event-cache/index.js'
+export type { CacheEventOptions, EventCacheConfig, EventGap } from './core/event-cache/index.js'
 export { EventProcessorRegistry, EventProcessorRunner } from './core/event-processor/index.js'
 export type {
   EventProcessor,

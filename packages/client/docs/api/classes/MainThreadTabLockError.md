@@ -6,7 +6,7 @@
 
 # Class: MainThreadTabLockError
 
-Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:22
+Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:23
 
 Error thrown when tab lock cannot be acquired.
 
@@ -20,7 +20,7 @@ Error thrown when tab lock cannot be acquired.
 
 > **new MainThreadTabLockError**(`message`): `TabLockError`
 
-Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:23
+Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:24
 
 #### Parameters
 

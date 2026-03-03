@@ -8,6 +8,6 @@
 
 > **CommandErrorSource** = `"local"` \| `"server"`
 
-Defined in: packages/client/src/types/commands.ts:21
+Defined in: packages/client/src/types/commands.ts:28
 
 Error source - where the error originated.

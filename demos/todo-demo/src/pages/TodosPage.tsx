@@ -9,7 +9,7 @@ export default function TodosPage() {
   const client = useClient()
   const [todos, setTodos] = createSignal<Todo[]>([])
   const [loading, setLoading] = createSignal(true)
-  const [error, setError] = createSignal<string | null>(null)
+  const [error, setError] = createSignal<string>()
 
   async function fetchTodos(): Promise<void> {
     const result = await client.queryManager.list<Todo>('todos')

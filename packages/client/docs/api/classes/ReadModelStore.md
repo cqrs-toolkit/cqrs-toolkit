@@ -6,7 +6,7 @@
 
 # Class: ReadModelStore
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:52
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:50
 
 Read model store implementation.
 
@@ -16,7 +16,7 @@ Read model store implementation.
 
 > **new ReadModelStore**(`config`): `ReadModelStore`
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:56
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:53
 
 #### Parameters
 
@@ -34,7 +34,7 @@ Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:56
 
 > **applyLocalChanges**\<`T`\>(`collection`, `id`, `changes`, `cacheKey`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:226
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:238
 
 Apply local changes to a read model (optimistic update).
 
@@ -80,7 +80,7 @@ Cache key to associate with (required if creating new)
 
 > **clearLocalChanges**(`collection`, `id`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:261
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:273
 
 Clear local changes for a read model (revert to server baseline).
 
@@ -132,7 +132,7 @@ Count of read models
 
 > **delete**(`collection`, `id`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:285
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:297
 
 Delete a read model.
 
@@ -188,9 +188,9 @@ Whether the read model exists
 
 ### getById()
 
-> **getById**\<`T`\>(`collection`, `id`): `Promise`\<[`ReadModel`](../interfaces/ReadModel.md)\<`T`\> \| `null`\>
+> **getById**\<`T`\>(`collection`, `id`): `Promise`\<[`ReadModel`](../interfaces/ReadModel.md)\<`T`\> \| `undefined`\>
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:68
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:64
 
 Get a read model by ID.
 
@@ -216,9 +216,9 @@ Entity ID
 
 #### Returns
 
-`Promise`\<[`ReadModel`](../interfaces/ReadModel.md)\<`T`\> \| `null`\>
+`Promise`\<[`ReadModel`](../interfaces/ReadModel.md)\<`T`\> \| `undefined`\>
 
-Read model or null
+Read model or undefined
 
 ***
 
@@ -226,7 +226,7 @@ Read model or null
 
 > **getByIds**\<`T`\>(`collection`, `ids`): `Promise`\<`Map`\<`string`, [`ReadModel`](../interfaces/ReadModel.md)\<`T`\>\>\>
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:81
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:77
 
 Get multiple read models by IDs.
 
@@ -262,7 +262,7 @@ Map of ID to read model
 
 > **getLocalChanges**\<`T`\>(): `Promise`\<[`ReadModel`](../interfaces/ReadModel.md)\<`T`\>[]\>
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:127
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:128
 
 Get all read models with local changes.
 
@@ -284,7 +284,7 @@ Array of read models with uncommitted changes
 
 > **list**\<`T`\>(`collection`, `options?`): `Promise`\<[`ReadModel`](../interfaces/ReadModel.md)\<`T`\>[]\>
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:101
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:97
 
 List read models in a collection.
 
@@ -329,7 +329,7 @@ Marks the data as server baseline.
 
 ##### T
 
-`T`
+`T` *extends* `object`
 
 #### Parameters
 

@@ -6,7 +6,7 @@
 
 # Interface: CompletionCancelled
 
-Defined in: packages/client/src/types/commands.ts:156
+Defined in: packages/client/src/types/commands.ts:154
 
 Command completion result - cancelled.
 
@@ -16,4 +16,4 @@ Command completion result - cancelled.
 
 > **status**: `"cancelled"`
 
-Defined in: packages/client/src/types/commands.ts:157
+Defined in: packages/client/src/types/commands.ts:155

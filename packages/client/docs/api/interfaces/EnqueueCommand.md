@@ -6,7 +6,7 @@
 
 # Interface: EnqueueCommand\<TPayload\>
 
-Defined in: packages/client/src/types/commands.ts:76
+Defined in: packages/client/src/types/commands.ts:81
 
 Command to enqueue.
 
@@ -22,7 +22,7 @@ Command to enqueue.
 
 > `optional` **dependsOn**: `string`[]
 
-Defined in: packages/client/src/types/commands.ts:84
+Defined in: packages/client/src/types/commands.ts:89
 
 Commands this depends on (optional)
 
@@ -32,7 +32,7 @@ Commands this depends on (optional)
 
 > **payload**: `TPayload`
 
-Defined in: packages/client/src/types/commands.ts:80
+Defined in: packages/client/src/types/commands.ts:85
 
 Command payload
 
@@ -42,7 +42,7 @@ Command payload
 
 > `optional` **service**: `string`
 
-Defined in: packages/client/src/types/commands.ts:82
+Defined in: packages/client/src/types/commands.ts:87
 
 Target service (optional, defaults to primary)
 
@@ -52,6 +52,6 @@ Target service (optional, defaults to primary)
 
 > **type**: `string`
 
-Defined in: packages/client/src/types/commands.ts:78
+Defined in: packages/client/src/types/commands.ts:83
 
 Command type

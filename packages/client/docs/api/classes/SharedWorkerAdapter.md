@@ -6,7 +6,7 @@
 
 # Class: SharedWorkerAdapter
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:42
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:43
 
 SharedWorker adapter for multi-tab offline support.
 
@@ -22,7 +22,7 @@ This adapter:
 
 > **new SharedWorkerAdapter**(`config`): `SharedWorkerAdapter`
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:62
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:63
 
 #### Parameters
 
@@ -40,7 +40,7 @@ Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:62
 
 > `readonly` **eventBus**: [`EventBus`](EventBus.md)
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:46
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:47
 
 ***
 
@@ -48,7 +48,7 @@ Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:46
 
 > `readonly` **mode**: [`ExecutionMode`](../type-aliases/ExecutionMode.md) = `'shared-worker'`
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:43
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:44
 
 ## Accessors
 
@@ -58,7 +58,7 @@ Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:43
 
 > **get** **events$**(): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:72
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:73
 
 ##### Returns
 
@@ -72,7 +72,7 @@ Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:72
 
 > **get** **sessionManager**(): [`SessionManager`](SessionManager.md)
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:76
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:77
 
 ##### Returns
 
@@ -86,7 +86,7 @@ Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:76
 
 > **get** **status**(): [`AdapterStatus`](../type-aliases/AdapterStatus.md)
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:68
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:69
 
 ##### Returns
 
@@ -100,7 +100,7 @@ Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:68
 
 > **get** **storage**(): [`IStorage`](../interfaces/IStorage.md)
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:83
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:82
 
 ##### Returns
 
@@ -112,7 +112,7 @@ Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:83
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:168
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:163
 
 Close the adapter and release resources.
 
@@ -126,54 +126,10 @@ Close the adapter and release resources.
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:93
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:90
 
 Initialize the adapter.
 
 #### Returns
 
 `Promise`\<`void`\>
-
-***
-
-### trackHold()
-
-> **trackHold**(`cacheKey`): `void`
-
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:213
-
-Track a local hold for restoration after worker restart.
-
-#### Parameters
-
-##### cacheKey
-
-`string`
-
-Cache key being held
-
-#### Returns
-
-`void`
-
-***
-
-### untrackHold()
-
-> **untrackHold**(`cacheKey`): `void`
-
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:222
-
-Remove a local hold tracking.
-
-#### Parameters
-
-##### cacheKey
-
-`string`
-
-Cache key being released
-
-#### Returns
-
-`void`

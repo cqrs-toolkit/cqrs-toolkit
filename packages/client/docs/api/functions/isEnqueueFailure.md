@@ -6,7 +6,7 @@
 
 # Function: isEnqueueFailure()
 
-> **isEnqueueFailure**\<`TEvent`\>(`result`): `result is EnqueueFailure`
+> **isEnqueueFailure**\<`TEvent`\>(`result`): `result is ErrResult<ValidationException<ValidationError[]>>`
 
 Defined in: packages/client/src/types/commands.ts:264
 
@@ -26,4 +26,4 @@ Type guard for failed enqueue result.
 
 ## Returns
 
-`result is EnqueueFailure`
+`result is ErrResult<ValidationException<ValidationError[]>>`

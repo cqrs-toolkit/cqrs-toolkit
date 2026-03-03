@@ -63,7 +63,7 @@ export interface LibraryEventPayloads {
   'sync:started': { collection: string }
   'sync:completed': { collection: string; eventCount: number }
   'sync:failed': { collection: string; error: string }
-  'cache:evicted': { cacheKey: string; reason: 'lru' | 'explicit' | 'session-change' }
+  'cache:evicted': { cacheKey: string; reason: 'lru' | 'explicit' | 'expired' | 'session-change' }
   'command:enqueued': { commandId: string; type: string }
   'command:status-changed': { commandId: string; status: string; previousStatus: string }
   'command:completed': { commandId: string; type: string }

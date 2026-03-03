@@ -4,7 +4,7 @@ import { useClient } from '../cqrs-context'
 
 interface TodoItemProps {
   todo: Todo
-  onError: (message: string | null) => void
+  onError: (message: string | undefined) => void
 }
 
 export default function TodoItem(props: TodoItemProps) {
@@ -24,7 +24,7 @@ export default function TodoItem(props: TodoItemProps) {
   }
 
   async function handleToggle() {
-    props.onError(null)
+    props.onError(undefined)
     const result = await commandQueue.enqueueAndWait({
       type: 'ChangeTodoStatus',
       payload: {
@@ -34,7 +34,7 @@ export default function TodoItem(props: TodoItemProps) {
       },
     })
     if (!result.ok) {
-      props.onError(result.errors[0]?.message ?? 'Command failed')
+      props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
     }
   }
 
@@ -50,7 +50,7 @@ export default function TodoItem(props: TodoItemProps) {
       return
     }
 
-    props.onError(null)
+    props.onError(undefined)
     const result = await commandQueue.enqueueAndWait({
       type: 'UpdateTodoContent',
       payload: { id: props.todo.id, content: text, revision: props.todo.latestRevision },
@@ -58,7 +58,7 @@ export default function TodoItem(props: TodoItemProps) {
     if (result.ok) {
       setEditing(false)
     } else {
-      props.onError(result.errors[0]?.message ?? 'Command failed')
+      props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
     }
   }
 
@@ -71,13 +71,13 @@ export default function TodoItem(props: TodoItemProps) {
   }
 
   async function handleDelete() {
-    props.onError(null)
+    props.onError(undefined)
     const result = await commandQueue.enqueueAndWait({
       type: 'DeleteTodo',
       payload: { id: props.todo.id, revision: props.todo.latestRevision },
     })
     if (!result.ok) {
-      props.onError(result.errors[0]?.message ?? 'Command failed')
+      props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
     }
   }
 

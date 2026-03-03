@@ -6,7 +6,7 @@
 
 # Interface: MessageTarget
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:44
+Defined in: packages/client/src/protocol/MessageChannel.ts:45
 
 Generic worker interface that supports postMessage.
 
@@ -16,7 +16,7 @@ Generic worker interface that supports postMessage.
 
 > **postMessage**(`message`): `void`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:45
+Defined in: packages/client/src/protocol/MessageChannel.ts:46
 
 #### Parameters
 

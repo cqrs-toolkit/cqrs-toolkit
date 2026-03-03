@@ -24,7 +24,6 @@ export function createTestCommand<TPayload = unknown, TResponse = unknown>(
     dependsOn: [],
     blockedBy: [],
     attempts: 0,
-    anticipatedEventIds: [],
     createdAt: now,
     updatedAt: now,
     ...overrides,

@@ -6,7 +6,7 @@
 
 # Class: WorkerMessageChannel
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:51
+Defined in: packages/client/src/protocol/MessageChannel.ts:52
 
 Message channel for window-to-worker communication.
 
@@ -16,7 +16,7 @@ Message channel for window-to-worker communication.
 
 > **new WorkerMessageChannel**(`target`, `config?`): `WorkerMessageChannel`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:61
+Defined in: packages/client/src/protocol/MessageChannel.ts:62
 
 #### Parameters
 
@@ -40,7 +40,7 @@ Defined in: packages/client/src/protocol/MessageChannel.ts:61
 
 > **get** **libraryEvents$**(): `Observable`\<[`EventMessage`](../interfaces/EventMessage.md)\>
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:284
+Defined in: packages/client/src/protocol/MessageChannel.ts:285
 
 Get observable of library events.
 
@@ -56,7 +56,7 @@ Get observable of library events.
 
 > **get** **workerInstanceChanges$**(): `Observable`\<`string`\>
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:291
+Defined in: packages/client/src/protocol/MessageChannel.ts:292
 
 Get observable of worker instance changes.
 
@@ -70,7 +70,7 @@ Get observable of worker instance changes.
 
 > **connect**(`source`): `void`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:72
+Defined in: packages/client/src/protocol/MessageChannel.ts:73
 
 Start listening for messages.
 
@@ -90,7 +90,7 @@ Start listening for messages.
 
 > **destroy**(): `void`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:306
+Defined in: packages/client/src/protocol/MessageChannel.ts:307
 
 Destroy the channel.
 
@@ -104,7 +104,7 @@ Destroy the channel.
 
 > **disconnect**(`source`): `void`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:97
+Defined in: packages/client/src/protocol/MessageChannel.ts:98
 
 Stop listening for messages.
 
@@ -124,7 +124,7 @@ Stop listening for messages.
 
 > **register**(`windowId`): `Promise`\<[`RegisterWindowResponse`](../interfaces/RegisterWindowResponse.md)\>
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:153
+Defined in: packages/client/src/protocol/MessageChannel.ts:154
 
 Register a window with the worker.
 
@@ -148,7 +148,7 @@ Registration response
 
 > **releaseTabLock**(`tabId`): `void`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:273
+Defined in: packages/client/src/protocol/MessageChannel.ts:274
 
 Release tab lock.
 
@@ -170,7 +170,7 @@ Tab identifier
 
 > **request**\<`T`\>(`method`, `args?`): `Promise`\<`T`\>
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:111
+Defined in: packages/client/src/protocol/MessageChannel.ts:112
 
 Send a request and wait for response.
 
@@ -206,7 +206,7 @@ Response result
 
 > **requestTabLock**(`tabId`): `Promise`\<[`TabLockResponse`](../interfaces/TabLockResponse.md)\>
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:243
+Defined in: packages/client/src/protocol/MessageChannel.ts:244
 
 Request tab lock (single-tab modes).
 
@@ -230,7 +230,7 @@ Lock response
 
 > **restoreHolds**(`windowId`, `cacheKeys`): `Promise`\<[`RestoreHoldsResponse`](../interfaces/RestoreHoldsResponse.md)\>
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:211
+Defined in: packages/client/src/protocol/MessageChannel.ts:212
 
 Restore holds after worker restart.
 
@@ -260,7 +260,7 @@ Restoration response
 
 > **sendHeartbeat**(`windowId`): `void`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:183
+Defined in: packages/client/src/protocol/MessageChannel.ts:184
 
 Send a heartbeat.
 
@@ -282,7 +282,7 @@ Window identifier
 
 > **unregister**(`windowId`): `void`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:196
+Defined in: packages/client/src/protocol/MessageChannel.ts:197
 
 Unregister a window.
 

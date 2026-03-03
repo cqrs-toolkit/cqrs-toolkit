@@ -276,28 +276,7 @@ describe('EventCache', () => {
 
       await eventCache.deleteAnticipatedEvents('cmd-1')
 
-      expect(await eventCache.getEvent(id)).toBeNull()
-    })
-  })
-
-  describe('replaceAnticipatedWithConfirmed', () => {
-    it('replaces anticipated events with confirmed', async () => {
-      const anticipatedId = await eventCache.cacheAnticipatedEvent(
-        { type: 'TodoCreated', streamId: 'todo-1', data: { title: 'Test' }, commandId: 'cmd-1' },
-        { cacheKey: 'cache-1', commandId: 'cmd-1' },
-      )
-
-      const confirmedEvent = createPersistedEvent({
-        id: 'event-confirmed',
-        type: 'TodoCreated',
-        streamId: 'todo-1',
-        data: { id: 'todo-1', title: 'Test' },
-      })
-
-      await eventCache.replaceAnticipatedWithConfirmed('cmd-1', [confirmedEvent], 'cache-1')
-
-      expect(await eventCache.getEvent(anticipatedId)).toBeNull()
-      expect(await eventCache.getEvent('event-confirmed')).toBeTruthy()
+      expect(await eventCache.getEvent(id)).toBeUndefined()
     })
   })
 })

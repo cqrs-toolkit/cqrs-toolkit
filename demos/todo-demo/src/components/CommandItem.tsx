@@ -85,14 +85,6 @@ export default function CommandItem(props: CommandItemProps) {
             <DetailRow label="Blocked By" value={cmd().blockedBy.join(', ')} mono />
           </Show>
 
-          <Show when={cmd().anticipatedEventIds.length > 0}>
-            <DetailRow
-              label="Anticipated Events"
-              value={cmd().anticipatedEventIds.join(', ')}
-              mono
-            />
-          </Show>
-
           <div class="flex gap-4 text-neutral-400">
             <span>Created: {new Date(cmd().createdAt).toLocaleString()}</span>
             <span>Updated: {new Date(cmd().updatedAt).toLocaleString()}</span>

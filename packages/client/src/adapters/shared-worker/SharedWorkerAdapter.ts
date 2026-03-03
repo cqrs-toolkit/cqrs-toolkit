@@ -6,6 +6,7 @@
  */
 
 import { logProvider } from '@meticoeus/ddd-es'
+import assert from 'node:assert'
 import { interval, Observable, Subject, Subscription, takeUntil } from 'rxjs'
 import { EventBus } from '../../core/events/EventBus.js'
 import { SessionManager } from '../../core/session/SessionManager.js'
@@ -48,13 +49,13 @@ export class SharedWorkerAdapter {
   private readonly destroy$ = new Subject<void>()
 
   private _status: AdapterStatus = 'uninitialized'
-  private _storage: SharedWorkerStorageProxy | null = null
-  private _sessionManager: SessionManager | null = null
+  private _storage: SharedWorkerStorageProxy | undefined
+  private _sessionManager: SessionManager | undefined
 
-  private worker: SharedWorker | null = null
-  private channel: WorkerMessageChannel | null = null
-  private heartbeatSubscription: Subscription | null = null
-  private currentWorkerInstanceId: string | null = null
+  private worker: SharedWorker | undefined
+  private channel: WorkerMessageChannel | undefined
+  private heartbeatSubscription: Subscription | undefined
+  private currentWorkerInstanceId: string | undefined
 
   /** Cache keys held by this window (for restoration after restart) */
   private readonly localHolds = new Set<string>()
@@ -74,16 +75,12 @@ export class SharedWorkerAdapter {
   }
 
   get sessionManager(): SessionManager {
-    if (!this._sessionManager) {
-      throw new Error('Adapter not initialized')
-    }
+    assert(this._sessionManager, 'Adapter not initialized')
     return this._sessionManager
   }
 
   get storage(): IStorage {
-    if (!this._storage) {
-      throw new Error('Adapter not initialized')
-    }
+    assert(this._storage, 'Adapter not initialized')
     return this._storage
   }
 
@@ -91,9 +88,7 @@ export class SharedWorkerAdapter {
    * Initialize the adapter.
    */
   async initialize(): Promise<void> {
-    if (this._status !== 'uninitialized') {
-      throw new Error(`Cannot initialize adapter in status: ${this._status}`)
-    }
+    assert(this._status === 'uninitialized', `Cannot initialize adapter in status: ${this._status}`)
 
     this._status = 'initializing'
 
@@ -173,20 +168,20 @@ export class SharedWorkerAdapter {
     // Stop heartbeat
     if (this.heartbeatSubscription) {
       this.heartbeatSubscription.unsubscribe()
-      this.heartbeatSubscription = null
+      this.heartbeatSubscription = undefined
     }
 
     // Unregister window
     if (this.channel) {
       this.channel.unregister(this.windowId)
       this.channel.destroy()
-      this.channel = null
+      this.channel = undefined
     }
 
     // Close storage proxy
     if (this._storage) {
       await this._storage.close()
-      this._storage = null
+      this._storage = undefined
     }
 
     // Signal destroy
@@ -199,28 +194,10 @@ export class SharedWorkerAdapter {
     // Close worker connection
     if (this.worker) {
       this.worker.port.close()
-      this.worker = null
+      this.worker = undefined
     }
 
     this._status = 'closed'
-  }
-
-  /**
-   * Track a local hold for restoration after worker restart.
-   *
-   * @param cacheKey - Cache key being held
-   */
-  trackHold(cacheKey: string): void {
-    this.localHolds.add(cacheKey)
-  }
-
-  /**
-   * Remove a local hold tracking.
-   *
-   * @param cacheKey - Cache key being released
-   */
-  untrackHold(cacheKey: string): void {
-    this.localHolds.delete(cacheKey)
   }
 
   private startHeartbeat(): void {

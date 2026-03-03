@@ -6,7 +6,7 @@
 
 # Function: isEnqueueSuccess()
 
-> **isEnqueueSuccess**\<`TEvent`\>(`result`): `result is EnqueueSuccess<TEvent>`
+> **isEnqueueSuccess**\<`TEvent`\>(`result`): `result is OkResult<EnqueueSuccess<TEvent>>`
 
 Defined in: packages/client/src/types/commands.ts:255
 
@@ -26,4 +26,4 @@ Type guard for successful enqueue result.
 
 ## Returns
 
-`result is EnqueueSuccess<TEvent>`
+`result is OkResult<EnqueueSuccess<TEvent>>`

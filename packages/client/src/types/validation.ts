@@ -3,6 +3,15 @@
  * Validation library agnostic - consumers can populate from Zod, AJV, or any validation system.
  */
 
+import {
+  Err,
+  type ErrResult,
+  Ok,
+  type OkResult,
+  type Result,
+  ValidationException,
+} from '@meticoeus/ddd-es'
+
 /**
  * Generic validation error for a single field.
  */
@@ -18,9 +27,9 @@ export interface ValidationError {
 }
 
 /**
- * Validation result type - either success or failure with errors.
+ * Validation result type - either success or failure with validation errors.
  */
-export type ValidationResult = { valid: true } | { valid: false; errors: ValidationError[] }
+export type ValidationResult = Result<void, ValidationException<ValidationError[]>>
 
 /**
  * Helper to create a validation error.
@@ -38,21 +47,21 @@ export function createValidationError(
  * Helper to create a successful validation result.
  */
 export function validationSuccess(): ValidationResult {
-  return { valid: true }
+  return Ok()
 }
 
 /**
  * Helper to create a failed validation result.
  */
 export function validationFailure(errors: ValidationError[]): ValidationResult {
-  return { valid: false, errors }
+  return Err(new ValidationException(undefined, errors))
 }
 
 /**
  * Check if validation result is successful.
  */
-export function isValidationSuccess(result: ValidationResult): result is { valid: true } {
-  return result.valid
+export function isValidationSuccess(result: ValidationResult): result is OkResult<void> {
+  return result.ok
 }
 
 /**
@@ -60,6 +69,6 @@ export function isValidationSuccess(result: ValidationResult): result is { valid
  */
 export function isValidationFailure(
   result: ValidationResult,
-): result is { valid: false; errors: ValidationError[] } {
-  return !result.valid
+): result is ErrResult<ValidationException<ValidationError[]>> {
+  return !result.ok
 }

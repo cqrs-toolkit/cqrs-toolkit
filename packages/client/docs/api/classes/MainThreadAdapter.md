@@ -6,7 +6,7 @@
 
 # Class: MainThreadAdapter
 
-Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:37
+Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:38
 
 Main Thread adapter for single-tab offline support without workers.
 
@@ -21,7 +21,7 @@ This adapter:
 
 > **new MainThreadAdapter**(`config`): `MainThreadAdapter`
 
-Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:51
+Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:52
 
 #### Parameters
 
@@ -39,7 +39,7 @@ Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:51
 
 > `readonly` **eventBus**: [`EventBus`](EventBus.md)
 
-Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:41
+Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:42
 
 ***
 
@@ -47,7 +47,7 @@ Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:41
 
 > `readonly` **mode**: [`ExecutionMode`](../type-aliases/ExecutionMode.md) = `'main-thread'`
 
-Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:38
+Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:39
 
 ## Accessors
 
@@ -57,7 +57,7 @@ Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:38
 
 > **get** **events$**(): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
-Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:61
+Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:62
 
 ##### Returns
 
@@ -71,7 +71,7 @@ Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:61
 
 > **get** **sessionManager**(): [`SessionManager`](SessionManager.md)
 
-Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:65
+Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:66
 
 ##### Returns
 
@@ -85,7 +85,7 @@ Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:65
 
 > **get** **status**(): [`AdapterStatus`](../type-aliases/AdapterStatus.md)
 
-Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:57
+Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:58
 
 ##### Returns
 
@@ -99,7 +99,7 @@ Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:57
 
 > **get** **storage**(): [`IStorage`](../interfaces/IStorage.md)
 
-Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:72
+Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:71
 
 ##### Returns
 
@@ -111,7 +111,7 @@ Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:72
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:128
+Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:123
 
 Close the adapter and release resources.
 
@@ -125,7 +125,7 @@ Close the adapter and release resources.
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:84
+Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:81
 
 Initialize the adapter.
 

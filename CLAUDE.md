@@ -98,9 +98,25 @@ Specific rules:
 - **Do not use `?? fallback` or `?.` on values whose type guarantees they are present.**
   If the type says a field is required, trust it — adding a fallback silently masks bugs by converting what should be a crash into incorrect data.
   If you are unsure whether a value can be undefined, check the type definition; do not add a fallback "just in case".
-- **Use `typeof x !== 'string'` for narrowing guards, not `x === undefined`.**
-  When checking an untyped value extracted from a `Record<string, unknown>` or similar, prefer `typeof x !== 'string'` over `x === undefined`.
-  This both narrows the type and validates the expected shape in a single check.
+- **Narrow by asserting what a value IS, not by checking `!== undefined`.**
+  For primitives use `typeof x === 'string'` (or `'number'`, `'bigint'`, etc.).
+  For class instances use `instanceof`.
+  For objects where the type is already narrowed, use truthiness checks (`if (value)`).
+  This validates both presence and shape in a single check.
+  Avoid `x !== undefined` or `x === undefined` as the primary narrowing mechanism.
+- **Prefer `undefined` over `null`.**
+  Use `undefined` for absent values — optional properties, missing results, unset state.
+  Only use `null` at external boundaries that require it:
+  - **SQL persistence** — `IStorage` record types use `null` for nullable columns. The storage layer (`IStorage`, `SQLiteStorage`, `InMemoryStorage`) and types that mirror SQL rows keep `null`.
+  - **HTTP API contracts** — pagination cursors (`nextCursor: string | null`) and other API response shapes that distinguish `null` from absent. Local variables that directly shuttle values to/from these APIs (e.g., a `cursor` loop variable) stay `string | null`.
+  - **JavaScript built-ins** — `JSON.stringify(x, null, 2)`, `JSON.parse` null checks, etc.
+
+  At each boundary, convert `null` to `undefined` so the rest of the codebase deals only with `undefined`.
+  Consumer-facing types that wrap a nullable storage field (e.g., `ReadModel.serverData`) use `undefined`, with the conversion happening in the read path (e.g., `recordToReadModel`).
+
+- **Prefer `interface` over `type` for object shapes.**
+  Use `interface` for any type that describes an object structure (properties and methods).
+  Reserve `type` for constructs that require it: unions, intersections, mapped types, conditional types, template literal types, and type aliases for primitives or tuples.
 
 ## Error Handling Strategy
 
@@ -109,9 +125,11 @@ Throwing conflates bugs with expected failures, making it impossible for callers
 
 Three error categories, each with a distinct mechanism:
 
-1. **Expected domain failures** — `Result<T, TypedException>` (Rust-style).
+1. **Expected domain failures** — `Result<T, E>` from `@meticoeus/ddd-es`.
    Business rule violations, validation errors, permission denials.
-   Return a typed `Result` with an appropriate domain exception (existing or a new one); never thrown.
+   Return a typed `Result` using `Ok(value)` / `Err(error)` from `@meticoeus/ddd-es`; never thrown.
+   Do not create ad-hoc discriminated unions for success/failure — use the library's `Result<T, E>` type.
+   Custom error types must extend the `Exception` base class from `@meticoeus/ddd-es`.
 
 2. **Code bugs / invariant violations** — `assert` from `node:assert`.
    Conditions that must hold if the code is correct (exhaustive switches, impossible states, missing config).

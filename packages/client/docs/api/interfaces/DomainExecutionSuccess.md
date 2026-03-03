@@ -6,9 +6,9 @@
 
 # Interface: DomainExecutionSuccess\<TEvent\>
 
-Defined in: packages/client/src/types/domain.ts:24
+Defined in: packages/client/src/types/domain.ts:32
 
-Successful domain execution result.
+Successful domain execution payload.
 
 ## Type Parameters
 
@@ -22,17 +22,9 @@ Successful domain execution result.
 
 > **anticipatedEvents**: `TEvent`[]
 
-Defined in: packages/client/src/types/domain.ts:27
+Defined in: packages/client/src/types/domain.ts:34
 
 Events to apply optimistically
-
-***
-
-### ok
-
-> **ok**: `true`
-
-Defined in: packages/client/src/types/domain.ts:25
 
 ***
 
@@ -40,6 +32,6 @@ Defined in: packages/client/src/types/domain.ts:25
 
 > `optional` **postProcessPlan**: [`PostProcessPlan`](PostProcessPlan.md)
 
-Defined in: packages/client/src/types/domain.ts:29
+Defined in: packages/client/src/types/domain.ts:36
 
 Optional post-processing instructions

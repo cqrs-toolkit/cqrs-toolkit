@@ -9,7 +9,7 @@ export default function NotesPage() {
   const client = useClient()
   const [notes, setNotes] = createSignal<Note[]>([])
   const [loading, setLoading] = createSignal(true)
-  const [error, setError] = createSignal<string | null>(null)
+  const [error, setError] = createSignal<string>()
 
   async function fetchNotes(): Promise<void> {
     const result = await client.queryManager.list<Note>('notes')

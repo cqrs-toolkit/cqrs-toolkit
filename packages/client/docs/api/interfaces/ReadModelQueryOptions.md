@@ -6,7 +6,7 @@
 
 # Interface: ReadModelQueryOptions
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:42
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:40
 
 Query options for listing read models.
 
@@ -24,7 +24,7 @@ Query options for listing read models.
 
 > `optional` **cacheKey**: `string`
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:44
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:42
 
 Filter by cache key
 
@@ -46,7 +46,7 @@ Defined in: packages/client/src/storage/IStorage.ts:90
 
 > `optional` **localChangesOnly**: `boolean`
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:46
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:44
 
 Only include models with local changes
 

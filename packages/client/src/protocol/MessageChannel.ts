@@ -5,6 +5,7 @@
  * over Worker postMessage API.
  */
 
+import { logProvider } from '@meticoeus/ddd-es'
 import { Observable, Subject, filter, firstValueFrom, take, timeout } from 'rxjs'
 import { generateId } from '../utils/uuid.js'
 import type {
@@ -56,7 +57,7 @@ export class WorkerMessageChannel {
   private readonly events$ = new Subject<EventMessage>()
   private readonly workerInstance$ = new Subject<string>()
 
-  private messageListener: ((event: MessageEvent) => void) | null = null
+  private messageListener: ((event: MessageEvent) => void) | undefined
 
   constructor(target: MessageTarget, config: MessageChannelConfig = {}) {
     this.target = target
@@ -97,7 +98,7 @@ export class WorkerMessageChannel {
   disconnect(source: EventTarget): void {
     if (this.messageListener) {
       source.removeEventListener('message', this.messageListener as EventListener)
-      this.messageListener = null
+      this.messageListener = undefined
     }
   }
 
@@ -136,9 +137,9 @@ export class WorkerMessageChannel {
     const response = await responsePromise
 
     if (!response.success) {
-      const error = new Error(response.error ?? 'Request failed')
-      ;(error as Error & { code?: string }).code = response.errorCode
-      throw error
+      throw Object.assign(new Error(response.error ?? 'Request failed'), {
+        code: response.errorCode,
+      })
     }
 
     return response.result as T
@@ -365,7 +366,7 @@ export class WorkerMessageHandler {
    * @param event - Message event
    */
   handleMessageEvent(event: MessageEvent): void {
-    this.handleMessage(event.data, null)
+    this.handleMessage(event.data, undefined)
   }
 
   /**
@@ -403,7 +404,9 @@ export class WorkerMessageHandler {
    */
   sendResponse(response: WorkerMessage): void {
     const data = this.config.serializeMessages ? serialize(response) : response
-    // In dedicated worker context, use global postMessage
+    // In dedicated worker context, use global postMessage.
+    // TypeScript compiles this file for browser context where `globalThis` lacks
+    // `postMessage` — the double cast is unavoidable without a separate compilation target.
     ;(globalThis as unknown as { postMessage: (data: unknown) => void }).postMessage(data)
   }
 
@@ -462,7 +465,7 @@ export class WorkerMessageHandler {
     }
   }
 
-  private handleMessage(rawData: unknown, port: MessagePort | null): void {
+  private handleMessage(rawData: unknown, port: MessagePort | undefined): void {
     const data = this.config.serializeMessages
       ? deserialize<WorkerMessage>(rawData)
       : (rawData as WorkerMessage)
@@ -485,7 +488,7 @@ export class WorkerMessageHandler {
     }
   }
 
-  private handleRegister(data: RegisterWindowRequest, port: MessagePort | null): void {
+  private handleRegister(data: RegisterWindowRequest, port: MessagePort | undefined): void {
     this.windowLastSeen.set(data.windowId, Date.now())
     if (port) {
       this.windowPorts.set(data.windowId, port)
@@ -513,15 +516,15 @@ export class WorkerMessageHandler {
     this.removeWindow(data.windowId)
   }
 
-  private handleRestoreHolds(_data: RestoreHoldsRequest, _port: MessagePort | null): void {
+  private handleRestoreHolds(_data: RestoreHoldsRequest, _port: MessagePort | undefined): void {
     // Subclasses should override this to handle hold restoration
     // Default implementation just acknowledges
   }
 
-  private tabLockHolder: string | null = null
+  private tabLockHolder: string | undefined
 
-  private handleTabLock(data: TabLockRequest, port: MessagePort | null): void {
-    const acquired = this.tabLockHolder === null || this.tabLockHolder === data.tabId
+  private handleTabLock(data: TabLockRequest, port: MessagePort | undefined): void {
+    const acquired = !this.tabLockHolder || this.tabLockHolder === data.tabId
 
     if (acquired) {
       this.tabLockHolder = data.tabId
@@ -531,7 +534,7 @@ export class WorkerMessageHandler {
       type: 'tab-lock-response',
       requestId: data.requestId,
       acquired,
-      currentHolder: acquired ? undefined : (this.tabLockHolder ?? undefined),
+      currentHolder: acquired ? undefined : this.tabLockHolder,
     }
 
     if (port) {
@@ -543,47 +546,54 @@ export class WorkerMessageHandler {
 
   private handleTabLockRelease(data: TabLockRelease): void {
     if (this.tabLockHolder === data.tabId) {
-      this.tabLockHolder = null
+      this.tabLockHolder = undefined
     }
   }
 
-  private async handleRequest(data: RequestMessage, port: MessagePort | null): Promise<void> {
-    const handler = this.methodHandlers.get(data.method)
+  private async handleRequest(data: RequestMessage, port: MessagePort | undefined): Promise<void> {
+    try {
+      const handler = this.methodHandlers.get(data.method)
 
-    let response: ResponseMessage
+      let response: ResponseMessage
 
-    if (!handler) {
-      response = {
-        type: 'response',
-        requestId: data.requestId,
-        success: false,
-        error: `Unknown method: ${data.method}`,
-        errorCode: 'UNKNOWN_METHOD',
-      }
-    } else {
-      try {
-        const result = await handler(data.args)
-        response = {
-          type: 'response',
-          requestId: data.requestId,
-          success: true,
-          result,
-        }
-      } catch (err) {
+      if (!handler) {
         response = {
           type: 'response',
           requestId: data.requestId,
           success: false,
-          error: err instanceof Error ? err.message : String(err),
-          errorCode: (err as Error & { code?: string }).code,
+          error: `Unknown method: ${data.method}`,
+          errorCode: 'UNKNOWN_METHOD',
+        }
+      } else {
+        try {
+          const result = await handler(data.args)
+          response = {
+            type: 'response',
+            requestId: data.requestId,
+            success: true,
+            result,
+          }
+        } catch (err) {
+          response = {
+            type: 'response',
+            requestId: data.requestId,
+            success: false,
+            error: err instanceof Error ? err.message : String(err),
+            errorCode: getErrorCode(err),
+          }
         }
       }
-    }
 
-    if (port) {
-      this.sendToPort(port, response)
-    } else {
-      this.sendResponse(response)
+      if (port) {
+        this.sendToPort(port, response)
+      } else {
+        this.sendResponse(response)
+      }
+    } catch (err) {
+      logProvider.log.error(
+        { err, method: data.method, requestId: data.requestId },
+        'Failed to handle worker request',
+      )
     }
   }
 
@@ -591,4 +601,10 @@ export class WorkerMessageHandler {
     const data = this.config.serializeMessages ? serialize(message) : message
     port.postMessage(data)
   }
+}
+
+function getErrorCode(err: unknown): string | undefined {
+  if (!(err instanceof Error) || !('code' in err)) return undefined
+  const code: unknown = err.code
+  return typeof code === 'string' ? code : undefined
 }

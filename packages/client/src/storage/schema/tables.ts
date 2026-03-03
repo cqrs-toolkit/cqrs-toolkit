@@ -46,7 +46,6 @@ CREATE TABLE IF NOT EXISTS commands (
   blocked_by TEXT NOT NULL DEFAULT '[]',
   attempts INTEGER NOT NULL DEFAULT 0,
   last_attempt_at INTEGER,
-  anticipated_event_ids TEXT NOT NULL DEFAULT '[]',
   error TEXT,
   server_response TEXT,
   created_at INTEGER NOT NULL,

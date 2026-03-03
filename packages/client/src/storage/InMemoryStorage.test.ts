@@ -32,7 +32,7 @@ describe('InMemoryStorage', () => {
 
       await storage.clear()
 
-      expect(await storage.getSession()).toBeNull()
+      expect(await storage.getSession()).toBeUndefined()
     })
   })
 
@@ -45,8 +45,8 @@ describe('InMemoryStorage', () => {
       expect(retrieved).toEqual(session)
     })
 
-    it('returns null when no session exists', async () => {
-      expect(await storage.getSession()).toBeNull()
+    it('returns undefined when no session exists', async () => {
+      expect(await storage.getSession()).toBeUndefined()
     })
 
     it('deletes session and all associated data', async () => {
@@ -65,7 +65,7 @@ describe('InMemoryStorage', () => {
 
       await storage.deleteSession()
 
-      expect(await storage.getSession()).toBeNull()
+      expect(await storage.getSession()).toBeUndefined()
       expect(await storage.getAllCacheKeys()).toHaveLength(0)
     })
 
@@ -99,8 +99,8 @@ describe('InMemoryStorage', () => {
       expect(retrieved).toEqual(baseCacheKey)
     })
 
-    it('returns null for non-existent cache key', async () => {
-      expect(await storage.getCacheKey('non-existent')).toBeNull()
+    it('returns undefined for non-existent cache key', async () => {
+      expect(await storage.getCacheKey('non-existent')).toBeUndefined()
     })
 
     it('lists all cache keys', async () => {
@@ -163,7 +163,7 @@ describe('InMemoryStorage', () => {
 
       await storage.deleteCacheKey('cache-1')
 
-      expect(await storage.getCacheKey('cache-1')).toBeNull()
+      expect(await storage.getCacheKey('cache-1')).toBeUndefined()
       expect(await storage.getCachedEventsByCacheKey('cache-1')).toHaveLength(0)
     })
 
@@ -206,7 +206,6 @@ describe('InMemoryStorage', () => {
       dependsOn: [],
       blockedBy: [],
       attempts: 0,
-      anticipatedEventIds: [],
       createdAt: 1000,
       updatedAt: 1000,
     }
@@ -218,8 +217,8 @@ describe('InMemoryStorage', () => {
       expect(retrieved).toEqual(baseCommand)
     })
 
-    it('returns null for non-existent command', async () => {
-      expect(await storage.getCommand('non-existent')).toBeNull()
+    it('returns undefined for non-existent command', async () => {
+      expect(await storage.getCommand('non-existent')).toBeUndefined()
     })
 
     it('updates command', async () => {
@@ -282,7 +281,7 @@ describe('InMemoryStorage', () => {
 
       await storage.deleteCommand('cmd-1')
 
-      expect(await storage.getCommand('cmd-1')).toBeNull()
+      expect(await storage.getCommand('cmd-1')).toBeUndefined()
       expect(await storage.getAnticipatedEventsByCommand('cmd-1')).toHaveLength(0)
     })
 
@@ -395,8 +394,8 @@ describe('InMemoryStorage', () => {
       expect(retrieved).toEqual(baseReadModel)
     })
 
-    it('returns null for non-existent read model', async () => {
-      expect(await storage.getReadModel('todos', 'non-existent')).toBeNull()
+    it('returns undefined for non-existent read model', async () => {
+      expect(await storage.getReadModel('todos', 'non-existent')).toBeUndefined()
     })
 
     it('saves multiple read models in batch', async () => {
@@ -437,7 +436,7 @@ describe('InMemoryStorage', () => {
       await storage.saveReadModel(baseReadModel)
       await storage.deleteReadModel('todos', 'entity-1')
 
-      expect(await storage.getReadModel('todos', 'entity-1')).toBeNull()
+      expect(await storage.getReadModel('todos', 'entity-1')).toBeUndefined()
     })
 
     it('deletes read models by cache key', async () => {
@@ -446,7 +445,7 @@ describe('InMemoryStorage', () => {
 
       await storage.deleteReadModelsByCacheKey('cache-1')
 
-      expect(await storage.getReadModel('todos', 'entity-1')).toBeNull()
+      expect(await storage.getReadModel('todos', 'entity-1')).toBeUndefined()
       expect(await storage.getReadModel('todos', 'entity-2')).toBeTruthy()
     })
 
@@ -456,7 +455,7 @@ describe('InMemoryStorage', () => {
 
       await storage.deleteReadModelsByCollection('todos')
 
-      expect(await storage.getReadModel('todos', 'entity-1')).toBeNull()
+      expect(await storage.getReadModel('todos', 'entity-1')).toBeUndefined()
       expect(await storage.getReadModel('users', 'entity-2')).toBeTruthy()
     })
   })

@@ -6,9 +6,9 @@
 
 # Interface: EnqueueSuccess\<TEvent\>
 
-Defined in: packages/client/src/types/commands.ts:113
+Defined in: packages/client/src/types/commands.ts:118
 
-Successful enqueue result.
+Successful enqueue payload.
 
 ## Type Parameters
 
@@ -22,7 +22,7 @@ Successful enqueue result.
 
 > **anticipatedEvents**: `TEvent`[]
 
-Defined in: packages/client/src/types/commands.ts:118
+Defined in: packages/client/src/types/commands.ts:122
 
 Anticipated events produced
 
@@ -32,14 +32,6 @@ Anticipated events produced
 
 > **commandId**: `string`
 
-Defined in: packages/client/src/types/commands.ts:116
+Defined in: packages/client/src/types/commands.ts:120
 
 Assigned command ID
-
-***
-
-### ok
-
-> **ok**: `true`
-
-Defined in: packages/client/src/types/commands.ts:114

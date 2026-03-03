@@ -6,7 +6,7 @@
 
 # Interface: ReadModel\<T\>
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:24
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:22
 
 Read model with metadata.
 
@@ -22,7 +22,7 @@ Read model with metadata.
 
 > **collection**: `string`
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:28
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:26
 
 Collection name
 
@@ -32,7 +32,7 @@ Collection name
 
 > **data**: `T`
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:30
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:28
 
 Effective data (server + local changes)
 
@@ -42,7 +42,7 @@ Effective data (server + local changes)
 
 > **hasLocalChanges**: `boolean`
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:32
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:30
 
 Whether there are uncommitted local changes
 
@@ -52,19 +52,19 @@ Whether there are uncommitted local changes
 
 > **id**: `string`
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:26
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:24
 
 Entity ID
 
 ***
 
-### serverData
+### serverData?
 
-> **serverData**: `T` \| `null`
+> `optional` **serverData**: `T`
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:34
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:32
 
-Server baseline data (null if only local)
+Server baseline data (undefined if only local)
 
 ***
 
@@ -72,6 +72,6 @@ Server baseline data (null if only local)
 
 > **updatedAt**: `number`
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:36
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:34
 
 Last update timestamp

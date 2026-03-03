@@ -162,7 +162,7 @@ Combined enqueue and completion result
 
 ### getCommand()
 
-> **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`unknown`, `unknown`\> \| `null`\>
+> **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`unknown`, `unknown`\> \| `undefined`\>
 
 Defined in: packages/client/src/core/command-queue/types.ts:85
 
@@ -178,9 +178,9 @@ Command ID
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](CommandRecord.md)\<`unknown`, `unknown`\> \| `null`\>
+`Promise`\<[`CommandRecord`](CommandRecord.md)\<`unknown`, `unknown`\> \| `undefined`\>
 
-Command record or null
+Command record or undefined
 
 ***
 

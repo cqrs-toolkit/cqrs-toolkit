@@ -6,7 +6,7 @@
 
 # Interface: QueryManagerQueryOptions
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:33
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:26
 
 Query options.
 
@@ -20,7 +20,7 @@ Query options.
 
 > `optional` **cacheKey**: `string`
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:44
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:42
 
 Filter by cache key
 
@@ -34,7 +34,7 @@ Filter by cache key
 
 > `optional` **hold**: `boolean`
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:35
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:28
 
 Place a hold on the cache key while query is active
 
@@ -56,7 +56,7 @@ Defined in: packages/client/src/storage/IStorage.ts:90
 
 > `optional` **localChangesOnly**: `boolean`
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:46
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:44
 
 Only include models with local changes
 
@@ -106,6 +106,6 @@ Defined in: packages/client/src/storage/IStorage.ts:93
 
 > `optional` **scope**: `string`
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:37
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:30
 
 Custom scope for the cache key

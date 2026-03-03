@@ -339,7 +339,7 @@ Get anticipated events for a command.
 
 ### getCachedEvent()
 
-> **getCachedEvent**(`id`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md) \| `null`\>
+> **getCachedEvent**(`id`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md) \| `undefined`\>
 
 Defined in: packages/client/src/storage/InMemoryStorage.ts:208
 
@@ -353,7 +353,7 @@ Get a cached event by ID.
 
 #### Returns
 
-`Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md) \| `null`\>
+`Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md) \| `undefined`\>
 
 #### Implementation of
 
@@ -411,7 +411,7 @@ Get cached events for a stream.
 
 ### getCacheKey()
 
-> **getCacheKey**(`key`): `Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md) \| `null`\>
+> **getCacheKey**(`key`): `Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md) \| `undefined`\>
 
 Defined in: packages/client/src/storage/InMemoryStorage.ts:74
 
@@ -425,7 +425,7 @@ Get a cache key record.
 
 #### Returns
 
-`Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md) \| `null`\>
+`Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md) \| `undefined`\>
 
 #### Implementation of
 
@@ -435,7 +435,7 @@ Get a cache key record.
 
 ### getCommand()
 
-> **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\> \| `null`\>
+> **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\> \| `undefined`\>
 
 Defined in: packages/client/src/storage/InMemoryStorage.ts:131
 
@@ -449,7 +449,7 @@ Get a command by ID.
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\> \| `null`\>
+`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\> \| `undefined`\>
 
 #### Implementation of
 
@@ -555,7 +555,7 @@ Get cache keys eligible for eviction (holdCount = 0, not frozen).
 
 ### getReadModel()
 
-> **getReadModel**(`collection`, `id`): `Promise`\<[`ReadModelRecord`](../interfaces/ReadModelRecord.md) \| `null`\>
+> **getReadModel**(`collection`, `id`): `Promise`\<[`ReadModelRecord`](../interfaces/ReadModelRecord.md) \| `undefined`\>
 
 Defined in: packages/client/src/storage/InMemoryStorage.ts:270
 
@@ -573,7 +573,7 @@ Get a read model record.
 
 #### Returns
 
-`Promise`\<[`ReadModelRecord`](../interfaces/ReadModelRecord.md) \| `null`\>
+`Promise`\<[`ReadModelRecord`](../interfaces/ReadModelRecord.md) \| `undefined`\>
 
 #### Implementation of
 
@@ -635,7 +635,7 @@ Get all read model records for a collection.
 
 ### getSession()
 
-> **getSession**(): `Promise`\<[`SessionRecord`](../interfaces/SessionRecord.md) \| `null`\>
+> **getSession**(): `Promise`\<[`SessionRecord`](../interfaces/SessionRecord.md) \| `undefined`\>
 
 Defined in: packages/client/src/storage/InMemoryStorage.ts:49
 
@@ -643,7 +643,7 @@ Get the current session, if any.
 
 #### Returns
 
-`Promise`\<[`SessionRecord`](../interfaces/SessionRecord.md) \| `null`\>
+`Promise`\<[`SessionRecord`](../interfaces/SessionRecord.md) \| `undefined`\>
 
 #### Implementation of
 

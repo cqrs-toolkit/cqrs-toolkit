@@ -34,7 +34,7 @@ export interface ProcessorResult<T = unknown> {
 export type EventProcessor<TEvent = unknown, TModel = unknown> = (
   event: TEvent,
   context: ProcessorContext,
-) => ProcessorResult<TModel>[] | ProcessorResult<TModel> | null
+) => ProcessorResult<TModel>[] | ProcessorResult<TModel> | undefined
 
 /**
  * Context passed to event processors.
@@ -47,7 +47,7 @@ export interface ProcessorContext {
   /** Stream revision of the event (string for JSON read model compatibility). Undefined for anticipated/stateful events. */
   revision?: string
   /** Get current read model state (may not exist) */
-  getCurrentState: <T>(collection: string, id: string) => Promise<T | null>
+  getCurrentState: <T>(collection: string, id: string) => Promise<T | undefined>
 }
 
 /**
@@ -64,7 +64,7 @@ export interface ProcessorRegistration<TEvent = unknown, TModel = unknown> {
   processor(
     event: TEvent,
     context: ProcessorContext,
-  ): ProcessorResult<TModel>[] | ProcessorResult<TModel> | null
+  ): ProcessorResult<TModel>[] | ProcessorResult<TModel> | undefined
   /** Optional: Only process certain persistence types */
   persistenceTypes?: EventPersistence[]
 }

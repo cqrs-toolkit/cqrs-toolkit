@@ -24,7 +24,7 @@ For anticipated events, the command ID
 
 ### getCurrentState()
 
-> **getCurrentState**: \<`T`\>(`collection`, `id`) => `Promise`\<`T` \| `null`\>
+> **getCurrentState**: \<`T`\>(`collection`, `id`) => `Promise`\<`T` \| `undefined`\>
 
 Defined in: packages/client/src/core/event-processor/types.ts:50
 
@@ -48,7 +48,7 @@ Get current read model state (may not exist)
 
 #### Returns
 
-`Promise`\<`T` \| `null`\>
+`Promise`\<`T` \| `undefined`\>
 
 ***
 

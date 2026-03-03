@@ -20,17 +20,17 @@ Defined in: packages/client/src/core/sync-manager/SyncManager.ts:45
 
 ***
 
-### error
+### error?
 
-> **error**: `string` \| `null`
+> `optional` **error**: `string`
 
 Defined in: packages/client/src/core/sync-manager/SyncManager.ts:49
 
 ***
 
-### lastSyncedPosition
+### lastSyncedPosition?
 
-> **lastSyncedPosition**: `bigint` \| `null`
+> `optional` **lastSyncedPosition**: `bigint`
 
 Defined in: packages/client/src/core/sync-manager/SyncManager.ts:47
 

@@ -18,7 +18,7 @@ import type {
  * Thread-safe within a single JavaScript context.
  */
 export class InMemoryStorage implements IStorage {
-  private session: SessionRecord | null = null
+  private session?: SessionRecord
   private cacheKeys: Map<string, CacheKeyRecord> = new Map()
   private commands: Map<string, CommandRecord> = new Map()
   private cachedEvents: Map<string, CachedEventRecord> = new Map()
@@ -37,7 +37,7 @@ export class InMemoryStorage implements IStorage {
   }
 
   async clear(): Promise<void> {
-    this.session = null
+    this.session = undefined
     this.cacheKeys.clear()
     this.commands.clear()
     this.cachedEvents.clear()
@@ -46,7 +46,7 @@ export class InMemoryStorage implements IStorage {
 
   // Session operations
 
-  async getSession(): Promise<SessionRecord | null> {
+  async getSession(): Promise<SessionRecord | undefined> {
     return this.session
   }
 
@@ -55,7 +55,7 @@ export class InMemoryStorage implements IStorage {
   }
 
   async deleteSession(): Promise<void> {
-    this.session = null
+    this.session = undefined
     // Clear all associated data
     this.cacheKeys.clear()
     this.commands.clear()
@@ -71,8 +71,8 @@ export class InMemoryStorage implements IStorage {
 
   // Cache key operations
 
-  async getCacheKey(key: string): Promise<CacheKeyRecord | null> {
-    return this.cacheKeys.get(key) ?? null
+  async getCacheKey(key: string): Promise<CacheKeyRecord | undefined> {
+    return this.cacheKeys.get(key)
   }
 
   async getAllCacheKeys(): Promise<CacheKeyRecord[]> {
@@ -128,8 +128,8 @@ export class InMemoryStorage implements IStorage {
 
   // Command operations
 
-  async getCommand(commandId: string): Promise<CommandRecord | null> {
-    return this.commands.get(commandId) ?? null
+  async getCommand(commandId: string): Promise<CommandRecord | undefined> {
+    return this.commands.get(commandId)
   }
 
   async getCommands(filter?: CommandFilter): Promise<CommandRecord[]> {
@@ -205,8 +205,8 @@ export class InMemoryStorage implements IStorage {
 
   // Event cache operations
 
-  async getCachedEvent(id: string): Promise<CachedEventRecord | null> {
-    return this.cachedEvents.get(id) ?? null
+  async getCachedEvent(id: string): Promise<CachedEventRecord | undefined> {
+    return this.cachedEvents.get(id)
   }
 
   async getCachedEventsByCacheKey(cacheKey: string): Promise<CachedEventRecord[]> {
@@ -267,8 +267,8 @@ export class InMemoryStorage implements IStorage {
     return `${collection}:${id}`
   }
 
-  async getReadModel(collection: string, id: string): Promise<ReadModelRecord | null> {
-    return this.readModels.get(this.getReadModelKey(collection, id)) ?? null
+  async getReadModel(collection: string, id: string): Promise<ReadModelRecord | undefined> {
+    return this.readModels.get(this.getReadModelKey(collection, id))
   }
 
   async getReadModelsByCollection(

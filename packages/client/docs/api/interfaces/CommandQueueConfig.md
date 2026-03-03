@@ -6,7 +6,7 @@
 
 # Interface: CommandQueueConfig
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:45
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:46
 
 Command queue configuration.
 
@@ -16,7 +16,7 @@ Command queue configuration.
 
 > `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:49
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:50
 
 ***
 
@@ -24,7 +24,7 @@ Defined in: packages/client/src/core/command-queue/CommandQueue.ts:49
 
 > `optional` **defaultService**: `string`
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:51
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:52
 
 ***
 
@@ -32,7 +32,7 @@ Defined in: packages/client/src/core/command-queue/CommandQueue.ts:51
 
 > `optional` **domainExecutor**: [`IDomainExecutor`](IDomainExecutor.md)\<`unknown`, `unknown`\>
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:48
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:49
 
 ***
 
@@ -40,7 +40,7 @@ Defined in: packages/client/src/core/command-queue/CommandQueue.ts:48
 
 > **eventBus**: [`EventBus`](../classes/EventBus.md)
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:47
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:48
 
 ***
 
@@ -48,7 +48,7 @@ Defined in: packages/client/src/core/command-queue/CommandQueue.ts:47
 
 > `optional` **onCommandResponse**: (`command`, `response`) => `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:52
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:53
 
 #### Parameters
 
@@ -70,7 +70,7 @@ Defined in: packages/client/src/core/command-queue/CommandQueue.ts:52
 
 > `optional` **retainTerminal**: `boolean`
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:54
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:55
 
 When true, terminal commands are retained in storage instead of being cleaned up.
 
@@ -80,7 +80,7 @@ When true, terminal commands are retained in storage instead of being cleaned up
 
 > `optional` **retryConfig**: [`RetryConfig`](RetryConfig.md)
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:50
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:51
 
 ***
 
@@ -88,4 +88,4 @@ Defined in: packages/client/src/core/command-queue/CommandQueue.ts:50
 
 > **storage**: [`IStorage`](IStorage.md)
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:46
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:47

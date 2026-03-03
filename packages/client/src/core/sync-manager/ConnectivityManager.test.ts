@@ -25,7 +25,7 @@ describe('ConnectivityManager', () => {
       const state = connectivity.getState()
       expect(state.online).toBe(true) // jsdom default
       expect(state.apiReachable).toBe(false)
-      expect(state.lastContact).toBeNull()
+      expect(state.lastContact).toBeUndefined()
     })
 
     it('reports not online initially (api not reachable)', () => {

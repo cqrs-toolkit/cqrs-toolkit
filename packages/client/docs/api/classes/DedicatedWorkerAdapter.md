@@ -6,7 +6,7 @@
 
 # Class: DedicatedWorkerAdapter
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:47
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:48
 
 Dedicated Worker adapter for single-tab offline support.
 
@@ -21,7 +21,7 @@ This adapter:
 
 > **new DedicatedWorkerAdapter**(`config`): `DedicatedWorkerAdapter`
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:62
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:63
 
 #### Parameters
 
@@ -39,7 +39,7 @@ Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter
 
 > `readonly` **eventBus**: [`EventBus`](EventBus.md)
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:51
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:52
 
 ***
 
@@ -47,7 +47,7 @@ Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter
 
 > `readonly` **mode**: [`ExecutionMode`](../type-aliases/ExecutionMode.md) = `'dedicated-worker'`
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:48
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:49
 
 ## Accessors
 
@@ -57,7 +57,7 @@ Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter
 
 > **get** **events$**(): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:72
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:73
 
 ##### Returns
 
@@ -71,7 +71,7 @@ Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter
 
 > **get** **sessionManager**(): [`SessionManager`](SessionManager.md)
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:76
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:77
 
 ##### Returns
 
@@ -85,7 +85,7 @@ Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter
 
 > **get** **status**(): [`AdapterStatus`](../type-aliases/AdapterStatus.md)
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:68
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:69
 
 ##### Returns
 
@@ -99,7 +99,7 @@ Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter
 
 > **get** **storage**(): [`IStorage`](../interfaces/IStorage.md)
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:83
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:82
 
 ##### Returns
 
@@ -111,7 +111,7 @@ Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:171
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:166
 
 Close the adapter and release resources.
 
@@ -125,7 +125,7 @@ Close the adapter and release resources.
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:95
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:92
 
 Initialize the adapter.
 

@@ -192,7 +192,7 @@ describe('SessionManager', () => {
 
       await sessionManager.signalLoggedOut()
 
-      expect(await storage.getSession()).toBeNull()
+      expect(await storage.getSession()).toBeUndefined()
     })
   })
 
@@ -224,10 +224,10 @@ describe('SessionManager', () => {
   })
 
   describe('getUserId', () => {
-    it('returns null when no session', async () => {
+    it('returns undefined when no session', async () => {
       await sessionManager.initialize()
 
-      expect(sessionManager.getUserId()).toBeNull()
+      expect(sessionManager.getUserId()).toBeUndefined()
     })
 
     it('returns userId for cached session', async () => {

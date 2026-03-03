@@ -44,9 +44,9 @@ export interface SyncManagerConfig {
 export interface CollectionSyncStatus {
   collection: string
   seeded: boolean
-  lastSyncedPosition: bigint | null
+  lastSyncedPosition?: bigint
   syncing: boolean
-  error: string | null
+  error?: string
 }
 
 /**
@@ -68,7 +68,7 @@ export class SyncManager {
 
   private readonly collectionStatus = new Map<string, CollectionSyncStatus>()
   private readonly repairing = new Set<string>()
-  private wsConnection: WebSocket | null = null
+  private wsConnection: WebSocket | undefined
   private subscriptions: Subscription[] = []
 
   constructor(config: SyncManagerConfig) {
@@ -93,9 +93,7 @@ export class SyncManager {
       this.collectionStatus.set(collection.name, {
         collection: collection.name,
         seeded: false,
-        lastSyncedPosition: null,
         syncing: false,
-        error: null,
       })
     }
   }
@@ -163,8 +161,8 @@ export class SyncManager {
   /**
    * Get sync status for a collection.
    */
-  getCollectionStatus(collection: string): CollectionSyncStatus | null {
-    return this.collectionStatus.get(collection) ?? null
+  getCollectionStatus(collection: string): CollectionSyncStatus | undefined {
+    return this.collectionStatus.get(collection)
   }
 
   /**
@@ -241,7 +239,7 @@ export class SyncManager {
     const status = this.collectionStatus.get(collection.name)
     if (!status || status.syncing) return
 
-    this.updateCollectionStatus(collection.name, { syncing: true, error: null })
+    this.updateCollectionStatus(collection.name, { syncing: true, error: undefined })
     this.eventBus.emit('sync:started', { collection: collection.name })
 
     try {
@@ -408,7 +406,7 @@ export class SyncManager {
 
       this.wsConnection.onclose = () => {
         logProvider.log.debug('WebSocket disconnected')
-        this.wsConnection = null
+        this.wsConnection = undefined
         // Reconnect if still online
         if (this.connectivity.isOnline()) {
           setTimeout(() => this.connectWebSocket(), 5000)
@@ -446,7 +444,7 @@ export class SyncManager {
   private disconnectWebSocket(): void {
     if (this.wsConnection) {
       this.wsConnection.close()
-      this.wsConnection = null
+      this.wsConnection = undefined
     }
   }
 

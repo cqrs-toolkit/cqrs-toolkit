@@ -74,11 +74,11 @@ export class SessionManager {
   /**
    * Get the current user ID, if any.
    */
-  getUserId(): string | null {
+  getUserId(): string | undefined {
     if (this.sessionState.status === 'cached' || this.sessionState.status === 'active') {
       return this.sessionState.session.userId
     }
-    return null
+    return undefined
   }
 
   /**

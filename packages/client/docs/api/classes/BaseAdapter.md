@@ -40,7 +40,7 @@ Defined in: packages/client/src/adapters/base/BaseAdapter.ts:74
 
 ### \_sessionManager
 
-> `protected` **\_sessionManager**: [`SessionManager`](SessionManager.md) \| `null` = `null`
+> `protected` **\_sessionManager**: [`SessionManager`](SessionManager.md) \| `undefined`
 
 Defined in: packages/client/src/adapters/base/BaseAdapter.ts:71
 
@@ -56,7 +56,7 @@ Defined in: packages/client/src/adapters/base/BaseAdapter.ts:72
 
 ### \_storage
 
-> `protected` **\_storage**: [`IStorage`](../interfaces/IStorage.md) \| `null` = `null`
+> `protected` **\_storage**: [`IStorage`](../interfaces/IStorage.md) \| `undefined`
 
 Defined in: packages/client/src/adapters/base/BaseAdapter.ts:70
 

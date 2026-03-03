@@ -8,7 +8,7 @@
 
 > **createSendingCommand**\<`TPayload`\>(`overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TPayload`\>
 
-Defined in: packages/client/src/testing/factories/command.ts:46
+Defined in: packages/client/src/testing/factories/command.ts:45
 
 Create a sending command.
 

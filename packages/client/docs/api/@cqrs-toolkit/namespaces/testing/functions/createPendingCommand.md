@@ -8,7 +8,7 @@
 
 > **createPendingCommand**\<`TPayload`\>(`overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TPayload`\>
 
-Defined in: packages/client/src/testing/factories/command.ts:37
+Defined in: packages/client/src/testing/factories/command.ts:36
 
 Create a pending command.
 

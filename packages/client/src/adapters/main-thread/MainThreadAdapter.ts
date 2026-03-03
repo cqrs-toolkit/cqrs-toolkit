@@ -6,6 +6,7 @@
  * Only one tab may be open at a time (enforced via Web Locks API or BroadcastChannel).
  */
 
+import assert from 'node:assert'
 import { Observable } from 'rxjs'
 import { EventBus } from '../../core/events/EventBus.js'
 import { SessionManager } from '../../core/session/SessionManager.js'
@@ -42,11 +43,11 @@ export class MainThreadAdapter {
   private readonly tabId: string
 
   private _status: AdapterStatus = 'uninitialized'
-  private _storage: IStorage | null = null
-  private _sessionManager: SessionManager | null = null
+  private _storage: IStorage | undefined
+  private _sessionManager: SessionManager | undefined
 
-  private lockController: AbortController | null = null
-  private broadcastChannel: BroadcastChannel | null = null
+  private lockController: AbortController | undefined
+  private broadcastChannel: BroadcastChannel | undefined
 
   constructor(config: ResolvedConfig) {
     this.config = config
@@ -63,16 +64,12 @@ export class MainThreadAdapter {
   }
 
   get sessionManager(): SessionManager {
-    if (!this._sessionManager) {
-      throw new Error('Adapter not initialized')
-    }
+    assert(this._sessionManager, 'Adapter not initialized')
     return this._sessionManager
   }
 
   get storage(): IStorage {
-    if (!this._storage) {
-      throw new Error('Adapter not initialized')
-    }
+    assert(this._storage, 'Adapter not initialized')
     return this._storage
   }
 
@@ -82,9 +79,7 @@ export class MainThreadAdapter {
    * @throws TabLockError if another tab already has the lock
    */
   async initialize(): Promise<void> {
-    if (this._status !== 'uninitialized') {
-      throw new Error(`Cannot initialize adapter in status: ${this._status}`)
-    }
+    assert(this._status === 'uninitialized', `Cannot initialize adapter in status: ${this._status}`)
 
     this._status = 'initializing'
 
@@ -136,7 +131,7 @@ export class MainThreadAdapter {
     // Close storage
     if (this._storage) {
       await this._storage.close()
-      this._storage = null
+      this._storage = undefined
     }
 
     // Complete event bus
@@ -235,12 +230,12 @@ export class MainThreadAdapter {
   private releaseTabLock(): void {
     if (this.lockController) {
       this.lockController.abort()
-      this.lockController = null
+      this.lockController = undefined
     }
 
     if (this.broadcastChannel) {
       this.broadcastChannel.close()
-      this.broadcastChannel = null
+      this.broadcastChannel = undefined
     }
   }
 

@@ -6,9 +6,9 @@
 
 # Function: isValidationFailure()
 
-> **isValidationFailure**(`result`): `result is { errors: ValidationError[]; valid: false }`
+> **isValidationFailure**(`result`): `result is ErrResult<ValidationException<ValidationError[]>>`
 
-Defined in: packages/client/src/types/validation.ts:61
+Defined in: packages/client/src/types/validation.ts:70
 
 Check if validation result is a failure.
 
@@ -20,4 +20,4 @@ Check if validation result is a failure.
 
 ## Returns
 
-`result is { errors: ValidationError[]; valid: false }`
+`result is ErrResult<ValidationException<ValidationError[]>>`

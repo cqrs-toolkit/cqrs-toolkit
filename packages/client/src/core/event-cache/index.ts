@@ -4,5 +4,5 @@
 
 export { EventCache } from './EventCache.js'
 export type { CacheEventOptions, EventCacheConfig } from './EventCache.js'
-export { GapBuffer, detectGaps } from './GapDetector.js'
-export type { EventGap, GapDetectionResult } from './GapDetector.js'
+export { GapBuffer } from './GapDetector.js'
+export type { EventGap } from './GapDetector.js'

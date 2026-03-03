@@ -176,7 +176,7 @@ Cache key identifier
 
 ### get()
 
-> **get**(`key`): `Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md) \| `null`\>
+> **get**(`key`): `Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md) \| `undefined`\>
 
 Defined in: packages/client/src/core/cache-manager/CacheManager.ts:124
 
@@ -192,9 +192,9 @@ Cache key identifier
 
 #### Returns
 
-`Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md) \| `null`\>
+`Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md) \| `undefined`\>
 
-Cache key record or null
+Cache key record or undefined
 
 ***
 

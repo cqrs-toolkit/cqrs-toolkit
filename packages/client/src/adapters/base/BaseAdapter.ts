@@ -67,8 +67,8 @@ export abstract class BaseAdapter implements IAdapter {
 
   protected readonly config: ResolvedConfig
   readonly eventBus: EventBus
-  protected _storage: IStorage | null = null
-  protected _sessionManager: SessionManager | null = null
+  protected _storage: IStorage | undefined
+  protected _sessionManager: SessionManager | undefined
   protected _status: AdapterStatus = 'uninitialized'
 
   constructor(config: ResolvedConfig) {

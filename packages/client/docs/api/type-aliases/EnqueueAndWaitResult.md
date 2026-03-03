@@ -6,9 +6,9 @@
 
 # Type Alias: EnqueueAndWaitResult\<TResponse\>
 
-> **EnqueueAndWaitResult**\<`TResponse`\> = [`EnqueueAndWaitSuccess`](../interfaces/EnqueueAndWaitSuccess.md)\<`TResponse`\> \| [`EnqueueAndWaitFailure`](../interfaces/EnqueueAndWaitFailure.md)
+> **EnqueueAndWaitResult**\<`TResponse`\> = `Result`\<[`EnqueueAndWaitSuccess`](../interfaces/EnqueueAndWaitSuccess.md)\<`TResponse`\>, [`EnqueueAndWaitException`](../classes/EnqueueAndWaitException.md)\>
 
-Defined in: packages/client/src/types/commands.ts:201
+Defined in: packages/client/src/types/commands.ts:200
 
 Result of enqueueAndWait operation.
 

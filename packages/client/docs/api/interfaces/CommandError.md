@@ -6,7 +6,7 @@
 
 # Interface: CommandError
 
-Defined in: packages/client/src/types/commands.ts:26
+Defined in: packages/client/src/types/commands.ts:33
 
 Command error - can originate from local validation or server.
 
@@ -16,7 +16,7 @@ Command error - can originate from local validation or server.
 
 > `optional` **code**: `string`
 
-Defined in: packages/client/src/types/commands.ts:32
+Defined in: packages/client/src/types/commands.ts:39
 
 Machine-readable code
 
@@ -26,7 +26,7 @@ Machine-readable code
 
 > `optional` **details**: `unknown`
 
-Defined in: packages/client/src/types/commands.ts:36
+Defined in: packages/client/src/types/commands.ts:43
 
 Raw server error details
 
@@ -36,7 +36,7 @@ Raw server error details
 
 > **message**: `string`
 
-Defined in: packages/client/src/types/commands.ts:30
+Defined in: packages/client/src/types/commands.ts:37
 
 Human-readable message
 
@@ -46,7 +46,7 @@ Human-readable message
 
 > **source**: [`CommandErrorSource`](../type-aliases/CommandErrorSource.md)
 
-Defined in: packages/client/src/types/commands.ts:28
+Defined in: packages/client/src/types/commands.ts:35
 
 Error source
 
@@ -56,6 +56,6 @@ Error source
 
 > `optional` **validationErrors**: [`ValidationError`](ValidationError.md)[]
 
-Defined in: packages/client/src/types/commands.ts:34
+Defined in: packages/client/src/types/commands.ts:41
 
 Field-level validation errors (for form display)

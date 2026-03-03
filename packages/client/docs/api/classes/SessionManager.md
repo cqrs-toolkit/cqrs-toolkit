@@ -61,7 +61,7 @@ Get the current session state.
 
 ### getUserId()
 
-> **getUserId**(): `string` \| `null`
+> **getUserId**(): `string` \| `undefined`
 
 Defined in: packages/client/src/core/session/SessionManager.ts:77
 
@@ -69,7 +69,7 @@ Get the current user ID, if any.
 
 #### Returns
 
-`string` \| `null`
+`string` \| `undefined`
 
 ***
 

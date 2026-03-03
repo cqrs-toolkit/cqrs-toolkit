@@ -6,7 +6,7 @@
 
 # Interface: CompletionSucceeded
 
-Defined in: packages/client/src/types/commands.ts:138
+Defined in: packages/client/src/types/commands.ts:136
 
 Command completion result - succeeded.
 
@@ -16,7 +16,7 @@ Command completion result - succeeded.
 
 > **response**: `unknown`
 
-Defined in: packages/client/src/types/commands.ts:141
+Defined in: packages/client/src/types/commands.ts:139
 
 Server response data
 
@@ -26,4 +26,4 @@ Server response data
 
 > **status**: `"succeeded"`
 
-Defined in: packages/client/src/types/commands.ts:139
+Defined in: packages/client/src/types/commands.ts:137

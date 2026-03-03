@@ -68,9 +68,31 @@ Whether this created a new gap
 
 > **clear**(): `void`
 
-Defined in: packages/client/src/core/event-cache/GapDetector.ts:160
+Defined in: packages/client/src/core/event-cache/GapDetector.ts:170
 
 Clear all buffered events.
+
+#### Returns
+
+`void`
+
+***
+
+### clearStream()
+
+> **clearStream**(`streamId`): `void`
+
+Defined in: packages/client/src/core/event-cache/GapDetector.ts:162
+
+Clear all buffered events and known positions for a single stream.
+
+#### Parameters
+
+##### streamId
+
+`string`
+
+Stream identifier
 
 #### Returns
 
@@ -134,7 +156,7 @@ Sorted events
 
 > **getGaps**(): `Map`\<`string`, [`EventGap`](../interfaces/EventGap.md)[]\>
 
-Defined in: packages/client/src/core/event-cache/GapDetector.ts:170
+Defined in: packages/client/src/core/event-cache/GapDetector.ts:180
 
 Get detected gaps for all streams.
 
@@ -150,7 +172,7 @@ Map of stream ID to gaps
 
 > **setKnownPosition**(`streamId`, `position`): `void`
 
-Defined in: packages/client/src/core/event-cache/GapDetector.ts:191
+Defined in: packages/client/src/core/event-cache/GapDetector.ts:201
 
 Set the known highest position for a stream.
 Used when resuming from persisted state.

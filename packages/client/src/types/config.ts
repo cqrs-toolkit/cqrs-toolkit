@@ -102,7 +102,7 @@ export interface FetchContext {
  */
 export interface SeedRecord {
   id: string
-  data: unknown
+  data: Record<string, unknown>
 }
 
 /**

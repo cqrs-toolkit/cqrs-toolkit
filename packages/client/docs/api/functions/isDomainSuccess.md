@@ -6,9 +6,9 @@
 
 # Function: isDomainSuccess()
 
-> **isDomainSuccess**\<`TEvent`\>(`result`): `result is DomainExecutionSuccess<TEvent>`
+> **isDomainSuccess**\<`TEvent`\>(`result`): `result is OkResult<DomainExecutionSuccess<TEvent>>`
 
-Defined in: packages/client/src/types/domain.ts:72
+Defined in: packages/client/src/types/domain.ts:73
 
 Type guard for successful domain execution.
 
@@ -26,4 +26,4 @@ Type guard for successful domain execution.
 
 ## Returns
 
-`result is DomainExecutionSuccess<TEvent>`
+`result is OkResult<DomainExecutionSuccess<TEvent>>`
