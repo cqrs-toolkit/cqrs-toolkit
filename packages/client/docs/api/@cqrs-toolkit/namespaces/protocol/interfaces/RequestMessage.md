@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [protocol](../README.md) / RequestMessage
+[@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / RequestMessage
 
 # Interface: RequestMessage
 
@@ -24,7 +24,7 @@ Defined in: packages/client/src/protocol/messages.ts:26
 
 Method arguments
 
----
+***
 
 ### method
 
@@ -34,7 +34,7 @@ Defined in: packages/client/src/protocol/messages.ts:24
 
 Method to invoke
 
----
+***
 
 ### requestId
 
@@ -48,7 +48,7 @@ Unique request ID for correlation
 
 [`BaseMessage`](BaseMessage.md).[`requestId`](BaseMessage.md#requestid)
 
----
+***
 
 ### type
 

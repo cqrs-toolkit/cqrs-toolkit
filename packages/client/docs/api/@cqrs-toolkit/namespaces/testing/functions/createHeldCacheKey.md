@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [testing](../README.md) / createHeldCacheKey
+[@cqrs-toolkit/client](../../../../globals.md) / [testing](../README.md) / createHeldCacheKey
 
 # Function: createHeldCacheKey()
 

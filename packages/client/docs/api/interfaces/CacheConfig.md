@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / CacheConfig
+[@cqrs-toolkit/client](../globals.md) / CacheConfig
 
 # Interface: CacheConfig
 
-Defined in: packages/client/src/types/config.ts:73
+Defined in: packages/client/src/types/config.ts:75
 
 Cache configuration.
 
@@ -16,26 +16,26 @@ Cache configuration.
 
 > `optional` **defaultTtl**: `number`
 
-Defined in: packages/client/src/types/config.ts:77
+Defined in: packages/client/src/types/config.ts:79
 
 Default TTL for cache keys in milliseconds
 
----
+***
 
 ### evictionPolicy?
 
 > `optional` **evictionPolicy**: `"lru"` \| `"fifo"`
 
-Defined in: packages/client/src/types/config.ts:79
+Defined in: packages/client/src/types/config.ts:81
 
 Eviction policy
 
----
+***
 
 ### maxCacheKeys?
 
 > `optional` **maxCacheKeys**: `number`
 
-Defined in: packages/client/src/types/config.ts:75
+Defined in: packages/client/src/types/config.ts:77
 
 Maximum number of cache keys

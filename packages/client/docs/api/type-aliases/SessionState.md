@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / SessionState
+[@cqrs-toolkit/client](../globals.md) / SessionState
 
 # Type Alias: SessionState
 

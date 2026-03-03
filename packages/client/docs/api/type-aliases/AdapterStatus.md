@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / AdapterStatus
+[@cqrs-toolkit/client](../globals.md) / AdapterStatus
 
 # Type Alias: AdapterStatus
 

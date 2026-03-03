@@ -1,16 +1,19 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / createCqrsClient
+[@cqrs-toolkit/client](../globals.md) / createCqrsClient
 
 # Function: createCqrsClient()
 
-> **createCqrsClient**(`config`): [`CqrsClient`](../interfaces/CqrsClient.md)
+> **createCqrsClient**(`config`): `Promise`\<[`CqrsClient`](../classes/CqrsClient.md)\>
 
-Defined in: packages/client/src/createCqrsClient.ts:175
+Defined in: packages/client/src/createCqrsClient.ts:184
 
 Create a new CQRS Client instance.
+
+Resolves configuration, initializes the adapter, registers event processors,
+wires all components, starts sync, and returns a fully initialized client.
 
 ## Parameters
 
@@ -22,18 +25,29 @@ Client configuration
 
 ## Returns
 
-[`CqrsClient`](../interfaces/CqrsClient.md)
+`Promise`\<[`CqrsClient`](../classes/CqrsClient.md)\>
 
-A new CQRS Client instance
+A fully initialized CQRS Client instance
 
 ## Example
 
 ```typescript
 import { createCqrsClient } from '@cqrs-toolkit/client'
 
-const client = createCqrsClient({
+const client = await createCqrsClient({
   network: { baseUrl: '/api', wsUrl: 'ws://localhost:3000/events' },
   collections: [{ name: 'todos', seedOnInit: true }],
+  processors: [
+    {
+      eventTypes: 'TodoCreated',
+      processor: (data, ctx) => ({
+        collection: 'todos',
+        id: data.id,
+        update: { type: 'set', data },
+        isServerUpdate: ctx.persistence !== 'Anticipated',
+      }),
+    },
+  ],
   commandSender: {
     async send(command) {
       const res = await fetch('/api/commands', {
@@ -46,16 +60,4 @@ const client = createCqrsClient({
     },
   },
 })
-
-client.registerProcessor({
-  eventTypes: 'TodoCreated',
-  processor: (data, ctx) => ({
-    collection: 'todos',
-    id: data.id,
-    update: { type: 'set', data },
-    isServerUpdate: ctx.persistence !== 'Anticipated',
-  }),
-})
-
-await client.initialize()
 ```

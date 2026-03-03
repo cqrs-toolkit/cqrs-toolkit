@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [protocol](../README.md) / ResponseMessage
+[@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / ResponseMessage
 
 # Interface: ResponseMessage
 
@@ -24,7 +24,7 @@ Defined in: packages/client/src/protocol/messages.ts:39
 
 Error message (on failure)
 
----
+***
 
 ### errorCode?
 
@@ -34,7 +34,7 @@ Defined in: packages/client/src/protocol/messages.ts:41
 
 Error code (on failure)
 
----
+***
 
 ### requestId
 
@@ -48,7 +48,7 @@ Unique request ID for correlation
 
 [`BaseMessage`](BaseMessage.md).[`requestId`](BaseMessage.md#requestid)
 
----
+***
 
 ### result?
 
@@ -58,7 +58,7 @@ Defined in: packages/client/src/protocol/messages.ts:37
 
 Result data (on success)
 
----
+***
 
 ### success
 
@@ -68,7 +68,7 @@ Defined in: packages/client/src/protocol/messages.ts:35
 
 Whether the request succeeded
 
----
+***
 
 ### type
 

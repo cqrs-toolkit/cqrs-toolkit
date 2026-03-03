@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [protocol](../README.md) / BaseMessage
+[@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / BaseMessage
 
 # Interface: BaseMessage
 
@@ -31,7 +31,7 @@ Defined in: packages/client/src/protocol/messages.ts:15
 
 Unique request ID for correlation
 
----
+***
 
 ### type
 

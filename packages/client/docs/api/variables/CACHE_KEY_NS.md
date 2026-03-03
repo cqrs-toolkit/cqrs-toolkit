@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / CACHE_KEY_NS
+[@cqrs-toolkit/client](../globals.md) / CACHE\_KEY\_NS
 
-# Variable: CACHE_KEY_NS
+# Variable: CACHE\_KEY\_NS
 
-> `const` **CACHE_KEY_NS**: `"6ba7b810-9dad-11d1-80b4-00c04fd430c8"` = `'6ba7b810-9dad-11d1-80b4-00c04fd430c8'`
+> `const` **CACHE\_KEY\_NS**: `"6ba7b810-9dad-11d1-80b4-00c04fd430c8"` = `'6ba7b810-9dad-11d1-80b4-00c04fd430c8'`
 
 Defined in: packages/client/src/core/cache-manager/CacheKey.ts:12
 

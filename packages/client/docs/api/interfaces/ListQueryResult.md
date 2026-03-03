@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / ListQueryResult
+[@cqrs-toolkit/client](../globals.md) / ListQueryResult
 
 # Interface: ListQueryResult\<T\>
 
@@ -26,7 +26,7 @@ Defined in: packages/client/src/core/query-manager/QueryManager.ts:63
 
 Cache key used for this query
 
----
+***
 
 ### data
 
@@ -36,7 +36,7 @@ Defined in: packages/client/src/core/query-manager/QueryManager.ts:57
 
 The data items
 
----
+***
 
 ### hasLocalChanges
 
@@ -46,7 +46,7 @@ Defined in: packages/client/src/core/query-manager/QueryManager.ts:61
 
 Whether any items have local changes
 
----
+***
 
 ### total
 

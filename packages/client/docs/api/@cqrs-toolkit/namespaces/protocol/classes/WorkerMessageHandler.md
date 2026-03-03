@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [protocol](../README.md) / WorkerMessageHandler
+[@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / WorkerMessageHandler
 
 # Class: WorkerMessageHandler
 
@@ -72,7 +72,7 @@ Event payload
 
 `void`
 
----
+***
 
 ### getDeadWindows()
 
@@ -96,7 +96,7 @@ Time-to-live in milliseconds
 
 Array of dead window IDs
 
----
+***
 
 ### getRegisteredWindows()
 
@@ -110,7 +110,7 @@ Get registered window IDs.
 
 `string`[]
 
----
+***
 
 ### handleConnect()
 
@@ -132,7 +132,7 @@ MessagePort from the connect event
 
 `void`
 
----
+***
 
 ### handleMessageEvent()
 
@@ -154,7 +154,7 @@ Message event
 
 `void`
 
----
+***
 
 ### isWindowAlive()
 
@@ -184,7 +184,7 @@ Time-to-live in milliseconds
 
 Whether the window is alive
 
----
+***
 
 ### registerMethod()
 
@@ -212,7 +212,7 @@ Handler function
 
 `void`
 
----
+***
 
 ### removeWindow()
 
@@ -234,7 +234,7 @@ Window identifier
 
 `void`
 
----
+***
 
 ### sendResponse()
 

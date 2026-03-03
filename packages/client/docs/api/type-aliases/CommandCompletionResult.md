@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / CommandCompletionResult
+[@cqrs-toolkit/client](../globals.md) / CommandCompletionResult
 
 # Type Alias: CommandCompletionResult
 

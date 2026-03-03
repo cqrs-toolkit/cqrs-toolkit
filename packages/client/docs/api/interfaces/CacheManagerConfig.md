@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / CacheManagerConfig
+[@cqrs-toolkit/client](../globals.md) / CacheManagerConfig
 
 # Interface: CacheManagerConfig
 
@@ -18,7 +18,7 @@ Cache manager configuration.
 
 Defined in: packages/client/src/core/cache-manager/CacheManager.ts:22
 
----
+***
 
 ### eventBus
 
@@ -26,7 +26,7 @@ Defined in: packages/client/src/core/cache-manager/CacheManager.ts:22
 
 Defined in: packages/client/src/core/cache-manager/CacheManager.ts:21
 
----
+***
 
 ### storage
 

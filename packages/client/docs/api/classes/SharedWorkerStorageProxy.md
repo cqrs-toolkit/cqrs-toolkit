@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / SharedWorkerStorageProxy
+[@cqrs-toolkit/client](../globals.md) / SharedWorkerStorageProxy
 
 # Class: SharedWorkerStorageProxy
 
@@ -54,7 +54,7 @@ Clear all data from storage.
 
 [`IStorage`](../interfaces/IStorage.md).[`clear`](../interfaces/IStorage.md#clear)
 
----
+***
 
 ### close()
 
@@ -72,7 +72,7 @@ Close the storage backend and release resources.
 
 [`IStorage`](../interfaces/IStorage.md).[`close`](../interfaces/IStorage.md#close)
 
----
+***
 
 ### deleteAllCommands()
 
@@ -90,7 +90,7 @@ Delete all commands (e.g., on session clear).
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteAllCommands`](../interfaces/IStorage.md#deleteallcommands)
 
----
+***
 
 ### deleteAnticipatedEventsByCommand()
 
@@ -114,7 +114,7 @@ Delete all anticipated events for a command.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteAnticipatedEventsByCommand`](../interfaces/IStorage.md#deleteanticipatedeventsbycommand)
 
----
+***
 
 ### deleteCachedEvent()
 
@@ -138,7 +138,7 @@ Delete a cached event.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteCachedEvent`](../interfaces/IStorage.md#deletecachedevent)
 
----
+***
 
 ### deleteCachedEventsByCacheKey()
 
@@ -162,7 +162,7 @@ Delete all cached events for a cache key.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteCachedEventsByCacheKey`](../interfaces/IStorage.md#deletecachedeventsbycachekey)
 
----
+***
 
 ### deleteCacheKey()
 
@@ -186,7 +186,7 @@ Delete a cache key and all associated data.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteCacheKey`](../interfaces/IStorage.md#deletecachekey)
 
----
+***
 
 ### deleteCommand()
 
@@ -210,7 +210,7 @@ Delete a command.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteCommand`](../interfaces/IStorage.md#deletecommand)
 
----
+***
 
 ### deleteReadModel()
 
@@ -238,7 +238,7 @@ Delete a read model record.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteReadModel`](../interfaces/IStorage.md#deletereadmodel)
 
----
+***
 
 ### deleteReadModelsByCacheKey()
 
@@ -262,7 +262,7 @@ Delete all read model records for a cache key.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteReadModelsByCacheKey`](../interfaces/IStorage.md#deletereadmodelsbycachekey)
 
----
+***
 
 ### deleteReadModelsByCollection()
 
@@ -286,7 +286,7 @@ Delete all read model records for a collection.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteReadModelsByCollection`](../interfaces/IStorage.md#deletereadmodelsbycollection)
 
----
+***
 
 ### deleteSession()
 
@@ -304,7 +304,7 @@ Delete the current session and all associated data.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteSession`](../interfaces/IStorage.md#deletesession)
 
----
+***
 
 ### getAllCacheKeys()
 
@@ -322,7 +322,7 @@ Get all cache keys.
 
 [`IStorage`](../interfaces/IStorage.md).[`getAllCacheKeys`](../interfaces/IStorage.md#getallcachekeys)
 
----
+***
 
 ### getAnticipatedEventsByCommand()
 
@@ -346,7 +346,7 @@ Get anticipated events for a command.
 
 [`IStorage`](../interfaces/IStorage.md).[`getAnticipatedEventsByCommand`](../interfaces/IStorage.md#getanticipatedeventsbycommand)
 
----
+***
 
 ### getCachedEvent()
 
@@ -370,7 +370,7 @@ Get a cached event by ID.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCachedEvent`](../interfaces/IStorage.md#getcachedevent)
 
----
+***
 
 ### getCachedEventsByCacheKey()
 
@@ -394,7 +394,7 @@ Get cached events for a cache key.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCachedEventsByCacheKey`](../interfaces/IStorage.md#getcachedeventsbycachekey)
 
----
+***
 
 ### getCachedEventsByStream()
 
@@ -418,7 +418,7 @@ Get cached events for a stream.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCachedEventsByStream`](../interfaces/IStorage.md#getcachedeventsbystream)
 
----
+***
 
 ### getCacheKey()
 
@@ -442,7 +442,7 @@ Get a cache key record.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCacheKey`](../interfaces/IStorage.md#getcachekey)
 
----
+***
 
 ### getCommand()
 
@@ -466,7 +466,7 @@ Get a command by ID.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCommand`](../interfaces/IStorage.md#getcommand)
 
----
+***
 
 ### getCommands()
 
@@ -490,7 +490,7 @@ Get commands matching a filter.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCommands`](../interfaces/IStorage.md#getcommands)
 
----
+***
 
 ### getCommandsBlockedBy()
 
@@ -514,7 +514,7 @@ Get commands blocked by a specific command.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCommandsBlockedBy`](../interfaces/IStorage.md#getcommandsblockedby)
 
----
+***
 
 ### getCommandsByStatus()
 
@@ -538,7 +538,7 @@ Get commands by status.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCommandsByStatus`](../interfaces/IStorage.md#getcommandsbystatus)
 
----
+***
 
 ### getEvictableCacheKeys()
 
@@ -562,7 +562,7 @@ Get cache keys eligible for eviction (holdCount = 0, not frozen).
 
 [`IStorage`](../interfaces/IStorage.md).[`getEvictableCacheKeys`](../interfaces/IStorage.md#getevictablecachekeys)
 
----
+***
 
 ### getReadModel()
 
@@ -590,7 +590,7 @@ Get a read model record.
 
 [`IStorage`](../interfaces/IStorage.md).[`getReadModel`](../interfaces/IStorage.md#getreadmodel)
 
----
+***
 
 ### getReadModelsByCacheKey()
 
@@ -614,7 +614,7 @@ Get read model records by cache key.
 
 [`IStorage`](../interfaces/IStorage.md).[`getReadModelsByCacheKey`](../interfaces/IStorage.md#getreadmodelsbycachekey)
 
----
+***
 
 ### getReadModelsByCollection()
 
@@ -642,7 +642,7 @@ Get all read model records for a collection.
 
 [`IStorage`](../interfaces/IStorage.md).[`getReadModelsByCollection`](../interfaces/IStorage.md#getreadmodelsbycollection)
 
----
+***
 
 ### getSession()
 
@@ -660,7 +660,7 @@ Get the current session, if any.
 
 [`IStorage`](../interfaces/IStorage.md).[`getSession`](../interfaces/IStorage.md#getsession)
 
----
+***
 
 ### holdCacheKey()
 
@@ -684,7 +684,7 @@ Increment hold count for a cache key.
 
 [`IStorage`](../interfaces/IStorage.md).[`holdCacheKey`](../interfaces/IStorage.md#holdcachekey)
 
----
+***
 
 ### initialize()
 
@@ -703,7 +703,7 @@ For SQLite, this creates tables and runs migrations.
 
 [`IStorage`](../interfaces/IStorage.md).[`initialize`](../interfaces/IStorage.md#initialize)
 
----
+***
 
 ### releaseCacheKey()
 
@@ -727,7 +727,7 @@ Decrement hold count for a cache key.
 
 [`IStorage`](../interfaces/IStorage.md).[`releaseCacheKey`](../interfaces/IStorage.md#releasecachekey)
 
----
+***
 
 ### saveCachedEvent()
 
@@ -751,7 +751,7 @@ Save a cached event.
 
 [`IStorage`](../interfaces/IStorage.md).[`saveCachedEvent`](../interfaces/IStorage.md#savecachedevent)
 
----
+***
 
 ### saveCachedEvents()
 
@@ -775,7 +775,7 @@ Save multiple cached events in a batch.
 
 [`IStorage`](../interfaces/IStorage.md).[`saveCachedEvents`](../interfaces/IStorage.md#savecachedevents)
 
----
+***
 
 ### saveCacheKey()
 
@@ -799,7 +799,7 @@ Save or update a cache key.
 
 [`IStorage`](../interfaces/IStorage.md).[`saveCacheKey`](../interfaces/IStorage.md#savecachekey)
 
----
+***
 
 ### saveCommand()
 
@@ -823,7 +823,7 @@ Save a new command.
 
 [`IStorage`](../interfaces/IStorage.md).[`saveCommand`](../interfaces/IStorage.md#savecommand)
 
----
+***
 
 ### saveReadModel()
 
@@ -847,7 +847,7 @@ Save a read model record.
 
 [`IStorage`](../interfaces/IStorage.md).[`saveReadModel`](../interfaces/IStorage.md#savereadmodel)
 
----
+***
 
 ### saveReadModels()
 
@@ -871,7 +871,7 @@ Save multiple read model records in a batch.
 
 [`IStorage`](../interfaces/IStorage.md).[`saveReadModels`](../interfaces/IStorage.md#savereadmodels)
 
----
+***
 
 ### saveSession()
 
@@ -895,7 +895,7 @@ Save or update the session.
 
 [`IStorage`](../interfaces/IStorage.md).[`saveSession`](../interfaces/IStorage.md#savesession)
 
----
+***
 
 ### touchCacheKey()
 
@@ -919,7 +919,7 @@ Touch a cache key (update lastAccessedAt).
 
 [`IStorage`](../interfaces/IStorage.md).[`touchCacheKey`](../interfaces/IStorage.md#touchcachekey)
 
----
+***
 
 ### touchSession()
 
@@ -937,7 +937,7 @@ Update the last seen timestamp.
 
 [`IStorage`](../interfaces/IStorage.md).[`touchSession`](../interfaces/IStorage.md#touchsession)
 
----
+***
 
 ### updateCommand()
 

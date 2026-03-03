@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / isDomainSuccess
+[@cqrs-toolkit/client](../globals.md) / isDomainSuccess
 
 # Function: isDomainSuccess()
 

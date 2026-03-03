@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / GapDetectionResult
+[@cqrs-toolkit/client](../globals.md) / GapDetectionResult
 
 # Interface: GapDetectionResult
 
@@ -20,7 +20,7 @@ Defined in: packages/client/src/core/event-cache/GapDetector.ts:25
 
 List of detected gaps
 
----
+***
 
 ### hasGaps
 
@@ -30,7 +30,7 @@ Defined in: packages/client/src/core/event-cache/GapDetector.ts:23
 
 Whether there are any gaps
 
----
+***
 
 ### highestPosition
 

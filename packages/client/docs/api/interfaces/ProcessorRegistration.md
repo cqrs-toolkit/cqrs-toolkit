@@ -1,14 +1,18 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / ProcessorRegistration
+[@cqrs-toolkit/client](../globals.md) / ProcessorRegistration
 
 # Interface: ProcessorRegistration\<TEvent, TModel\>
 
-Defined in: packages/client/src/core/event-processor/types.ts:54
+Defined in: packages/client/src/core/event-processor/types.ts:60
 
 Processor registration.
+
+Uses method syntax for `processor` so that registrations with specific event/model types
+are assignable to `ProcessorRegistration[]` (bivariant parameter checking).
+This allows typed processors to be collected into heterogeneous arrays.
 
 ## Type Parameters
 
@@ -26,26 +30,40 @@ Processor registration.
 
 > **eventTypes**: `string` \| `string`[]
 
-Defined in: packages/client/src/core/event-processor/types.ts:56
+Defined in: packages/client/src/core/event-processor/types.ts:62
 
 Event type(s) this processor handles
 
----
+***
 
 ### persistenceTypes?
 
 > `optional` **persistenceTypes**: [`EventPersistence`](../type-aliases/EventPersistence.md)[]
 
-Defined in: packages/client/src/core/event-processor/types.ts:60
+Defined in: packages/client/src/core/event-processor/types.ts:69
 
 Optional: Only process certain persistence types
 
----
+## Methods
 
-### processor
+### processor()
 
-> **processor**: [`EventProcessor`](../type-aliases/EventProcessor.md)\<`TEvent`, `TModel`\>
+> **processor**(`event`, `context`): [`ProcessorResult`](ProcessorResult.md)\<`TModel`\> \| [`ProcessorResult`](ProcessorResult.md)\<`TModel`\>[] \| `null`
 
-Defined in: packages/client/src/core/event-processor/types.ts:58
+Defined in: packages/client/src/core/event-processor/types.ts:64
 
 The processor function
+
+#### Parameters
+
+##### event
+
+`TEvent`
+
+##### context
+
+[`ProcessorContext`](ProcessorContext.md)
+
+#### Returns
+
+[`ProcessorResult`](ProcessorResult.md)\<`TModel`\> \| [`ProcessorResult`](ProcessorResult.md)\<`TModel`\>[] \| `null`

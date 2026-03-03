@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / EnqueueAndWaitResult
+[@cqrs-toolkit/client](../globals.md) / EnqueueAndWaitResult
 
 # Type Alias: EnqueueAndWaitResult\<TResponse\>
 

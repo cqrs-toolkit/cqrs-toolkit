@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [protocol](../README.md) / isUnregisterMessage
+[@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / isUnregisterMessage
 
 # Function: isUnregisterMessage()
 

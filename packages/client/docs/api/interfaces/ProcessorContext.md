@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / ProcessorContext
+[@cqrs-toolkit/client](../globals.md) / ProcessorContext
 
 # Interface: ProcessorContext
 
@@ -20,13 +20,13 @@ Defined in: packages/client/src/core/event-processor/types.ts:46
 
 For anticipated events, the command ID
 
----
+***
 
 ### getCurrentState()
 
 > **getCurrentState**: \<`T`\>(`collection`, `id`) => `Promise`\<`T` \| `null`\>
 
-Defined in: packages/client/src/core/event-processor/types.ts:48
+Defined in: packages/client/src/core/event-processor/types.ts:50
 
 Get current read model state (may not exist)
 
@@ -50,7 +50,7 @@ Get current read model state (may not exist)
 
 `Promise`\<`T` \| `null`\>
 
----
+***
 
 ### persistence
 
@@ -59,3 +59,13 @@ Get current read model state (may not exist)
 Defined in: packages/client/src/core/event-processor/types.ts:44
 
 Event persistence type
+
+***
+
+### revision?
+
+> `optional` **revision**: `string`
+
+Defined in: packages/client/src/core/event-processor/types.ts:48
+
+Stream revision of the event (string for JSON read model compatibility). Undefined for anticipated/stateful events.

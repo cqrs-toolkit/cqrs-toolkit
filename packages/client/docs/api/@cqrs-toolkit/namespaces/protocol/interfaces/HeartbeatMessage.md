@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [protocol](../README.md) / HeartbeatMessage
+[@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / HeartbeatMessage
 
 # Interface: HeartbeatMessage
 
@@ -18,7 +18,7 @@ Window heartbeat message.
 
 Defined in: packages/client/src/protocol/messages.ts:80
 
----
+***
 
 ### windowId
 

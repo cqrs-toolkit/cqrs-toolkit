@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / EventCacheConfig
+[@cqrs-toolkit/client](../globals.md) / EventCacheConfig
 
 # Interface: EventCacheConfig
 
-Defined in: packages/client/src/core/event-cache/EventCache.ts:20
+Defined in: packages/client/src/core/event-cache/EventCache.ts:22
 
 Event cache configuration.
 
@@ -16,12 +16,12 @@ Event cache configuration.
 
 > **eventBus**: [`EventBus`](../classes/EventBus.md)
 
-Defined in: packages/client/src/core/event-cache/EventCache.ts:22
+Defined in: packages/client/src/core/event-cache/EventCache.ts:24
 
----
+***
 
 ### storage
 
 > **storage**: [`IStorage`](IStorage.md)
 
-Defined in: packages/client/src/core/event-cache/EventCache.ts:21
+Defined in: packages/client/src/core/event-cache/EventCache.ts:23

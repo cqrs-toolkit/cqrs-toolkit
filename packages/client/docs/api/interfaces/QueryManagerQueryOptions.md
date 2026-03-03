@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / QueryManagerQueryOptions
+[@cqrs-toolkit/client](../globals.md) / QueryManagerQueryOptions
 
 # Interface: QueryManagerQueryOptions
 
@@ -28,7 +28,7 @@ Filter by cache key
 
 [`ReadModelQueryOptions`](ReadModelQueryOptions.md).[`cacheKey`](ReadModelQueryOptions.md#cachekey)
 
----
+***
 
 ### hold?
 
@@ -38,7 +38,7 @@ Defined in: packages/client/src/core/query-manager/QueryManager.ts:35
 
 Place a hold on the cache key while query is active
 
----
+***
 
 ### limit?
 
@@ -50,7 +50,7 @@ Defined in: packages/client/src/storage/IStorage.ts:90
 
 [`ReadModelQueryOptions`](ReadModelQueryOptions.md).[`limit`](ReadModelQueryOptions.md#limit)
 
----
+***
 
 ### localChangesOnly?
 
@@ -64,7 +64,7 @@ Only include models with local changes
 
 [`ReadModelQueryOptions`](ReadModelQueryOptions.md).[`localChangesOnly`](ReadModelQueryOptions.md#localchangesonly)
 
----
+***
 
 ### offset?
 
@@ -76,7 +76,7 @@ Defined in: packages/client/src/storage/IStorage.ts:91
 
 [`ReadModelQueryOptions`](ReadModelQueryOptions.md).[`offset`](ReadModelQueryOptions.md#offset)
 
----
+***
 
 ### orderBy?
 
@@ -88,7 +88,7 @@ Defined in: packages/client/src/storage/IStorage.ts:92
 
 [`ReadModelQueryOptions`](ReadModelQueryOptions.md).[`orderBy`](ReadModelQueryOptions.md#orderby)
 
----
+***
 
 ### orderDirection?
 
@@ -100,7 +100,7 @@ Defined in: packages/client/src/storage/IStorage.ts:93
 
 [`ReadModelQueryOptions`](ReadModelQueryOptions.md).[`orderDirection`](ReadModelQueryOptions.md#orderdirection)
 
----
+***
 
 ### scope?
 

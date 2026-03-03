@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / DomainExecutionFailure
+[@cqrs-toolkit/client](../globals.md) / DomainExecutionFailure
 
 # Interface: DomainExecutionFailure
 
@@ -20,7 +20,7 @@ Defined in: packages/client/src/types/domain.ts:38
 
 Validation errors from domain layer
 
----
+***
 
 ### ok
 

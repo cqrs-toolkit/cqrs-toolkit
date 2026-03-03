@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / UpdateOperation
+[@cqrs-toolkit/client](../globals.md) / UpdateOperation
 
 # Type Alias: UpdateOperation\<T\>
 

@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / CommandFilter
+[@cqrs-toolkit/client](../globals.md) / CommandFilter
 
 # Interface: CommandFilter
 
@@ -20,7 +20,7 @@ Defined in: packages/client/src/types/commands.ts:243
 
 Created after timestamp
 
----
+***
 
 ### createdBefore?
 
@@ -30,7 +30,7 @@ Defined in: packages/client/src/types/commands.ts:245
 
 Created before timestamp
 
----
+***
 
 ### limit?
 
@@ -40,7 +40,7 @@ Defined in: packages/client/src/types/commands.ts:247
 
 Limit number of results
 
----
+***
 
 ### offset?
 
@@ -50,7 +50,7 @@ Defined in: packages/client/src/types/commands.ts:249
 
 Offset for pagination
 
----
+***
 
 ### service?
 
@@ -60,7 +60,7 @@ Defined in: packages/client/src/types/commands.ts:241
 
 Filter by service
 
----
+***
 
 ### status?
 
@@ -70,7 +70,7 @@ Defined in: packages/client/src/types/commands.ts:237
 
 Filter by status
 
----
+***
 
 ### type?
 

@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / CqrsClientSyncManager
+[@cqrs-toolkit/client](../globals.md) / CqrsClientSyncManager
 
 # Interface: CqrsClientSyncManager
 
-Defined in: packages/client/src/createCqrsClient.ts:45
+Defined in: packages/client/src/createCqrsClient.ts:47
 
 Restricted view of SyncManager exposed to consumers.
 Start/stop are managed internally by the client lifecycle.
@@ -17,7 +17,7 @@ Start/stop are managed internally by the client lifecycle.
 
 > `readonly` **connectivity**: [`ConnectivityManager`](../classes/ConnectivityManager.md)
 
-Defined in: packages/client/src/createCqrsClient.ts:53
+Defined in: packages/client/src/createCqrsClient.ts:55
 
 Connectivity manager for network status observation.
 
@@ -27,7 +27,7 @@ Connectivity manager for network status observation.
 
 > **getAllStatus**(): [`CollectionSyncStatus`](CollectionSyncStatus.md)[]
 
-Defined in: packages/client/src/createCqrsClient.ts:49
+Defined in: packages/client/src/createCqrsClient.ts:51
 
 Get sync status for all collections.
 
@@ -35,13 +35,13 @@ Get sync status for all collections.
 
 [`CollectionSyncStatus`](CollectionSyncStatus.md)[]
 
----
+***
 
 ### getCollectionStatus()
 
 > **getCollectionStatus**(`collection`): [`CollectionSyncStatus`](CollectionSyncStatus.md) \| `null`
 
-Defined in: packages/client/src/createCqrsClient.ts:47
+Defined in: packages/client/src/createCqrsClient.ts:49
 
 Get sync status for a specific collection.
 
@@ -55,13 +55,13 @@ Get sync status for a specific collection.
 
 [`CollectionSyncStatus`](CollectionSyncStatus.md) \| `null`
 
----
+***
 
 ### syncCollection()
 
 > **syncCollection**(`collection`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/createCqrsClient.ts:51
+Defined in: packages/client/src/createCqrsClient.ts:53
 
 Force-sync a specific collection from the server.
 

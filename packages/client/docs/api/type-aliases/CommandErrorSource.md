@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / CommandErrorSource
+[@cqrs-toolkit/client](../globals.md) / CommandErrorSource
 
 # Type Alias: CommandErrorSource
 

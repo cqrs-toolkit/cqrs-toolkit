@@ -1,19 +1,15 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / AnticipatedEventMeta
+[@cqrs-toolkit/client](../globals.md) / AnticipatedEventMeta
 
 # Interface: AnticipatedEventMeta
 
-Defined in: packages/client/src/types/events.ts:42
+Defined in: packages/client/src/types/events.ts:14
 
-Anticipated event - client-side optimistic event.
+Anticipated event metadata — client-side optimistic event.
 Associated with a command, replaced when server confirms.
-
-## Extends
-
-- [`BaseEventMeta`](BaseEventMeta.md)
 
 ## Properties
 
@@ -21,42 +17,34 @@ Associated with a command, replaced when server confirms.
 
 > **commandId**: `string`
 
-Defined in: packages/client/src/types/events.ts:45
+Defined in: packages/client/src/types/events.ts:21
 
 Command that produced this anticipated event
 
----
+***
 
 ### createdAt
 
-> **createdAt**: `Date`
+> **createdAt**: `number`
 
-Defined in: packages/client/src/types/events.ts:15
+Defined in: packages/client/src/types/events.ts:18
 
-Event creation timestamp
+Event creation timestamp (epoch ms)
 
-#### Inherited from
-
-[`BaseEventMeta`](BaseEventMeta.md).[`createdAt`](BaseEventMeta.md#createdat)
-
----
+***
 
 ### id
 
 > **id**: `string`
 
-Defined in: packages/client/src/types/events.ts:13
+Defined in: packages/client/src/types/events.ts:16
 
 Unique event identifier
 
-#### Inherited from
-
-[`BaseEventMeta`](BaseEventMeta.md).[`id`](BaseEventMeta.md#id)
-
----
+***
 
 ### persistence
 
 > **persistence**: `"Anticipated"`
 
-Defined in: packages/client/src/types/events.ts:43
+Defined in: packages/client/src/types/events.ts:19

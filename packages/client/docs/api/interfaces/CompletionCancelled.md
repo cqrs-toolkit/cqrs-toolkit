@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / CompletionCancelled
+[@cqrs-toolkit/client](../globals.md) / CompletionCancelled
 
 # Interface: CompletionCancelled
 

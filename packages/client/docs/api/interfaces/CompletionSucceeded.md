@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / CompletionSucceeded
+[@cqrs-toolkit/client](../globals.md) / CompletionSucceeded
 
 # Interface: CompletionSucceeded
 
@@ -20,7 +20,7 @@ Defined in: packages/client/src/types/commands.ts:141
 
 Server response data
 
----
+***
 
 ### status
 

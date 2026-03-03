@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [testing](../README.md) / marbleTest
+[@cqrs-toolkit/client](../../../../globals.md) / [testing](../README.md) / marbleTest
 
 # Function: marbleTest()
 
@@ -11,7 +11,7 @@
 Defined in: packages/client/src/testing/marbleTest.ts:24
 
 Create a marble test function.
-Uses vitest's assert.deepEqual for comparison.
+Uses node:assert's deepStrictEqual for comparison.
 
 ## Parameters
 
@@ -34,11 +34,8 @@ Function to be used as test body
 ## Example
 
 ```ts
-it(
-  'emits values',
-  marbleTest(({ cold, expectObservable }) => {
-    const source$ = cold('a-b-c|', { a: 1, b: 2, c: 3 })
-    expectObservable(source$).toBe('a-b-c|', { a: 1, b: 2, c: 3 })
-  }),
-)
+it('emits values', marbleTest(({ cold, expectObservable }) => {
+  const source$ = cold('a-b-c|', { a: 1, b: 2, c: 3 });
+  expectObservable(source$).toBe('a-b-c|', { a: 1, b: 2, c: 3 });
+}));
 ```

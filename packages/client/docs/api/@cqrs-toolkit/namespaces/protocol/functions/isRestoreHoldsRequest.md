@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [protocol](../README.md) / isRestoreHoldsRequest
+[@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / isRestoreHoldsRequest
 
 # Function: isRestoreHoldsRequest()
 

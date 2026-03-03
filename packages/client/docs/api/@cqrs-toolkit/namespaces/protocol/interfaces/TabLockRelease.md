@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [protocol](../README.md) / TabLockRelease
+[@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / TabLockRelease
 
 # Interface: TabLockRelease
 
@@ -20,7 +20,7 @@ Defined in: packages/client/src/protocol/messages.ts:152
 
 Tab identifier releasing the lock
 
----
+***
 
 ### type
 

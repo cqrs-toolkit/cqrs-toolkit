@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / SyncManagerConfig
+[@cqrs-toolkit/client](../globals.md) / SyncManagerConfig
 
 # Interface: SyncManagerConfig
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:25
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:29
 
 Sync manager configuration.
 
@@ -16,60 +16,68 @@ Sync manager configuration.
 
 > **cacheManager**: [`CacheManager`](../classes/CacheManager.md)
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:30
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:34
 
----
+***
 
 ### collections
 
-> **collections**: [`CollectionConfig`](CollectionConfig.md)[]
+> **collections**: [`Collection`](Collection.md)[]
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:33
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:38
 
----
+***
 
 ### commandQueue
 
 > **commandQueue**: [`CommandQueue`](../classes/CommandQueue.md)
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:28
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:32
 
----
+***
 
 ### eventBus
 
 > **eventBus**: [`EventBus`](../classes/EventBus.md)
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:26
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:30
 
----
+***
 
 ### eventCache
 
 > **eventCache**: [`EventCache`](../classes/EventCache.md)
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:29
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:33
 
----
+***
 
 ### eventProcessor
 
 > **eventProcessor**: [`EventProcessorRunner`](../classes/EventProcessorRunner.md)
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:31
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:35
 
----
+***
 
 ### networkConfig
 
 > **networkConfig**: [`NetworkConfig`](NetworkConfig.md)
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:32
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:37
 
----
+***
+
+### readModelStore
+
+> **readModelStore**: [`ReadModelStore`](../classes/ReadModelStore.md)
+
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:36
+
+***
 
 ### sessionManager
 
 > **sessionManager**: [`SessionManager`](../classes/SessionManager.md)
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:27
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:31

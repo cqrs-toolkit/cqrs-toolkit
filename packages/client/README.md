@@ -157,7 +157,7 @@ Full API documentation is generated from source and available at [docs/api](docs
 Key entry points:
 
 - [`createCqrsClient`](docs/api/functions/createCqrsClient.md) — Factory function
-- [`CqrsClient`](docs/api/interfaces/CqrsClient.md) — Client interface
+- [`CqrsClient`](docs/api/classes/CqrsClient.md) — Client class
 - [`CqrsClientConfig`](docs/api/interfaces/CqrsClientConfig.md) — Configuration options
 - [`QueryManager`](docs/api/classes/QueryManager.md) — Read model queries
 - [`CommandQueue`](docs/api/classes/CommandQueue.md) — Command queuing

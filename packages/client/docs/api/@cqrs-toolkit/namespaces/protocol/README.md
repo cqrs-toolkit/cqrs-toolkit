@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../README.md) / protocol
+[@cqrs-toolkit/client](../../../globals.md) / protocol
 
 # protocol
 

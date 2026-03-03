@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / EventProcessorRunner
+[@cqrs-toolkit/client](../globals.md) / EventProcessorRunner
 
 # Class: EventProcessorRunner
 
-Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:37
+Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:39
 
 Event processor runner.
 
@@ -16,7 +16,7 @@ Event processor runner.
 
 > **new EventProcessorRunner**(`config`): `EventProcessorRunner`
 
-Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:42
+Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:44
 
 #### Parameters
 
@@ -34,7 +34,7 @@ Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:42
 
 > **processEvent**(`event`): `Promise`\<`string`[]\>
 
-Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:54
+Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:56
 
 Process an event and apply updates to the read model store.
 
@@ -52,13 +52,13 @@ Parsed event to process
 
 IDs of updated read models
 
----
+***
 
 ### processEvents()
 
 > **processEvents**(`events`): `Promise`\<`string`[]\>
 
-Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:102
+Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:104
 
 Process multiple events in order.
 

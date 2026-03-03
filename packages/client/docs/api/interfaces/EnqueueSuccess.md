@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / EnqueueSuccess
+[@cqrs-toolkit/client](../globals.md) / EnqueueSuccess
 
 # Interface: EnqueueSuccess\<TEvent\>
 
@@ -26,7 +26,7 @@ Defined in: packages/client/src/types/commands.ts:118
 
 Anticipated events produced
 
----
+***
 
 ### commandId
 
@@ -36,7 +36,7 @@ Defined in: packages/client/src/types/commands.ts:116
 
 Assigned command ID
 
----
+***
 
 ### ok
 

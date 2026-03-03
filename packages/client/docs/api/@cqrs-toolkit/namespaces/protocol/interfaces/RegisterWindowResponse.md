@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [protocol](../README.md) / RegisterWindowResponse
+[@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / RegisterWindowResponse
 
 # Interface: RegisterWindowResponse
 
@@ -24,7 +24,7 @@ Defined in: packages/client/src/protocol/messages.ts:73
 
 Error message if registration failed
 
----
+***
 
 ### requestId
 
@@ -38,7 +38,7 @@ Unique request ID for correlation
 
 [`BaseMessage`](BaseMessage.md).[`requestId`](BaseMessage.md#requestid)
 
----
+***
 
 ### success
 
@@ -46,7 +46,7 @@ Unique request ID for correlation
 
 Defined in: packages/client/src/protocol/messages.ts:69
 
----
+***
 
 ### type
 
@@ -60,7 +60,7 @@ Message type identifier
 
 [`BaseMessage`](BaseMessage.md).[`type`](BaseMessage.md#type)
 
----
+***
 
 ### workerInstanceId
 

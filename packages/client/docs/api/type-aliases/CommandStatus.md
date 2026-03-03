@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / CommandStatus
+[@cqrs-toolkit/client](../globals.md) / CommandStatus
 
 # Type Alias: CommandStatus
 

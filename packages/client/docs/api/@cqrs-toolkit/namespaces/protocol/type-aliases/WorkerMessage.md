@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [protocol](../README.md) / WorkerMessage
+[@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / WorkerMessage
 
 # Type Alias: WorkerMessage
 

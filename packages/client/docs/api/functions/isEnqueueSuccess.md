@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / isEnqueueSuccess
+[@cqrs-toolkit/client](../globals.md) / isEnqueueSuccess
 
 # Function: isEnqueueSuccess()
 

@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / SessionManager
+[@cqrs-toolkit/client](../globals.md) / SessionManager
 
 # Class: SessionManager
 
@@ -43,7 +43,7 @@ Get the current authentication state.
 
 [`AuthState`](../type-aliases/AuthState.md)
 
----
+***
 
 ### getSessionState()
 
@@ -57,7 +57,7 @@ Get the current session state.
 
 [`SessionState`](../type-aliases/SessionState.md)
 
----
+***
 
 ### getUserId()
 
@@ -71,7 +71,7 @@ Get the current user ID, if any.
 
 `string` \| `null`
 
----
+***
 
 ### initialize()
 
@@ -87,7 +87,7 @@ Does not resume network activity.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### isNetworkPaused()
 
@@ -102,7 +102,7 @@ Network is paused until authentication is confirmed.
 
 `boolean`
 
----
+***
 
 ### signalAuthenticated()
 
@@ -129,7 +129,7 @@ The authenticated user's ID
 
 Whether the session was resumed (true) or created new (false)
 
----
+***
 
 ### signalLoggedOut()
 
@@ -144,7 +144,7 @@ Clears all session data and pauses network activity.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### touchSession()
 

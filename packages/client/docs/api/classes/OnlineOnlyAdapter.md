@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / OnlineOnlyAdapter
+[@cqrs-toolkit/client](../globals.md) / OnlineOnlyAdapter
 
 # Class: OnlineOnlyAdapter
 
@@ -49,7 +49,7 @@ Defined in: packages/client/src/adapters/base/BaseAdapter.ts:71
 
 [`BaseAdapter`](BaseAdapter.md).[`_sessionManager`](BaseAdapter.md#_sessionmanager)
 
----
+***
 
 ### \_status
 
@@ -61,7 +61,7 @@ Defined in: packages/client/src/adapters/base/BaseAdapter.ts:72
 
 [`BaseAdapter`](BaseAdapter.md).[`_status`](BaseAdapter.md#_status)
 
----
+***
 
 ### \_storage
 
@@ -73,7 +73,7 @@ Defined in: packages/client/src/adapters/base/BaseAdapter.ts:70
 
 [`BaseAdapter`](BaseAdapter.md).[`_storage`](BaseAdapter.md#_storage)
 
----
+***
 
 ### config
 
@@ -85,7 +85,7 @@ Defined in: packages/client/src/adapters/base/BaseAdapter.ts:68
 
 [`BaseAdapter`](BaseAdapter.md).[`config`](BaseAdapter.md#config)
 
----
+***
 
 ### eventBus
 
@@ -99,7 +99,7 @@ Event bus instance for wiring core components.
 
 [`BaseAdapter`](BaseAdapter.md).[`eventBus`](BaseAdapter.md#eventbus)
 
----
+***
 
 ### mode
 
@@ -135,7 +135,7 @@ Observable of library events.
 
 [`BaseAdapter`](BaseAdapter.md).[`events$`](BaseAdapter.md#events)
 
----
+***
 
 ### sessionManager
 
@@ -157,7 +157,7 @@ Session manager instance.
 
 [`BaseAdapter`](BaseAdapter.md).[`sessionManager`](BaseAdapter.md#sessionmanager)
 
----
+***
 
 ### status
 
@@ -179,7 +179,7 @@ Current adapter status.
 
 [`BaseAdapter`](BaseAdapter.md).[`status`](BaseAdapter.md#status)
 
----
+***
 
 ### storage
 
@@ -219,7 +219,7 @@ Close the adapter and release resources.
 
 [`BaseAdapter`](BaseAdapter.md).[`close`](BaseAdapter.md#close)
 
----
+***
 
 ### createStorage()
 
@@ -238,7 +238,7 @@ Subclasses must implement this.
 
 [`BaseAdapter`](BaseAdapter.md).[`createStorage`](BaseAdapter.md#createstorage)
 
----
+***
 
 ### initialize()
 

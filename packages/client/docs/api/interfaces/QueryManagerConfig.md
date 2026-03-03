@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / QueryManagerConfig
+[@cqrs-toolkit/client](../globals.md) / QueryManagerConfig
 
 # Interface: QueryManagerConfig
 
@@ -18,7 +18,7 @@ Query manager configuration.
 
 Defined in: packages/client/src/core/query-manager/QueryManager.ts:26
 
----
+***
 
 ### eventBus
 
@@ -26,7 +26,7 @@ Defined in: packages/client/src/core/query-manager/QueryManager.ts:26
 
 Defined in: packages/client/src/core/query-manager/QueryManager.ts:25
 
----
+***
 
 ### readModelStore
 

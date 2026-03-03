@@ -3,81 +3,36 @@
  * These are internal events emitted by the library, not domain events.
  */
 
+import type { IPersistedEvent, ISerializedEvent } from '@meticoeus/ddd-es'
+
 export type EventPersistence = 'Permanent' | 'Stateful' | 'Anticipated'
 
 /**
- * Base event metadata present on all events.
+ * Anticipated event metadata — client-side optimistic event.
+ * Associated with a command, replaced when server confirms.
  */
-export interface BaseEventMeta {
+export interface AnticipatedEventMeta {
   /** Unique event identifier */
   id: string
   /** Event creation timestamp (epoch ms) */
   createdAt: number
-}
-
-/**
- * Permanent event - server-authoritative with global ordering.
- * If persistence field is missing, treat as Permanent.
- */
-export interface PermanentEventMeta extends BaseEventMeta {
-  persistence?: 'Permanent'
-  /** Stream-local revision number */
-  revision: bigint
-  /** Global position for ordering */
-  position: bigint
-}
-
-/**
- * Stateful event - server event without global ordering.
- * Best-effort delivery, may require snapshot refetch.
- */
-export interface StatefulEventMeta extends BaseEventMeta {
-  persistence: 'Stateful'
-}
-
-/**
- * Anticipated event - client-side optimistic event.
- * Associated with a command, replaced when server confirms.
- */
-export interface AnticipatedEventMeta extends BaseEventMeta {
   persistence: 'Anticipated'
   /** Command that produced this anticipated event */
   commandId: string
 }
 
 /**
- * Union of all event metadata types.
- */
-export type EventMeta = PermanentEventMeta | StatefulEventMeta | AnticipatedEventMeta
-
-/**
- * Generic event wrapper type.
- * Domain events extend this with their specific payload.
- */
-export interface BaseEvent<TPayload = unknown> {
-  /** Event type name (e.g., 'TodoCreated', 'UserUpdated') */
-  type: string
-  /** Event payload */
-  data: TPayload
-  /** Stream/aggregate identifier */
-  streamId: string
-}
-
-/**
- * Server event (Permanent or Stateful).
- */
-export type ServerEvent<TPayload = unknown> = BaseEvent<TPayload> &
-  (PermanentEventMeta | StatefulEventMeta)
-
-/**
  * Anticipated event produced by local command execution.
  */
-export type AnticipatedEvent<TPayload = unknown> = BaseEvent<TPayload> & AnticipatedEventMeta
-
-/**
- * Any event type the library may handle.
- */
-export type AnyEvent<TPayload = unknown> = ServerEvent<TPayload> | AnticipatedEvent<TPayload>
+export interface AnticipatedEvent<TPayload = unknown> {
+  type: string
+  data: TPayload
+  streamId: string
+  id: string
+  createdAt: number
+  persistence: 'Anticipated'
+  commandId: string
+}
 
 /**
  * Library-level events emitted to consumers.
@@ -129,34 +84,29 @@ export interface LibraryEvent<T extends LibraryEventType = LibraryEventType> {
 
 /**
  * Normalize event persistence - missing field means Permanent.
+ * Accepts the ddd-es persistence values ('Permanent' | 'Stateful' | 'Ephemeral') in addition
+ * to the client-only 'Anticipated' value. Ephemeral events are not persisted, so this value
+ * should never appear on an IPersistedEvent; if it does, we treat it as Permanent.
  */
 export function normalizeEventPersistence(event: {
-  persistence?: EventPersistence
+  persistence?: EventPersistence | 'Ephemeral'
 }): EventPersistence {
-  return event.persistence ?? 'Permanent'
+  const p = event.persistence
+  if (p === 'Permanent' || p === 'Stateful' || p === 'Anticipated') return p
+  return 'Permanent'
 }
 
 /**
- * Type guard for permanent events.
+ * Hydrate a serialized event (JSON wire format) into a persisted event.
+ * Converts string revision/position to bigint. All other fields pass through unchanged.
+ *
+ * Use this in Collection fetch method implementations to convert server JSON
+ * responses into the IPersistedEvent type the library expects.
  */
-export function isPermanentEvent<T>(
-  event: AnyEvent<T>,
-): event is ServerEvent<T> & PermanentEventMeta {
-  return normalizeEventPersistence(event) === 'Permanent'
-}
-
-/**
- * Type guard for stateful events.
- */
-export function isStatefulEvent<T>(
-  event: AnyEvent<T>,
-): event is ServerEvent<T> & StatefulEventMeta {
-  return normalizeEventPersistence(event) === 'Stateful'
-}
-
-/**
- * Type guard for anticipated events.
- */
-export function isAnticipatedEvent<T>(event: AnyEvent<T>): event is AnticipatedEvent<T> {
-  return normalizeEventPersistence(event) === 'Anticipated'
+export function hydrateSerializedEvent(event: ISerializedEvent): IPersistedEvent {
+  return {
+    ...event,
+    revision: BigInt(event.revision),
+    position: BigInt(event.position),
+  }
 }

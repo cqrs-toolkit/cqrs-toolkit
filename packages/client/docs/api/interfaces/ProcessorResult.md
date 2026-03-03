@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / ProcessorResult
+[@cqrs-toolkit/client](../globals.md) / ProcessorResult
 
 # Interface: ProcessorResult\<T\>
 
@@ -26,7 +26,7 @@ Defined in: packages/client/src/core/event-processor/types.ts:21
 
 Collection to update
 
----
+***
 
 ### id
 
@@ -36,7 +36,7 @@ Defined in: packages/client/src/core/event-processor/types.ts:23
 
 Entity ID to update
 
----
+***
 
 ### isServerUpdate
 
@@ -46,7 +46,7 @@ Defined in: packages/client/src/core/event-processor/types.ts:27
 
 Whether this is a server baseline update (vs optimistic)
 
----
+***
 
 ### update
 

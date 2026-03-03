@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / AcquireCacheKeyOptions
+[@cqrs-toolkit/client](../globals.md) / AcquireCacheKeyOptions
 
 # Interface: AcquireCacheKeyOptions
 
@@ -20,7 +20,7 @@ Defined in: packages/client/src/core/cache-manager/CacheManager.ts:30
 
 Whether to place a hold (prevents eviction)
 
----
+***
 
 ### scope?
 
@@ -30,7 +30,7 @@ Defined in: packages/client/src/core/cache-manager/CacheManager.ts:34
 
 Scope for the cache key
 
----
+***
 
 ### ttl?
 

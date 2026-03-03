@@ -8,17 +8,18 @@
  * - Trigger command processing
  */
 
-import type { EventMessage } from '@cqrs-toolkit/realtime'
 import { parseServerMessage, serializeClientMessage } from '@cqrs-toolkit/realtime'
+import type { IPersistedEvent } from '@meticoeus/ddd-es'
 import { logProvider } from '@meticoeus/ddd-es'
 import { Subject, Subscription, takeUntil } from 'rxjs'
-import type { CollectionConfig, NetworkConfig } from '../../types/config.js'
-import { isPermanentEvent, type ServerEvent } from '../../types/events.js'
+import type { Collection, FetchContext, NetworkConfig } from '../../types/config.js'
+import { hydrateSerializedEvent, normalizeEventPersistence } from '../../types/events.js'
 import type { CacheManager } from '../cache-manager/CacheManager.js'
 import type { CommandQueue } from '../command-queue/CommandQueue.js'
 import type { EventCache } from '../event-cache/EventCache.js'
 import type { EventProcessorRunner, ParsedEvent } from '../event-processor/index.js'
 import type { EventBus } from '../events/EventBus.js'
+import type { ReadModelStore } from '../read-model-store/ReadModelStore.js'
 import type { SessionManager } from '../session/SessionManager.js'
 import { ConnectivityManager } from './ConnectivityManager.js'
 
@@ -32,8 +33,9 @@ export interface SyncManagerConfig {
   eventCache: EventCache
   cacheManager: CacheManager
   eventProcessor: EventProcessorRunner
+  readModelStore: ReadModelStore
   networkConfig: NetworkConfig
-  collections: CollectionConfig[]
+  collections: Collection[]
 }
 
 /**
@@ -57,14 +59,14 @@ export class SyncManager {
   private readonly eventCache: EventCache
   private readonly cacheManager: CacheManager
   private readonly eventProcessor: EventProcessorRunner
+  private readonly readModelStore: ReadModelStore
   private readonly networkConfig: NetworkConfig
-  private readonly collections: CollectionConfig[]
+  private readonly collections: Collection[]
 
   private readonly connectivity: ConnectivityManager
   private readonly destroy$ = new Subject<void>()
 
   private readonly collectionStatus = new Map<string, CollectionSyncStatus>()
-  private readonly streamPrefixToCollection: Map<string, string>
   private readonly repairing = new Set<string>()
   private wsConnection: WebSocket | null = null
   private subscriptions: Subscription[] = []
@@ -76,6 +78,7 @@ export class SyncManager {
     this.eventCache = config.eventCache
     this.cacheManager = config.cacheManager
     this.eventProcessor = config.eventProcessor
+    this.readModelStore = config.readModelStore
     this.networkConfig = config.networkConfig
     this.collections = config.collections
 
@@ -94,19 +97,6 @@ export class SyncManager {
         syncing: false,
         error: null,
       })
-    }
-
-    // Build streamId prefix → collection name lookup from topic patterns.
-    // Topic "Note:*" → prefix "Note" → collection "notes".
-    // Stream "Note-abc" → prefix "Note" → lookup → "notes".
-    this.streamPrefixToCollection = new Map()
-    for (const col of this.collections) {
-      if (col.topicPattern) {
-        const colonIdx = col.topicPattern.indexOf(':')
-        if (colonIdx > 0) {
-          this.streamPrefixToCollection.set(col.topicPattern.slice(0, colonIdx), col.name)
-        }
-      }
     }
   }
 
@@ -227,10 +217,11 @@ export class SyncManager {
     this.commandQueue.resume()
 
     // Seed collections that need it
-    for (const config of this.collections) {
-      const status = this.collectionStatus.get(config.name)
-      if (status && !status.seeded && config.seedOnInit !== false) {
-        await this.seedCollection(config)
+    for (const collection of this.collections) {
+      const status = this.collectionStatus.get(collection.name)
+      const canSeed = collection.fetchSeedRecords || collection.fetchSeedEvents
+      if (status && !status.seeded && collection.seedOnInit !== false && canSeed) {
+        await this.seedCollection(collection)
       }
     }
 
@@ -244,94 +235,125 @@ export class SyncManager {
   /**
    * Seed a collection from the server.
    */
-  private async seedCollection(config: CollectionConfig): Promise<void> {
-    const status = this.collectionStatus.get(config.name)
+  private async seedCollection(collection: Collection): Promise<void> {
+    if (!collection.fetchSeedRecords && !collection.fetchSeedEvents) return
+
+    const status = this.collectionStatus.get(collection.name)
     if (!status || status.syncing) return
 
-    this.updateCollectionStatus(config.name, { syncing: true, error: null })
-    this.eventBus.emit('sync:started', { collection: config.name })
+    this.updateCollectionStatus(collection.name, { syncing: true, error: null })
+    this.eventBus.emit('sync:started', { collection: collection.name })
 
     try {
-      const cacheKey = await this.cacheManager.acquire(config.name)
-      let eventCount = 0
-      let cursor: string | null = null
-      const pageSize = config.seedPageSize ?? 100
+      const cacheKey = await this.cacheManager.acquire(collection.name)
+      const ctx = await this.buildFetchContext()
+      const pageSize = collection.seedPageSize ?? 100
 
-      do {
-        const response = await this.fetchEvents(config.name, cursor, pageSize)
+      if (collection.fetchSeedRecords) {
+        await this.seedWithRecords(collection, ctx, cacheKey, pageSize)
+      } else if (collection.fetchSeedEvents) {
+        await this.seedWithEvents(collection, ctx, cacheKey, pageSize)
+      }
 
-        if (response.events.length > 0) {
-          // Cache events
-          await this.eventCache.cacheServerEvents(response.events, { cacheKey })
-
-          // Process events
-          const parsedEvents = response.events.map((e) => this.toParsedEvent(e, cacheKey))
-          await this.eventProcessor.processEvents(parsedEvents)
-
-          eventCount += response.events.length
-        }
-
-        cursor = response.nextCursor
-      } while (cursor)
-
-      this.updateCollectionStatus(config.name, {
+      this.updateCollectionStatus(collection.name, {
         seeded: true,
         syncing: false,
       })
 
-      logProvider.log.debug({ collection: config.name, eventCount }, 'Collection sync completed')
-      this.eventBus.emit('sync:completed', { collection: config.name, eventCount })
+      logProvider.log.debug({ collection: collection.name }, 'Collection sync completed')
+      this.eventBus.emit('sync:completed', { collection: collection.name, eventCount: 0 })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      logProvider.log.error({ collection: config.name, err: error }, 'Collection sync failed')
-      this.updateCollectionStatus(config.name, {
+      logProvider.log.error({ collection: collection.name, err: error }, 'Collection sync failed')
+      this.updateCollectionStatus(collection.name, {
         syncing: false,
         error: errorMessage,
       })
 
-      this.eventBus.emit('sync:failed', { collection: config.name, error: errorMessage })
+      this.eventBus.emit('sync:failed', { collection: collection.name, error: errorMessage })
     }
   }
 
   /**
-   * Fetch events from the server.
+   * Seed a collection using pre-computed read model records.
    */
-  private async fetchEvents(
-    collection: string,
-    cursor: string | null,
-    limit: number,
-  ): Promise<{ events: ServerEvent[]; nextCursor: string | null }> {
-    const url = new URL(`${this.networkConfig.baseUrl}/events/${collection}`)
-    if (cursor) {
-      url.searchParams.set('cursor', cursor)
-    }
-    url.searchParams.set('limit', String(limit))
+  private async seedWithRecords(
+    collection: Collection,
+    ctx: FetchContext,
+    cacheKey: string,
+    pageSize: number,
+  ): Promise<void> {
+    let cursor: string | null = null
 
-    const headers: Record<string, string> = {
-      ...this.networkConfig.headers,
-    }
+    do {
+      const page = await collection.fetchSeedRecords!(ctx, cursor, pageSize)
+      this.connectivity.reportContact()
 
+      if (page.records.length > 0) {
+        for (const record of page.records) {
+          await this.readModelStore.setServerData(collection.name, record.id, record.data, cacheKey)
+        }
+      }
+
+      cursor = page.nextCursor
+    } while (cursor)
+  }
+
+  /**
+   * Seed a collection using events processed through event processors.
+   */
+  private async seedWithEvents(
+    collection: Collection,
+    ctx: FetchContext,
+    cacheKey: string,
+    pageSize: number,
+  ): Promise<void> {
+    let cursor: string | null = null
+    let eventCount = 0
+
+    do {
+      const page = await collection.fetchSeedEvents!(ctx, cursor, pageSize)
+      this.connectivity.reportContact()
+
+      if (page.events.length > 0) {
+        // Cache events
+        await this.eventCache.cacheServerEvents(page.events, { cacheKey })
+
+        // Process events
+        const parsedEvents = page.events.map((e) => this.toParsedEvent(e, cacheKey))
+        await this.eventProcessor.processEvents(parsedEvents)
+
+        eventCount += page.events.length
+      }
+
+      cursor = page.nextCursor
+    } while (cursor)
+
+    logProvider.log.debug({ collection: collection.name, eventCount }, 'Event-based seed completed')
+  }
+
+  /**
+   * Build network context for collection fetch methods.
+   * Resolves headers from NetworkConfig. If getAuthToken is configured (Bearer token apps),
+   * the resolved token is included. For cookie-based auth, this is a no-op —
+   * the browser sends cookies automatically with fetch().
+   */
+  private async buildFetchContext(): Promise<FetchContext> {
+    const headers: Record<string, string> = { ...this.networkConfig.headers }
     if (this.networkConfig.getAuthToken) {
       const token = await this.networkConfig.getAuthToken()
       if (token) {
         headers['Authorization'] = `Bearer ${token}`
       }
     }
+    return { baseUrl: this.networkConfig.baseUrl, headers }
+  }
 
-    const response = await fetch(url.toString(), { headers })
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch events: ${response.status}`)
-    }
-
-    this.connectivity.reportContact()
-
-    const data = await response.json()
-    const rawEvents: unknown[] = data.events ?? []
-    return {
-      events: rawEvents.map(hydrateHttpEvent),
-      nextCursor: data.nextCursor ?? null,
-    }
+  /**
+   * Find all collections that match a given streamId.
+   */
+  private getMatchingCollections(streamId: string): Collection[] {
+    return this.collections.filter((c) => c.matchesStream(streamId))
   }
 
   /**
@@ -359,7 +381,7 @@ export class SyncManager {
               this.sendSubscriptions()
               break
             case 'event':
-              await this.handleWebSocketEvent(eventMessageToServerEvent(message))
+              await this.handleWebSocketEvent(hydrateSerializedEvent(message.event))
               break
             case 'heartbeat':
               this.connectivity.reportContact()
@@ -403,12 +425,17 @@ export class SyncManager {
 
   /**
    * Send topic subscriptions after receiving the connected message.
+   * Collects topics from all collections via getTopics(), deduplicates with a Set.
    */
   private sendSubscriptions(): void {
     if (!this.wsConnection) return
-    const topics = this.collections
-      .map((c) => c.topicPattern)
-      .filter((t): t is string => typeof t === 'string')
+    const topicSet = new Set<string>()
+    for (const collection of this.collections) {
+      for (const topic of collection.getTopics()) {
+        topicSet.add(topic)
+      }
+    }
+    const topics = Array.from(topicSet)
     if (topics.length === 0) return
     this.wsConnection.send(serializeClientMessage({ type: 'subscribe', topics }))
   }
@@ -427,25 +454,24 @@ export class SyncManager {
    * Handle a WebSocket event.
    * Per-stream gap detection: check AFTER caching, repair inline when gaps exist.
    */
-  private async handleWebSocketEvent(event: ServerEvent): Promise<void> {
-    const collection = this.getCollectionFromStream(event.streamId)
-    if (!collection) return
+  private async handleWebSocketEvent(event: IPersistedEvent): Promise<void> {
+    const matchingCollections = this.getMatchingCollections(event.streamId)
+    const [primaryCollection, ...rest] = matchingCollections
+    if (!primaryCollection) return
 
-    const cacheKey = await this.cacheManager.acquire(collection)
+    const cacheKey = await this.cacheManager.acquire(primaryCollection.name)
 
     const cached = await this.eventCache.cacheServerEvent(event, { cacheKey })
     if (!cached) return // Duplicate
 
-    if (isPermanentEvent(event)) {
-      const gaps = this.eventCache.getStreamGaps(event.streamId)
-      if (gaps.length > 0) {
-        // Gap detected — repair if not already repairing this stream
-        if (!this.repairing.has(event.streamId)) {
-          await this.repairStreamGap(event.streamId, collection, cacheKey)
-        }
-        // Either repair processed this event, or it's buffered for an in-progress repair
-        return
+    const gaps = this.eventCache.getStreamGaps(event.streamId)
+    if (gaps.length > 0) {
+      // Gap detected — repair if not already repairing this stream
+      if (!this.repairing.has(event.streamId)) {
+        await this.repairStreamGap(event.streamId, primaryCollection.name, cacheKey)
       }
+      // Either repair processed this event, or it's buffered for an in-progress repair
+      return
     }
 
     // Happy path — no gaps, process immediately
@@ -453,14 +479,14 @@ export class SyncManager {
     await this.eventProcessor.processEvent(parsed)
 
     // Clear this event from gap buffer and advance known revision
-    if (isPermanentEvent(event)) {
-      this.eventCache.clearGapBuffer(event.streamId, event.revision)
-      this.eventCache.setKnownPosition(event.streamId, event.revision)
-    }
+    this.eventCache.clearGapBuffer(event.streamId, event.revision)
+    this.eventCache.setKnownPosition(event.streamId, event.revision)
 
-    this.updateCollectionStatus(collection, {
-      lastSyncedPosition: isPermanentEvent(event) ? event.position : undefined,
-    })
+    for (const collection of matchingCollections) {
+      this.updateCollectionStatus(collection.name, {
+        lastSyncedPosition: event.position,
+      })
+    }
   }
 
   /**
@@ -468,15 +494,15 @@ export class SyncManager {
    */
   private async repairStreamGap(
     streamId: string,
-    collection: string,
+    collectionName: string,
     cacheKey: string,
   ): Promise<void> {
     this.repairing.add(streamId)
     try {
-      const config = this.collections.find((c) => c.name === collection)
-      if (!config?.streamEventsEndpoint) {
-        // No endpoint configured — process buffered events as-is (lossy but unblocked)
-        this.processBufferedEventsForStream(streamId, cacheKey)
+      const collection = this.collections.find((c) => c.name === collectionName)
+      if (!collection?.fetchStreamEvents) {
+        // No fetch method — process buffered events as-is (lossy but unblocked)
+        await this.processBufferedEventsForStream(streamId, cacheKey)
         return
       }
 
@@ -485,7 +511,9 @@ export class SyncManager {
       if (!firstGap) return
 
       // Fetch events after the last known good revision (exclusive)
-      const events = await this.fetchStreamEvents(config, streamId, firstGap.fromPosition)
+      const ctx = await this.buildFetchContext()
+      const events = await collection.fetchStreamEvents(ctx, streamId, firstGap.fromPosition)
+      this.connectivity.reportContact()
 
       // Cache fetched events (fills the gap; duplicates are rejected by EventCache)
       for (const evt of events) {
@@ -493,7 +521,7 @@ export class SyncManager {
       }
 
       // Process all buffered events for this stream in revision order
-      this.processBufferedEventsForStream(streamId, cacheKey)
+      await this.processBufferedEventsForStream(streamId, cacheKey)
     } catch (error) {
       logProvider.log.error({ streamId, err: error }, 'Gap repair failed')
       // Events stay buffered — next WS event for this stream will retry
@@ -503,51 +531,13 @@ export class SyncManager {
   }
 
   /**
-   * Fetch per-stream events from the server for gap recovery.
-   */
-  private async fetchStreamEvents(
-    config: CollectionConfig,
-    streamId: string,
-    afterRevision: bigint,
-  ): Promise<ServerEvent[]> {
-    const aggregateId = extractAggregateId(streamId)
-    const path = config.streamEventsEndpoint!.replace('{id}', aggregateId)
-    const url = new URL(`${this.networkConfig.baseUrl}${path}`)
-
-    // TODO: query param name and response shape are hardcoded to match the demo server.
-    // These should become configurable when the library supports multiple server conventions.
-    url.searchParams.set('afterRevision', String(afterRevision))
-
-    const headers: Record<string, string> = { ...this.networkConfig.headers }
-    if (this.networkConfig.getAuthToken) {
-      const token = await this.networkConfig.getAuthToken()
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`
-      }
-    }
-
-    const response = await fetch(url.toString(), { headers })
-    if (!response.ok) {
-      throw new Error(`Gap repair fetch failed: ${response.status}`)
-    }
-
-    this.connectivity.reportContact()
-
-    // TODO: response shape `{ events: [...] }` is hardcoded. Make configurable later.
-    const data = await response.json()
-    const rawEvents: unknown[] = data.events ?? []
-    return rawEvents.map(hydrateHttpEvent)
-  }
-
-  /**
    * Process all buffered events for a stream in revision order.
    */
-  private processBufferedEventsForStream(streamId: string, cacheKey: string): void {
+  private async processBufferedEventsForStream(streamId: string, cacheKey: string): Promise<void> {
     const buffered = this.eventCache.getBufferedEvents(streamId)
     for (const entry of buffered) {
-      const serverEvent = entry.event as ServerEvent
-      const parsed = this.toParsedEvent(serverEvent, cacheKey)
-      this.eventProcessor.processEvent(parsed)
+      const parsed = this.toParsedEvent(entry.event, cacheKey)
+      await this.eventProcessor.processEvent(parsed)
     }
 
     const last = buffered[buffered.length - 1]
@@ -558,27 +548,17 @@ export class SyncManager {
   }
 
   /**
-   * Extract collection name from stream ID using topic pattern prefix mapping.
-   * Stream "Note-abc" → prefix "Note" → lookup → "notes".
+   * Convert persisted event to parsed event for processor.
    */
-  private getCollectionFromStream(streamId: string): string | null {
-    const hyphenIdx = streamId.indexOf('-')
-    if (hyphenIdx === -1) return null
-    const prefix = streamId.slice(0, hyphenIdx)
-    return this.streamPrefixToCollection.get(prefix) ?? null
-  }
-
-  /**
-   * Convert server event to parsed event for processor.
-   */
-  private toParsedEvent(event: ServerEvent, cacheKey: string): ParsedEvent {
+  private toParsedEvent(event: IPersistedEvent, cacheKey: string): ParsedEvent {
+    const persistence = normalizeEventPersistence(event)
     return {
       id: event.id,
       type: event.type,
       streamId: event.streamId,
-      persistence: event.persistence ?? 'Permanent',
+      persistence,
       data: event.data,
-      revision: isPermanentEvent(event) ? String(event.revision) : undefined,
+      revision: persistence !== 'Stateful' ? String(event.revision) : undefined,
       cacheKey,
     }
   }
@@ -591,46 +571,5 @@ export class SyncManager {
     if (current) {
       this.collectionStatus.set(collection, { ...current, ...updates })
     }
-  }
-}
-
-/**
- * Convert a WebSocket EventMessage (protocol envelope) to the internal ServerEvent type.
- * Reconstructs streamId from aggregateType + topic, converts string fields to bigint.
- */
-function eventMessageToServerEvent(message: EventMessage): ServerEvent {
-  const { event } = message
-
-  return {
-    id: event.id,
-    type: event.type,
-    streamId: event.streamId,
-    data: event.data,
-    createdAt: new Date(event.created).getTime(),
-    revision: BigInt(event.revision),
-    position: BigInt(event.position),
-  }
-}
-
-// TODO: stream ID format `Type-id` is hardcoded. Make configurable later.
-function extractAggregateId(streamId: string): string {
-  const hyphenIdx = streamId.indexOf('-')
-  return hyphenIdx === -1 ? streamId : streamId.slice(hyphenIdx + 1)
-}
-
-/**
- * Hydrate a JSON-parsed HTTP event response into a ServerEvent.
- * HTTP responses include `streamId` alongside SerializedEvent fields.
- */
-function hydrateHttpEvent(raw: unknown): ServerEvent {
-  const obj = raw as Record<string, unknown>
-  return {
-    id: obj['id'] as string,
-    type: obj['type'] as string,
-    streamId: obj['streamId'] as string,
-    data: obj['data'],
-    createdAt: new Date(obj['created'] as string).getTime(),
-    revision: BigInt(obj['revision'] as string),
-    position: BigInt(obj['position'] as string),
   }
 }

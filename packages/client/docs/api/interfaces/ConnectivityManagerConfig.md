@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / ConnectivityManagerConfig
+[@cqrs-toolkit/client](../globals.md) / ConnectivityManagerConfig
 
 # Interface: ConnectivityManagerConfig
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:31
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:32
 
 Connectivity manager configuration.
 
@@ -16,24 +16,24 @@ Connectivity manager configuration.
 
 > `optional` **checkInterval**: `number`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:34
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:35
 
 Interval to check API connectivity (ms)
 
----
+***
 
 ### eventBus
 
 > **eventBus**: [`EventBus`](../classes/EventBus.md)
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:32
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:33
 
----
+***
 
 ### healthCheckUrl?
 
 > `optional` **healthCheckUrl**: `string`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:36
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:37
 
 API health check URL

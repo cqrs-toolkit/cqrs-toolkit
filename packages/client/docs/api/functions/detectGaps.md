@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / detectGaps
+[@cqrs-toolkit/client](../globals.md) / detectGaps
 
 # Function: detectGaps()
 

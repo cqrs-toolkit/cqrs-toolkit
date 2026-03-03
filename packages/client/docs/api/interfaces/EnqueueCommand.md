@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / EnqueueCommand
+[@cqrs-toolkit/client](../globals.md) / EnqueueCommand
 
 # Interface: EnqueueCommand\<TPayload\>
 
@@ -26,7 +26,7 @@ Defined in: packages/client/src/types/commands.ts:84
 
 Commands this depends on (optional)
 
----
+***
 
 ### payload
 
@@ -36,7 +36,7 @@ Defined in: packages/client/src/types/commands.ts:80
 
 Command payload
 
----
+***
 
 ### service?
 
@@ -46,7 +46,7 @@ Defined in: packages/client/src/types/commands.ts:82
 
 Target service (optional, defaults to primary)
 
----
+***
 
 ### type
 

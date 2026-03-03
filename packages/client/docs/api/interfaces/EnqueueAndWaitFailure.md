@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / EnqueueAndWaitFailure
+[@cqrs-toolkit/client](../globals.md) / EnqueueAndWaitFailure
 
 # Interface: EnqueueAndWaitFailure
 
@@ -20,7 +20,7 @@ Defined in: packages/client/src/types/commands.ts:193
 
 Validation errors
 
----
+***
 
 ### ok
 
@@ -28,7 +28,7 @@ Validation errors
 
 Defined in: packages/client/src/types/commands.ts:191
 
----
+***
 
 ### source
 

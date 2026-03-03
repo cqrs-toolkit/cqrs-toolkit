@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / ALL_TABLES
+[@cqrs-toolkit/client](../globals.md) / ALL\_TABLES
 
-# Variable: ALL_TABLES
+# Variable: ALL\_TABLES
 
-> `const` **ALL_TABLES**: `string`[]
+> `const` **ALL\_TABLES**: `string`[]
 
 Defined in: packages/client/src/storage/schema/tables.ts:121
 

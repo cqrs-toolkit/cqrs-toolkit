@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / BaseAdapter
+[@cqrs-toolkit/client](../globals.md) / BaseAdapter
 
 # Abstract Class: BaseAdapter
 
@@ -44,7 +44,7 @@ Defined in: packages/client/src/adapters/base/BaseAdapter.ts:74
 
 Defined in: packages/client/src/adapters/base/BaseAdapter.ts:71
 
----
+***
 
 ### \_status
 
@@ -52,7 +52,7 @@ Defined in: packages/client/src/adapters/base/BaseAdapter.ts:71
 
 Defined in: packages/client/src/adapters/base/BaseAdapter.ts:72
 
----
+***
 
 ### \_storage
 
@@ -60,7 +60,7 @@ Defined in: packages/client/src/adapters/base/BaseAdapter.ts:72
 
 Defined in: packages/client/src/adapters/base/BaseAdapter.ts:70
 
----
+***
 
 ### config
 
@@ -68,7 +68,7 @@ Defined in: packages/client/src/adapters/base/BaseAdapter.ts:70
 
 Defined in: packages/client/src/adapters/base/BaseAdapter.ts:68
 
----
+***
 
 ### eventBus
 
@@ -82,7 +82,7 @@ Event bus instance for wiring core components.
 
 [`IAdapter`](../interfaces/IAdapter.md).[`eventBus`](../interfaces/IAdapter.md#eventbus)
 
----
+***
 
 ### mode
 
@@ -118,7 +118,7 @@ Observable of library events.
 
 [`IAdapter`](../interfaces/IAdapter.md).[`events$`](../interfaces/IAdapter.md#events)
 
----
+***
 
 ### sessionManager
 
@@ -140,7 +140,7 @@ Session manager instance.
 
 [`IAdapter`](../interfaces/IAdapter.md).[`sessionManager`](../interfaces/IAdapter.md#sessionmanager)
 
----
+***
 
 ### status
 
@@ -162,7 +162,7 @@ Current adapter status.
 
 [`IAdapter`](../interfaces/IAdapter.md).[`status`](../interfaces/IAdapter.md#status)
 
----
+***
 
 ### storage
 
@@ -202,7 +202,7 @@ Close the adapter and release resources.
 
 [`IAdapter`](../interfaces/IAdapter.md).[`close`](../interfaces/IAdapter.md#close)
 
----
+***
 
 ### createStorage()
 
@@ -217,7 +217,7 @@ Subclasses must implement this.
 
 `Promise`\<[`IStorage`](../interfaces/IStorage.md)\>
 
----
+***
 
 ### initialize()
 

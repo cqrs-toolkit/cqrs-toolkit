@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / deriveScopedCacheKey
+[@cqrs-toolkit/client](../globals.md) / deriveScopedCacheKey
 
 # Function: deriveScopedCacheKey()
 

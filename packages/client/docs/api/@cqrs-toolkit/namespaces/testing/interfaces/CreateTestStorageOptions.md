@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [testing](../README.md) / CreateTestStorageOptions
+[@cqrs-toolkit/client](../../../../globals.md) / [testing](../README.md) / CreateTestStorageOptions
 
 # Interface: CreateTestStorageOptions
 
@@ -20,7 +20,7 @@ Defined in: packages/client/src/testing/createTestStorage.ts:27
 
 Pre-populate with cached events
 
----
+***
 
 ### cacheKeys?
 
@@ -30,7 +30,7 @@ Defined in: packages/client/src/testing/createTestStorage.ts:23
 
 Pre-populate with cache keys
 
----
+***
 
 ### commands?
 
@@ -40,7 +40,7 @@ Defined in: packages/client/src/testing/createTestStorage.ts:25
 
 Pre-populate with commands
 
----
+***
 
 ### readModels?
 
@@ -50,7 +50,7 @@ Defined in: packages/client/src/testing/createTestStorage.ts:29
 
 Pre-populate with read models
 
----
+***
 
 ### session?
 

@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / SessionRecord
+[@cqrs-toolkit/client](../globals.md) / SessionRecord
 
 # Interface: SessionRecord
 
@@ -20,7 +20,7 @@ Defined in: packages/client/src/storage/IStorage.ts:17
 
 Session creation timestamp
 
----
+***
 
 ### id
 
@@ -30,7 +30,7 @@ Defined in: packages/client/src/storage/IStorage.ts:13
 
 Always 1 - single session constraint
 
----
+***
 
 ### lastSeenAt
 
@@ -40,7 +40,7 @@ Defined in: packages/client/src/storage/IStorage.ts:19
 
 Last activity timestamp
 
----
+***
 
 ### userId
 

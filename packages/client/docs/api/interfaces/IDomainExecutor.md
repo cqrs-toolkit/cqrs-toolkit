@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / IDomainExecutor
+[@cqrs-toolkit/client](../globals.md) / IDomainExecutor
 
 # Interface: IDomainExecutor\<TCommand, TEvent\>
 
@@ -37,7 +37,6 @@ Execute a command and produce anticipated events.
 Validation happens here - return errors if command is invalid.
 
 This method must be:
-
 - Pure: no side effects
 - Deterministic: same input always produces same output
 - Synchronous: no async operations

@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / ReadModelStore
+[@cqrs-toolkit/client](../globals.md) / ReadModelStore
 
 # Class: ReadModelStore
 
@@ -42,7 +42,7 @@ Apply local changes to a read model (optimistic update).
 
 ##### T
 
-`T` _extends_ `object`
+`T` *extends* `object`
 
 #### Parameters
 
@@ -74,7 +74,7 @@ Cache key to associate with (required if creating new)
 
 `Promise`\<`void`\>
 
----
+***
 
 ### clearLocalChanges()
 
@@ -102,7 +102,7 @@ Entity ID
 
 `Promise`\<`void`\>
 
----
+***
 
 ### count()
 
@@ -126,7 +126,7 @@ Collection name
 
 Count of read models
 
----
+***
 
 ### delete()
 
@@ -154,7 +154,7 @@ Entity ID
 
 `Promise`\<`void`\>
 
----
+***
 
 ### exists()
 
@@ -184,7 +184,7 @@ Entity ID
 
 Whether the read model exists
 
----
+***
 
 ### getById()
 
@@ -220,7 +220,7 @@ Entity ID
 
 Read model or null
 
----
+***
 
 ### getByIds()
 
@@ -256,7 +256,7 @@ Entity IDs
 
 Map of ID to read model
 
----
+***
 
 ### getLocalChanges()
 
@@ -278,7 +278,7 @@ Get all read models with local changes.
 
 Array of read models with uncommitted changes
 
----
+***
 
 ### list()
 
@@ -314,7 +314,7 @@ Query options
 
 Array of read models
 
----
+***
 
 ### setServerData()
 

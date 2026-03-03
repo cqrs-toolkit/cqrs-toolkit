@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / isTerminalStatus
+[@cqrs-toolkit/client](../globals.md) / isTerminalStatus
 
 # Function: isTerminalStatus()
 

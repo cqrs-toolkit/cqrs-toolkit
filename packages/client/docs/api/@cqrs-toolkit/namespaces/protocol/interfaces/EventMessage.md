@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [protocol](../README.md) / EventMessage
+[@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / EventMessage
 
 # Interface: EventMessage
 
@@ -20,7 +20,7 @@ Defined in: packages/client/src/protocol/messages.ts:50
 
 Event name
 
----
+***
 
 ### payload
 
@@ -30,7 +30,7 @@ Defined in: packages/client/src/protocol/messages.ts:52
 
 Event payload
 
----
+***
 
 ### type
 

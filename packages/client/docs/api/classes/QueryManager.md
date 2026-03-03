@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / QueryManager
+[@cqrs-toolkit/client](../globals.md) / QueryManager
 
 # Class: QueryManager
 
@@ -52,7 +52,7 @@ Collection name
 
 Count
 
----
+***
 
 ### destroy()
 
@@ -66,7 +66,7 @@ Destroy the query manager.
 
 `void`
 
----
+***
 
 ### exists()
 
@@ -96,7 +96,7 @@ Entity ID
 
 Whether the entity exists
 
----
+***
 
 ### getById()
 
@@ -138,7 +138,7 @@ Query options
 
 Query result
 
----
+***
 
 ### getByIds()
 
@@ -180,7 +180,7 @@ Query options
 
 Map of ID to query result
 
----
+***
 
 ### hold()
 
@@ -203,7 +203,7 @@ Cache key to hold
 
 `Promise`\<`void`\>
 
----
+***
 
 ### list()
 
@@ -239,7 +239,7 @@ Query options
 
 List query result
 
----
+***
 
 ### release()
 
@@ -261,7 +261,7 @@ Cache key to release
 
 `Promise`\<`void`\>
 
----
+***
 
 ### releaseAll()
 
@@ -275,7 +275,7 @@ Release all active holds.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### touch()
 
@@ -298,7 +298,7 @@ Collection name
 
 `Promise`\<`void`\>
 
----
+***
 
 ### watchById()
 
@@ -334,7 +334,7 @@ Entity ID
 
 Observable of the entity data
 
----
+***
 
 ### watchCollection()
 

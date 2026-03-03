@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / CommandRecord
+[@cqrs-toolkit/client](../globals.md) / CommandRecord
 
 # Interface: CommandRecord\<TPayload, TResponse\>
 
@@ -30,7 +30,7 @@ Defined in: packages/client/src/types/commands.ts:62
 
 IDs of anticipated events produced by this command
 
----
+***
 
 ### attempts
 
@@ -40,7 +40,7 @@ Defined in: packages/client/src/types/commands.ts:58
 
 Number of send attempts
 
----
+***
 
 ### blockedBy
 
@@ -50,7 +50,7 @@ Defined in: packages/client/src/types/commands.ts:56
 
 Commands blocked by this command
 
----
+***
 
 ### commandId
 
@@ -60,7 +60,7 @@ Defined in: packages/client/src/types/commands.ts:44
 
 Unique command identifier (client-generated)
 
----
+***
 
 ### createdAt
 
@@ -70,7 +70,7 @@ Defined in: packages/client/src/types/commands.ts:68
 
 Creation timestamp
 
----
+***
 
 ### dependsOn
 
@@ -80,7 +80,7 @@ Defined in: packages/client/src/types/commands.ts:54
 
 Commands this command depends on (must complete first)
 
----
+***
 
 ### error?
 
@@ -90,7 +90,7 @@ Defined in: packages/client/src/types/commands.ts:64
 
 Error information if failed
 
----
+***
 
 ### lastAttemptAt?
 
@@ -100,7 +100,7 @@ Defined in: packages/client/src/types/commands.ts:60
 
 Timestamp of last send attempt
 
----
+***
 
 ### payload
 
@@ -110,7 +110,7 @@ Defined in: packages/client/src/types/commands.ts:50
 
 Command payload
 
----
+***
 
 ### serverResponse?
 
@@ -120,7 +120,7 @@ Defined in: packages/client/src/types/commands.ts:66
 
 Server response on success
 
----
+***
 
 ### service
 
@@ -130,7 +130,7 @@ Defined in: packages/client/src/types/commands.ts:46
 
 Target service for the command
 
----
+***
 
 ### status
 
@@ -140,7 +140,7 @@ Defined in: packages/client/src/types/commands.ts:52
 
 Current status
 
----
+***
 
 ### type
 
@@ -150,7 +150,7 @@ Defined in: packages/client/src/types/commands.ts:48
 
 Command type (e.g., 'CreateTodo', 'UpdateUser')
 
----
+***
 
 ### updatedAt
 

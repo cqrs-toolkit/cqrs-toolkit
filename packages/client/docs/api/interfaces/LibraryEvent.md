@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / LibraryEvent
+[@cqrs-toolkit/client](../globals.md) / LibraryEvent
 
 # Interface: LibraryEvent\<T\>
 
-Defined in: packages/client/src/types/events.ts:124
+Defined in: packages/client/src/types/events.ts:79
 
 Typed library event.
 
@@ -14,7 +14,7 @@ Typed library event.
 
 ### T
 
-`T` _extends_ [`LibraryEventType`](../type-aliases/LibraryEventType.md) = [`LibraryEventType`](../type-aliases/LibraryEventType.md)
+`T` *extends* [`LibraryEventType`](../type-aliases/LibraryEventType.md) = [`LibraryEventType`](../type-aliases/LibraryEventType.md)
 
 ## Properties
 
@@ -22,20 +22,20 @@ Typed library event.
 
 > **payload**: [`LibraryEventPayloads`](LibraryEventPayloads.md)\[`T`\]
 
-Defined in: packages/client/src/types/events.ts:126
+Defined in: packages/client/src/types/events.ts:81
 
----
+***
 
 ### timestamp
 
 > **timestamp**: `number`
 
-Defined in: packages/client/src/types/events.ts:127
+Defined in: packages/client/src/types/events.ts:82
 
----
+***
 
 ### type
 
 > **type**: `T`
 
-Defined in: packages/client/src/types/events.ts:125
+Defined in: packages/client/src/types/events.ts:80

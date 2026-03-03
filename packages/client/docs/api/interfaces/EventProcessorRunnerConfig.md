@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / EventProcessorRunnerConfig
+[@cqrs-toolkit/client](../globals.md) / EventProcessorRunnerConfig
 
 # Interface: EventProcessorRunnerConfig
 
-Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:15
+Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:16
 
 Event processor runner configuration.
 
@@ -16,20 +16,20 @@ Event processor runner configuration.
 
 > **eventBus**: [`EventBus`](../classes/EventBus.md)
 
-Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:17
+Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:18
 
----
+***
 
 ### registry
 
 > **registry**: [`EventProcessorRegistry`](../classes/EventProcessorRegistry.md)
 
-Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:18
+Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:19
 
----
+***
 
 ### storage
 
 > **storage**: [`IStorage`](IStorage.md)
 
-Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:16
+Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:17

@@ -2,6 +2,7 @@
  * Configuration types for the CQRS Client.
  */
 
+import type { IPersistedEvent } from '@meticoeus/ddd-es'
 import type { ICommandSender } from '../core/command-queue/types.js'
 import type { ProcessorRegistration } from '../core/event-processor/types.js'
 import type { IDomainExecutor } from './domain.js'
@@ -81,25 +82,103 @@ export interface CacheConfig {
 }
 
 /**
- * Collection configuration for sync.
+ * Network context passed to collection fetch methods.
+ *
+ * Contains the resolved base URL and headers from NetworkConfig.
+ * If NetworkConfig.getAuthToken is configured, the resolved token is included
+ * as an Authorization header. For cookie-based auth, no special handling is
+ * needed — the browser sends cookies automatically with fetch().
+ *
+ * Collections may add their own headers (e.g., Accept-Profile for versioning,
+ * x-tenant-id for tenant context) in their fetch implementations.
  */
-export interface CollectionConfig {
-  /** Collection name */
-  name: string
-  /** WebSocket topic pattern for subscribing (e.g., "Todo:*"). If omitted, no WS subscription is sent for this collection. */
-  topicPattern?: string
+export interface FetchContext {
+  readonly baseUrl: string
+  readonly headers: Record<string, string>
+}
+
+/**
+ * A read model record returned from a seed endpoint.
+ */
+export interface SeedRecord {
+  id: string
+  data: unknown
+}
+
+/**
+ * Result of a read model seed page fetch.
+ */
+export interface SeedRecordPage {
+  records: SeedRecord[]
+  nextCursor: string | null
+}
+
+/**
+ * Result of an event seed page fetch.
+ * Events are IPersistedEvent from ddd-es — the canonical hydrated event type.
+ */
+export interface SeedEventPage {
+  events: IPersistedEvent[]
+  nextCursor: string | null
+}
+
+/**
+ * A synchronized event collection.
+ *
+ * Collections define how the library discovers, fetches, and routes events.
+ * Consumer code implements the fetch methods to control HTTP conventions.
+ */
+export interface Collection {
+  readonly name: string
+
+  /** WS topic patterns to subscribe to. Return [] for no subscription. */
+  getTopics(): string[]
+
   /**
-   * URL path template for fetching per-stream events (gap recovery).
-   * `{id}` is replaced with the aggregate ID extracted from the streamId.
-   * Example: '/notes/{id}/events'
+   * Test whether a streamId belongs to this collection.
+   * Called for WS events and command response events to route them.
+   * Multiple collections may match the same streamId.
    */
-  streamEventsEndpoint?: string
-  /** Sync priority (lower = higher priority) */
-  priority?: number
-  /** Whether to seed on initial sync */
-  seedOnInit?: boolean
-  /** Page size for seeding */
-  seedPageSize?: number
+  matchesStream(streamId: string): boolean
+
+  /**
+   * Fetch a page of pre-computed read model records for initial seeding.
+   * This is the primary seeding mechanism — records go directly into the
+   * read model store without event processing.
+   *
+   * If undefined, falls back to fetchSeedEvents (event-based seeding).
+   * If neither is defined, seeding is skipped for this collection.
+   */
+  fetchSeedRecords?(
+    ctx: FetchContext,
+    cursor: string | null,
+    limit: number,
+  ): Promise<SeedRecordPage>
+
+  /**
+   * Fetch a page of events for initial seeding (fallback).
+   * Events are processed through event processors to build read models.
+   * Prefer fetchSeedRecords when the server provides read model endpoints.
+   *
+   * Only used if fetchSeedRecords is not defined.
+   */
+  fetchSeedEvents?(ctx: FetchContext, cursor: string | null, limit: number): Promise<SeedEventPage>
+
+  /**
+   * Fetch per-stream events for gap recovery and command response processing.
+   * If undefined, gap recovery processes buffered events as-is (lossy).
+   */
+  fetchStreamEvents?(
+    ctx: FetchContext,
+    streamId: string,
+    afterRevision: bigint,
+  ): Promise<IPersistedEvent[]>
+
+  /** Whether to seed on initial sync. Default: true. */
+  readonly seedOnInit?: boolean
+
+  /** Page size for seeding. Default: 100. */
+  readonly seedPageSize?: number
 }
 
 /**
@@ -141,7 +220,7 @@ export interface CqrsClientConfig<TCommand = unknown, TEvent = unknown> {
   /**
    * Collection configurations.
    */
-  collections?: CollectionConfig[]
+  collections?: Collection[]
 
   /**
    * Command sender for submitting commands to the server.
@@ -217,7 +296,7 @@ export interface ResolvedConfig<TCommand = unknown, TEvent = unknown> extends Re
   commandSender?: ICommandSender
   workerUrl?: string
   workerSetup?: string[]
-  collections: CollectionConfig[]
+  collections: Collection[]
   processors: ProcessorRegistration[]
 }
 

@@ -1,18 +1,18 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / ResolvedConfig
+[@cqrs-toolkit/client](../globals.md) / ResolvedConfig
 
 # Interface: ResolvedConfig\<TCommand, TEvent\>
 
-Defined in: packages/client/src/types/config.ts:183
+Defined in: packages/client/src/types/config.ts:289
 
 Resolved configuration with all defaults applied.
 
 ## Extends
 
-- `Required`\<`Omit`\<[`CqrsClientConfig`](CqrsClientConfig.md)\<`TCommand`, `TEvent`\>, `"domainExecutor"` \| `"commandSender"` \| `"workerUrl"` \| `"collections"`\>\>
+- `Required`\<`Omit`\<[`CqrsClientConfig`](CqrsClientConfig.md)\<`TCommand`, `TEvent`\>, `"domainExecutor"` \| `"commandSender"` \| `"workerUrl"` \| `"workerSetup"` \| `"collections"` \| `"processors"`\>\>
 
 ## Extended by
 
@@ -35,7 +35,7 @@ Resolved configuration with all defaults applied.
 
 > **cache**: [`CacheConfig`](CacheConfig.md)
 
-Defined in: packages/client/src/types/config.ts:130
+Defined in: packages/client/src/types/config.ts:218
 
 Cache configuration.
 
@@ -43,29 +43,29 @@ Cache configuration.
 
 `Required.cache`
 
----
+***
 
 ### collections
 
-> **collections**: [`CollectionConfig`](CollectionConfig.md)[]
+> **collections**: [`Collection`](Collection.md)[]
 
-Defined in: packages/client/src/types/config.ts:192
+Defined in: packages/client/src/types/config.ts:299
 
----
+***
 
 ### commandSender?
 
 > `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)
 
-Defined in: packages/client/src/types/config.ts:190
+Defined in: packages/client/src/types/config.ts:296
 
----
+***
 
 ### debug
 
 > **debug**: `boolean`
 
-Defined in: packages/client/src/types/config.ts:146
+Defined in: packages/client/src/types/config.ts:245
 
 Enable debug logging.
 
@@ -73,21 +73,21 @@ Enable debug logging.
 
 `Required.debug`
 
----
+***
 
 ### domainExecutor?
 
 > `optional` **domainExecutor**: [`IDomainExecutor`](IDomainExecutor.md)\<`TCommand`, `TEvent`\>
 
-Defined in: packages/client/src/types/config.ts:189
+Defined in: packages/client/src/types/config.ts:295
 
----
+***
 
 ### mode
 
 > **mode**: [`ExecutionModeConfig`](../type-aliases/ExecutionModeConfig.md)
 
-Defined in: packages/client/src/types/config.ts:104
+Defined in: packages/client/src/types/config.ts:192
 
 Execution mode.
 Defaults to 'auto': SharedWorker > Dedicated Worker > Main Thread
@@ -96,13 +96,13 @@ Defaults to 'auto': SharedWorker > Dedicated Worker > Main Thread
 
 `Required.mode`
 
----
+***
 
 ### network
 
 > **network**: [`NetworkConfig`](NetworkConfig.md)
 
-Defined in: packages/client/src/types/config.ts:115
+Defined in: packages/client/src/types/config.ts:203
 
 Network configuration.
 
@@ -110,13 +110,35 @@ Network configuration.
 
 `Required.network`
 
----
+***
+
+### processors
+
+> **processors**: [`ProcessorRegistration`](ProcessorRegistration.md)\<`unknown`, `unknown`\>[]
+
+Defined in: packages/client/src/types/config.ts:300
+
+***
+
+### retainTerminal
+
+> **retainTerminal**: `boolean`
+
+Defined in: packages/client/src/types/config.ts:240
+
+Retain terminal commands in storage for debugging/introspection.
+
+#### Inherited from
+
+`Required.retainTerminal`
+
+***
 
 ### retry
 
 > **retry**: [`RetryConfig`](RetryConfig.md)
 
-Defined in: packages/client/src/types/config.ts:125
+Defined in: packages/client/src/types/config.ts:213
 
 Retry configuration for commands.
 
@@ -124,13 +146,13 @@ Retry configuration for commands.
 
 `Required.retry`
 
----
+***
 
 ### storage
 
 > **storage**: [`StorageConfig`](StorageConfig.md)
 
-Defined in: packages/client/src/types/config.ts:120
+Defined in: packages/client/src/types/config.ts:208
 
 Storage configuration (ignored for online-only mode).
 
@@ -138,10 +160,18 @@ Storage configuration (ignored for online-only mode).
 
 `Required.storage`
 
----
+***
+
+### workerSetup?
+
+> `optional` **workerSetup**: `string`[]
+
+Defined in: packages/client/src/types/config.ts:298
+
+***
 
 ### workerUrl?
 
 > `optional` **workerUrl**: `string`
 
-Defined in: packages/client/src/types/config.ts:191
+Defined in: packages/client/src/types/config.ts:297

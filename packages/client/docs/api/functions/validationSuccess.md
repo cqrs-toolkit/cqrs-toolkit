@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / validationSuccess
+[@cqrs-toolkit/client](../globals.md) / validationSuccess
 
 # Function: validationSuccess()
 

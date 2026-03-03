@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / isDomainFailure
+[@cqrs-toolkit/client](../globals.md) / isDomainFailure
 
 # Function: isDomainFailure()
 

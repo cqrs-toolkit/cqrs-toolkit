@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / isEnqueueFailure
+[@cqrs-toolkit/client](../globals.md) / isEnqueueFailure
 
 # Function: isEnqueueFailure()
 

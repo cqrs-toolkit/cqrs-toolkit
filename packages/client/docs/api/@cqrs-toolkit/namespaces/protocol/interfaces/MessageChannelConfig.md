@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [protocol](../README.md) / MessageChannelConfig
+[@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / MessageChannelConfig
 
 # Interface: MessageChannelConfig
 
@@ -20,7 +20,7 @@ Defined in: packages/client/src/protocol/MessageChannel.ts:34
 
 Request timeout in milliseconds
 
----
+***
 
 ### serializeMessages?
 

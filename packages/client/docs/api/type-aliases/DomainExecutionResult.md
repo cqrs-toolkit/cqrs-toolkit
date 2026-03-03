@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / DomainExecutionResult
+[@cqrs-toolkit/client](../globals.md) / DomainExecutionResult
 
 # Type Alias: DomainExecutionResult\<TEvent\>
 

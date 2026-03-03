@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / detectMode
+[@cqrs-toolkit/client](../globals.md) / detectMode
 
 # Function: detectMode()
 

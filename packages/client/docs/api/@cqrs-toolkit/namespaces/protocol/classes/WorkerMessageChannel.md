@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [protocol](../README.md) / WorkerMessageChannel
+[@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / WorkerMessageChannel
 
 # Class: WorkerMessageChannel
 
@@ -48,7 +48,7 @@ Get observable of library events.
 
 `Observable`\<[`EventMessage`](../interfaces/EventMessage.md)\>
 
----
+***
 
 ### workerInstanceChanges$
 
@@ -84,7 +84,7 @@ Start listening for messages.
 
 `void`
 
----
+***
 
 ### destroy()
 
@@ -98,7 +98,7 @@ Destroy the channel.
 
 `void`
 
----
+***
 
 ### disconnect()
 
@@ -118,7 +118,7 @@ Stop listening for messages.
 
 `void`
 
----
+***
 
 ### register()
 
@@ -142,7 +142,7 @@ Window identifier
 
 Registration response
 
----
+***
 
 ### releaseTabLock()
 
@@ -164,7 +164,7 @@ Tab identifier
 
 `void`
 
----
+***
 
 ### request()
 
@@ -200,7 +200,7 @@ Method arguments
 
 Response result
 
----
+***
 
 ### requestTabLock()
 
@@ -224,7 +224,7 @@ Tab identifier
 
 Lock response
 
----
+***
 
 ### restoreHolds()
 
@@ -254,7 +254,7 @@ Cache keys to restore
 
 Restoration response
 
----
+***
 
 ### sendHeartbeat()
 
@@ -276,7 +276,7 @@ Window identifier
 
 `void`
 
----
+***
 
 ### unregister()
 

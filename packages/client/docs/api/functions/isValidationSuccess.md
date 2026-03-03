@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / isValidationSuccess
+[@cqrs-toolkit/client](../globals.md) / isValidationSuccess
 
 # Function: isValidationSuccess()
 

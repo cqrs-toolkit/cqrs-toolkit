@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / LibraryEventPayloads
+[@cqrs-toolkit/client](../globals.md) / LibraryEventPayloads
 
 # Interface: LibraryEventPayloads
 
-Defined in: packages/client/src/types/events.ts:104
+Defined in: packages/client/src/types/events.ts:59
 
 Library event payload types.
 
@@ -16,7 +16,7 @@ Library event payload types.
 
 > **cache:evicted**: `object`
 
-Defined in: packages/client/src/types/events.ts:111
+Defined in: packages/client/src/types/events.ts:66
 
 #### cacheKey
 
@@ -26,13 +26,13 @@ Defined in: packages/client/src/types/events.ts:111
 
 > **reason**: `"explicit"` \| `"lru"` \| `"session-change"`
 
----
+***
 
 ### command:completed
 
 > **command:completed**: `object`
 
-Defined in: packages/client/src/types/events.ts:114
+Defined in: packages/client/src/types/events.ts:69
 
 #### commandId
 
@@ -42,13 +42,13 @@ Defined in: packages/client/src/types/events.ts:114
 
 > **type**: `string`
 
----
+***
 
 ### command:enqueued
 
 > **command:enqueued**: `object`
 
-Defined in: packages/client/src/types/events.ts:112
+Defined in: packages/client/src/types/events.ts:67
 
 #### commandId
 
@@ -58,13 +58,13 @@ Defined in: packages/client/src/types/events.ts:112
 
 > **type**: `string`
 
----
+***
 
 ### command:failed
 
 > **command:failed**: `object`
 
-Defined in: packages/client/src/types/events.ts:115
+Defined in: packages/client/src/types/events.ts:70
 
 #### commandId
 
@@ -78,13 +78,13 @@ Defined in: packages/client/src/types/events.ts:115
 
 > **type**: `string`
 
----
+***
 
 ### command:status-changed
 
 > **command:status-changed**: `object`
 
-Defined in: packages/client/src/types/events.ts:113
+Defined in: packages/client/src/types/events.ts:68
 
 #### commandId
 
@@ -98,25 +98,25 @@ Defined in: packages/client/src/types/events.ts:113
 
 > **status**: `string`
 
----
+***
 
 ### connectivity:changed
 
 > **connectivity:changed**: `object`
 
-Defined in: packages/client/src/types/events.ts:107
+Defined in: packages/client/src/types/events.ts:62
 
 #### online
 
 > **online**: `boolean`
 
----
+***
 
 ### error:network
 
 > **error:network**: `object`
 
-Defined in: packages/client/src/types/events.ts:118
+Defined in: packages/client/src/types/events.ts:73
 
 #### code?
 
@@ -126,13 +126,13 @@ Defined in: packages/client/src/types/events.ts:118
 
 > **message**: `string`
 
----
+***
 
 ### error:storage
 
 > **error:storage**: `object`
 
-Defined in: packages/client/src/types/events.ts:117
+Defined in: packages/client/src/types/events.ts:72
 
 #### code?
 
@@ -142,13 +142,13 @@ Defined in: packages/client/src/types/events.ts:117
 
 > **message**: `string`
 
----
+***
 
 ### readmodel:updated
 
 > **readmodel:updated**: `object`
 
-Defined in: packages/client/src/types/events.ts:116
+Defined in: packages/client/src/types/events.ts:71
 
 #### collection
 
@@ -158,13 +158,13 @@ Defined in: packages/client/src/types/events.ts:116
 
 > **ids**: `string`[]
 
----
+***
 
 ### session:changed
 
 > **session:changed**: `object`
 
-Defined in: packages/client/src/types/events.ts:105
+Defined in: packages/client/src/types/events.ts:60
 
 #### isNew
 
@@ -174,25 +174,25 @@ Defined in: packages/client/src/types/events.ts:105
 
 > **userId**: `string`
 
----
+***
 
 ### session:destroyed
 
 > **session:destroyed**: `object`
 
-Defined in: packages/client/src/types/events.ts:106
+Defined in: packages/client/src/types/events.ts:61
 
 #### reason
 
 > **reason**: `"user-changed"` \| `"explicit"` \| `"storage-error"`
 
----
+***
 
 ### sync:completed
 
 > **sync:completed**: `object`
 
-Defined in: packages/client/src/types/events.ts:109
+Defined in: packages/client/src/types/events.ts:64
 
 #### collection
 
@@ -202,13 +202,13 @@ Defined in: packages/client/src/types/events.ts:109
 
 > **eventCount**: `number`
 
----
+***
 
 ### sync:failed
 
 > **sync:failed**: `object`
 
-Defined in: packages/client/src/types/events.ts:110
+Defined in: packages/client/src/types/events.ts:65
 
 #### collection
 
@@ -218,13 +218,13 @@ Defined in: packages/client/src/types/events.ts:110
 
 > **error**: `string`
 
----
+***
 
 ### sync:started
 
 > **sync:started**: `object`
 
-Defined in: packages/client/src/types/events.ts:108
+Defined in: packages/client/src/types/events.ts:63
 
 #### collection
 

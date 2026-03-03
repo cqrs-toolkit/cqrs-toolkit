@@ -1,14 +1,14 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [testing](../README.md) / createAnticipatedEvent
+[@cqrs-toolkit/client](../../../../globals.md) / [testing](../README.md) / createAnticipatedEvent
 
 # Function: createAnticipatedEvent()
 
 > **createAnticipatedEvent**(`commandId`, `overrides?`): [`CachedEventRecord`](../../../../interfaces/CachedEventRecord.md)
 
-Defined in: packages/client/src/testing/factories/event.ts:64
+Defined in: packages/client/src/testing/factories/event.ts:52
 
 Create an anticipated event.
 

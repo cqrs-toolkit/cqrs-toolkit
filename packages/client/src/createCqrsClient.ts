@@ -31,6 +31,7 @@ import type { CollectionSyncStatus } from './core/sync-manager/SyncManager.js'
 import { SyncManager } from './core/sync-manager/SyncManager.js'
 import type { CommandRecord } from './types/commands.js'
 import type {
+  Collection,
   CqrsClientConfig,
   ExecutionMode,
   ExecutionModeConfig,
@@ -227,7 +228,11 @@ export async function createCqrsClient(config: CqrsClientConfig): Promise<CqrsCl
     commandSender: resolved.commandSender,
     retryConfig: resolved.retry,
     retainTerminal: resolved.retainTerminal,
-    onCommandResponse: createCommandResponseHandler(cacheManager, eventProcessorRunner),
+    onCommandResponse: createCommandResponseHandler(
+      cacheManager,
+      eventProcessorRunner,
+      resolved.collections,
+    ),
   })
 
   const queryManager = new QueryManager({
@@ -243,6 +248,7 @@ export async function createCqrsClient(config: CqrsClientConfig): Promise<CqrsCl
     eventCache,
     cacheManager,
     eventProcessor: eventProcessorRunner,
+    readModelStore,
     networkConfig: resolved.network,
     collections: resolved.collections,
   })
@@ -331,25 +337,17 @@ function isResponseEvent(value: unknown): value is ResponseEvent {
 }
 
 /**
- * Extract collection name from a streamId.
- * Convention: streamId = "{collection}-{id}" (e.g., "todo-123").
- */
-function collectionFromStreamId(streamId: string): string | null {
-  const idx = streamId.indexOf('-')
-  if (idx < 1) return null
-  return streamId.slice(0, idx)
-}
-
-/**
  * Build the `onCommandResponse` callback wired into the CommandQueue.
  *
- * For each valid event in the response, derives the collection, acquires a
- * cache key, and processes the event through the event processor runner so
- * the read model is up-to-date before the command is marked as succeeded.
+ * For each valid event in the response, finds the matching collection via
+ * matchesStream, acquires a cache key, and processes the event through the
+ * event processor runner so the read model is up-to-date before the command
+ * is marked as succeeded.
  */
 function createCommandResponseHandler(
   cacheManager: CacheManager,
   eventProcessorRunner: EventProcessorRunner,
+  collections: Collection[],
 ): (command: CommandRecord, response: unknown) => Promise<void> {
   return async (command: CommandRecord, response: unknown) => {
     if (!hasResponseEvents(response)) return
@@ -360,7 +358,7 @@ function createCommandResponseHandler(
     for (const raw of events) {
       if (!isResponseEvent(raw)) continue
 
-      const collection = collectionFromStreamId(raw.streamId)
+      const collection = collections.find((c) => c.matchesStream(raw.streamId))
       if (!collection) {
         logProvider.log.warn(
           { streamId: raw.streamId, commandId: command.commandId },
@@ -369,7 +367,7 @@ function createCommandResponseHandler(
         continue
       }
 
-      const cacheKey = await cacheManager.acquire(collection)
+      const cacheKey = await cacheManager.acquire(collection.name)
 
       const parsed: ParsedEvent = {
         id: raw.id,

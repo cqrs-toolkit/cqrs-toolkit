@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / ReadModel
+[@cqrs-toolkit/client](../globals.md) / ReadModel
 
 # Interface: ReadModel\<T\>
 
@@ -26,7 +26,7 @@ Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:28
 
 Collection name
 
----
+***
 
 ### data
 
@@ -36,7 +36,7 @@ Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:30
 
 Effective data (server + local changes)
 
----
+***
 
 ### hasLocalChanges
 
@@ -46,7 +46,7 @@ Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:32
 
 Whether there are uncommitted local changes
 
----
+***
 
 ### id
 
@@ -56,7 +56,7 @@ Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:26
 
 Entity ID
 
----
+***
 
 ### serverData
 
@@ -66,7 +66,7 @@ Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:34
 
 Server baseline data (null if only local)
 
----
+***
 
 ### updatedAt
 

@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / domainSuccess
+[@cqrs-toolkit/client](../globals.md) / domainSuccess
 
 # Function: domainSuccess()
 

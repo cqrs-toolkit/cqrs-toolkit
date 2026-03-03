@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / MIGRATIONS
+[@cqrs-toolkit/client](../globals.md) / MIGRATIONS
 
 # Variable: MIGRATIONS
 

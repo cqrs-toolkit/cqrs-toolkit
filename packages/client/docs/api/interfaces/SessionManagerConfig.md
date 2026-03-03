@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / SessionManagerConfig
+[@cqrs-toolkit/client](../globals.md) / SessionManagerConfig
 
 # Interface: SessionManagerConfig
 
@@ -18,7 +18,7 @@ Session manager configuration.
 
 Defined in: packages/client/src/core/session/SessionManager.ts:32
 
----
+***
 
 ### storage
 

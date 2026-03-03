@@ -86,8 +86,8 @@ export function detectGaps(positions: bigint[], knownHighest?: bigint): GapDetec
 /**
  * Gap buffer for accumulating events while waiting for gap repair.
  */
-export class GapBuffer {
-  private buffer: Map<string, { position: bigint; event: unknown }[]> = new Map()
+export class GapBuffer<TEvent = unknown> {
+  private buffer: Map<string, { position: bigint; event: TEvent }[]> = new Map()
   private knownPositions: Map<string, bigint> = new Map()
 
   /**
@@ -98,7 +98,7 @@ export class GapBuffer {
    * @param event - The event data
    * @returns Whether this created a new gap
    */
-  add(streamId: string, position: bigint, event: unknown): boolean {
+  add(streamId: string, position: bigint, event: TEvent): boolean {
     let events = this.buffer.get(streamId)
     if (!events) {
       events = []
@@ -129,7 +129,7 @@ export class GapBuffer {
    * @param streamId - Stream identifier
    * @returns Sorted events
    */
-  getEvents(streamId: string): { position: bigint; event: unknown }[] {
+  getEvents(streamId: string): { position: bigint; event: TEvent }[] {
     const events = this.buffer.get(streamId) ?? []
     return [...events].sort((a, b) =>
       a.position < b.position ? -1 : a.position > b.position ? 1 : 0,

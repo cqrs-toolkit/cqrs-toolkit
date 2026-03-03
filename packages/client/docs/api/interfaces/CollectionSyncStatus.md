@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / CollectionSyncStatus
+[@cqrs-toolkit/client](../globals.md) / CollectionSyncStatus
 
 # Interface: CollectionSyncStatus
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:39
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:44
 
 Sync status for a collection.
 
@@ -16,36 +16,36 @@ Sync status for a collection.
 
 > **collection**: `string`
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:40
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:45
 
----
+***
 
 ### error
 
 > **error**: `string` \| `null`
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:44
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:49
 
----
+***
 
 ### lastSyncedPosition
 
 > **lastSyncedPosition**: `bigint` \| `null`
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:42
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:47
 
----
+***
 
 ### seeded
 
 > **seeded**: `boolean`
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:41
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:46
 
----
+***
 
 ### syncing
 
 > **syncing**: `boolean`
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:43
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:48

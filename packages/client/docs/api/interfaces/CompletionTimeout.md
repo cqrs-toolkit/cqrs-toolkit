@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / CompletionTimeout
+[@cqrs-toolkit/client](../globals.md) / CompletionTimeout
 
 # Interface: CompletionTimeout
 

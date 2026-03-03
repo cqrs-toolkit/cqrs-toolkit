@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / ValidationError
+[@cqrs-toolkit/client](../globals.md) / ValidationError
 
 # Interface: ValidationError
 
@@ -20,7 +20,7 @@ Defined in: packages/client/src/types/validation.ts:15
 
 Error code for programmatic handling (optional)
 
----
+***
 
 ### context?
 
@@ -30,7 +30,7 @@ Defined in: packages/client/src/types/validation.ts:17
 
 Additional context (optional)
 
----
+***
 
 ### message
 
@@ -40,7 +40,7 @@ Defined in: packages/client/src/types/validation.ts:13
 
 Error message for display
 
----
+***
 
 ### path
 

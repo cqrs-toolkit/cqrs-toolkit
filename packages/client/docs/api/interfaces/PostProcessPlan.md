@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / PostProcessPlan
+[@cqrs-toolkit/client](../globals.md) / PostProcessPlan
 
 # Interface: PostProcessPlan
 
@@ -27,7 +27,7 @@ Defined in: packages/client/src/types/domain.ts:14
 
 Plan type identifier
 
----
+***
 
 ### tempIds?
 

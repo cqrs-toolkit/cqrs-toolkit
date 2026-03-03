@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [testing](../README.md) / createTestStorage
+[@cqrs-toolkit/client](../../../../globals.md) / [testing](../README.md) / createTestStorage
 
 # Function: createTestStorage()
 

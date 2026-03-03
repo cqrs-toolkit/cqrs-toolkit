@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / QueryResult
+[@cqrs-toolkit/client](../globals.md) / QueryResult
 
 # Interface: QueryResult\<T\>
 
@@ -26,7 +26,7 @@ Defined in: packages/client/src/core/query-manager/QueryManager.ts:49
 
 Cache key used for this query
 
----
+***
 
 ### data
 
@@ -36,7 +36,7 @@ Defined in: packages/client/src/core/query-manager/QueryManager.ts:45
 
 The data, or null if not found
 
----
+***
 
 ### hasLocalChanges
 

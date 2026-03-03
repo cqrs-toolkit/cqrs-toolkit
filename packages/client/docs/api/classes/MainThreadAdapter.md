@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / MainThreadAdapter
+[@cqrs-toolkit/client](../globals.md) / MainThreadAdapter
 
 # Class: MainThreadAdapter
 
@@ -11,7 +11,6 @@ Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:37
 Main Thread adapter for single-tab offline support without workers.
 
 This adapter:
-
 - Runs SQLite WASM directly in the main thread
 - Uses opfs-sahpool VFS for async-safe access
 - Enforces single-tab operation via Web Locks API or BroadcastChannel
@@ -42,7 +41,7 @@ Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:51
 
 Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:41
 
----
+***
 
 ### mode
 
@@ -64,7 +63,7 @@ Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:61
 
 `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
----
+***
 
 ### sessionManager
 
@@ -78,7 +77,7 @@ Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:65
 
 [`SessionManager`](SessionManager.md)
 
----
+***
 
 ### status
 
@@ -92,7 +91,7 @@ Defined in: packages/client/src/adapters/main-thread/MainThreadAdapter.ts:57
 
 [`AdapterStatus`](../type-aliases/AdapterStatus.md)
 
----
+***
 
 ### storage
 
@@ -120,7 +119,7 @@ Close the adapter and release resources.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### initialize()
 

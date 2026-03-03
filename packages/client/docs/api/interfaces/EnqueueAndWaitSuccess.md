@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / EnqueueAndWaitSuccess
+[@cqrs-toolkit/client](../globals.md) / EnqueueAndWaitSuccess
 
 # Interface: EnqueueAndWaitSuccess\<TResponse\>
 
@@ -26,7 +26,7 @@ Defined in: packages/client/src/types/commands.ts:182
 
 Assigned command ID
 
----
+***
 
 ### ok
 
@@ -34,7 +34,7 @@ Assigned command ID
 
 Defined in: packages/client/src/types/commands.ts:180
 
----
+***
 
 ### response
 

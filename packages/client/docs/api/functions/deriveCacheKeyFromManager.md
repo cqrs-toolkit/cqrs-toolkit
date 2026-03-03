@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / deriveCacheKeyFromManager
+[@cqrs-toolkit/client](../globals.md) / deriveCacheKeyFromManager
 
 # Function: deriveCacheKeyFromManager()
 

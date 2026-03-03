@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / ReadModelQueryOptions
+[@cqrs-toolkit/client](../globals.md) / ReadModelQueryOptions
 
 # Interface: ReadModelQueryOptions
 
@@ -28,7 +28,7 @@ Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:44
 
 Filter by cache key
 
----
+***
 
 ### limit?
 
@@ -40,7 +40,7 @@ Defined in: packages/client/src/storage/IStorage.ts:90
 
 [`QueryOptions`](QueryOptions.md).[`limit`](QueryOptions.md#limit)
 
----
+***
 
 ### localChangesOnly?
 
@@ -50,7 +50,7 @@ Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:46
 
 Only include models with local changes
 
----
+***
 
 ### offset?
 
@@ -62,7 +62,7 @@ Defined in: packages/client/src/storage/IStorage.ts:91
 
 [`QueryOptions`](QueryOptions.md).[`offset`](QueryOptions.md#offset)
 
----
+***
 
 ### orderBy?
 
@@ -74,7 +74,7 @@ Defined in: packages/client/src/storage/IStorage.ts:92
 
 [`QueryOptions`](QueryOptions.md).[`orderBy`](QueryOptions.md#orderby)
 
----
+***
 
 ### orderDirection?
 

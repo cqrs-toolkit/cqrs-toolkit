@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / CommandEventType
+[@cqrs-toolkit/client](../globals.md) / CommandEventType
 
 # Type Alias: CommandEventType
 

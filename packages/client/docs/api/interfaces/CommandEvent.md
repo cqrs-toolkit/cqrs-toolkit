@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / CommandEvent
+[@cqrs-toolkit/client](../globals.md) / CommandEvent
 
 # Interface: CommandEvent
 
@@ -20,7 +20,7 @@ Defined in: packages/client/src/types/commands.ts:217
 
 Command ID
 
----
+***
 
 ### error?
 
@@ -30,7 +30,7 @@ Defined in: packages/client/src/types/commands.ts:225
 
 Error information (for failed events)
 
----
+***
 
 ### eventType
 
@@ -40,7 +40,7 @@ Defined in: packages/client/src/types/commands.ts:215
 
 Event type
 
----
+***
 
 ### previousStatus?
 
@@ -50,7 +50,7 @@ Defined in: packages/client/src/types/commands.ts:223
 
 Previous status (for status-changed events)
 
----
+***
 
 ### response?
 
@@ -60,7 +60,7 @@ Defined in: packages/client/src/types/commands.ts:227
 
 Server response (for completed events)
 
----
+***
 
 ### status
 
@@ -70,7 +70,7 @@ Defined in: packages/client/src/types/commands.ts:221
 
 Current status
 
----
+***
 
 ### timestamp
 
@@ -80,7 +80,7 @@ Defined in: packages/client/src/types/commands.ts:229
 
 Event timestamp
 
----
+***
 
 ### type
 

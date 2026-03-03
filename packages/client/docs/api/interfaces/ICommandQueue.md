@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / ICommandQueue
+[@cqrs-toolkit/client](../globals.md) / ICommandQueue
 
 # Interface: ICommandQueue
 
@@ -45,7 +45,7 @@ Command ID to cancel
 
 `Promise`\<`void`\>
 
----
+***
 
 ### commandEvents$()
 
@@ -70,7 +70,7 @@ Command ID to filter for
 
 Observable of events for that command
 
----
+***
 
 ### enqueue()
 
@@ -113,7 +113,7 @@ Optional enqueue options
 
 Enqueue result with validation status
 
----
+***
 
 ### enqueueAndWait()
 
@@ -158,7 +158,7 @@ Optional combined options
 
 Combined enqueue and completion result
 
----
+***
 
 ### getCommand()
 
@@ -182,7 +182,7 @@ Command ID
 
 Command record or null
 
----
+***
 
 ### isPaused()
 
@@ -196,7 +196,7 @@ Check if command processing is paused.
 
 `boolean`
 
----
+***
 
 ### listCommands()
 
@@ -220,7 +220,7 @@ Optional filter criteria
 
 Matching commands
 
----
+***
 
 ### pause()
 
@@ -234,7 +234,7 @@ Pause command processing.
 
 `void`
 
----
+***
 
 ### processPendingCommands()
 
@@ -249,7 +249,7 @@ Called by the sync manager when network is available.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### resume()
 
@@ -263,7 +263,7 @@ Resume command processing.
 
 `void`
 
----
+***
 
 ### retryCommand()
 
@@ -285,7 +285,7 @@ Command ID to retry
 
 `Promise`\<`void`\>
 
----
+***
 
 ### waitForCompletion()
 

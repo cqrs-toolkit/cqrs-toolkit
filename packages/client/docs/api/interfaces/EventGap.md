@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / EventGap
+[@cqrs-toolkit/client](../globals.md) / EventGap
 
 # Interface: EventGap
 
@@ -20,7 +20,7 @@ Defined in: packages/client/src/core/event-cache/GapDetector.ts:11
 
 Start position (exclusive - last known good position)
 
----
+***
 
 ### streamId?
 
@@ -30,7 +30,7 @@ Defined in: packages/client/src/core/event-cache/GapDetector.ts:15
 
 Stream ID if the gap is stream-specific
 
----
+***
 
 ### toPosition
 

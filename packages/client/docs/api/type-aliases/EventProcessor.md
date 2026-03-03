@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / EventProcessor
+[@cqrs-toolkit/client](../globals.md) / EventProcessor
 
 # Type Alias: EventProcessor()\<TEvent, TModel\>
 

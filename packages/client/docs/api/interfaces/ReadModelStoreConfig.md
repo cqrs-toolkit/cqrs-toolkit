@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / ReadModelStoreConfig
+[@cqrs-toolkit/client](../globals.md) / ReadModelStoreConfig
 
 # Interface: ReadModelStoreConfig
 
@@ -18,7 +18,7 @@ Read model store configuration.
 
 Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:18
 
----
+***
 
 ### storage
 

@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [protocol](../README.md) / TabLockRequest
+[@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / TabLockRequest
 
 # Interface: TabLockRequest
 
@@ -28,7 +28,7 @@ Unique request ID for correlation
 
 [`BaseMessage`](BaseMessage.md).[`requestId`](BaseMessage.md#requestid)
 
----
+***
 
 ### tabId
 
@@ -38,7 +38,7 @@ Defined in: packages/client/src/protocol/messages.ts:132
 
 Tab/window identifier
 
----
+***
 
 ### type
 

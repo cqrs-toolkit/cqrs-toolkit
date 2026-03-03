@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [protocol](../README.md) / isTabLockRequest
+[@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / isTabLockRequest
 
 # Function: isTabLockRequest()
 

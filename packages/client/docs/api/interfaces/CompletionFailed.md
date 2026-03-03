@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / CompletionFailed
+[@cqrs-toolkit/client](../globals.md) / CompletionFailed
 
 # Interface: CompletionFailed
 
@@ -20,7 +20,7 @@ Defined in: packages/client/src/types/commands.ts:150
 
 Error information
 
----
+***
 
 ### status
 

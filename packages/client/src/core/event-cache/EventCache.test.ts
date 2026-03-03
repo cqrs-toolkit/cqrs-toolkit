@@ -2,12 +2,26 @@
  * Unit tests for EventCache and GapDetector.
  */
 
+import type { IPersistedEvent } from '@meticoeus/ddd-es'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
-import type { ServerEvent } from '../../types/events.js'
 import { EventBus } from '../events/EventBus.js'
 import { EventCache } from './EventCache.js'
 import { GapBuffer, detectGaps } from './GapDetector.js'
+
+function createPersistedEvent(overrides: Partial<IPersistedEvent> = {}): IPersistedEvent {
+  return {
+    id: 'event-1',
+    type: 'TestEvent',
+    streamId: 'stream-1',
+    data: { id: 'stream-1' },
+    metadata: { correlationId: 'test' },
+    created: new Date().toISOString(),
+    revision: BigInt(1),
+    position: BigInt(100),
+    ...overrides,
+  }
+}
 
 describe('EventCache', () => {
   let storage: InMemoryStorage
@@ -23,15 +37,12 @@ describe('EventCache', () => {
 
   describe('cacheServerEvent', () => {
     it('caches a permanent event', async () => {
-      const event: ServerEvent<{ title: string }> = {
+      const event = createPersistedEvent({
         id: 'event-1',
         type: 'TodoCreated',
         streamId: 'todo-1',
-        data: { title: 'Test' },
-        createdAt: Date.now(),
-        position: BigInt(100),
-        revision: BigInt(1),
-      }
+        data: { id: 'todo-1', title: 'Test' },
+      })
 
       const cached = await eventCache.cacheServerEvent(event, { cacheKey: 'cache-1' })
 
@@ -47,47 +58,23 @@ describe('EventCache', () => {
       })
     })
 
-    it('caches a stateful event', async () => {
-      const event: ServerEvent<{ online: boolean }> = {
-        id: 'event-2',
-        type: 'UserOnlineStatus',
-        streamId: 'user-1',
-        data: { online: true },
-        createdAt: Date.now(),
-        persistence: 'Stateful',
-      }
-
-      const cached = await eventCache.cacheServerEvent(event, { cacheKey: 'cache-1' })
-
-      expect(cached).toBe(true)
-
-      const stored = await eventCache.getEvent('event-2')
-      expect(stored).toMatchObject({
-        persistence: 'Stateful',
-        position: null,
-        revision: null,
-      })
-    })
-
     it('does not report false gaps when revisions are consecutive but positions are not', async () => {
-      const event1: ServerEvent<{ title: string }> = {
+      const event1 = createPersistedEvent({
         id: 'event-1',
         type: 'NoteCreated',
         streamId: 'note-1',
-        data: { title: 'First' },
-        createdAt: Date.now(),
+        data: { id: 'note-1', title: 'First' },
         position: BigInt(5),
         revision: BigInt(1),
-      }
-      const event2: ServerEvent<{ title: string }> = {
+      })
+      const event2 = createPersistedEvent({
         id: 'event-2',
         type: 'NoteDeleted',
         streamId: 'note-1',
-        data: { title: 'First' },
-        createdAt: Date.now(),
+        data: { id: 'note-1', title: 'First' },
         position: BigInt(15),
         revision: BigInt(2),
-      }
+      })
 
       await eventCache.cacheServerEvent(event1, { cacheKey: 'cache-1' })
       await eventCache.cacheServerEvent(event2, { cacheKey: 'cache-1' })
@@ -96,15 +83,12 @@ describe('EventCache', () => {
     })
 
     it('rejects duplicate events', async () => {
-      const event: ServerEvent<{ title: string }> = {
+      const event = createPersistedEvent({
         id: 'event-1',
         type: 'TodoCreated',
         streamId: 'todo-1',
-        data: { title: 'Test' },
-        createdAt: Date.now(),
-        position: BigInt(100),
-        revision: BigInt(1),
-      }
+        data: { id: 'todo-1', title: 'Test' },
+      })
 
       await eventCache.cacheServerEvent(event, { cacheKey: 'cache-1' })
       const cached = await eventCache.cacheServerEvent(event, { cacheKey: 'cache-1' })
@@ -115,25 +99,23 @@ describe('EventCache', () => {
 
   describe('cacheServerEvents', () => {
     it('caches multiple events', async () => {
-      const events: ServerEvent<{ title: string }>[] = [
-        {
+      const events: IPersistedEvent[] = [
+        createPersistedEvent({
           id: 'event-1',
           type: 'TodoCreated',
           streamId: 'todo-1',
-          data: { title: 'Test 1' },
-          createdAt: Date.now(),
+          data: { id: 'todo-1', title: 'Test 1' },
           position: BigInt(100),
           revision: BigInt(1),
-        },
-        {
+        }),
+        createPersistedEvent({
           id: 'event-2',
           type: 'TodoCreated',
           streamId: 'todo-2',
-          data: { title: 'Test 2' },
-          createdAt: Date.now(),
+          data: { id: 'todo-2', title: 'Test 2' },
           position: BigInt(101),
           revision: BigInt(1),
-        },
+        }),
       ]
 
       const count = await eventCache.cacheServerEvents(events, { cacheKey: 'cache-1' })
@@ -144,20 +126,17 @@ describe('EventCache', () => {
     })
 
     it('skips duplicates in batch', async () => {
-      const event: ServerEvent<{ title: string }> = {
+      const event = createPersistedEvent({
         id: 'event-1',
         type: 'TodoCreated',
         streamId: 'todo-1',
-        data: { title: 'Test' },
-        createdAt: Date.now(),
-        position: BigInt(100),
-        revision: BigInt(1),
-      }
+        data: { id: 'todo-1', title: 'Test' },
+      })
 
       await eventCache.cacheServerEvent(event, { cacheKey: 'cache-1' })
 
       const count = await eventCache.cacheServerEvents(
-        [event, { ...event, id: 'event-2', position: BigInt(101) }],
+        [event, createPersistedEvent({ id: 'event-2', position: BigInt(101) })],
         { cacheKey: 'cache-1' },
       )
 
@@ -220,24 +199,18 @@ describe('EventCache', () => {
 
   describe('getEventsByCacheKey', () => {
     it('returns events for a cache key', async () => {
-      const event1: ServerEvent<unknown> = {
+      const event1 = createPersistedEvent({
         id: 'event-1',
         type: 'Event1',
-        streamId: 'stream-1',
-        data: {},
-        createdAt: Date.now(),
         position: BigInt(1),
         revision: BigInt(1),
-      }
-      const event2: ServerEvent<unknown> = {
+      })
+      const event2 = createPersistedEvent({
         id: 'event-2',
         type: 'Event2',
-        streamId: 'stream-1',
-        data: {},
-        createdAt: Date.now(),
         position: BigInt(2),
         revision: BigInt(2),
-      }
+      })
 
       await eventCache.cacheServerEvent(event1, { cacheKey: 'cache-1' })
       await eventCache.cacheServerEvent(event2, { cacheKey: 'cache-2' })
@@ -250,34 +223,22 @@ describe('EventCache', () => {
 
   describe('getEventsByStream', () => {
     it('returns events sorted by position', async () => {
-      const events: ServerEvent<unknown>[] = [
-        {
+      const events: IPersistedEvent[] = [
+        createPersistedEvent({
           id: 'event-3',
-          type: 'Event',
-          streamId: 'stream-1',
-          data: {},
-          createdAt: Date.now(),
           position: BigInt(300),
           revision: BigInt(3),
-        },
-        {
+        }),
+        createPersistedEvent({
           id: 'event-1',
-          type: 'Event',
-          streamId: 'stream-1',
-          data: {},
-          createdAt: Date.now(),
           position: BigInt(100),
           revision: BigInt(1),
-        },
-        {
+        }),
+        createPersistedEvent({
           id: 'event-2',
-          type: 'Event',
-          streamId: 'stream-1',
-          data: {},
-          createdAt: Date.now(),
           position: BigInt(200),
           revision: BigInt(2),
-        },
+        }),
       ]
 
       for (const event of events) {
@@ -326,15 +287,12 @@ describe('EventCache', () => {
         { cacheKey: 'cache-1', commandId: 'cmd-1' },
       )
 
-      const confirmedEvent: ServerEvent<{ id: string; title: string }> = {
+      const confirmedEvent = createPersistedEvent({
         id: 'event-confirmed',
         type: 'TodoCreated',
         streamId: 'todo-1',
         data: { id: 'todo-1', title: 'Test' },
-        createdAt: Date.now(),
-        position: BigInt(100),
-        revision: BigInt(1),
-      }
+      })
 
       await eventCache.replaceAnticipatedWithConfirmed('cmd-1', [confirmedEvent], 'cache-1')
 

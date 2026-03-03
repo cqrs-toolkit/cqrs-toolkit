@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / CommandError
+[@cqrs-toolkit/client](../globals.md) / CommandError
 
 # Interface: CommandError
 
@@ -20,7 +20,7 @@ Defined in: packages/client/src/types/commands.ts:32
 
 Machine-readable code
 
----
+***
 
 ### details?
 
@@ -30,7 +30,7 @@ Defined in: packages/client/src/types/commands.ts:36
 
 Raw server error details
 
----
+***
 
 ### message
 
@@ -40,7 +40,7 @@ Defined in: packages/client/src/types/commands.ts:30
 
 Human-readable message
 
----
+***
 
 ### source
 
@@ -50,7 +50,7 @@ Defined in: packages/client/src/types/commands.ts:28
 
 Error source
 
----
+***
 
 ### validationErrors?
 

@@ -8,8 +8,10 @@
  * - Support event replacement when server confirms
  */
 
+import type { IPersistedEvent } from '@meticoeus/ddd-es'
 import type { CachedEventRecord, IStorage } from '../../storage/IStorage.js'
-import type { AnticipatedEvent, ServerEvent } from '../../types/events.js'
+import type { AnticipatedEvent } from '../../types/events.js'
+import { normalizeEventPersistence } from '../../types/events.js'
 import { generateId } from '../../utils/uuid.js'
 import type { EventBus } from '../events/EventBus.js'
 import { GapBuffer, type EventGap } from './GapDetector.js'
@@ -38,85 +40,78 @@ export interface CacheEventOptions {
 export class EventCache {
   private readonly storage: IStorage
   private readonly eventBus: EventBus
-  private readonly gapBuffer: GapBuffer
+  private readonly gapBuffer: GapBuffer<IPersistedEvent>
 
   constructor(config: EventCacheConfig) {
     this.storage = config.storage
     this.eventBus = config.eventBus
-    this.gapBuffer = new GapBuffer()
+    this.gapBuffer = new GapBuffer<IPersistedEvent>()
   }
 
   /**
-   * Cache a server event (permanent or stateful).
+   * Cache a persisted event from the server.
    *
-   * @param event - Server event to cache
+   * @param event - Persisted event to cache
    * @param options - Cache options
    * @returns Whether the event was cached (false if duplicate)
    */
-  async cacheServerEvent<T>(event: ServerEvent<T>, options: CacheEventOptions): Promise<boolean> {
+  async cacheServerEvent(event: IPersistedEvent, options: CacheEventOptions): Promise<boolean> {
     // Check for duplicate
     const existing = await this.storage.getCachedEvent(event.id)
     if (existing) {
       return false
     }
 
-    const persistence = event.persistence ?? 'Permanent'
+    const persistence = normalizeEventPersistence(event)
     const record: CachedEventRecord = {
       id: event.id,
       type: event.type,
       streamId: event.streamId,
       persistence,
       data: JSON.stringify(event.data),
-      position:
-        persistence === 'Permanent' && 'position' in event ? event.position.toString() : null,
-      revision:
-        persistence === 'Permanent' && 'revision' in event ? event.revision.toString() : null,
+      position: event.position.toString(),
+      revision: event.revision.toString(),
       commandId: null,
       cacheKey: options.cacheKey,
-      createdAt: event.createdAt,
+      createdAt: new Date(event.created).getTime(),
     }
 
     await this.storage.saveCachedEvent(record)
 
-    // Track for gap detection if permanent (use revision, not position — revision is per-stream sequential)
-    if (persistence === 'Permanent' && record.revision) {
-      this.gapBuffer.add(event.streamId, BigInt(record.revision), event)
+    // Track for gap detection (use revision, not position — revision is per-stream sequential)
+    if (persistence === 'Permanent') {
+      this.gapBuffer.add(event.streamId, event.revision, event)
     }
 
     return true
   }
 
   /**
-   * Cache multiple server events in batch.
+   * Cache multiple persisted events in batch.
    *
    * @param events - Events to cache
    * @param options - Cache options
    * @returns Number of events cached (excludes duplicates)
    */
-  async cacheServerEvents<T>(
-    events: ServerEvent<T>[],
-    options: CacheEventOptions,
-  ): Promise<number> {
+  async cacheServerEvents(events: IPersistedEvent[], options: CacheEventOptions): Promise<number> {
     const records: CachedEventRecord[] = []
 
     for (const event of events) {
       const existing = await this.storage.getCachedEvent(event.id)
       if (existing) continue
 
-      const persistence = event.persistence ?? 'Permanent'
+      const persistence = normalizeEventPersistence(event)
       records.push({
         id: event.id,
         type: event.type,
         streamId: event.streamId,
         persistence,
         data: JSON.stringify(event.data),
-        position:
-          persistence === 'Permanent' && 'position' in event ? event.position.toString() : null,
-        revision:
-          persistence === 'Permanent' && 'revision' in event ? event.revision.toString() : null,
+        position: event.position.toString(),
+        revision: event.revision.toString(),
         commandId: null,
         cacheKey: options.cacheKey,
-        createdAt: event.createdAt,
+        createdAt: new Date(event.created).getTime(),
       })
     }
 
@@ -256,9 +251,9 @@ export class EventCache {
    * @param confirmedEvents - Server-confirmed events
    * @param cacheKey - Cache key for the confirmed events
    */
-  async replaceAnticipatedWithConfirmed<T>(
+  async replaceAnticipatedWithConfirmed(
     commandId: string,
-    confirmedEvents: ServerEvent<T>[],
+    confirmedEvents: IPersistedEvent[],
     cacheKey: string,
   ): Promise<void> {
     // Delete anticipated events
@@ -294,7 +289,7 @@ export class EventCache {
    * @param streamId - Stream identifier
    * @returns Buffered events sorted by position/revision
    */
-  getBufferedEvents(streamId: string): { position: bigint; event: unknown }[] {
+  getBufferedEvents(streamId: string): { position: bigint; event: IPersistedEvent }[] {
     return this.gapBuffer.getEvents(streamId)
   }
 

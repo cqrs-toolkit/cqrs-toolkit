@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / IAdapter
+[@cqrs-toolkit/client](../globals.md) / IAdapter
 
 # Interface: IAdapter
 
@@ -20,7 +20,7 @@ Defined in: packages/client/src/adapters/base/BaseAdapter.ts:39
 
 Event bus instance for wiring core components.
 
----
+***
 
 ### events$
 
@@ -30,7 +30,7 @@ Defined in: packages/client/src/adapters/base/BaseAdapter.ts:34
 
 Observable of library events.
 
----
+***
 
 ### mode
 
@@ -40,7 +40,7 @@ Defined in: packages/client/src/adapters/base/BaseAdapter.ts:24
 
 Execution mode of this adapter.
 
----
+***
 
 ### sessionManager
 
@@ -50,7 +50,7 @@ Defined in: packages/client/src/adapters/base/BaseAdapter.ts:44
 
 Session manager instance.
 
----
+***
 
 ### status
 
@@ -60,7 +60,7 @@ Defined in: packages/client/src/adapters/base/BaseAdapter.ts:29
 
 Current adapter status.
 
----
+***
 
 ### storage
 
@@ -84,7 +84,7 @@ Close the adapter and release resources.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### initialize()
 

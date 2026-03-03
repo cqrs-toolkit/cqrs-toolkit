@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / Migration
+[@cqrs-toolkit/client](../globals.md) / Migration
 
 # Interface: Migration
 
@@ -18,7 +18,7 @@ Migration definition.
 
 Defined in: packages/client/src/storage/schema/migrations.ts:13
 
----
+***
 
 ### sql
 
@@ -26,7 +26,7 @@ Defined in: packages/client/src/storage/schema/migrations.ts:13
 
 Defined in: packages/client/src/storage/schema/migrations.ts:14
 
----
+***
 
 ### version
 

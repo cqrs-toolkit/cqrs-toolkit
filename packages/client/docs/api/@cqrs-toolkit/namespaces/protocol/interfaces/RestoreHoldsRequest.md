@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [protocol](../README.md) / RestoreHoldsRequest
+[@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / RestoreHoldsRequest
 
 # Interface: RestoreHoldsRequest
 
@@ -24,7 +24,7 @@ Defined in: packages/client/src/protocol/messages.ts:102
 
 Cache keys to restore holds for
 
----
+***
 
 ### requestId
 
@@ -38,7 +38,7 @@ Unique request ID for correlation
 
 [`BaseMessage`](BaseMessage.md).[`requestId`](BaseMessage.md#requestid)
 
----
+***
 
 ### type
 
@@ -52,7 +52,7 @@ Message type identifier
 
 [`BaseMessage`](BaseMessage.md).[`type`](BaseMessage.md#type)
 
----
+***
 
 ### windowId
 

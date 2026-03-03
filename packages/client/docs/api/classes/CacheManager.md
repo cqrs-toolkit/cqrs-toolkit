@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / CacheManager
+[@cqrs-toolkit/client](../globals.md) / CacheManager
 
 # Class: CacheManager
 
@@ -65,7 +65,7 @@ Acquisition options
 
 Cache key identifier
 
----
+***
 
 ### evict()
 
@@ -91,7 +91,7 @@ Cache key identifier
 
 Whether eviction succeeded
 
----
+***
 
 ### evictAll()
 
@@ -108,7 +108,7 @@ Used during session clear or manual cleanup.
 
 Number of cache keys evicted
 
----
+***
 
 ### evictExpired()
 
@@ -125,7 +125,7 @@ Should be called periodically (e.g., on activity).
 
 Number of cache keys evicted
 
----
+***
 
 ### exists()
 
@@ -149,7 +149,7 @@ Cache key identifier
 
 Whether the cache key exists
 
----
+***
 
 ### freeze()
 
@@ -172,7 +172,7 @@ Cache key identifier
 
 `Promise`\<`void`\>
 
----
+***
 
 ### get()
 
@@ -196,7 +196,7 @@ Cache key identifier
 
 Cache key record or null
 
----
+***
 
 ### getCount()
 
@@ -212,7 +212,7 @@ Get the number of cache keys.
 
 Total cache key count
 
----
+***
 
 ### hold()
 
@@ -235,7 +235,7 @@ Cache key identifier
 
 `Promise`\<`void`\>
 
----
+***
 
 ### isFrozen()
 
@@ -259,7 +259,7 @@ Cache key identifier
 
 Whether the cache key is frozen
 
----
+***
 
 ### release()
 
@@ -281,7 +281,7 @@ Cache key identifier
 
 `Promise`\<`void`\>
 
----
+***
 
 ### touch()
 
@@ -303,7 +303,7 @@ Cache key identifier
 
 `Promise`\<`void`\>
 
----
+***
 
 ### unfreeze()
 

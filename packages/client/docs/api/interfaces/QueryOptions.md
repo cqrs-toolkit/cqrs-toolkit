@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / QueryOptions
+[@cqrs-toolkit/client](../globals.md) / QueryOptions
 
 # Interface: QueryOptions
 
@@ -22,7 +22,7 @@ Query options for list operations.
 
 Defined in: packages/client/src/storage/IStorage.ts:90
 
----
+***
 
 ### offset?
 
@@ -30,7 +30,7 @@ Defined in: packages/client/src/storage/IStorage.ts:90
 
 Defined in: packages/client/src/storage/IStorage.ts:91
 
----
+***
 
 ### orderBy?
 
@@ -38,7 +38,7 @@ Defined in: packages/client/src/storage/IStorage.ts:91
 
 Defined in: packages/client/src/storage/IStorage.ts:92
 
----
+***
 
 ### orderDirection?
 

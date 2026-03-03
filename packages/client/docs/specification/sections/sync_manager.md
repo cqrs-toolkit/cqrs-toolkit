@@ -140,35 +140,39 @@ When `setAuthenticated({ userId })` is called:
 
 ---
 
-## 4.4 Collection configuration model
+## 4.4 Collection interface
 
-Each synchronized collection is configured by user code.
+Each synchronized collection implements the `Collection` interface from `@cqrs-toolkit/client`.
+The interface gives consumer code full control over topic subscriptions, event routing, and HTTP conventions.
+The library never parses stream IDs, constructs URLs, or interprets HTTP response shapes.
 
-Minimum configuration:
+Required members:
 
-- `collectionName: string`
+- `name: string` — unique collection identifier
+- `getTopics(): string[]` — WS topic patterns to subscribe to (return `[]` for no subscription)
+- `matchesStream(streamId: string): boolean` — test whether a streamId belongs to this collection; multiple collections may match the same streamId
 
-- `keyTypes: ('Scope' | 'Tenant' | 'Workspace' | 'Project' | 'Room')[]` — which cache keys activate this collection
+Optional fetch methods (implement at least one for seeding):
 
-- `buildFilters(cacheKey, params: URLSearchParams): void` — populate collection filters
+- `fetchSeedRecords(ctx, cursor, limit): Promise<SeedRecordPage>` — primary seeding mechanism; records go directly into the read model store without event processing
+- `fetchSeedEvents(ctx, cursor, limit): Promise<SeedEventPage>` — fallback seeding via events processed through event processors; only used if `fetchSeedRecords` is not defined
+- `fetchStreamEvents(ctx, streamId, afterRevision): Promise<IPersistedEvent[]>` — per-stream event fetch for gap recovery; if not defined, gap recovery processes buffered events as-is (lossy)
 
-- `fetchPage(params: URLSearchParams): Promise<{ items: ReadModelRecord[]; nextCursor?: string | null }>`
+Optional configuration:
 
-- `subscribeTopics(cacheKey): string[]` — WS topics to subscribe to for incremental updates
+- `seedOnInit?: boolean` — whether to seed on initial sync (default: `true`)
+- `seedPageSize?: number` — page size for seeding (default: `100`)
 
-- `applyIncoming(event): void` — route event to Event Cache + processors
+The `FetchContext` passed to fetch methods contains the resolved base URL and headers from `NetworkConfig`.
+If `NetworkConfig.getAuthToken` is configured, the resolved token is included as an `Authorization` header.
+For cookie-based auth, no special handling is needed — the browser sends cookies automatically with `fetch()`.
+Collections may add their own headers (e.g., `Accept-Profile`, `x-tenant-id`) in their fetch implementations.
 
-- `detectAffectedCollectionsForStateful(event): string[]` — for stateful invalidation/refetch
+### Future work
 
-- `eventsEndpoint: string | (cacheKey, context) => RequestConfig`
-
-The Sync Manager may append request parameters such as:
-
-- `limit`
-
-- `cursor`
-
-- `lastUpdated` (for stateful refetch batching)
+- `subscribeTopics(cacheKey)` — cache-key-scoped topic subscriptions (current design uses static `getTopics()`)
+- `keyTypes` — which cache key types activate this collection
+- `detectAffectedCollectionsForStateful(event)` — for stateful invalidation/refetch
 
 Collections are **agnostic to cache key eviction policy** (persistent vs ephemeral).
 

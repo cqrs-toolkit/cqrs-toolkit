@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / deriveId
+[@cqrs-toolkit/client](../globals.md) / deriveId
 
 # Function: deriveId()
 

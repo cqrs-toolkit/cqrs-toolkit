@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / EventBus
+[@cqrs-toolkit/client](../globals.md) / EventBus
 
 # Class: EventBus
 
@@ -48,7 +48,7 @@ Should be called when the client is destroyed.
 
 `void`
 
----
+***
 
 ### emit()
 
@@ -62,7 +62,7 @@ Emit a library event.
 
 ##### T
 
-`T` _extends_ [`LibraryEventType`](../type-aliases/LibraryEventType.md)
+`T` *extends* [`LibraryEventType`](../type-aliases/LibraryEventType.md)
 
 #### Parameters
 
@@ -82,7 +82,7 @@ Event payload
 
 `void`
 
----
+***
 
 ### on()
 
@@ -96,7 +96,7 @@ Get an observable filtered to a specific event type.
 
 ##### T
 
-`T` _extends_ [`LibraryEventType`](../type-aliases/LibraryEventType.md)
+`T` *extends* [`LibraryEventType`](../type-aliases/LibraryEventType.md)
 
 #### Parameters
 
@@ -112,7 +112,7 @@ Event type to filter for
 
 Observable of events of that type
 
----
+***
 
 ### onAny()
 
@@ -126,7 +126,7 @@ Get an observable filtered to multiple event types.
 
 ##### T
 
-`T` _extends_ [`LibraryEventType`](../type-aliases/LibraryEventType.md)
+`T` *extends* [`LibraryEventType`](../type-aliases/LibraryEventType.md)
 
 #### Parameters
 

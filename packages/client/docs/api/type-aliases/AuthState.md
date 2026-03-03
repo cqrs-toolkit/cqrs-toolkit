@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / AuthState
+[@cqrs-toolkit/client](../globals.md) / AuthState
 
 # Type Alias: AuthState
 

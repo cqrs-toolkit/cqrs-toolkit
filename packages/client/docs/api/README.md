@@ -1,187 +1,170 @@
 **@cqrs-toolkit/client**
 
----
+***
 
 # @cqrs-toolkit/client
 
-@swifttt/cqrs-client
+Offline-capable CQRS/event-sourcing client library for the browser.
 
-Offline-capable CQRS/event-sourcing client library.
+Manages command queuing, event caching, read model projection, and sync — with pluggable execution modes that range from a simple online-only proxy to full offline support via SharedWorker + SQLite.
 
-## Namespaces
+## Quick Start
 
-- [protocol](@cqrs-toolkit/namespaces/protocol/README.md)
-- [testing](@cqrs-toolkit/namespaces/testing/README.md)
+```typescript
+import { createCqrsClient, CommandSendError, type ICommandSender } from '@cqrs-toolkit/client'
 
-## Classes
+// 1. Define how commands reach your server
+const commandSender: ICommandSender = {
+  async send(command) {
+    const res = await fetch('/api/commands', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: command.type, payload: command.payload }),
+    })
+    if (!res.ok) {
+      const body = await res.json()
+      throw new CommandSendError(body.message, String(res.status), res.status >= 500)
+    }
+    return res.json()
+  },
+}
 
-- [BaseAdapter](classes/BaseAdapter.md)
-- [CacheManager](classes/CacheManager.md)
-- [CommandQueue](classes/CommandQueue.md)
-- [CommandSendError](classes/CommandSendError.md)
-- [ConnectivityManager](classes/ConnectivityManager.md)
-- [DedicatedWorkerAdapter](classes/DedicatedWorkerAdapter.md)
-- [DedicatedWorkerStorageProxy](classes/DedicatedWorkerStorageProxy.md)
-- [EventBus](classes/EventBus.md)
-- [EventCache](classes/EventCache.md)
-- [EventProcessorRegistry](classes/EventProcessorRegistry.md)
-- [EventProcessorRunner](classes/EventProcessorRunner.md)
-- [GapBuffer](classes/GapBuffer.md)
-- [InMemoryStorage](classes/InMemoryStorage.md)
-- [MainThreadAdapter](classes/MainThreadAdapter.md)
-- [MainThreadTabLockError](classes/MainThreadTabLockError.md)
-- [OnlineOnlyAdapter](classes/OnlineOnlyAdapter.md)
-- [QueryManager](classes/QueryManager.md)
-- [ReadModelStore](classes/ReadModelStore.md)
-- [SessionManager](classes/SessionManager.md)
-- [SharedWorkerAdapter](classes/SharedWorkerAdapter.md)
-- [SharedWorkerStorageProxy](classes/SharedWorkerStorageProxy.md)
-- [SQLiteStorage](classes/SQLiteStorage.md)
-- [SyncManager](classes/SyncManager.md)
-- [TabLockError](classes/TabLockError.md)
+// 2. Create the client
+const client = createCqrsClient({
+  network: { baseUrl: '/api', wsUrl: 'ws://localhost:3000/events' },
+  collections: [{ name: 'todos', seedOnInit: true }],
+  commandSender,
+})
 
-## Interfaces
+// 3. Register event processors (before initialize)
+client.registerProcessor({
+  eventTypes: 'TodoCreated',
+  processor: (data, ctx) => ({
+    collection: 'todos',
+    id: data.id,
+    update: { type: 'set', data },
+    isServerUpdate: ctx.persistence !== 'Anticipated',
+  }),
+})
 
-- [AcquireCacheKeyOptions](interfaces/AcquireCacheKeyOptions.md)
-- [AnticipatedEventMeta](interfaces/AnticipatedEventMeta.md)
-- [BaseEvent](interfaces/BaseEvent.md)
-- [BaseEventMeta](interfaces/BaseEventMeta.md)
-- [CacheConfig](interfaces/CacheConfig.md)
-- [CachedEventRecord](interfaces/CachedEventRecord.md)
-- [CacheEventOptions](interfaces/CacheEventOptions.md)
-- [CacheKeyRecord](interfaces/CacheKeyRecord.md)
-- [CacheManagerConfig](interfaces/CacheManagerConfig.md)
-- [CollectionConfig](interfaces/CollectionConfig.md)
-- [CollectionSyncStatus](interfaces/CollectionSyncStatus.md)
-- [CommandError](interfaces/CommandError.md)
-- [CommandEvent](interfaces/CommandEvent.md)
-- [CommandFilter](interfaces/CommandFilter.md)
-- [CommandQueueConfig](interfaces/CommandQueueConfig.md)
-- [CommandRecord](interfaces/CommandRecord.md)
-- [CompletionCancelled](interfaces/CompletionCancelled.md)
-- [CompletionFailed](interfaces/CompletionFailed.md)
-- [CompletionSucceeded](interfaces/CompletionSucceeded.md)
-- [CompletionTimeout](interfaces/CompletionTimeout.md)
-- [ConnectivityManagerConfig](interfaces/ConnectivityManagerConfig.md)
-- [ConnectivityState](interfaces/ConnectivityState.md)
-- [CqrsClient](interfaces/CqrsClient.md)
-- [CqrsClientConfig](interfaces/CqrsClientConfig.md)
-- [CqrsClientSyncManager](interfaces/CqrsClientSyncManager.md)
-- [DedicatedWorkerAdapterConfig](interfaces/DedicatedWorkerAdapterConfig.md)
-- [DomainExecutionFailure](interfaces/DomainExecutionFailure.md)
-- [DomainExecutionSuccess](interfaces/DomainExecutionSuccess.md)
-- [EnqueueAndWaitFailure](interfaces/EnqueueAndWaitFailure.md)
-- [EnqueueAndWaitOptions](interfaces/EnqueueAndWaitOptions.md)
-- [EnqueueAndWaitSuccess](interfaces/EnqueueAndWaitSuccess.md)
-- [EnqueueCommand](interfaces/EnqueueCommand.md)
-- [EnqueueFailure](interfaces/EnqueueFailure.md)
-- [EnqueueOptions](interfaces/EnqueueOptions.md)
-- [EnqueueSuccess](interfaces/EnqueueSuccess.md)
-- [EventCacheConfig](interfaces/EventCacheConfig.md)
-- [EventGap](interfaces/EventGap.md)
-- [EventProcessorRunnerConfig](interfaces/EventProcessorRunnerConfig.md)
-- [GapDetectionResult](interfaces/GapDetectionResult.md)
-- [IAdapter](interfaces/IAdapter.md)
-- [ICommandQueue](interfaces/ICommandQueue.md)
-- [ICommandSender](interfaces/ICommandSender.md)
-- [IDomainExecutor](interfaces/IDomainExecutor.md)
-- [IStorage](interfaces/IStorage.md)
-- [LibraryEvent](interfaces/LibraryEvent.md)
-- [LibraryEventPayloads](interfaces/LibraryEventPayloads.md)
-- [ListQueryResult](interfaces/ListQueryResult.md)
-- [Migration](interfaces/Migration.md)
-- [NetworkConfig](interfaces/NetworkConfig.md)
-- [ParsedEvent](interfaces/ParsedEvent.md)
-- [PermanentEventMeta](interfaces/PermanentEventMeta.md)
-- [PostProcessPlan](interfaces/PostProcessPlan.md)
-- [ProcessorContext](interfaces/ProcessorContext.md)
-- [ProcessorRegistration](interfaces/ProcessorRegistration.md)
-- [ProcessorResult](interfaces/ProcessorResult.md)
-- [QueryManagerConfig](interfaces/QueryManagerConfig.md)
-- [QueryManagerQueryOptions](interfaces/QueryManagerQueryOptions.md)
-- [QueryOptions](interfaces/QueryOptions.md)
-- [QueryResult](interfaces/QueryResult.md)
-- [ReadModel](interfaces/ReadModel.md)
-- [ReadModelQueryOptions](interfaces/ReadModelQueryOptions.md)
-- [ReadModelRecord](interfaces/ReadModelRecord.md)
-- [ReadModelStoreConfig](interfaces/ReadModelStoreConfig.md)
-- [ResolvedConfig](interfaces/ResolvedConfig.md)
-- [RetryConfig](interfaces/RetryConfig.md)
-- [SessionManagerConfig](interfaces/SessionManagerConfig.md)
-- [SessionRecord](interfaces/SessionRecord.md)
-- [SharedWorkerAdapterConfig](interfaces/SharedWorkerAdapterConfig.md)
-- [SQLiteStorageConfig](interfaces/SQLiteStorageConfig.md)
-- [StatefulEventMeta](interfaces/StatefulEventMeta.md)
-- [StorageConfig](interfaces/StorageConfig.md)
-- [SyncManagerConfig](interfaces/SyncManagerConfig.md)
-- [ValidationError](interfaces/ValidationError.md)
-- [WaitOptions](interfaces/WaitOptions.md)
+client.registerProcessor({
+  eventTypes: 'TodoContentUpdated',
+  processor: (data, ctx) => ({
+    collection: 'todos',
+    id: data.id,
+    update: { type: 'merge', data: { content: data.content, updatedAt: data.updatedAt } },
+    isServerUpdate: ctx.persistence !== 'Anticipated',
+  }),
+})
 
-## Type Aliases
+client.registerProcessor({
+  eventTypes: 'TodoStatusChanged',
+  processor: (data, ctx) => ({
+    collection: 'todos',
+    id: data.id,
+    update: { type: 'merge', data: { status: data.status, updatedAt: data.updatedAt } },
+    isServerUpdate: ctx.persistence !== 'Anticipated',
+  }),
+})
 
-- [AdapterStatus](type-aliases/AdapterStatus.md)
-- [AnticipatedEvent](type-aliases/AnticipatedEvent.md)
-- [AnyEvent](type-aliases/AnyEvent.md)
-- [AuthState](type-aliases/AuthState.md)
-- [CommandCompletionResult](type-aliases/CommandCompletionResult.md)
-- [CommandErrorSource](type-aliases/CommandErrorSource.md)
-- [CommandEventType](type-aliases/CommandEventType.md)
-- [CommandStatus](type-aliases/CommandStatus.md)
-- [DomainExecutionResult](type-aliases/DomainExecutionResult.md)
-- [EnqueueAndWaitResult](type-aliases/EnqueueAndWaitResult.md)
-- [EnqueueResult](type-aliases/EnqueueResult.md)
-- [EventMeta](type-aliases/EventMeta.md)
-- [EventPersistence](type-aliases/EventPersistence.md)
-- [EventProcessor](type-aliases/EventProcessor.md)
-- [ExecutionMode](type-aliases/ExecutionMode.md)
-- [ExecutionModeConfig](type-aliases/ExecutionModeConfig.md)
-- [LibraryEventType](type-aliases/LibraryEventType.md)
-- [ServerEvent](type-aliases/ServerEvent.md)
-- [SessionState](type-aliases/SessionState.md)
-- [SqliteVfsType](type-aliases/SqliteVfsType.md)
-- [UpdateOperation](type-aliases/UpdateOperation.md)
-- [ValidationResult](type-aliases/ValidationResult.md)
-- [VfsType](type-aliases/VfsType.md)
+client.registerProcessor({
+  eventTypes: 'TodoDeleted',
+  processor: (data) => ({
+    collection: 'todos',
+    id: data.id,
+    update: { type: 'delete' },
+    isServerUpdate: true,
+  }),
+})
 
-## Variables
+// 4. Initialize (creates adapter, wires components, starts sync)
+await client.initialize()
+```
 
-- [ALL_TABLES](variables/ALL_TABLES.md)
-- [CACHE_KEY_NAMESPACE](variables/CACHE_KEY_NAMESPACE.md)
-- [CACHE_KEY_NS](variables/CACHE_KEY_NS.md)
-- [DEFAULT_CONFIG](variables/DEFAULT_CONFIG.md)
-- [DEFAULT_RETRY_CONFIG](variables/DEFAULT_RETRY_CONFIG.md)
-- [MIGRATIONS](variables/MIGRATIONS.md)
+## Querying Data
 
-## Functions
+```typescript
+// List all items in a collection
+const todos = await client.queryManager.list<Todo>('todos')
 
-- [calculateBackoffDelay](functions/calculateBackoffDelay.md)
-- [createCqrsClient](functions/createCqrsClient.md)
-- [createValidationError](functions/createValidationError.md)
-- [deriveCacheKey](functions/deriveCacheKey.md)
-- [deriveCacheKeyFromManager](functions/deriveCacheKeyFromManager.md)
-- [deriveId](functions/deriveId.md)
-- [deriveScopedCacheKey](functions/deriveScopedCacheKey.md)
-- [detectGaps](functions/detectGaps.md)
-- [detectMode](functions/detectMode.md)
-- [domainFailure](functions/domainFailure.md)
-- [domainSuccess](functions/domainSuccess.md)
-- [generateId](functions/generateId.md)
-- [getPendingMigrations](functions/getPendingMigrations.md)
-- [getSchemaVersion](functions/getSchemaVersion.md)
-- [isAnticipatedEvent](functions/isAnticipatedEvent.md)
-- [isDomainFailure](functions/isDomainFailure.md)
-- [isDomainSuccess](functions/isDomainSuccess.md)
-- [isEnqueueFailure](functions/isEnqueueFailure.md)
-- [isEnqueueSuccess](functions/isEnqueueSuccess.md)
-- [isPermanentEvent](functions/isPermanentEvent.md)
-- [isStatefulEvent](functions/isStatefulEvent.md)
-- [isTerminalStatus](functions/isTerminalStatus.md)
-- [isValidationFailure](functions/isValidationFailure.md)
-- [isValidationSuccess](functions/isValidationSuccess.md)
-- [normalizeEventPersistence](functions/normalizeEventPersistence.md)
-- [resolveConfig](functions/resolveConfig.md)
-- [retryWithBackoff](functions/retryWithBackoff.md)
-- [shouldRetry](functions/shouldRetry.md)
-- [sleep](functions/sleep.md)
-- [validationFailure](functions/validationFailure.md)
-- [validationSuccess](functions/validationSuccess.md)
+// Get a single item by ID
+const todo = await client.queryManager.getById<Todo>('todos', 'todo-1')
+
+// Watch a single item for changes
+const todo$ = client.queryManager.watchById<Todo>('todos', 'todo-1')
+
+// Watch a collection (emits the specific IDs that changed)
+client.queryManager.watchCollection('todos').subscribe(async (changedIds) => {
+  for (const id of changedIds) {
+    const updated = await client.queryManager.getById<Todo>('todos', id)
+    // apply granular update to UI
+  }
+})
+```
+
+## Sending Commands
+
+```typescript
+await client.commandQueue.enqueueAndWait({
+  type: 'CreateTodo',
+  streamId: `todo-${generateId()}`,
+  payload: { content: 'Buy milk' },
+})
+```
+
+## Execution Modes
+
+The `mode` option controls where storage and processing happen.
+Defaults to `'auto'`, which selects the best mode the browser supports.
+
+| Mode               | Storage       | Multi-tab | Use case                         |
+| ------------------ | ------------- | --------- | -------------------------------- |
+| `online-only`      | In-memory     | No        | Simple proxy, no offline support |
+| `main-thread`      | SQLite (OPFS) | No        | Single-tab offline               |
+| `dedicated-worker` | SQLite (OPFS) | No        | Single-tab, off-main-thread      |
+| `shared-worker`    | SQLite (OPFS) | Yes       | Full multi-tab offline           |
+
+Auto-detection order: `shared-worker` > `dedicated-worker` > `main-thread`.
+
+```typescript
+const client = createCqrsClient({
+  mode: 'shared-worker',
+  network: { baseUrl: '/api' },
+  workerUrl: '/worker.js',
+})
+```
+
+## Lifecycle
+
+The client uses a two-step lifecycle: **sync construction**, then **async initialization**.
+This allows event processors to be registered before sync begins.
+
+```typescript
+const client = createCqrsClient({ ... })
+
+// Register processors (sync, before initialize)
+client.registerProcessor({ ... })
+
+// Initialize (async — creates adapter, wires components, starts sync)
+await client.initialize()
+
+// Use the client...
+
+// Shut down (stops sync, destroys components, closes adapter)
+await client.close()
+```
+
+## API Reference
+
+Full API documentation is generated from source and available at [docs/api](_media/README.md).
+
+Key entry points:
+
+- [`createCqrsClient`](_media/createCqrsClient.md) — Factory function
+- [`CqrsClient`](_media/CqrsClient.md) — Client class
+- [`CqrsClientConfig`](_media/CqrsClientConfig.md) — Configuration options
+- [`QueryManager`](_media/QueryManager.md) — Read model queries
+- [`CommandQueue`](_media/CommandQueue.md) — Command queuing
+- [`ICommandSender`](_media/ICommandSender.md) — Server transport contract
+- [`ProcessorRegistration`](_media/ProcessorRegistration.md) — Event processor setup
+- [`SyncManager`](_media/SyncManager.md) — Sync lifecycle and status

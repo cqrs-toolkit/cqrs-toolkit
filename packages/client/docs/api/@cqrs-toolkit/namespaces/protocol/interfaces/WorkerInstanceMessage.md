@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [protocol](../README.md) / WorkerInstanceMessage
+[@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / WorkerInstanceMessage
 
 # Interface: WorkerInstanceMessage
 
@@ -18,7 +18,7 @@ Worker instance announcement (broadcast on connect/reconnect).
 
 Defined in: packages/client/src/protocol/messages.ts:121
 
----
+***
 
 ### workerInstanceId
 

@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / CACHE_KEY_NAMESPACE
+[@cqrs-toolkit/client](../globals.md) / CACHE\_KEY\_NAMESPACE
 
-# Variable: CACHE_KEY_NAMESPACE
+# Variable: CACHE\_KEY\_NAMESPACE
 
-> `const` **CACHE_KEY_NAMESPACE**: `"6ba7b810-9dad-11d1-80b4-00c04fd430c8"` = `'6ba7b810-9dad-11d1-80b4-00c04fd430c8'`
+> `const` **CACHE\_KEY\_NAMESPACE**: `"6ba7b810-9dad-11d1-80b4-00c04fd430c8"` = `'6ba7b810-9dad-11d1-80b4-00c04fd430c8'`
 
 Defined in: packages/client/src/utils/uuid.ts:11
 

@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / SyncManager
+[@cqrs-toolkit/client](../globals.md) / SyncManager
 
 # Class: SyncManager
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:50
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:55
 
 Sync manager.
 
@@ -16,7 +16,7 @@ Sync manager.
 
 > **new SyncManager**(`config`): `SyncManager`
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:67
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:74
 
 #### Parameters
 
@@ -34,7 +34,7 @@ Defined in: packages/client/src/core/sync-manager/SyncManager.ts:67
 
 > **getAllStatus**(): [`CollectionSyncStatus`](../interfaces/CollectionSyncStatus.md)[]
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:165
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:173
 
 Get all collection statuses.
 
@@ -42,13 +42,13 @@ Get all collection statuses.
 
 [`CollectionSyncStatus`](../interfaces/CollectionSyncStatus.md)[]
 
----
+***
 
 ### getCollectionStatus()
 
 > **getCollectionStatus**(`collection`): [`CollectionSyncStatus`](../interfaces/CollectionSyncStatus.md) \| `null`
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:158
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:166
 
 Get sync status for a collection.
 
@@ -62,13 +62,13 @@ Get sync status for a collection.
 
 [`CollectionSyncStatus`](../interfaces/CollectionSyncStatus.md) \| `null`
 
----
+***
 
 ### getConnectivity()
 
 > **getConnectivity**(): [`ConnectivityManager`](ConnectivityManager.md)
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:151
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:159
 
 Get connectivity manager.
 
@@ -76,13 +76,13 @@ Get connectivity manager.
 
 [`ConnectivityManager`](ConnectivityManager.md)
 
----
+***
 
 ### start()
 
 > **start**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:99
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:107
 
 Start the sync manager.
 Begins connectivity monitoring and initial sync.
@@ -91,13 +91,13 @@ Begins connectivity monitoring and initial sync.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### stop()
 
 > **stop**(): `void`
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:135
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:143
 
 Stop the sync manager.
 
@@ -105,13 +105,13 @@ Stop the sync manager.
 
 `void`
 
----
+***
 
 ### syncCollection()
 
 > **syncCollection**(`collection`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:172
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:180
 
 Force sync a specific collection.
 

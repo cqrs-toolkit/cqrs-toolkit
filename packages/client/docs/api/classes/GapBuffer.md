@@ -1,24 +1,30 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / GapBuffer
+[@cqrs-toolkit/client](../globals.md) / GapBuffer
 
-# Class: GapBuffer
+# Class: GapBuffer\<TEvent\>
 
 Defined in: packages/client/src/core/event-cache/GapDetector.ts:89
 
 Gap buffer for accumulating events while waiting for gap repair.
 
+## Type Parameters
+
+### TEvent
+
+`TEvent` = `unknown`
+
 ## Constructors
 
 ### Constructor
 
-> **new GapBuffer**(): `GapBuffer`
+> **new GapBuffer**\<`TEvent`\>(): `GapBuffer`\<`TEvent`\>
 
 #### Returns
 
-`GapBuffer`
+`GapBuffer`\<`TEvent`\>
 
 ## Methods
 
@@ -46,7 +52,7 @@ Event position
 
 ##### event
 
-`unknown`
+`TEvent`
 
 The event data
 
@@ -56,7 +62,7 @@ The event data
 
 Whether this created a new gap
 
----
+***
 
 ### clear()
 
@@ -70,7 +76,7 @@ Clear all buffered events.
 
 `void`
 
----
+***
 
 ### clearUpTo()
 
@@ -98,7 +104,7 @@ Clear events with position <= this
 
 `void`
 
----
+***
 
 ### getEvents()
 
@@ -122,7 +128,7 @@ Stream identifier
 
 Sorted events
 
----
+***
 
 ### getGaps()
 
@@ -138,7 +144,7 @@ Get detected gaps for all streams.
 
 Map of stream ID to gaps
 
----
+***
 
 ### setKnownPosition()
 

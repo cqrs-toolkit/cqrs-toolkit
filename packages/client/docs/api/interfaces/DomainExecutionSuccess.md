@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / DomainExecutionSuccess
+[@cqrs-toolkit/client](../globals.md) / DomainExecutionSuccess
 
 # Interface: DomainExecutionSuccess\<TEvent\>
 
@@ -26,7 +26,7 @@ Defined in: packages/client/src/types/domain.ts:27
 
 Events to apply optimistically
 
----
+***
 
 ### ok
 
@@ -34,7 +34,7 @@ Events to apply optimistically
 
 Defined in: packages/client/src/types/domain.ts:25
 
----
+***
 
 ### postProcessPlan?
 

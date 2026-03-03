@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../README.md) / testing
+[@cqrs-toolkit/client](../../../globals.md) / testing
 
 # testing
 
@@ -20,7 +20,6 @@
 - [createPendingCommand](functions/createPendingCommand.md)
 - [createPermanentEvent](functions/createPermanentEvent.md)
 - [createSendingCommand](functions/createSendingCommand.md)
-- [createStatefulEvent](functions/createStatefulEvent.md)
 - [createSucceededCommand](functions/createSucceededCommand.md)
 - [createTestCachedEvent](functions/createTestCachedEvent.md)
 - [createTestCacheKey](functions/createTestCacheKey.md)

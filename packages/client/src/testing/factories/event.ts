@@ -47,18 +47,6 @@ export function createPermanentEvent(
 }
 
 /**
- * Create a stateful event.
- */
-export function createStatefulEvent(overrides: Partial<CachedEventRecord> = {}): CachedEventRecord {
-  return createTestCachedEvent({
-    persistence: 'Stateful',
-    position: null,
-    revision: null,
-    ...overrides,
-  })
-}
-
-/**
  * Create an anticipated event.
  */
 export function createAnticipatedEvent(

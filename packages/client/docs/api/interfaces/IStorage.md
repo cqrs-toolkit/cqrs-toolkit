@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / IStorage
+[@cqrs-toolkit/client](../globals.md) / IStorage
 
 # Interface: IStorage
 
@@ -26,7 +26,7 @@ Returns a transaction handle that can be passed to other methods.
 
 `Promise`\<`unknown`\>
 
----
+***
 
 ### clear()
 
@@ -40,7 +40,7 @@ Clear all data from storage.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### close()
 
@@ -54,7 +54,7 @@ Close the storage backend and release resources.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### commitTransaction()?
 
@@ -74,7 +74,7 @@ Commit a transaction.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### deleteAllCommands()
 
@@ -88,7 +88,7 @@ Delete all commands (e.g., on session clear).
 
 `Promise`\<`void`\>
 
----
+***
 
 ### deleteAnticipatedEventsByCommand()
 
@@ -108,7 +108,7 @@ Delete all anticipated events for a command.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### deleteCachedEvent()
 
@@ -128,7 +128,7 @@ Delete a cached event.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### deleteCachedEventsByCacheKey()
 
@@ -148,7 +148,7 @@ Delete all cached events for a cache key.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### deleteCacheKey()
 
@@ -168,7 +168,7 @@ Delete a cache key and all associated data.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### deleteCommand()
 
@@ -188,7 +188,7 @@ Delete a command.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### deleteReadModel()
 
@@ -212,7 +212,7 @@ Delete a read model record.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### deleteReadModelsByCacheKey()
 
@@ -232,7 +232,7 @@ Delete all read model records for a cache key.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### deleteReadModelsByCollection()
 
@@ -252,7 +252,7 @@ Delete all read model records for a collection.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### deleteSession()
 
@@ -266,7 +266,7 @@ Delete the current session and all associated data.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### getAllCacheKeys()
 
@@ -280,7 +280,7 @@ Get all cache keys.
 
 `Promise`\<[`CacheKeyRecord`](CacheKeyRecord.md)[]\>
 
----
+***
 
 ### getAnticipatedEventsByCommand()
 
@@ -300,7 +300,7 @@ Get anticipated events for a command.
 
 `Promise`\<[`CachedEventRecord`](CachedEventRecord.md)[]\>
 
----
+***
 
 ### getCachedEvent()
 
@@ -320,7 +320,7 @@ Get a cached event by ID.
 
 `Promise`\<[`CachedEventRecord`](CachedEventRecord.md) \| `null`\>
 
----
+***
 
 ### getCachedEventsByCacheKey()
 
@@ -340,7 +340,7 @@ Get cached events for a cache key.
 
 `Promise`\<[`CachedEventRecord`](CachedEventRecord.md)[]\>
 
----
+***
 
 ### getCachedEventsByStream()
 
@@ -360,7 +360,7 @@ Get cached events for a stream.
 
 `Promise`\<[`CachedEventRecord`](CachedEventRecord.md)[]\>
 
----
+***
 
 ### getCacheKey()
 
@@ -380,7 +380,7 @@ Get a cache key record.
 
 `Promise`\<[`CacheKeyRecord`](CacheKeyRecord.md) \| `null`\>
 
----
+***
 
 ### getCommand()
 
@@ -400,7 +400,7 @@ Get a command by ID.
 
 `Promise`\<[`CommandRecord`](CommandRecord.md)\<`unknown`, `unknown`\> \| `null`\>
 
----
+***
 
 ### getCommands()
 
@@ -420,7 +420,7 @@ Get commands matching a filter.
 
 `Promise`\<[`CommandRecord`](CommandRecord.md)\<`unknown`, `unknown`\>[]\>
 
----
+***
 
 ### getCommandsBlockedBy()
 
@@ -440,7 +440,7 @@ Get commands blocked by a specific command.
 
 `Promise`\<[`CommandRecord`](CommandRecord.md)\<`unknown`, `unknown`\>[]\>
 
----
+***
 
 ### getCommandsByStatus()
 
@@ -460,7 +460,7 @@ Get commands by status.
 
 `Promise`\<[`CommandRecord`](CommandRecord.md)\<`unknown`, `unknown`\>[]\>
 
----
+***
 
 ### getEvictableCacheKeys()
 
@@ -480,7 +480,7 @@ Get cache keys eligible for eviction (holdCount = 0, not frozen).
 
 `Promise`\<[`CacheKeyRecord`](CacheKeyRecord.md)[]\>
 
----
+***
 
 ### getReadModel()
 
@@ -504,7 +504,7 @@ Get a read model record.
 
 `Promise`\<[`ReadModelRecord`](ReadModelRecord.md) \| `null`\>
 
----
+***
 
 ### getReadModelsByCacheKey()
 
@@ -524,7 +524,7 @@ Get read model records by cache key.
 
 `Promise`\<[`ReadModelRecord`](ReadModelRecord.md)[]\>
 
----
+***
 
 ### getReadModelsByCollection()
 
@@ -548,7 +548,7 @@ Get all read model records for a collection.
 
 `Promise`\<[`ReadModelRecord`](ReadModelRecord.md)[]\>
 
----
+***
 
 ### getSession()
 
@@ -562,7 +562,7 @@ Get the current session, if any.
 
 `Promise`\<[`SessionRecord`](SessionRecord.md) \| `null`\>
 
----
+***
 
 ### holdCacheKey()
 
@@ -582,7 +582,7 @@ Increment hold count for a cache key.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### initialize()
 
@@ -597,7 +597,7 @@ For SQLite, this creates tables and runs migrations.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### releaseCacheKey()
 
@@ -617,7 +617,7 @@ Decrement hold count for a cache key.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### rollbackTransaction()?
 
@@ -637,7 +637,7 @@ Rollback a transaction.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### saveCachedEvent()
 
@@ -657,7 +657,7 @@ Save a cached event.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### saveCachedEvents()
 
@@ -677,7 +677,7 @@ Save multiple cached events in a batch.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### saveCacheKey()
 
@@ -697,7 +697,7 @@ Save or update a cache key.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### saveCommand()
 
@@ -717,7 +717,7 @@ Save a new command.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### saveReadModel()
 
@@ -737,7 +737,7 @@ Save a read model record.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### saveReadModels()
 
@@ -757,7 +757,7 @@ Save multiple read model records in a batch.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### saveSession()
 
@@ -777,7 +777,7 @@ Save or update the session.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### touchCacheKey()
 
@@ -797,7 +797,7 @@ Touch a cache key (update lastAccessedAt).
 
 `Promise`\<`void`\>
 
----
+***
 
 ### touchSession()
 
@@ -811,7 +811,7 @@ Update the last seen timestamp.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### updateCommand()
 

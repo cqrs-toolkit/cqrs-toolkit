@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [protocol](../README.md) / RestoreHoldsResponse
+[@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / RestoreHoldsResponse
 
 # Interface: RestoreHoldsResponse
 
@@ -24,7 +24,7 @@ Defined in: packages/client/src/protocol/messages.ts:114
 
 Keys that failed to restore (no longer exist)
 
----
+***
 
 ### requestId
 
@@ -38,7 +38,7 @@ Unique request ID for correlation
 
 [`BaseMessage`](BaseMessage.md).[`requestId`](BaseMessage.md#requestid)
 
----
+***
 
 ### restoredKeys
 
@@ -48,7 +48,7 @@ Defined in: packages/client/src/protocol/messages.ts:112
 
 Keys that were successfully restored
 
----
+***
 
 ### success
 
@@ -56,7 +56,7 @@ Keys that were successfully restored
 
 Defined in: packages/client/src/protocol/messages.ts:110
 
----
+***
 
 ### type
 

@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [protocol](../README.md) / TabLockResponse
+[@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / TabLockResponse
 
 # Interface: TabLockResponse
 
@@ -24,7 +24,7 @@ Defined in: packages/client/src/protocol/messages.ts:141
 
 Whether lock was acquired
 
----
+***
 
 ### currentHolder?
 
@@ -34,7 +34,7 @@ Defined in: packages/client/src/protocol/messages.ts:143
 
 Current lock holder if not acquired
 
----
+***
 
 ### requestId
 
@@ -48,7 +48,7 @@ Unique request ID for correlation
 
 [`BaseMessage`](BaseMessage.md).[`requestId`](BaseMessage.md#requestid)
 
----
+***
 
 ### type
 

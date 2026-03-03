@@ -1,13 +1,13 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / SqliteVfsType
+[@cqrs-toolkit/client](../globals.md) / SqliteVfsType
 
 # Type Alias: SqliteVfsType
 
 > **SqliteVfsType** = `"opfs"` \| `"opfs-sahpool"`
 
-Defined in: packages/client/src/types/config.ts:26
+Defined in: packages/client/src/types/config.ts:28
 
 VFS type for SQLite storage.

@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / EnqueueAndWaitOptions
+[@cqrs-toolkit/client](../globals.md) / EnqueueAndWaitOptions
 
 # Interface: EnqueueAndWaitOptions
 
@@ -28,7 +28,7 @@ Custom command ID (defaults to generated UUID)
 
 [`EnqueueOptions`](EnqueueOptions.md).[`commandId`](EnqueueOptions.md#commandid)
 
----
+***
 
 ### skipValidation?
 
@@ -42,7 +42,7 @@ Skip local domain validation
 
 [`EnqueueOptions`](EnqueueOptions.md).[`skipValidation`](EnqueueOptions.md#skipvalidation)
 
----
+***
 
 ### timeout?
 

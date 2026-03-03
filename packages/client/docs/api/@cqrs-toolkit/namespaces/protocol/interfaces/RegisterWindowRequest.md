@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../../../../README.md) / [protocol](../README.md) / RegisterWindowRequest
+[@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / RegisterWindowRequest
 
 # Interface: RegisterWindowRequest
 
@@ -28,7 +28,7 @@ Unique request ID for correlation
 
 [`BaseMessage`](BaseMessage.md).[`requestId`](BaseMessage.md#requestid)
 
----
+***
 
 ### type
 
@@ -42,7 +42,7 @@ Message type identifier
 
 [`BaseMessage`](BaseMessage.md).[`type`](BaseMessage.md#type)
 
----
+***
 
 ### windowId
 

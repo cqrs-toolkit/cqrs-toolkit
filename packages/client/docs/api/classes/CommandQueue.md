@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / CommandQueue
+[@cqrs-toolkit/client](../globals.md) / CommandQueue
 
 # Class: CommandQueue
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:61
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:65
 
 Command queue implementation.
 
@@ -20,7 +20,7 @@ Command queue implementation.
 
 > **new CommandQueue**(`config`): `CommandQueue`
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:77
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:84
 
 #### Parameters
 
@@ -38,7 +38,7 @@ Defined in: packages/client/src/core/command-queue/CommandQueue.ts:77
 
 > `readonly` **events$**: `Observable`\<[`CommandEvent`](../interfaces/CommandEvent.md)\>
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:75
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:82
 
 Observable of command events for reactive consumers.
 Emits for all command status changes.
@@ -53,7 +53,7 @@ Emits for all command status changes.
 
 > **cancelCommand**(`commandId`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:235
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:254
 
 Cancel a pending command.
 Cannot cancel commands that are already sending or completed.
@@ -74,13 +74,13 @@ Command ID to cancel
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md).[`cancelCommand`](../interfaces/ICommandQueue.md#cancelcommand)
 
----
+***
 
 ### commandEvents$()
 
 > **commandEvents$**(`commandId`): `Observable`\<[`CommandEvent`](../interfaces/CommandEvent.md)\>
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:223
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:242
 
 Observable filtered to a specific command.
 Useful for tracking a single command's lifecycle.
@@ -103,13 +103,13 @@ Observable of events for that command
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md).[`commandEvents$`](../interfaces/ICommandQueue.md#commandevents)
 
----
+***
 
 ### destroy()
 
 > **destroy**(): `void`
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:512
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:563
 
 Destroy the command queue and release resources.
 
@@ -117,13 +117,13 @@ Destroy the command queue and release resources.
 
 `void`
 
----
+***
 
 ### enqueue()
 
 > **enqueue**\<`TPayload`, `TEvent`\>(`command`, `options?`): `Promise`\<[`EnqueueResult`](../type-aliases/EnqueueResult.md)\<`TEvent`\>\>
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:88
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:97
 
 Enqueue a command with local validation.
 Returns immediately with either validation errors or the queued command.
@@ -164,13 +164,13 @@ Enqueue result with validation status
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md).[`enqueue`](../interfaces/ICommandQueue.md#enqueue)
 
----
+***
 
 ### enqueueAndWait()
 
 > **enqueueAndWait**\<`TPayload`, `TEvent`, `TResponse`\>(`command`, `options?`): `Promise`\<[`EnqueueAndWaitResult`](../type-aliases/EnqueueAndWaitResult.md)\<`TResponse`\>\>
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:181
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:200
 
 Convenience: enqueue and wait for completion in one call.
 Best for simple form submissions.
@@ -213,13 +213,13 @@ Combined enqueue and completion result
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md).[`enqueueAndWait`](../interfaces/ICommandQueue.md#enqueueandwait)
 
----
+***
 
 ### getCommand()
 
 > **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\> \| `null`\>
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:227
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:246
 
 Get a command by ID.
 
@@ -241,13 +241,13 @@ Command record or null
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md).[`getCommand`](../interfaces/ICommandQueue.md#getcommand)
 
----
+***
 
 ### isPaused()
 
 > **isPaused**(): `boolean`
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:505
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:556
 
 Check if command processing is paused.
 
@@ -259,13 +259,13 @@ Check if command processing is paused.
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md).[`isPaused`](../interfaces/ICommandQueue.md#ispaused)
 
----
+***
 
 ### listCommands()
 
 > **listCommands**(`filter?`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\>[]\>
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:231
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:250
 
 List commands matching a filter.
 
@@ -287,13 +287,13 @@ Matching commands
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md).[`listCommands`](../interfaces/ICommandQueue.md#listcommands)
 
----
+***
 
 ### pause()
 
 > **pause**(): `void`
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:495
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:544
 
 Pause command processing.
 
@@ -305,13 +305,13 @@ Pause command processing.
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md).[`pause`](../interfaces/ICommandQueue.md#pause)
 
----
+***
 
 ### processPendingCommands()
 
 > **processPendingCommands**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:265
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:284
 
 Process pending commands.
 Called by the sync manager when network is available.
@@ -324,13 +324,13 @@ Called by the sync manager when network is available.
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md).[`processPendingCommands`](../interfaces/ICommandQueue.md#processpendingcommands)
 
----
+***
 
 ### resume()
 
 > **resume**(): `void`
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:499
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:549
 
 Resume command processing.
 
@@ -342,13 +342,13 @@ Resume command processing.
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md).[`resume`](../interfaces/ICommandQueue.md#resume)
 
----
+***
 
 ### retryCommand()
 
 > **retryCommand**(`commandId`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:252
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:271
 
 Retry a failed command.
 
@@ -368,13 +368,13 @@ Command ID to retry
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md).[`retryCommand`](../interfaces/ICommandQueue.md#retrycommand)
 
----
+***
 
 ### waitForCompletion()
 
 > **waitForCompletion**(`commandId`, `options?`): `Promise`\<[`CommandCompletionResult`](../type-aliases/CommandCompletionResult.md)\>
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:152
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:171
 
 Wait for a specific command to reach a terminal state.
 Returns when command succeeds, fails, or is cancelled.

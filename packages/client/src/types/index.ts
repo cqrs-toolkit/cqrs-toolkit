@@ -6,25 +6,13 @@
 export type {
   AnticipatedEvent,
   AnticipatedEventMeta,
-  AnyEvent,
-  BaseEvent,
-  BaseEventMeta,
-  EventMeta,
   EventPersistence,
   LibraryEvent,
   LibraryEventPayloads,
   LibraryEventType,
-  PermanentEventMeta,
-  ServerEvent,
-  StatefulEventMeta,
 } from './events.js'
 
-export {
-  isAnticipatedEvent,
-  isPermanentEvent,
-  isStatefulEvent,
-  normalizeEventPersistence,
-} from './events.js'
+export { hydrateSerializedEvent, normalizeEventPersistence } from './events.js'
 
 // Validation
 export type { ValidationError, ValidationResult } from './validation.js'
@@ -79,13 +67,17 @@ export { isEnqueueFailure, isEnqueueSuccess, isTerminalStatus } from './commands
 // Config
 export type {
   CacheConfig,
-  CollectionConfig,
+  Collection,
   CqrsClientConfig,
   ExecutionMode,
   ExecutionModeConfig,
+  FetchContext,
   NetworkConfig,
   ResolvedConfig,
   RetryConfig,
+  SeedEventPage,
+  SeedRecord,
+  SeedRecordPage,
   SqliteVfsType,
   StorageConfig,
 } from './config.js'
@@ -94,3 +86,6 @@ export { DEFAULT_CONFIG, resolveConfig } from './config.js'
 
 // Re-export ICommandSender from config's dependency for convenience
 export type { ICommandSender } from '../core/command-queue/types.js'
+
+// Re-export ddd-es event types for consumer convenience
+export type { IPersistedEvent, ISerializedEvent } from '@meticoeus/ddd-es'

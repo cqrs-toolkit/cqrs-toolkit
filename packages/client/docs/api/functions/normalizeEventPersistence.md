@@ -1,16 +1,19 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / normalizeEventPersistence
+[@cqrs-toolkit/client](../globals.md) / normalizeEventPersistence
 
 # Function: normalizeEventPersistence()
 
 > **normalizeEventPersistence**(`event`): [`EventPersistence`](../type-aliases/EventPersistence.md)
 
-Defined in: packages/client/src/types/events.ts:133
+Defined in: packages/client/src/types/events.ts:91
 
 Normalize event persistence - missing field means Permanent.
+Accepts the ddd-es persistence values ('Permanent' | 'Stateful' | 'Ephemeral') in addition
+to the client-only 'Anticipated' value. Ephemeral events are not persisted, so this value
+should never appear on an IPersistedEvent; if it does, we treat it as Permanent.
 
 ## Parameters
 
@@ -18,7 +21,7 @@ Normalize event persistence - missing field means Permanent.
 
 #### persistence?
 
-[`EventPersistence`](../type-aliases/EventPersistence.md)
+[`EventPersistence`](../type-aliases/EventPersistence.md) \| `"Ephemeral"`
 
 ## Returns
 

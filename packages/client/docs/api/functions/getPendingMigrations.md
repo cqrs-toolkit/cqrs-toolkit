@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / getPendingMigrations
+[@cqrs-toolkit/client](../globals.md) / getPendingMigrations
 
 # Function: getPendingMigrations()
 

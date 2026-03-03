@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / shouldRetry
+[@cqrs-toolkit/client](../globals.md) / shouldRetry
 
 # Function: shouldRetry()
 

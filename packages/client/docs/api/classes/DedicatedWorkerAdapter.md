@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / DedicatedWorkerAdapter
+[@cqrs-toolkit/client](../globals.md) / DedicatedWorkerAdapter
 
 # Class: DedicatedWorkerAdapter
 
@@ -11,7 +11,6 @@ Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter
 Dedicated Worker adapter for single-tab offline support.
 
 This adapter:
-
 - Connects to a Dedicated Worker that manages SQLite storage
 - Enforces single-tab operation via tab lock
 - Provides a storage proxy for window-side code
@@ -42,7 +41,7 @@ Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter
 
 Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:51
 
----
+***
 
 ### mode
 
@@ -64,7 +63,7 @@ Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter
 
 `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
----
+***
 
 ### sessionManager
 
@@ -78,7 +77,7 @@ Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter
 
 [`SessionManager`](SessionManager.md)
 
----
+***
 
 ### status
 
@@ -92,7 +91,7 @@ Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter
 
 [`AdapterStatus`](../type-aliases/AdapterStatus.md)
 
----
+***
 
 ### storage
 
@@ -112,7 +111,7 @@ Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:166
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:171
 
 Close the adapter and release resources.
 
@@ -120,7 +119,7 @@ Close the adapter and release resources.
 
 `Promise`\<`void`\>
 
----
+***
 
 ### initialize()
 

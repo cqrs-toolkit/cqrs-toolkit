@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / generateId
+[@cqrs-toolkit/client](../globals.md) / generateId
 
 # Function: generateId()
 

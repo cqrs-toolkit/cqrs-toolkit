@@ -1,8 +1,8 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / EnqueueOptions
+[@cqrs-toolkit/client](../globals.md) / EnqueueOptions
 
 # Interface: EnqueueOptions
 
@@ -24,7 +24,7 @@ Defined in: packages/client/src/types/commands.ts:94
 
 Custom command ID (defaults to generated UUID)
 
----
+***
 
 ### skipValidation?
 

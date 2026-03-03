@@ -1,14 +1,14 @@
 [**@cqrs-toolkit/client**](../README.md)
 
----
+***
 
-[@cqrs-toolkit/client](../README.md) / DEFAULT_CONFIG
+[@cqrs-toolkit/client](../globals.md) / DEFAULT\_CONFIG
 
-# Variable: DEFAULT_CONFIG
+# Variable: DEFAULT\_CONFIG
 
-> `const` **DEFAULT_CONFIG**: `object`
+> `const` **DEFAULT\_CONFIG**: `object`
 
-Defined in: packages/client/src/types/config.ts:158
+Defined in: packages/client/src/types/config.ts:264
 
 Default configuration values.
 
