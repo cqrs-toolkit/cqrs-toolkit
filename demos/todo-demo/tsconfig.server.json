@@ -1,0 +1,10 @@
+{
+  "extends": "../../packages/tsconfig.common.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "rootDir": ".",
+    "outDir": "dist",
+    "noEmit": true
+  },
+  "include": ["server/**/*.ts", "shared/**/*.ts"]
+}

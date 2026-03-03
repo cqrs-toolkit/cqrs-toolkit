@@ -1,0 +1,10 @@
+{
+  "endOfLine": "lf",
+  "semi": false,
+  "useTabs": false,
+  "singleQuote": true,
+  "trailingComma": "all",
+  "printWidth": 100,
+  "plugins": ["prettier-plugin-organize-imports"],
+  "overrides": []
+}

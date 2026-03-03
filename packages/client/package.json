@@ -1,0 +1,36 @@
+{
+  "name": "@cqrs-toolkit/client",
+  "version": "0.1.0",
+  "description": "Offline-first CQRS/event-sourcing client library",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "compile": "tsc -p tsconfig.json --noEmit",
+    "docs": "typedoc",
+    "test": "vitest"
+  },
+  "keywords": [
+    "cqrs",
+    "event-sourcing",
+    "offline-first",
+    "rxjs"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@cqrs-toolkit/realtime": "*",
+    "@sqlite.org/sqlite-wasm": "^3.48.0-build1",
+    "rxjs": "^7.8.1",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.0.0"
+  }
+}

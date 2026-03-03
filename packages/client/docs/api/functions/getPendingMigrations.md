@@ -1,0 +1,27 @@
+[**@cqrs-toolkit/client**](../README.md)
+
+---
+
+[@cqrs-toolkit/client](../README.md) / getPendingMigrations
+
+# Function: getPendingMigrations()
+
+> **getPendingMigrations**(`currentVersion`): [`Migration`](../interfaces/Migration.md)[]
+
+Defined in: packages/client/src/storage/schema/migrations.ts:45
+
+Get migrations that need to be applied.
+
+## Parameters
+
+### currentVersion
+
+`number`
+
+Currently applied version
+
+## Returns
+
+[`Migration`](../interfaces/Migration.md)[]
+
+Migrations to apply

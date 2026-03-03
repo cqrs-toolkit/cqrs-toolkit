@@ -1,0 +1,11 @@
+{
+  "extends": "../tsconfig.common.json",
+  "compilerOptions": {
+    "types": ["vitest/importMeta"],
+    "baseUrl": ".",
+    "rootDir": ".",
+    "outDir": "dist"
+  },
+  "include": ["package.json", "src/index.ts", "src/**/*.ts"],
+  "exclude": ["src/vitest-setup.ts", "src/**/*.e2e.ts"]
+}

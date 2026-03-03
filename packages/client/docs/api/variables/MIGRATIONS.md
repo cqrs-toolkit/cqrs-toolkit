@@ -1,0 +1,14 @@
+[**@cqrs-toolkit/client**](../README.md)
+
+---
+
+[@cqrs-toolkit/client](../README.md) / MIGRATIONS
+
+# Variable: MIGRATIONS
+
+> `const` **MIGRATIONS**: [`Migration`](../interfaces/Migration.md)[] = `[]`
+
+Defined in: packages/client/src/storage/schema/migrations.ts:21
+
+All migrations in order.
+Version 0 is the initial schema creation (handled separately).

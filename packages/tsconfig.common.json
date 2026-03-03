@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.strictness.json",
+  "compilerOptions": {
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+    "moduleResolution": "NodeNext",
+    "resolvePackageJsonExports": true,
+    "resolvePackageJsonImports": true,
+    "module": "NodeNext",
+    "target": "ES2022",
+    "esModuleInterop": true,
+    "resolveJsonModule": true
+  }
+}

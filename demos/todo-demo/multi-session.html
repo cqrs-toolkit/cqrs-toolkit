@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Multi-Session WebSocket Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwindcss.config = { darkMode: 'media' }
+    </script>
+  </head>
+  <body
+    class="bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100 h-screen flex flex-col overflow-hidden"
+  >
+    <!-- Header -->
+    <header
+      class="flex items-center justify-between px-6 py-3 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 shrink-0"
+    >
+      <div>
+        <h1 class="text-base font-semibold">Multi-Session WebSocket Demo</h1>
+        <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+          Create or edit a note in one session — does it appear in the other?
+        </p>
+      </div>
+      <span
+        class="text-xs font-mono px-2.5 py-1 rounded bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800"
+      >
+        mode: online-only
+      </span>
+    </header>
+
+    <!-- Iframe grid -->
+    <div class="flex-1 grid grid-cols-2 gap-px bg-neutral-200 dark:bg-neutral-800 min-h-0">
+      <div class="flex flex-col bg-neutral-50 dark:bg-neutral-950 min-h-0">
+        <div
+          class="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 bg-neutral-100 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 shrink-0"
+        >
+          Session A
+        </div>
+        <iframe
+          src="http://localhost:5173/notes?mode=online-only"
+          class="flex-1 w-full border-0"
+        ></iframe>
+      </div>
+      <div class="flex flex-col bg-neutral-50 dark:bg-neutral-950 min-h-0">
+        <div
+          class="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 bg-neutral-100 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 shrink-0"
+        >
+          Session B
+        </div>
+        <iframe
+          src="http://localhost:5173/notes?mode=online-only"
+          class="flex-1 w-full border-0"
+        ></iframe>
+      </div>
+    </div>
+  </body>
+</html>

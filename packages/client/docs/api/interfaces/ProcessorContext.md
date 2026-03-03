@@ -1,0 +1,61 @@
+[**@cqrs-toolkit/client**](../README.md)
+
+---
+
+[@cqrs-toolkit/client](../README.md) / ProcessorContext
+
+# Interface: ProcessorContext
+
+Defined in: packages/client/src/core/event-processor/types.ts:42
+
+Context passed to event processors.
+
+## Properties
+
+### commandId?
+
+> `optional` **commandId**: `string`
+
+Defined in: packages/client/src/core/event-processor/types.ts:46
+
+For anticipated events, the command ID
+
+---
+
+### getCurrentState()
+
+> **getCurrentState**: \<`T`\>(`collection`, `id`) => `Promise`\<`T` \| `null`\>
+
+Defined in: packages/client/src/core/event-processor/types.ts:48
+
+Get current read model state (may not exist)
+
+#### Type Parameters
+
+##### T
+
+`T`
+
+#### Parameters
+
+##### collection
+
+`string`
+
+##### id
+
+`string`
+
+#### Returns
+
+`Promise`\<`T` \| `null`\>
+
+---
+
+### persistence
+
+> **persistence**: [`EventPersistence`](../type-aliases/EventPersistence.md)
+
+Defined in: packages/client/src/core/event-processor/types.ts:44
+
+Event persistence type
