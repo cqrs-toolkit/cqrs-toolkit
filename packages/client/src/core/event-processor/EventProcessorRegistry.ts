@@ -27,7 +27,7 @@ export class EventProcessorRegistry {
    *
    * @param registration - Processor registration
    */
-  register<TEvent = unknown, TModel = unknown>(
+  register<TEvent = unknown, TModel extends object = Record<string, unknown>>(
     registration: ProcessorRegistration<TEvent, TModel>,
   ): void {
     const eventTypes = Array.isArray(registration.eventTypes)

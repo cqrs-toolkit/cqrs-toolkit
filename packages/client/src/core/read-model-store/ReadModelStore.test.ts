@@ -390,6 +390,236 @@ describe('ReadModelStore', () => {
     })
   })
 
+  describe('setLocalData', () => {
+    it('sets effective data as optimistic with no server baseline', async () => {
+      const modified = await store.setLocalData(
+        'todos',
+        'todo-1',
+        { id: 'todo-1', title: 'Optimistic', done: false },
+        'cache-1',
+      )
+
+      expect(modified).toBe(true)
+      const record = await storage.getReadModel('todos', 'todo-1')
+      expect(record?.hasLocalChanges).toBe(true)
+      expect(record?.serverData).toBeNull()
+      expect(JSON.parse(record!.effectiveData)).toEqual({
+        id: 'todo-1',
+        title: 'Optimistic',
+        done: false,
+      })
+    })
+
+    it('preserves existing server baseline', async () => {
+      await storage.saveReadModel({
+        id: 'todo-1',
+        collection: 'todos',
+        cacheKey: 'cache-1',
+        serverData: JSON.stringify({ id: 'todo-1', title: 'Server', done: false }),
+        effectiveData: JSON.stringify({ id: 'todo-1', title: 'Server', done: false }),
+        hasLocalChanges: false,
+        updatedAt: 1000,
+      })
+
+      await store.setLocalData(
+        'todos',
+        'todo-1',
+        { id: 'todo-1', title: 'Optimistic', done: true },
+        'cache-1',
+      )
+
+      const record = await storage.getReadModel('todos', 'todo-1')
+      // Server baseline should be unchanged
+      expect(record?.serverData).toBe(
+        JSON.stringify({ id: 'todo-1', title: 'Server', done: false }),
+      )
+      // Effective data should be the new local data
+      expect(JSON.parse(record!.effectiveData)).toEqual({
+        id: 'todo-1',
+        title: 'Optimistic',
+        done: true,
+      })
+      expect(record?.hasLocalChanges).toBe(true)
+    })
+
+    it('returns false on identical data', async () => {
+      await storage.saveReadModel({
+        id: 'todo-1',
+        collection: 'todos',
+        cacheKey: 'cache-1',
+        serverData: null,
+        effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test' }),
+        hasLocalChanges: true,
+        updatedAt: 1000,
+      })
+
+      const modified = await store.setLocalData(
+        'todos',
+        'todo-1',
+        { id: 'todo-1', title: 'Test' },
+        'cache-1',
+      )
+
+      expect(modified).toBe(false)
+    })
+  })
+
+  describe('mergeServerData', () => {
+    it('merges partial data into server baseline', async () => {
+      await storage.saveReadModel({
+        id: 'todo-1',
+        collection: 'todos',
+        cacheKey: 'cache-1',
+        serverData: JSON.stringify({ id: 'todo-1', title: 'Original', done: false }),
+        effectiveData: JSON.stringify({ id: 'todo-1', title: 'Original', done: false }),
+        hasLocalChanges: false,
+        updatedAt: 1000,
+      })
+
+      const modified = await store.mergeServerData('todos', 'todo-1', { done: true }, 'cache-1')
+
+      expect(modified).toBe(true)
+      const record = await storage.getReadModel('todos', 'todo-1')
+      expect(JSON.parse(record!.serverData!)).toEqual({
+        id: 'todo-1',
+        title: 'Original',
+        done: true,
+      })
+      expect(JSON.parse(record!.effectiveData)).toEqual({
+        id: 'todo-1',
+        title: 'Original',
+        done: true,
+      })
+      expect(record?.hasLocalChanges).toBe(false)
+    })
+
+    it('preserves local overlay via three-way merge', async () => {
+      await storage.saveReadModel({
+        id: 'todo-1',
+        collection: 'todos',
+        cacheKey: 'cache-1',
+        serverData: JSON.stringify({ id: 'todo-1', title: 'Original', done: false, count: 0 }),
+        effectiveData: JSON.stringify({
+          id: 'todo-1',
+          title: 'Local Title',
+          done: false,
+          count: 0,
+        }),
+        hasLocalChanges: true,
+        updatedAt: 1000,
+      })
+
+      const modified = await store.mergeServerData('todos', 'todo-1', { count: 5 }, 'cache-1')
+
+      expect(modified).toBe(true)
+      const record = await storage.getReadModel('todos', 'todo-1')
+      const effectiveData = JSON.parse(record!.effectiveData)
+      // Local overlay on title should be preserved
+      expect(effectiveData.title).toBe('Local Title')
+      // Server merge on count should be applied
+      expect(effectiveData.count).toBe(5)
+      expect(record?.hasLocalChanges).toBe(true)
+    })
+
+    it('merges into non-existent record', async () => {
+      const modified = await store.mergeServerData(
+        'todos',
+        'todo-1',
+        { title: 'New', done: false },
+        'cache-1',
+      )
+
+      expect(modified).toBe(true)
+      const record = await storage.getReadModel('todos', 'todo-1')
+      expect(JSON.parse(record!.serverData!)).toEqual({ title: 'New', done: false })
+      expect(JSON.parse(record!.effectiveData)).toEqual({ title: 'New', done: false })
+      expect(record?.hasLocalChanges).toBe(false)
+    })
+  })
+
+  describe('modified return values', () => {
+    it('setServerData returns false on no-op', async () => {
+      const data: Todo = { id: 'todo-1', title: 'Test', done: false }
+      await store.setServerData('todos', 'todo-1', data, 'cache-1')
+
+      const modified = await store.setServerData('todos', 'todo-1', data, 'cache-1')
+      expect(modified).toBe(false)
+    })
+
+    it('setServerData returns true when data changes', async () => {
+      await store.setServerData<Todo>(
+        'todos',
+        'todo-1',
+        { id: 'todo-1', title: 'Test', done: false },
+        'cache-1',
+      )
+
+      const modified = await store.setServerData<Todo>(
+        'todos',
+        'todo-1',
+        { id: 'todo-1', title: 'Updated', done: false },
+        'cache-1',
+      )
+      expect(modified).toBe(true)
+    })
+
+    it('applyLocalChanges returns false on no-op', async () => {
+      await storage.saveReadModel({
+        id: 'todo-1',
+        collection: 'todos',
+        cacheKey: 'cache-1',
+        serverData: JSON.stringify({ id: 'todo-1', title: 'Test', done: false }),
+        effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test', done: true }),
+        hasLocalChanges: true,
+        updatedAt: 1000,
+      })
+
+      const modified = await store.applyLocalChanges<Todo>(
+        'todos',
+        'todo-1',
+        { done: true },
+        'cache-1',
+      )
+      expect(modified).toBe(false)
+    })
+
+    it('delete returns false when record does not exist', async () => {
+      const modified = await store.delete('todos', 'non-existent')
+      expect(modified).toBe(false)
+    })
+
+    it('delete returns true when record existed', async () => {
+      await storage.saveReadModel({
+        id: 'todo-1',
+        collection: 'todos',
+        cacheKey: 'cache-1',
+        serverData: null,
+        effectiveData: '{}',
+        hasLocalChanges: false,
+        updatedAt: 1000,
+      })
+
+      const modified = await store.delete('todos', 'todo-1')
+      expect(modified).toBe(true)
+      expect(await store.exists('todos', 'todo-1')).toBe(false)
+    })
+
+    it('mergeServerData returns false on no-op', async () => {
+      await storage.saveReadModel({
+        id: 'todo-1',
+        collection: 'todos',
+        cacheKey: 'cache-1',
+        serverData: JSON.stringify({ id: 'todo-1', title: 'Test', done: false }),
+        effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test', done: false }),
+        hasLocalChanges: false,
+        updatedAt: 1000,
+      })
+
+      const modified = await store.mergeServerData('todos', 'todo-1', { done: false }, 'cache-1')
+      expect(modified).toBe(false)
+    })
+  })
+
   describe('delete', () => {
     it('deletes a record', async () => {
       await storage.saveReadModel({

@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / QueryResult
 
 # Interface: QueryResult\<T\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:36
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:48
 
 Query result with metadata.
 
@@ -22,26 +22,26 @@ Query result with metadata.
 
 > **cacheKey**: `string`
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:42
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:54
 
 Cache key used for this query
 
-***
+---
 
 ### data
 
 > **data**: `T` \| `undefined`
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:38
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:50
 
 The data, or undefined if not found
 
-***
+---
 
 ### hasLocalChanges
 
 > **hasLocalChanges**: `boolean`
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:40
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:52
 
 Whether the data has local changes pending sync

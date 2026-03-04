@@ -23,22 +23,22 @@ describe('ConnectivityManager', () => {
   describe('initial state', () => {
     it('starts with browser online status', () => {
       const state = connectivity.getState()
-      expect(state.online).toBe(true) // jsdom default
-      expect(state.apiReachable).toBe(false)
+      expect(state.network).toBe('online') // jsdom default
+      expect(state.serverReachable).toBe('unknown')
       expect(state.lastContact).toBeUndefined()
     })
 
-    it('reports not online initially (api not reachable)', () => {
+    it('reports not online initially (server reachability unknown)', () => {
       expect(connectivity.isOnline()).toBe(false)
     })
   })
 
   describe('reportContact', () => {
-    it('sets apiReachable to true', () => {
+    it('sets serverReachable to yes', () => {
       connectivity.reportContact()
 
       const state = connectivity.getState()
-      expect(state.apiReachable).toBe(true)
+      expect(state.serverReachable).toBe('yes')
       expect(state.lastContact).toBeTruthy()
     })
 
@@ -61,12 +61,12 @@ describe('ConnectivityManager', () => {
   })
 
   describe('reportFailure', () => {
-    it('sets apiReachable to false', () => {
+    it('sets serverReachable to no', () => {
       connectivity.reportContact() // First go online
       connectivity.reportFailure()
 
       const state = connectivity.getState()
-      expect(state.apiReachable).toBe(false)
+      expect(state.serverReachable).toBe('no')
     })
 
     it('emits connectivity:changed event', async () => {
@@ -110,8 +110,37 @@ describe('ConnectivityManager', () => {
 
       expect(states).toHaveLength(2)
       expect(states[1]).toMatchObject({
-        apiReachable: true,
+        serverReachable: 'yes',
       })
+    })
+  })
+
+  describe('lifecycle', () => {
+    it('stop() cleans up browser event subscription', () => {
+      connectivity.start()
+
+      // After start, browserSub should exist (via the merge subscription)
+      // After stop, it should be cleaned up
+      connectivity.stop()
+
+      // Verify state is no longer updated by browser events
+      const stateBefore = connectivity.getState()
+      window.dispatchEvent(new Event('offline'))
+      const stateAfter = connectivity.getState()
+
+      expect(stateAfter.network).toBe(stateBefore.network)
+    })
+
+    it('destroy() cleans up browser event subscription', () => {
+      connectivity.start()
+      connectivity.destroy()
+
+      // Verify state is no longer updated by browser events
+      const stateBefore = connectivity.getState()
+      window.dispatchEvent(new Event('offline'))
+      const stateAfter = connectivity.getState()
+
+      expect(stateAfter.network).toBe(stateBefore.network)
     })
   })
 })

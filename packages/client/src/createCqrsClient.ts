@@ -133,7 +133,7 @@ export class CqrsClient {
    * Stops sync, destroys components, and closes the adapter.
    */
   async close(): Promise<void> {
-    this.internalSyncManager.stop()
+    this.internalSyncManager.destroy()
     await this.queryManager.destroy()
     this.internalCommandQueue.destroy()
     await this.adapter.close()
@@ -215,7 +215,7 @@ export async function createCqrsClient(config: CqrsClientConfig): Promise<CqrsCl
   })
 
   const eventProcessorRunner = new EventProcessorRunner({
-    storage,
+    readModelStore,
     eventBus,
     registry,
   })

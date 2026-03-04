@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / UpdateOperation
 
@@ -16,4 +16,4 @@ Read model update operation.
 
 ### T
 
-`T`
+`T` _extends_ `object`

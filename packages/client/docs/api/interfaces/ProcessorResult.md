@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / ProcessorResult
 
@@ -14,7 +14,7 @@ Result of processing an event.
 
 ### T
 
-`T` = `unknown`
+`T` _extends_ `object` = `Record`\<`string`, `unknown`\>
 
 ## Properties
 
@@ -26,7 +26,7 @@ Defined in: packages/client/src/core/event-processor/types.ts:21
 
 Collection to update
 
-***
+---
 
 ### id
 
@@ -36,7 +36,7 @@ Defined in: packages/client/src/core/event-processor/types.ts:23
 
 Entity ID to update
 
-***
+---
 
 ### isServerUpdate
 
@@ -46,7 +46,7 @@ Defined in: packages/client/src/core/event-processor/types.ts:27
 
 Whether this is a server baseline update (vs optimistic)
 
-***
+---
 
 ### update
 

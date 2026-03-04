@@ -5,6 +5,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import { EventBus } from '../events/EventBus.js'
+import { ReadModelStore } from '../read-model-store/ReadModelStore.js'
 import { EventProcessorRegistry } from './EventProcessorRegistry.js'
 import { EventProcessorRunner, type ParsedEvent } from './EventProcessorRunner.js'
 import type { ProcessorContext, ProcessorResult } from './types.js'
@@ -121,6 +122,7 @@ describe('EventProcessorRunner', () => {
   let storage: InMemoryStorage
   let eventBus: EventBus
   let registry: EventProcessorRegistry
+  let readModelStore: ReadModelStore
   let runner: EventProcessorRunner
 
   beforeEach(async () => {
@@ -128,7 +130,8 @@ describe('EventProcessorRunner', () => {
     await storage.initialize()
     eventBus = new EventBus()
     registry = new EventProcessorRegistry()
-    runner = new EventProcessorRunner({ storage, eventBus, registry })
+    readModelStore = new ReadModelStore({ storage })
+    runner = new EventProcessorRunner({ readModelStore, eventBus, registry })
   })
 
   describe('processEvent', () => {
@@ -316,15 +319,11 @@ describe('EventProcessorRunner', () => {
       })
 
       let capturedContext: ProcessorContext | undefined
-      let currentState: { id: string; count: number } | undefined
 
       registry.register({
         eventTypes: 'CountIncremented',
         processor: (_event, context): ProcessorResult => {
           capturedContext = context
-          // Note: getCurrentState is async but we need to handle it synchronously here
-          // In real usage, processors would be called with pre-loaded state
-          // For this test, we just verify the context is provided
           return {
             collection: 'todos',
             id: 'todo-1',
@@ -411,6 +410,136 @@ describe('EventProcessorRunner', () => {
       const record = await storage.getReadModel('todos', 'todo-1')
       expect(record?.hasLocalChanges).toBe(true)
       expect(record?.serverData).toBeNull()
+    })
+
+    it('set + server update preserves existing local overlay', async () => {
+      // Simulate: anticipated event created an optimistic record
+      await storage.saveReadModel({
+        id: 'todo-1',
+        collection: 'todos',
+        cacheKey: 'cache-1',
+        serverData: JSON.stringify({ id: 'todo-1', title: 'Original', done: false }),
+        effectiveData: JSON.stringify({ id: 'todo-1', title: 'Optimistic Title', done: false }),
+        hasLocalChanges: true,
+        updatedAt: Date.now(),
+      })
+
+      registry.register({
+        eventTypes: 'TodoUpdated',
+        processor: (event: { id: string; title: string; done: boolean }): ProcessorResult => ({
+          collection: 'todos',
+          id: event.id,
+          update: { type: 'set', data: event },
+          isServerUpdate: true,
+        }),
+      })
+
+      // Server confirms with different title — but local overlay changed title
+      const event: ParsedEvent = {
+        id: 'event-2',
+        type: 'TodoUpdated',
+        streamId: 'todo-1',
+        persistence: 'Permanent',
+        data: { id: 'todo-1', title: 'Server Title', done: true },
+        cacheKey: 'cache-1',
+      }
+
+      await runner.processEvent(event)
+
+      const record = await storage.getReadModel('todos', 'todo-1')
+      const effectiveData = JSON.parse(record!.effectiveData)
+      // Local overlay (title: 'Optimistic Title') should be preserved via three-way merge
+      expect(effectiveData.title).toBe('Optimistic Title')
+      // Server value for non-locally-changed field should be adopted
+      expect(effectiveData.done).toBe(true)
+      expect(record?.hasLocalChanges).toBe(true)
+    })
+
+    it('merge + server update preserves local overlay', async () => {
+      // Anticipated event created an optimistic overlay on title
+      await storage.saveReadModel({
+        id: 'todo-1',
+        collection: 'todos',
+        cacheKey: 'cache-1',
+        serverData: JSON.stringify({ id: 'todo-1', title: 'Original', done: false, count: 0 }),
+        effectiveData: JSON.stringify({
+          id: 'todo-1',
+          title: 'Optimistic Title',
+          done: false,
+          count: 0,
+        }),
+        hasLocalChanges: true,
+        updatedAt: Date.now(),
+      })
+
+      registry.register({
+        eventTypes: 'CountIncremented',
+        processor: (): ProcessorResult => ({
+          collection: 'todos',
+          id: 'todo-1',
+          update: { type: 'merge', data: { count: 1 } },
+          isServerUpdate: true,
+        }),
+      })
+
+      const event: ParsedEvent = {
+        id: 'event-2',
+        type: 'CountIncremented',
+        streamId: 'todo-1',
+        persistence: 'Permanent',
+        data: {},
+        cacheKey: 'cache-1',
+      }
+
+      await runner.processEvent(event)
+
+      const record = await storage.getReadModel('todos', 'todo-1')
+      const effectiveData = JSON.parse(record!.effectiveData)
+      // Local overlay (title) should be preserved
+      expect(effectiveData.title).toBe('Optimistic Title')
+      // Server merge (count) should be applied
+      expect(effectiveData.count).toBe(1)
+      expect(record?.hasLocalChanges).toBe(true)
+    })
+
+    it('does not emit readmodel:updated when data is unchanged', async () => {
+      // Create a record with known data
+      await storage.saveReadModel({
+        id: 'todo-1',
+        collection: 'todos',
+        cacheKey: 'cache-1',
+        serverData: JSON.stringify({ id: 'todo-1', title: 'Test' }),
+        effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test' }),
+        hasLocalChanges: false,
+        updatedAt: Date.now(),
+      })
+
+      // Processor returns the same data
+      registry.register({
+        eventTypes: 'TodoUpdated',
+        processor: (): ProcessorResult => ({
+          collection: 'todos',
+          id: 'todo-1',
+          update: { type: 'set', data: { id: 'todo-1', title: 'Test' } },
+          isServerUpdate: true,
+        }),
+      })
+
+      const events: unknown[] = []
+      eventBus.on('readmodel:updated').subscribe((e) => events.push(e))
+
+      const event: ParsedEvent = {
+        id: 'event-2',
+        type: 'TodoUpdated',
+        streamId: 'todo-1',
+        persistence: 'Permanent',
+        data: {},
+        cacheKey: 'cache-1',
+      }
+
+      await runner.processEvent(event)
+
+      expect(events).toHaveLength(0)
     })
   })
 

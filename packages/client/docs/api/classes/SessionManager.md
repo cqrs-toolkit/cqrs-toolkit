@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / SessionManager
 
@@ -43,7 +43,7 @@ Get the current authentication state.
 
 [`AuthState`](../type-aliases/AuthState.md)
 
-***
+---
 
 ### getSessionState()
 
@@ -57,7 +57,7 @@ Get the current session state.
 
 [`SessionState`](../type-aliases/SessionState.md)
 
-***
+---
 
 ### getUserId()
 
@@ -71,7 +71,7 @@ Get the current user ID, if any.
 
 `string` \| `undefined`
 
-***
+---
 
 ### initialize()
 
@@ -87,7 +87,7 @@ Does not resume network activity.
 
 `Promise`\<`void`\>
 
-***
+---
 
 ### isNetworkPaused()
 
@@ -102,7 +102,7 @@ Network is paused until authentication is confirmed.
 
 `boolean`
 
-***
+---
 
 ### signalAuthenticated()
 
@@ -129,13 +129,13 @@ The authenticated user's ID
 
 Whether the session was resumed (true) or created new (false)
 
-***
+---
 
 ### signalLoggedOut()
 
 > **signalLoggedOut**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/session/SessionManager.ts:148
+Defined in: packages/client/src/core/session/SessionManager.ts:150
 
 Signal that the user has been logged out.
 Clears all session data and pauses network activity.
@@ -144,13 +144,13 @@ Clears all session data and pauses network activity.
 
 `Promise`\<`void`\>
 
-***
+---
 
 ### touchSession()
 
 > **touchSession**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/session/SessionManager.ts:164
+Defined in: packages/client/src/core/session/SessionManager.ts:166
 
 Touch the session to update last seen timestamp.
 Should be called periodically during active use.

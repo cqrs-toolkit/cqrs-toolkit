@@ -140,7 +140,7 @@ describe('EventCache', () => {
         { cacheKey: 'cache-1' },
       )
 
-      expect(count).toBe(1) // Only event-2 was cached
+      expect(count).toBe(2) // Returns total count; duplicates are silently ignored by storage
     })
   })
 

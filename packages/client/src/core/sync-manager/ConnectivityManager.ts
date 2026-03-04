@@ -6,6 +6,7 @@ import { logProvider } from '@meticoeus/ddd-es'
 import {
   BehaviorSubject,
   Observable,
+  Subscription,
   distinctUntilChanged,
   fromEvent,
   map,
@@ -19,9 +20,9 @@ import type { EventBus } from '../events/EventBus.js'
  */
 export interface ConnectivityState {
   /** Whether the browser reports being online */
-  online: boolean
+  network: 'online' | 'offline' | 'unknown'
   /** Whether we've confirmed API connectivity */
-  apiReachable: boolean
+  serverReachable: 'yes' | 'no' | 'unknown'
   /** Last successful API contact timestamp */
   lastContact?: number
 }
@@ -47,11 +48,13 @@ export class ConnectivityManager {
   private readonly healthCheckUrl: string | undefined
 
   private readonly state$ = new BehaviorSubject<ConnectivityState>({
-    online: typeof navigator !== 'undefined' ? navigator.onLine : true,
-    apiReachable: false,
+    network:
+      typeof navigator !== 'undefined' ? (navigator.onLine ? 'online' : 'offline') : 'unknown',
+    serverReachable: 'unknown',
   })
 
   private checkTimer: ReturnType<typeof setInterval> | undefined
+  private browserSub: Subscription | undefined
 
   constructor(config: ConnectivityManagerConfig) {
     this.eventBus = config.eventBus
@@ -78,7 +81,7 @@ export class ConnectivityManager {
    */
   get online$(): Observable<boolean> {
     return this.state$.pipe(
-      map((state) => state.online && state.apiReachable),
+      map((state) => state.network === 'online' && state.serverReachable === 'yes'),
       distinctUntilChanged(),
     )
   }
@@ -88,7 +91,7 @@ export class ConnectivityManager {
    */
   isOnline(): boolean {
     const state = this.state$.getValue()
-    return state.online && state.apiReachable
+    return state.network === 'online' && state.serverReachable === 'yes'
   }
 
   /**
@@ -101,10 +104,10 @@ export class ConnectivityManager {
     const online$ = fromEvent(window, 'online').pipe(map(() => true))
     const offline$ = fromEvent(window, 'offline').pipe(map(() => false))
 
-    merge(online$, offline$)
+    this.browserSub = merge(online$, offline$)
       .pipe(startWith(navigator.onLine))
       .subscribe((online) => {
-        this.updateState({ online })
+        this.updateState({ network: online ? 'online' : 'offline' })
 
         if (online) {
           // Try to verify API connectivity
@@ -117,7 +120,7 @@ export class ConnectivityManager {
     // Periodic API connectivity check
     if (this.healthCheckUrl) {
       this.checkTimer = setInterval(() => {
-        if (this.state$.getValue().online) {
+        if (this.state$.getValue().network === 'online') {
           this.checkApiConnectivity().catch((err) => {
             logProvider.log.error({ err }, 'API connectivity check failed')
           })
@@ -130,7 +133,7 @@ export class ConnectivityManager {
       })
     } else {
       // No health check URL - assume API is reachable when browser is online
-      this.updateState({ apiReachable: navigator.onLine })
+      this.updateState({ serverReachable: navigator.onLine ? 'yes' : 'no' })
     }
   }
 
@@ -138,6 +141,10 @@ export class ConnectivityManager {
    * Stop monitoring connectivity.
    */
   stop(): void {
+    if (this.browserSub) {
+      this.browserSub.unsubscribe()
+      this.browserSub = undefined
+    }
     if (this.checkTimer) {
       clearInterval(this.checkTimer)
       this.checkTimer = undefined
@@ -151,7 +158,7 @@ export class ConnectivityManager {
   reportContact(): void {
     const now = Date.now()
     this.updateState({
-      apiReachable: true,
+      serverReachable: 'yes',
       lastContact: now,
     })
   }
@@ -161,7 +168,7 @@ export class ConnectivityManager {
    * Called by other components when API calls fail due to network.
    */
   reportFailure(): void {
-    this.updateState({ apiReachable: false })
+    this.updateState({ serverReachable: 'no' })
   }
 
   /**
@@ -194,8 +201,8 @@ export class ConnectivityManager {
     const next = { ...prev, ...updates }
 
     // Check if effective online status changed
-    const wasOnline = prev.online && prev.apiReachable
-    const isOnline = next.online && next.apiReachable
+    const wasOnline = prev.network === 'online' && prev.serverReachable === 'yes'
+    const isOnline = next.network === 'online' && next.serverReachable === 'yes'
 
     this.state$.next(next)
 

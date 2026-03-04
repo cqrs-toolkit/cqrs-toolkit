@@ -95,6 +95,7 @@ export interface CacheConfig {
 export interface FetchContext {
   readonly baseUrl: string
   readonly headers: Record<string, string>
+  readonly signal: AbortSignal
 }
 
 /**

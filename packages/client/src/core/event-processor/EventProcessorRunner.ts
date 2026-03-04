@@ -4,9 +4,9 @@
  */
 
 import { logProvider } from '@meticoeus/ddd-es'
-import type { IStorage, ReadModelRecord } from '../../storage/IStorage.js'
 import type { EventPersistence } from '../../types/events.js'
 import type { EventBus } from '../events/EventBus.js'
+import type { ReadModelStore } from '../read-model-store/ReadModelStore.js'
 import { EventProcessorRegistry } from './EventProcessorRegistry.js'
 import type { EventProcessor, ProcessorContext, ProcessorResult } from './types.js'
 
@@ -14,7 +14,7 @@ import type { EventProcessor, ProcessorContext, ProcessorResult } from './types.
  * Event processor runner configuration.
  */
 export interface EventProcessorRunnerConfig {
-  storage: IStorage
+  readModelStore: ReadModelStore
   eventBus: EventBus
   registry: EventProcessorRegistry
 }
@@ -37,12 +37,12 @@ export interface ParsedEvent {
  * Event processor runner.
  */
 export class EventProcessorRunner {
-  private readonly storage: IStorage
+  private readonly readModelStore: ReadModelStore
   private readonly eventBus: EventBus
   private readonly registry: EventProcessorRegistry
 
   constructor(config: EventProcessorRunnerConfig) {
-    this.storage = config.storage
+    this.readModelStore = config.readModelStore
     this.eventBus = config.eventBus
     this.registry = config.registry
   }
@@ -67,29 +67,27 @@ export class EventProcessorRunner {
       allResults.push(...result)
     }
 
-    // Apply all results
+    // Apply all results, tracking which actually modified data
+    const modifiedByCollection = new Map<string, string[]>()
     const updatedIds: string[] = []
-    for (const result of allResults) {
-      await this.applyResult(result, event.cacheKey)
-      updatedIds.push(`${result.collection}:${result.id}`)
-    }
 
-    // Emit update event
-    if (updatedIds.length > 0) {
-      // Group by collection
-      const byCollection = new Map<string, string[]>()
-      for (const result of allResults) {
-        let ids = byCollection.get(result.collection)
+    for (const result of allResults) {
+      const modified = await this.applyResult(result, event.cacheKey)
+      updatedIds.push(`${result.collection}:${result.id}`)
+
+      if (modified) {
+        let ids = modifiedByCollection.get(result.collection)
         if (!ids) {
           ids = []
-          byCollection.set(result.collection, ids)
+          modifiedByCollection.set(result.collection, ids)
         }
         ids.push(result.id)
       }
+    }
 
-      for (const [collection, ids] of byCollection) {
-        this.eventBus.emit('readmodel:updated', { collection, ids })
-      }
+    // Emit update event only for collections with actual changes
+    for (const [collection, ids] of modifiedByCollection) {
+      this.eventBus.emit('readmodel:updated', { collection, ids })
     }
 
     return updatedIds
@@ -148,73 +146,38 @@ export class EventProcessorRunner {
       commandId: event.commandId,
       revision: event.revision,
       getCurrentState: async <T>(collection: string, id: string): Promise<T | undefined> => {
-        const record = await this.storage.getReadModel(collection, id)
-        if (!record) return undefined
-        return JSON.parse(record.effectiveData) as T
+        const model = await this.readModelStore.getById<T>(collection, id)
+        if (!model) return undefined
+        return model.data
       },
     }
   }
 
   /**
    * Apply a processor result to the read model store.
+   * Returns true if the data was actually modified.
    */
-  private async applyResult(result: ProcessorResult, cacheKey: string): Promise<void> {
+  private async applyResult(result: ProcessorResult, cacheKey: string): Promise<boolean> {
     const { collection, id, update, isServerUpdate } = result
-    const existing = await this.storage.getReadModel(collection, id)
-    const now = Date.now()
 
     if (update.type === 'delete') {
-      if (existing) {
-        await this.storage.deleteReadModel(collection, id)
-      }
-      return
+      return this.readModelStore.delete(collection, id)
     }
 
     if (update.type === 'set') {
-      const dataJson = JSON.stringify(update.data)
-      const record: ReadModelRecord = {
-        id,
-        collection,
-        cacheKey,
-        serverData: isServerUpdate ? dataJson : (existing?.serverData ?? null),
-        effectiveData: dataJson,
-        hasLocalChanges: !isServerUpdate,
-        updatedAt: now,
+      if (isServerUpdate) {
+        return this.readModelStore.setServerData(collection, id, update.data, cacheKey)
       }
-      await this.storage.saveReadModel(record)
-      return
+      return this.readModelStore.setLocalData(collection, id, update.data, cacheKey)
     }
 
     if (update.type === 'merge') {
-      // Merge with existing data
-      let currentData: Record<string, unknown> = {}
-      if (existing) {
-        currentData = JSON.parse(existing.effectiveData) as Record<string, unknown>
-      }
-
-      const merged = { ...currentData, ...update.data }
-      const dataJson = JSON.stringify(merged)
-
-      let serverData = existing?.serverData ?? null
       if (isServerUpdate) {
-        // Also merge into server baseline
-        let serverBaseline: Record<string, unknown> = {}
-        if (serverData) {
-          serverBaseline = JSON.parse(serverData) as Record<string, unknown>
-        }
-        serverData = JSON.stringify({ ...serverBaseline, ...update.data })
+        return this.readModelStore.mergeServerData(collection, id, update.data, cacheKey)
       }
-
-      const record: ReadModelRecord = {
-        id,
-        collection,
-        cacheKey,
-        serverData,
-        effectiveData: dataJson,
-        hasLocalChanges: !isServerUpdate || (existing?.hasLocalChanges ?? false),
-        updatedAt: now,
-      }
-      await this.storage.saveReadModel(record)
+      return this.readModelStore.applyLocalChanges(collection, id, update.data, cacheKey)
     }
+
+    return false
   }
 }

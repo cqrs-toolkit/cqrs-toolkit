@@ -112,14 +112,16 @@ export class SessionManager {
     const now = Date.now()
     this.authState = { status: 'authenticated', userId }
 
-    // Check if we have a cached session
-    if (this.sessionState.status === 'cached') {
-      const cachedUserId = this.sessionState.session.userId
+    const existingSession =
+      this.sessionState.status === 'cached' || this.sessionState.status === 'active'
+        ? this.sessionState.session
+        : undefined
 
-      if (cachedUserId === userId) {
-        // Same user - resume session
+    if (existingSession) {
+      if (existingSession.userId === userId) {
+        // Same user — resume session
         const updatedSession: SessionRecord = {
-          ...this.sessionState.session,
+          ...existingSession,
           lastSeenAt: now,
         }
         await this.storage.saveSession(updatedSession)
@@ -130,12 +132,12 @@ export class SessionManager {
 
         return { resumed: true }
       } else {
-        // Different user - wipe and create new session
+        // Different user — wipe and create new session
         await this.wipeAndCreateSession(userId, now)
         return { resumed: false }
       }
     } else {
-      // No existing session - create new
+      // No existing session — create new
       await this.createSession(userId, now)
       return { resumed: false }
     }

@@ -6,7 +6,19 @@
  */
 
 import { logProvider } from '@meticoeus/ddd-es'
-import { Observable, Subject, distinctUntilChanged, filter, map, takeUntil } from 'rxjs'
+import type { Observable } from 'rxjs'
+import {
+  Subject,
+  catchError,
+  distinctUntilChanged,
+  filter,
+  from,
+  map,
+  of,
+  startWith,
+  switchMap,
+  takeUntil,
+} from 'rxjs'
 import type { CacheManager } from '../cache-manager/CacheManager.js'
 import type { EventBus } from '../events/EventBus.js'
 import type { ReadModelQueryOptions, ReadModelStore } from '../read-model-store/index.js'
@@ -185,40 +197,21 @@ export class QueryManager {
    * @returns Observable of the entity data
    */
   watchById<T>(collection: string, id: string): Observable<T | undefined> {
-    return new Observable<T | undefined>((subscriber) => {
-      // Initial load
-      this.readModelStore.getById<T>(collection, id).then(
-        (model) => subscriber.next(model?.data),
-        (err) => {
-          logProvider.log.error(
-            { err, collection, id },
-            'Failed to load initial value for watchById',
-          )
-          subscriber.next(undefined)
-        },
-      )
-
-      // Inner subscription — tied to consumer lifecycle
-      const innerSub = this.eventBus
-        .on('readmodel:updated')
-        .pipe(
-          filter(
-            (event) => event.payload.collection === collection && event.payload.ids.includes(id),
-          ),
-        )
-        .subscribe(() => {
-          this.readModelStore.getById<T>(collection, id).then(
-            (model) => subscriber.next(model?.data),
-            (err) =>
-              logProvider.log.error(
-                { err, collection, id },
-                'Failed to refresh value for watchById',
-              ),
-          )
-        })
-
-      return () => innerSub.unsubscribe()
-    }).pipe(distinctUntilChanged(), takeUntil(this.destroy$))
+    return this.eventBus.on('readmodel:updated').pipe(
+      filter((event) => event.payload.collection === collection && event.payload.ids.includes(id)),
+      startWith(undefined),
+      switchMap(() =>
+        from(this.readModelStore.getById<T>(collection, id)).pipe(
+          map((model) => model?.data),
+          catchError((err) => {
+            logProvider.log.error({ err, collection, id }, 'Failed to load value for watchById')
+            return of(undefined)
+          }),
+        ),
+      ),
+      distinctUntilChanged(),
+      takeUntil(this.destroy$),
+    )
   }
 
   /**

@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / SQLiteStorage
 
@@ -50,7 +50,7 @@ Clear all data from storage.
 
 [`IStorage`](../interfaces/IStorage.md).[`clear`](../interfaces/IStorage.md#clear)
 
-***
+---
 
 ### close()
 
@@ -68,7 +68,7 @@ Close the storage backend and release resources.
 
 [`IStorage`](../interfaces/IStorage.md).[`close`](../interfaces/IStorage.md#close)
 
-***
+---
 
 ### deleteAllCommands()
 
@@ -86,13 +86,13 @@ Delete all commands (e.g., on session clear).
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteAllCommands`](../interfaces/IStorage.md#deleteallcommands)
 
-***
+---
 
 ### deleteAnticipatedEventsByCommand()
 
 > **deleteAnticipatedEventsByCommand**(`commandId`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:467
+Defined in: packages/client/src/storage/SQLiteStorage.ts:488
 
 Delete all anticipated events for a command.
 
@@ -110,13 +110,13 @@ Delete all anticipated events for a command.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteAnticipatedEventsByCommand`](../interfaces/IStorage.md#deleteanticipatedeventsbycommand)
 
-***
+---
 
 ### deleteCachedEvent()
 
 > **deleteCachedEvent**(`id`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:462
+Defined in: packages/client/src/storage/SQLiteStorage.ts:483
 
 Delete a cached event.
 
@@ -134,13 +134,13 @@ Delete a cached event.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteCachedEvent`](../interfaces/IStorage.md#deletecachedevent)
 
-***
+---
 
 ### deleteCachedEventsByCacheKey()
 
 > **deleteCachedEventsByCacheKey**(`cacheKey`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:474
+Defined in: packages/client/src/storage/SQLiteStorage.ts:495
 
 Delete all cached events for a cache key.
 
@@ -158,7 +158,7 @@ Delete all cached events for a cache key.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteCachedEventsByCacheKey`](../interfaces/IStorage.md#deletecachedeventsbycachekey)
 
-***
+---
 
 ### deleteCacheKey()
 
@@ -182,7 +182,7 @@ Delete a cache key and all associated data.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteCacheKey`](../interfaces/IStorage.md#deletecachekey)
 
-***
+---
 
 ### deleteCommand()
 
@@ -206,13 +206,13 @@ Delete a command.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteCommand`](../interfaces/IStorage.md#deletecommand)
 
-***
+---
 
 ### deleteReadModel()
 
 > **deleteReadModel**(`collection`, `id`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:554
+Defined in: packages/client/src/storage/SQLiteStorage.ts:593
 
 Delete a read model record.
 
@@ -234,13 +234,13 @@ Delete a read model record.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteReadModel`](../interfaces/IStorage.md#deletereadmodel)
 
-***
+---
 
 ### deleteReadModelsByCacheKey()
 
 > **deleteReadModelsByCacheKey**(`cacheKey`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:559
+Defined in: packages/client/src/storage/SQLiteStorage.ts:598
 
 Delete all read model records for a cache key.
 
@@ -258,13 +258,13 @@ Delete all read model records for a cache key.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteReadModelsByCacheKey`](../interfaces/IStorage.md#deletereadmodelsbycachekey)
 
-***
+---
 
 ### deleteReadModelsByCollection()
 
 > **deleteReadModelsByCollection**(`collection`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:564
+Defined in: packages/client/src/storage/SQLiteStorage.ts:603
 
 Delete all read model records for a collection.
 
@@ -282,7 +282,7 @@ Delete all read model records for a collection.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteReadModelsByCollection`](../interfaces/IStorage.md#deletereadmodelsbycollection)
 
-***
+---
 
 ### deleteSession()
 
@@ -300,7 +300,7 @@ Delete the current session and all associated data.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteSession`](../interfaces/IStorage.md#deletesession)
 
-***
+---
 
 ### getAllCacheKeys()
 
@@ -318,7 +318,7 @@ Get all cache keys.
 
 [`IStorage`](../interfaces/IStorage.md).[`getAllCacheKeys`](../interfaces/IStorage.md#getallcachekeys)
 
-***
+---
 
 ### getAnticipatedEventsByCommand()
 
@@ -342,7 +342,7 @@ Get anticipated events for a command.
 
 [`IStorage`](../interfaces/IStorage.md).[`getAnticipatedEventsByCommand`](../interfaces/IStorage.md#getanticipatedeventsbycommand)
 
-***
+---
 
 ### getCachedEvent()
 
@@ -366,7 +366,7 @@ Get a cached event by ID.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCachedEvent`](../interfaces/IStorage.md#getcachedevent)
 
-***
+---
 
 ### getCachedEventsByCacheKey()
 
@@ -390,7 +390,7 @@ Get cached events for a cache key.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCachedEventsByCacheKey`](../interfaces/IStorage.md#getcachedeventsbycachekey)
 
-***
+---
 
 ### getCachedEventsByStream()
 
@@ -414,7 +414,7 @@ Get cached events for a stream.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCachedEventsByStream`](../interfaces/IStorage.md#getcachedeventsbystream)
 
-***
+---
 
 ### getCacheKey()
 
@@ -438,7 +438,7 @@ Get a cache key record.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCacheKey`](../interfaces/IStorage.md#getcachekey)
 
-***
+---
 
 ### getCommand()
 
@@ -462,7 +462,7 @@ Get a command by ID.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCommand`](../interfaces/IStorage.md#getcommand)
 
-***
+---
 
 ### getCommands()
 
@@ -486,7 +486,7 @@ Get commands matching a filter.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCommands`](../interfaces/IStorage.md#getcommands)
 
-***
+---
 
 ### getCommandsBlockedBy()
 
@@ -510,7 +510,7 @@ Get commands blocked by a specific command.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCommandsBlockedBy`](../interfaces/IStorage.md#getcommandsblockedby)
 
-***
+---
 
 ### getCommandsByStatus()
 
@@ -534,7 +534,7 @@ Get commands by status.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCommandsByStatus`](../interfaces/IStorage.md#getcommandsbystatus)
 
-***
+---
 
 ### getEvictableCacheKeys()
 
@@ -558,13 +558,13 @@ Get cache keys eligible for eviction (holdCount = 0, not frozen).
 
 [`IStorage`](../interfaces/IStorage.md).[`getEvictableCacheKeys`](../interfaces/IStorage.md#getevictablecachekeys)
 
-***
+---
 
 ### getReadModel()
 
 > **getReadModel**(`collection`, `id`): `Promise`\<[`ReadModelRecord`](../interfaces/ReadModelRecord.md) \| `undefined`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:481
+Defined in: packages/client/src/storage/SQLiteStorage.ts:502
 
 Get a read model record.
 
@@ -586,13 +586,13 @@ Get a read model record.
 
 [`IStorage`](../interfaces/IStorage.md).[`getReadModel`](../interfaces/IStorage.md#getreadmodel)
 
-***
+---
 
 ### getReadModelsByCacheKey()
 
 > **getReadModelsByCacheKey**(`cacheKey`): `Promise`\<[`ReadModelRecord`](../interfaces/ReadModelRecord.md)[]\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:521
+Defined in: packages/client/src/storage/SQLiteStorage.ts:542
 
 Get read model records by cache key.
 
@@ -610,13 +610,13 @@ Get read model records by cache key.
 
 [`IStorage`](../interfaces/IStorage.md).[`getReadModelsByCacheKey`](../interfaces/IStorage.md#getreadmodelsbycachekey)
 
-***
+---
 
 ### getReadModelsByCollection()
 
 > **getReadModelsByCollection**(`collection`, `options?`): `Promise`\<[`ReadModelRecord`](../interfaces/ReadModelRecord.md)[]\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:493
+Defined in: packages/client/src/storage/SQLiteStorage.ts:514
 
 Get all read model records for a collection.
 
@@ -638,7 +638,7 @@ Get all read model records for a collection.
 
 [`IStorage`](../interfaces/IStorage.md).[`getReadModelsByCollection`](../interfaces/IStorage.md#getreadmodelsbycollection)
 
-***
+---
 
 ### getSession()
 
@@ -656,7 +656,7 @@ Get the current session, if any.
 
 [`IStorage`](../interfaces/IStorage.md).[`getSession`](../interfaces/IStorage.md#getsession)
 
-***
+---
 
 ### holdCacheKey()
 
@@ -680,7 +680,7 @@ Increment hold count for a cache key.
 
 [`IStorage`](../interfaces/IStorage.md).[`holdCacheKey`](../interfaces/IStorage.md#holdcachekey)
 
-***
+---
 
 ### initialize()
 
@@ -699,7 +699,7 @@ For SQLite, this creates tables and runs migrations.
 
 [`IStorage`](../interfaces/IStorage.md).[`initialize`](../interfaces/IStorage.md#initialize)
 
-***
+---
 
 ### releaseCacheKey()
 
@@ -723,7 +723,7 @@ Decrement hold count for a cache key.
 
 [`IStorage`](../interfaces/IStorage.md).[`releaseCacheKey`](../interfaces/IStorage.md#releasecachekey)
 
-***
+---
 
 ### saveCachedEvent()
 
@@ -747,7 +747,7 @@ Save a cached event.
 
 [`IStorage`](../interfaces/IStorage.md).[`saveCachedEvent`](../interfaces/IStorage.md#savecachedevent)
 
-***
+---
 
 ### saveCachedEvents()
 
@@ -771,7 +771,7 @@ Save multiple cached events in a batch.
 
 [`IStorage`](../interfaces/IStorage.md).[`saveCachedEvents`](../interfaces/IStorage.md#savecachedevents)
 
-***
+---
 
 ### saveCacheKey()
 
@@ -795,7 +795,7 @@ Save or update a cache key.
 
 [`IStorage`](../interfaces/IStorage.md).[`saveCacheKey`](../interfaces/IStorage.md#savecachekey)
 
-***
+---
 
 ### saveCommand()
 
@@ -819,13 +819,13 @@ Save a new command.
 
 [`IStorage`](../interfaces/IStorage.md).[`saveCommand`](../interfaces/IStorage.md#savecommand)
 
-***
+---
 
 ### saveReadModel()
 
 > **saveReadModel**(`record`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:529
+Defined in: packages/client/src/storage/SQLiteStorage.ts:550
 
 Save a read model record.
 
@@ -843,13 +843,13 @@ Save a read model record.
 
 [`IStorage`](../interfaces/IStorage.md).[`saveReadModel`](../interfaces/IStorage.md#savereadmodel)
 
-***
+---
 
 ### saveReadModels()
 
 > **saveReadModels**(`records`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:547
+Defined in: packages/client/src/storage/SQLiteStorage.ts:568
 
 Save multiple read model records in a batch.
 
@@ -867,7 +867,7 @@ Save multiple read model records in a batch.
 
 [`IStorage`](../interfaces/IStorage.md).[`saveReadModels`](../interfaces/IStorage.md#savereadmodels)
 
-***
+---
 
 ### saveSession()
 
@@ -891,7 +891,7 @@ Save or update the session.
 
 [`IStorage`](../interfaces/IStorage.md).[`saveSession`](../interfaces/IStorage.md#savesession)
 
-***
+---
 
 ### touchCacheKey()
 
@@ -915,7 +915,7 @@ Touch a cache key (update lastAccessedAt).
 
 [`IStorage`](../interfaces/IStorage.md).[`touchCacheKey`](../interfaces/IStorage.md#touchcachekey)
 
-***
+---
 
 ### touchSession()
 
@@ -933,7 +933,7 @@ Update the last seen timestamp.
 
 [`IStorage`](../interfaces/IStorage.md).[`touchSession`](../interfaces/IStorage.md#touchsession)
 
-***
+---
 
 ### updateCommand()
 

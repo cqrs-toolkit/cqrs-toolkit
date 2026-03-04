@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / FetchContext
 
@@ -26,10 +26,18 @@ x-tenant-id for tenant context) in their fetch implementations.
 
 Defined in: packages/client/src/types/config.ts:96
 
-***
+---
 
 ### headers
 
 > `readonly` **headers**: `Record`\<`string`, `string`\>
 
 Defined in: packages/client/src/types/config.ts:97
+
+---
+
+### signal
+
+> `readonly` **signal**: `AbortSignal`
+
+Defined in: packages/client/src/types/config.ts:98

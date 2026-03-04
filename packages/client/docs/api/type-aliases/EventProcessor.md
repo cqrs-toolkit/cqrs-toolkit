@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / EventProcessor
 
@@ -21,7 +21,7 @@ Receives an event and returns zero or more read model updates.
 
 ### TModel
 
-`TModel` = `unknown`
+`TModel` _extends_ `object` = `Record`\<`string`, `unknown`\>
 
 ## Parameters
 

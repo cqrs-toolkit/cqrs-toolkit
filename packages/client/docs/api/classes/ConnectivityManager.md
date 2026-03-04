@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / ConnectivityManager
 
 # Class: ConnectivityManager
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:44
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:45
 
 Connectivity manager.
 Tracks browser online status and API reachability.
@@ -17,7 +17,7 @@ Tracks browser online status and API reachability.
 
 > **new ConnectivityManager**(`config`): `ConnectivityManager`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:56
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:59
 
 #### Parameters
 
@@ -37,7 +37,7 @@ Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:56
 
 > **get** **online$**(): `Observable`\<`boolean`\>
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:79
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:82
 
 Observable of online status (browser + API reachable).
 
@@ -45,7 +45,7 @@ Observable of online status (browser + API reachable).
 
 `Observable`\<`boolean`\>
 
-***
+---
 
 ### state
 
@@ -53,7 +53,7 @@ Observable of online status (browser + API reachable).
 
 > **get** **state**(): `Observable`\<[`ConnectivityState`](../interfaces/ConnectivityState.md)\>
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:72
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:75
 
 Observable of connectivity state changes.
 
@@ -67,7 +67,7 @@ Observable of connectivity state changes.
 
 > **destroy**(): `void`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:211
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:218
 
 Clean up resources.
 
@@ -75,13 +75,13 @@ Clean up resources.
 
 `void`
 
-***
+---
 
 ### getState()
 
 > **getState**(): [`ConnectivityState`](../interfaces/ConnectivityState.md)
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:65
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:68
 
 Get the current connectivity state.
 
@@ -89,13 +89,13 @@ Get the current connectivity state.
 
 [`ConnectivityState`](../interfaces/ConnectivityState.md)
 
-***
+---
 
 ### isOnline()
 
 > **isOnline**(): `boolean`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:89
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:92
 
 Check if we're effectively online.
 
@@ -103,13 +103,13 @@ Check if we're effectively online.
 
 `boolean`
 
-***
+---
 
 ### reportContact()
 
 > **reportContact**(): `void`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:151
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:158
 
 Report successful API contact.
 Called by other components when API calls succeed.
@@ -118,13 +118,13 @@ Called by other components when API calls succeed.
 
 `void`
 
-***
+---
 
 ### reportFailure()
 
 > **reportFailure**(): `void`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:163
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:170
 
 Report API failure.
 Called by other components when API calls fail due to network.
@@ -133,13 +133,13 @@ Called by other components when API calls fail due to network.
 
 `void`
 
-***
+---
 
 ### start()
 
 > **start**(): `void`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:97
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:100
 
 Start monitoring connectivity.
 
@@ -147,13 +147,13 @@ Start monitoring connectivity.
 
 `void`
 
-***
+---
 
 ### stop()
 
 > **stop**(): `void`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:140
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:143
 
 Stop monitoring connectivity.
 

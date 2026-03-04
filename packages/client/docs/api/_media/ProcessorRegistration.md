@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / ProcessorRegistration
 
@@ -22,7 +22,7 @@ This allows typed processors to be collected into heterogeneous arrays.
 
 ### TModel
 
-`TModel` = `unknown`
+`TModel` _extends_ `object` = `Record`\<`string`, `unknown`\>
 
 ## Properties
 
@@ -30,17 +30,17 @@ This allows typed processors to be collected into heterogeneous arrays.
 
 > **eventTypes**: `string` \| `string`[]
 
-Defined in: packages/client/src/core/event-processor/types.ts:62
+Defined in: packages/client/src/core/event-processor/types.ts:65
 
 Event type(s) this processor handles
 
-***
+---
 
 ### persistenceTypes?
 
 > `optional` **persistenceTypes**: [`EventPersistence`](../type-aliases/EventPersistence.md)[]
 
-Defined in: packages/client/src/core/event-processor/types.ts:69
+Defined in: packages/client/src/core/event-processor/types.ts:72
 
 Optional: Only process certain persistence types
 
@@ -50,7 +50,7 @@ Optional: Only process certain persistence types
 
 > **processor**(`event`, `context`): [`ProcessorResult`](ProcessorResult.md)\<`TModel`\> \| [`ProcessorResult`](ProcessorResult.md)\<`TModel`\>[] \| `undefined`
 
-Defined in: packages/client/src/core/event-processor/types.ts:64
+Defined in: packages/client/src/core/event-processor/types.ts:67
 
 The processor function
 

@@ -196,6 +196,78 @@ describe('QueryManager', () => {
       expect(values[values.length - 1]?.title).toBe('Updated')
     })
 
+    it('delivers the latest read when rapid updates cause out-of-order resolution', async () => {
+      const values: (Todo | undefined)[] = []
+
+      // Control resolution order of getById calls.
+      // We'll make the first update's read resolve AFTER the second update's read,
+      // simulating the stale-read race.
+      let callCount = 0
+      const originalGetById = readModelStore.getById.bind(readModelStore)
+      let resolveSlowCall: (() => void) | undefined
+
+      vi.spyOn(readModelStore, 'getById').mockImplementation(async (collection, id) => {
+        callCount++
+        const currentCall = callCount
+        const result = await originalGetById(collection, id)
+
+        // Make the 2nd call (first update read) slow — it resolves after the 3rd call
+        if (currentCall === 2) {
+          await new Promise<void>((resolve) => {
+            resolveSlowCall = resolve
+          })
+        }
+
+        return result
+      })
+
+      queryManager.watchById<Todo>('todos', 'todo-1').subscribe((v) => {
+        values.push(v)
+      })
+
+      // Wait for initial load (call 1)
+      await new Promise((r) => setTimeout(r, 10))
+      expect(values).toHaveLength(1)
+
+      // First update — will trigger call 2 (slow)
+      await storage.saveReadModel({
+        id: 'todo-1',
+        collection: 'todos',
+        cacheKey: 'cache-1',
+        serverData: JSON.stringify({ id: 'todo-1', title: 'Stale', done: false }),
+        effectiveData: JSON.stringify({ id: 'todo-1', title: 'Stale', done: false }),
+        hasLocalChanges: false,
+        updatedAt: 3000,
+      })
+      eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'] })
+
+      // Second update — triggers call 3 (fast, resolves before call 2)
+      await storage.saveReadModel({
+        id: 'todo-1',
+        collection: 'todos',
+        cacheKey: 'cache-1',
+        serverData: JSON.stringify({ id: 'todo-1', title: 'Latest', done: false }),
+        effectiveData: JSON.stringify({ id: 'todo-1', title: 'Latest', done: false }),
+        hasLocalChanges: false,
+        updatedAt: 4000,
+      })
+      eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'] })
+
+      // Let the fast call (3) resolve
+      await new Promise((r) => setTimeout(r, 10))
+
+      // Now let the slow call (2) resolve — switchMap should have cancelled it
+      resolveSlowCall!()
+      await new Promise((r) => setTimeout(r, 10))
+
+      // The final value must be "Latest", not "Stale"
+      const lastValue = values[values.length - 1]
+      expect(lastValue?.title).toBe('Latest')
+
+      // "Stale" should never appear in the emitted values
+      expect(values.every((v) => v?.title !== 'Stale')).toBe(true)
+    })
+
     it('does not call getById after unsubscribe', async () => {
       const getByIdSpy = vi.spyOn(readModelStore, 'getById')
 

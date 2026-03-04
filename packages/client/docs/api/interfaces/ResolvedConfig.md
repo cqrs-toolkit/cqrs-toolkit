@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / ResolvedConfig
 
 # Interface: ResolvedConfig\<TCommand, TEvent\>
 
-Defined in: packages/client/src/types/config.ts:289
+Defined in: packages/client/src/types/config.ts:290
 
 Resolved configuration with all defaults applied.
 
@@ -35,7 +35,7 @@ Resolved configuration with all defaults applied.
 
 > **cache**: [`CacheConfig`](CacheConfig.md)
 
-Defined in: packages/client/src/types/config.ts:218
+Defined in: packages/client/src/types/config.ts:219
 
 Cache configuration.
 
@@ -43,29 +43,29 @@ Cache configuration.
 
 `Required.cache`
 
-***
+---
 
 ### collections
 
 > **collections**: [`Collection`](Collection.md)[]
 
-Defined in: packages/client/src/types/config.ts:299
+Defined in: packages/client/src/types/config.ts:300
 
-***
+---
 
 ### commandSender?
 
 > `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)
 
-Defined in: packages/client/src/types/config.ts:296
+Defined in: packages/client/src/types/config.ts:297
 
-***
+---
 
 ### debug
 
 > **debug**: `boolean`
 
-Defined in: packages/client/src/types/config.ts:245
+Defined in: packages/client/src/types/config.ts:246
 
 Enable debug logging.
 
@@ -73,21 +73,21 @@ Enable debug logging.
 
 `Required.debug`
 
-***
+---
 
 ### domainExecutor?
 
 > `optional` **domainExecutor**: [`IDomainExecutor`](IDomainExecutor.md)\<`TCommand`, `TEvent`\>
 
-Defined in: packages/client/src/types/config.ts:295
+Defined in: packages/client/src/types/config.ts:296
 
-***
+---
 
 ### mode
 
 > **mode**: [`ExecutionModeConfig`](../type-aliases/ExecutionModeConfig.md)
 
-Defined in: packages/client/src/types/config.ts:192
+Defined in: packages/client/src/types/config.ts:193
 
 Execution mode.
 Defaults to 'auto': SharedWorker > Dedicated Worker > Main Thread
@@ -96,13 +96,13 @@ Defaults to 'auto': SharedWorker > Dedicated Worker > Main Thread
 
 `Required.mode`
 
-***
+---
 
 ### network
 
 > **network**: [`NetworkConfig`](NetworkConfig.md)
 
-Defined in: packages/client/src/types/config.ts:203
+Defined in: packages/client/src/types/config.ts:204
 
 Network configuration.
 
@@ -110,21 +110,21 @@ Network configuration.
 
 `Required.network`
 
-***
+---
 
 ### processors
 
-> **processors**: [`ProcessorRegistration`](ProcessorRegistration.md)\<`unknown`, `unknown`\>[]
+> **processors**: [`ProcessorRegistration`](ProcessorRegistration.md)\<`unknown`, `Record`\<`string`, `unknown`\>\>[]
 
-Defined in: packages/client/src/types/config.ts:300
+Defined in: packages/client/src/types/config.ts:301
 
-***
+---
 
 ### retainTerminal
 
 > **retainTerminal**: `boolean`
 
-Defined in: packages/client/src/types/config.ts:240
+Defined in: packages/client/src/types/config.ts:241
 
 Retain terminal commands in storage for debugging/introspection.
 
@@ -132,13 +132,13 @@ Retain terminal commands in storage for debugging/introspection.
 
 `Required.retainTerminal`
 
-***
+---
 
 ### retry
 
 > **retry**: [`RetryConfig`](RetryConfig.md)
 
-Defined in: packages/client/src/types/config.ts:213
+Defined in: packages/client/src/types/config.ts:214
 
 Retry configuration for commands.
 
@@ -146,13 +146,13 @@ Retry configuration for commands.
 
 `Required.retry`
 
-***
+---
 
 ### storage
 
 > **storage**: [`StorageConfig`](StorageConfig.md)
 
-Defined in: packages/client/src/types/config.ts:208
+Defined in: packages/client/src/types/config.ts:209
 
 Storage configuration (ignored for online-only mode).
 
@@ -160,18 +160,18 @@ Storage configuration (ignored for online-only mode).
 
 `Required.storage`
 
-***
+---
 
 ### workerSetup?
 
 > `optional` **workerSetup**: `string`[]
 
-Defined in: packages/client/src/types/config.ts:298
+Defined in: packages/client/src/types/config.ts:299
 
-***
+---
 
 ### workerUrl?
 
 > `optional` **workerUrl**: `string`
 
-Defined in: packages/client/src/types/config.ts:297
+Defined in: packages/client/src/types/config.ts:298

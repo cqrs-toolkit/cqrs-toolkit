@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / EventProcessorRunner
 
@@ -52,13 +52,13 @@ Parsed event to process
 
 IDs of updated read models
 
-***
+---
 
 ### processEvents()
 
 > **processEvents**(`events`): `Promise`\<`string`[]\>
 
-Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:104
+Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:102
 
 Process multiple events in order.
 

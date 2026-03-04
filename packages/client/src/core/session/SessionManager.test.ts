@@ -149,6 +149,39 @@ describe('SessionManager', () => {
       expect(events).toEqual(['session:destroyed', 'session:changed'])
     })
 
+    it('wipes data and creates new session when userId differs from active session', async () => {
+      await sessionManager.initialize()
+      await sessionManager.signalAuthenticated('user-1')
+
+      // Verify we're in active state as user-1
+      expect(sessionManager.getSessionState().status).toBe('active')
+      expect(sessionManager.getUserId()).toBe('user-1')
+
+      const events: string[] = []
+      eventBus.events$.subscribe((e) => events.push(e.type))
+
+      const result = await sessionManager.signalAuthenticated('user-2')
+
+      expect(result.resumed).toBe(false)
+      expect(sessionManager.getUserId()).toBe('user-2')
+      // Storage should have been wiped — no leftover data from user-1
+      const session = await storage.getSession()
+      expect(session?.userId).toBe('user-2')
+      // session:destroyed should be emitted before session:changed
+      expect(events).toEqual(['session:destroyed', 'session:changed'])
+    })
+
+    it('resumes session when same userId is signaled while active', async () => {
+      await sessionManager.initialize()
+      await sessionManager.signalAuthenticated('user-1')
+
+      const result = await sessionManager.signalAuthenticated('user-1')
+
+      expect(result.resumed).toBe(true)
+      expect(sessionManager.getUserId()).toBe('user-1')
+      expect(sessionManager.getSessionState().status).toBe('active')
+    })
+
     it('updates auth state on authentication', async () => {
       await sessionManager.initialize()
 

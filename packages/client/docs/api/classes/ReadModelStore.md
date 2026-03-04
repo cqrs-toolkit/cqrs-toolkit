@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / ReadModelStore
 
@@ -32,9 +32,9 @@ Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:53
 
 ### applyLocalChanges()
 
-> **applyLocalChanges**\<`T`\>(`collection`, `id`, `changes`, `cacheKey`): `Promise`\<`void`\>
+> **applyLocalChanges**\<`T`\>(`collection`, `id`, `changes`, `cacheKey`): `Promise`\<`boolean`\>
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:238
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:249
 
 Apply local changes to a read model (optimistic update).
 
@@ -42,7 +42,7 @@ Apply local changes to a read model (optimistic update).
 
 ##### T
 
-`T` *extends* `object`
+`T` _extends_ `object`
 
 #### Parameters
 
@@ -72,15 +72,15 @@ Cache key to associate with (required if creating new)
 
 #### Returns
 
-`Promise`\<`void`\>
+`Promise`\<`boolean`\>
 
-***
+---
 
 ### clearLocalChanges()
 
 > **clearLocalChanges**(`collection`, `id`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:273
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:405
 
 Clear local changes for a read model (revert to server baseline).
 
@@ -102,7 +102,7 @@ Entity ID
 
 `Promise`\<`void`\>
 
-***
+---
 
 ### count()
 
@@ -126,13 +126,13 @@ Collection name
 
 Count of read models
 
-***
+---
 
 ### delete()
 
-> **delete**(`collection`, `id`): `Promise`\<`void`\>
+> **delete**(`collection`, `id`): `Promise`\<`boolean`\>
 
-Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:297
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:429
 
 Delete a read model.
 
@@ -152,9 +152,9 @@ Entity ID
 
 #### Returns
 
-`Promise`\<`void`\>
+`Promise`\<`boolean`\>
 
-***
+---
 
 ### exists()
 
@@ -184,7 +184,7 @@ Entity ID
 
 Whether the read model exists
 
-***
+---
 
 ### getById()
 
@@ -220,7 +220,7 @@ Entity ID
 
 Read model or undefined
 
-***
+---
 
 ### getByIds()
 
@@ -256,7 +256,7 @@ Entity IDs
 
 Map of ID to read model
 
-***
+---
 
 ### getLocalChanges()
 
@@ -278,7 +278,7 @@ Get all read models with local changes.
 
 Array of read models with uncommitted changes
 
-***
+---
 
 ### list()
 
@@ -314,11 +314,109 @@ Query options
 
 Array of read models
 
-***
+---
+
+### mergeServerData()
+
+> **mergeServerData**\<`T`\>(`collection`, `id`, `data`, `cacheKey`): `Promise`\<`boolean`\>
+
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:332
+
+Merge partial data into server baseline and recompute effective data via three-way merge.
+Preserves local overlays that differ from the server baseline.
+
+#### Type Parameters
+
+##### T
+
+`T` _extends_ `object`
+
+#### Parameters
+
+##### collection
+
+`string`
+
+Collection name
+
+##### id
+
+`string`
+
+Entity ID
+
+##### data
+
+`Partial`\<`T`\>
+
+Partial data to merge into server baseline
+
+##### cacheKey
+
+`string`
+
+Cache key to associate with
+
+#### Returns
+
+`Promise`\<`boolean`\>
+
+true if data changed
+
+---
+
+### setLocalData()
+
+> **setLocalData**\<`T`\>(`collection`, `id`, `data`, `cacheKey`): `Promise`\<`boolean`\>
+
+Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:294
+
+Set local data as a full replacement of effective data (optimistic).
+Preserves existing server baseline so future setServerData can three-way merge.
+
+#### Type Parameters
+
+##### T
+
+`T` _extends_ `object`
+
+#### Parameters
+
+##### collection
+
+`string`
+
+Collection name
+
+##### id
+
+`string`
+
+Entity ID
+
+##### data
+
+`T`
+
+Complete read model data
+
+##### cacheKey
+
+`string`
+
+Cache key to associate with
+
+#### Returns
+
+`Promise`\<`boolean`\>
+
+true if data changed
+
+---
 
 ### setServerData()
 
-> **setServerData**\<`T`\>(`collection`, `id`, `data`, `cacheKey`): `Promise`\<`void`\>
+> **setServerData**\<`T`\>(`collection`, `id`, `data`, `cacheKey`): `Promise`\<`boolean`\>
 
 Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:178
 
@@ -329,7 +427,7 @@ Marks the data as server baseline.
 
 ##### T
 
-`T` *extends* `object`
+`T` _extends_ `object`
 
 #### Parameters
 
@@ -359,4 +457,4 @@ Cache key to associate with
 
 #### Returns
 
-`Promise`\<`void`\>
+`Promise`\<`boolean`\>

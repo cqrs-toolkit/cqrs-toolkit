@@ -89,37 +89,38 @@ export class EventCache {
   /**
    * Cache multiple persisted events in batch.
    *
+   * Duplicates are silently ignored by the storage layer (INSERT OR IGNORE).
+   *
    * @param events - Events to cache
    * @param options - Cache options
-   * @returns Number of events cached (excludes duplicates)
+   * @returns Number of events submitted (duplicates are silently skipped by storage)
    */
   async cacheServerEvents(events: IPersistedEvent[], options: CacheEventOptions): Promise<number> {
-    const records: CachedEventRecord[] = []
+    if (events.length === 0) return 0
 
+    const records: CachedEventRecord[] = events.map((event) => ({
+      id: event.id,
+      type: event.type,
+      streamId: event.streamId,
+      persistence: normalizeEventPersistence(event),
+      data: JSON.stringify(event.data),
+      position: event.position.toString(),
+      revision: event.revision.toString(),
+      commandId: null,
+      cacheKey: options.cacheKey,
+      createdAt: new Date(event.created).getTime(),
+    }))
+
+    await this.storage.saveCachedEvents(records)
+
+    // Track for gap detection (use revision, not position — revision is per-stream sequential)
     for (const event of events) {
-      const existing = await this.storage.getCachedEvent(event.id)
-      if (existing) continue
-
-      const persistence = normalizeEventPersistence(event)
-      records.push({
-        id: event.id,
-        type: event.type,
-        streamId: event.streamId,
-        persistence,
-        data: JSON.stringify(event.data),
-        position: event.position.toString(),
-        revision: event.revision.toString(),
-        commandId: null,
-        cacheKey: options.cacheKey,
-        createdAt: new Date(event.created).getTime(),
-      })
+      if (normalizeEventPersistence(event) === 'Permanent') {
+        this.gapBuffer.add(event.streamId, event.revision, event)
+      }
     }
 
-    if (records.length > 0) {
-      await this.storage.saveCachedEvents(records)
-    }
-
-    return records.length
+    return events.length
   }
 
   /**

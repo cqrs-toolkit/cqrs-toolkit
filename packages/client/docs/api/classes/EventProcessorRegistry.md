@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / EventProcessorRegistry
 
@@ -34,7 +34,7 @@ Clear all registrations.
 
 `void`
 
-***
+---
 
 ### getEventTypes()
 
@@ -50,7 +50,7 @@ Get all registered event types.
 
 Set of event types
 
-***
+---
 
 ### getProcessors()
 
@@ -80,7 +80,7 @@ Event persistence type
 
 Matching processors
 
-***
+---
 
 ### hasProcessors()
 
@@ -104,7 +104,7 @@ Event type
 
 Whether there are processors
 
-***
+---
 
 ### register()
 
@@ -122,7 +122,7 @@ Register an event processor.
 
 ##### TModel
 
-`TModel` = `unknown`
+`TModel` _extends_ `object` = `Record`\<`string`, `unknown`\>
 
 #### Parameters
 

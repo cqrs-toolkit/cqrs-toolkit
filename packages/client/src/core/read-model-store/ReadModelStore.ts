@@ -180,7 +180,7 @@ export class ReadModelStore {
     id: string,
     data: T,
     cacheKey: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const dataJson = JSON.stringify(data)
     const now = Date.now()
 
@@ -214,6 +214,16 @@ export class ReadModelStore {
       }
     }
 
+    // Skip save if nothing changed
+    if (
+      existing &&
+      existing.serverData === dataJson &&
+      existing.effectiveData === effectiveData &&
+      existing.hasLocalChanges === hasLocalChanges
+    ) {
+      return false
+    }
+
     const record: ReadModelRecord = {
       id,
       collection,
@@ -225,6 +235,7 @@ export class ReadModelStore {
     }
 
     await this.storage.saveReadModel(record)
+    return true
   }
 
   /**
@@ -240,7 +251,7 @@ export class ReadModelStore {
     id: string,
     changes: Partial<T>,
     cacheKey: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const existing = await this.storage.getReadModel(collection, id)
     const now = Date.now()
 
@@ -250,6 +261,11 @@ export class ReadModelStore {
     }
 
     const effectiveData = JSON.stringify({ ...currentData, ...changes })
+
+    // Skip save if effective data is unchanged and already marked as local
+    if (existing && existing.effectiveData === effectiveData && existing.hasLocalChanges) {
+      return false
+    }
 
     const record: ReadModelRecord = {
       id,
@@ -262,6 +278,122 @@ export class ReadModelStore {
     }
 
     await this.storage.saveReadModel(record)
+    return true
+  }
+
+  /**
+   * Set local data as a full replacement of effective data (optimistic).
+   * Preserves existing server baseline so future setServerData can three-way merge.
+   *
+   * @param collection - Collection name
+   * @param id - Entity ID
+   * @param data - Complete read model data
+   * @param cacheKey - Cache key to associate with
+   * @returns true if data changed
+   */
+  async setLocalData<T extends object>(
+    collection: string,
+    id: string,
+    data: T,
+    cacheKey: string,
+  ): Promise<boolean> {
+    const existing = await this.storage.getReadModel(collection, id)
+    const effectiveData = JSON.stringify(data)
+
+    // Skip save if effective data is unchanged and already marked as local
+    if (existing && existing.effectiveData === effectiveData && existing.hasLocalChanges) {
+      return false
+    }
+
+    const record: ReadModelRecord = {
+      id,
+      collection,
+      cacheKey: existing?.cacheKey ?? cacheKey,
+      serverData: existing?.serverData ?? null,
+      effectiveData,
+      hasLocalChanges: true,
+      updatedAt: Date.now(),
+    }
+
+    await this.storage.saveReadModel(record)
+    return true
+  }
+
+  /**
+   * Merge partial data into server baseline and recompute effective data via three-way merge.
+   * Preserves local overlays that differ from the server baseline.
+   *
+   * @param collection - Collection name
+   * @param id - Entity ID
+   * @param data - Partial data to merge into server baseline
+   * @param cacheKey - Cache key to associate with
+   * @returns true if data changed
+   */
+  async mergeServerData<T extends object>(
+    collection: string,
+    id: string,
+    data: Partial<T>,
+    cacheKey: string,
+  ): Promise<boolean> {
+    const existing = await this.storage.getReadModel(collection, id)
+
+    // Merge into server baseline
+    let serverBaseline: Record<string, unknown> = {}
+    if (existing?.serverData) {
+      serverBaseline = JSON.parse(existing.serverData) as Record<string, unknown>
+    }
+    const newServerData: Record<string, unknown> = { ...serverBaseline, ...data }
+    const serverDataJson = JSON.stringify(newServerData)
+
+    // Compute effective data via three-way merge with local overlay
+    let effectiveData = serverDataJson
+    let hasLocalChanges = false
+
+    if (existing?.hasLocalChanges) {
+      const localData = JSON.parse(existing.effectiveData) as Record<string, unknown>
+
+      if (existing.serverData) {
+        const oldServer = JSON.parse(existing.serverData) as Record<string, unknown>
+        const localChanges = this.getObjectDiff(oldServer, localData)
+        const merged: Record<string, unknown> = { ...newServerData }
+        for (const [key, value] of Object.entries(localChanges)) {
+          if (value === undefined) {
+            delete merged[key]
+          } else {
+            merged[key] = value
+          }
+        }
+        effectiveData = JSON.stringify(merged)
+        hasLocalChanges = Object.keys(localChanges).length > 0
+      } else {
+        // No prior server baseline — keep local effective data
+        effectiveData = existing.effectiveData
+        hasLocalChanges = true
+      }
+    }
+
+    // Skip save if nothing changed
+    if (
+      existing &&
+      existing.serverData === serverDataJson &&
+      existing.effectiveData === effectiveData &&
+      existing.hasLocalChanges === hasLocalChanges
+    ) {
+      return false
+    }
+
+    const record: ReadModelRecord = {
+      id,
+      collection,
+      cacheKey: existing?.cacheKey ?? cacheKey,
+      serverData: serverDataJson,
+      effectiveData,
+      hasLocalChanges,
+      updatedAt: Date.now(),
+    }
+
+    await this.storage.saveReadModel(record)
+    return true
   }
 
   /**
@@ -294,8 +426,11 @@ export class ReadModelStore {
    * @param collection - Collection name
    * @param id - Entity ID
    */
-  async delete(collection: string, id: string): Promise<void> {
+  async delete(collection: string, id: string): Promise<boolean> {
+    const existing = await this.storage.getReadModel(collection, id)
+    if (!existing) return false
     await this.storage.deleteReadModel(collection, id)
+    return true
   }
 
   /**

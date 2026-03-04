@@ -341,10 +341,10 @@ export class SQLiteStorage implements IStorage {
 
   async getCommandsBlockedBy(commandId: string): Promise<CommandRecord[]> {
     this.assertInitialized()
-    // JSON contains check - blocked_by is a JSON array
-    const rows = this.query<CommandRow>(`SELECT * FROM commands WHERE blocked_by LIKE ?`, [
-      `%"${commandId}"%`,
-    ])
+    const rows = this.query<CommandRow>(
+      `SELECT * FROM commands WHERE EXISTS (SELECT 1 FROM json_each(blocked_by) WHERE value = ?)`,
+      [commandId],
+    )
     return rows.map((row) => this.rowToCommand(row))
   }
 
@@ -454,9 +454,30 @@ export class SQLiteStorage implements IStorage {
 
   async saveCachedEvents(events: CachedEventRecord[]): Promise<void> {
     this.assertInitialized()
+    if (events.length === 0) return
+
+    const columns =
+      '(id, type, stream_id, persistence, data, position, revision, command_id, cache_key, created_at)'
+    const placeholder = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    const placeholders = events.map(() => placeholder).join(', ')
+    const params: unknown[] = []
+
     for (const event of events) {
-      await this.saveCachedEvent(event)
+      params.push(
+        event.id,
+        event.type,
+        event.streamId,
+        event.persistence,
+        event.data,
+        event.position,
+        event.revision,
+        event.commandId,
+        event.cacheKey,
+        event.createdAt,
+      )
     }
+
+    this.exec(`INSERT OR IGNORE INTO cached_events ${columns} VALUES ${placeholders}`, params)
   }
 
   async deleteCachedEvent(id: string): Promise<void> {
@@ -546,9 +567,27 @@ export class SQLiteStorage implements IStorage {
 
   async saveReadModels(records: ReadModelRecord[]): Promise<void> {
     this.assertInitialized()
+    if (records.length === 0) return
+
+    const columns =
+      '(id, collection, cache_key, server_data, effective_data, has_local_changes, updated_at)'
+    const placeholder = '(?, ?, ?, ?, ?, ?, ?)'
+    const placeholders = records.map(() => placeholder).join(', ')
+    const params: unknown[] = []
+
     for (const record of records) {
-      await this.saveReadModel(record)
+      params.push(
+        record.id,
+        record.collection,
+        record.cacheKey,
+        record.serverData,
+        record.effectiveData,
+        record.hasLocalChanges ? 1 : 0,
+        record.updatedAt,
+      )
     }
+
+    this.exec(`INSERT OR REPLACE INTO read_models ${columns} VALUES ${placeholders}`, params)
   }
 
   async deleteReadModel(collection: string, id: string): Promise<void> {

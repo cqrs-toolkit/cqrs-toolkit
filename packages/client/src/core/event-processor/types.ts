@@ -8,7 +8,7 @@ import type { EventPersistence } from '../../types/events.js'
 /**
  * Read model update operation.
  */
-export type UpdateOperation<T> =
+export type UpdateOperation<T extends object> =
   | { type: 'set'; data: T }
   | { type: 'merge'; data: Partial<T> }
   | { type: 'delete' }
@@ -16,7 +16,7 @@ export type UpdateOperation<T> =
 /**
  * Result of processing an event.
  */
-export interface ProcessorResult<T = unknown> {
+export interface ProcessorResult<T extends object = Record<string, unknown>> {
   /** Collection to update */
   collection: string
   /** Entity ID to update */
@@ -31,7 +31,7 @@ export interface ProcessorResult<T = unknown> {
  * Event processor function signature.
  * Receives an event and returns zero or more read model updates.
  */
-export type EventProcessor<TEvent = unknown, TModel = unknown> = (
+export type EventProcessor<TEvent = unknown, TModel extends object = Record<string, unknown>> = (
   event: TEvent,
   context: ProcessorContext,
 ) => ProcessorResult<TModel>[] | ProcessorResult<TModel> | undefined
@@ -57,7 +57,10 @@ export interface ProcessorContext {
  * are assignable to `ProcessorRegistration[]` (bivariant parameter checking).
  * This allows typed processors to be collected into heterogeneous arrays.
  */
-export interface ProcessorRegistration<TEvent = unknown, TModel = unknown> {
+export interface ProcessorRegistration<
+  TEvent = unknown,
+  TModel extends object = Record<string, unknown>,
+> {
   /** Event type(s) this processor handles */
   eventTypes: string | string[]
   /** The processor function */

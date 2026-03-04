@@ -64,12 +64,22 @@ export class SyncManager {
   private readonly collections: Collection[]
 
   private readonly connectivity: ConnectivityManager
-  private readonly destroy$ = new Subject<void>()
+
+  /** Mutable — recreated on each start() so takeUntil subscriptions work after stop()/start() cycles. */
+  private destroy$ = new Subject<void>()
 
   private readonly collectionStatus = new Map<string, CollectionSyncStatus>()
   private readonly repairing = new Set<string>()
   private wsConnection: WebSocket | undefined
   private subscriptions: Subscription[] = []
+  private abortController: AbortController | undefined
+
+  /** Queue for serializing WebSocket event processing. */
+  private readonly wsEventQueue: IPersistedEvent[] = []
+  private processingWsEvents = false
+
+  /** Single-flight guard for startSync — prevents overlapping syncs and captures rejections. */
+  private startSyncPromise: Promise<void> | undefined
 
   constructor(config: SyncManagerConfig) {
     this.eventBus = config.eventBus
@@ -103,6 +113,12 @@ export class SyncManager {
    * Begins connectivity monitoring and initial sync.
    */
   async start(): Promise<void> {
+    // Recreate destroy$ so takeUntil subscriptions work after a stop()/start() cycle
+    this.destroy$ = new Subject<void>()
+
+    // Create a fresh AbortController for this lifecycle
+    this.abortController = new AbortController()
+
     // Start connectivity monitoring
     this.connectivity.start()
 
@@ -124,10 +140,21 @@ export class SyncManager {
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
         if (this.connectivity.isOnline()) {
-          this.startSync()
+          this.startSync().catch((err) => {
+            logProvider.log.error({ err }, 'startSync failed (session:changed)')
+          })
         }
       })
     this.subscriptions.push(sessionSub)
+
+    // Subscribe to session destroyed — clean up sync state on logout
+    const destroyedSub = this.eventBus
+      .on('session:destroyed')
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.onSessionDestroyed()
+      })
+    this.subscriptions.push(destroyedSub)
 
     // If already online and authenticated, start sync
     if (this.connectivity.isOnline() && !this.sessionManager.isNetworkPaused()) {
@@ -136,7 +163,9 @@ export class SyncManager {
   }
 
   /**
-   * Stop the sync manager.
+   * Stop the sync manager. Reversible — can call start() again after.
+   * Terminates subscriptions, aborts in-flight fetches, disconnects WebSocket.
+   * Connectivity monitoring is paused but not destroyed.
    */
   stop(): void {
     this.destroy$.next()
@@ -147,7 +176,23 @@ export class SyncManager {
     }
     this.subscriptions = []
 
+    // Abort in-flight fetches
+    this.abortController?.abort()
+    this.abortController = undefined
+
+    // Clear pending WS events
+    this.wsEventQueue.length = 0
+
     this.disconnectWebSocket()
+    this.connectivity.stop()
+  }
+
+  /**
+   * Permanently destroy the sync manager. Not reversible.
+   * Calls stop(), then destroys the connectivity manager.
+   */
+  destroy(): void {
+    this.stop()
     this.connectivity.destroy()
   }
 
@@ -190,7 +235,9 @@ export class SyncManager {
   private onOnline(): void {
     logProvider.log.debug('Connectivity online, starting sync')
     if (!this.sessionManager.isNetworkPaused()) {
-      this.startSync()
+      this.startSync().catch((err) => {
+        logProvider.log.error({ err }, 'startSync failed (onOnline)')
+      })
     }
   }
 
@@ -206,9 +253,51 @@ export class SyncManager {
   }
 
   /**
+   * Handle session destroyed (logout).
+   * Cleans up sync state while keeping connectivity monitoring alive
+   * so we're ready when a new session starts.
+   */
+  private onSessionDestroyed(): void {
+    logProvider.log.debug('Session destroyed, cleaning up sync state')
+
+    // Disconnect WebSocket
+    this.disconnectWebSocket()
+
+    // Abort in-flight fetches and create a fresh AbortController for the next session
+    this.abortController?.abort()
+    this.abortController = new AbortController()
+
+    // Clear pending WS events
+    this.wsEventQueue.length = 0
+
+    // Pause command queue
+    this.commandQueue.pause()
+
+    // Reset all collection statuses
+    for (const collection of this.collections) {
+      this.collectionStatus.set(collection.name, {
+        collection: collection.name,
+        seeded: false,
+        syncing: false,
+      })
+    }
+  }
+
+  /**
    * Start full sync process.
+   * Single-flight: concurrent callers share the in-progress promise.
    */
   private async startSync(): Promise<void> {
+    if (this.startSyncPromise) return this.startSyncPromise
+    this.startSyncPromise = this.doStartSync()
+    try {
+      await this.startSyncPromise
+    } finally {
+      this.startSyncPromise = undefined
+    }
+  }
+
+  private async doStartSync(): Promise<void> {
     logProvider.log.debug('Starting sync')
 
     // Resume command processing
@@ -344,7 +433,8 @@ export class SyncManager {
         headers['Authorization'] = `Bearer ${token}`
       }
     }
-    return { baseUrl: this.networkConfig.baseUrl, headers }
+    const signal = this.abortController?.signal ?? AbortSignal.abort()
+    return { baseUrl: this.networkConfig.baseUrl, headers, signal }
   }
 
   /**
@@ -368,7 +458,7 @@ export class SyncManager {
         this.connectivity.reportContact()
       }
 
-      this.wsConnection.onmessage = async (wsEvent) => {
+      this.wsConnection.onmessage = (wsEvent) => {
         try {
           const message = parseServerMessage(wsEvent.data)
           if (!message) return
@@ -379,7 +469,7 @@ export class SyncManager {
               this.sendSubscriptions()
               break
             case 'event':
-              await this.handleWebSocketEvent(hydrateSerializedEvent(message.event))
+              this.enqueueWsEvent(hydrateSerializedEvent(message.event))
               break
             case 'heartbeat':
               this.connectivity.reportContact()
@@ -440,11 +530,50 @@ export class SyncManager {
 
   /**
    * Disconnect WebSocket.
+   * Nulls out handlers before calling close() to prevent the onclose handler
+   * from scheduling a reconnect timer on intentional disconnection.
    */
   private disconnectWebSocket(): void {
     if (this.wsConnection) {
+      this.wsConnection.onclose = null
+      this.wsConnection.onerror = null
+      this.wsConnection.onmessage = null
       this.wsConnection.close()
       this.wsConnection = undefined
+    }
+  }
+
+  /**
+   * Enqueue a WebSocket event for serialized processing.
+   * Events are processed one at a time to prevent concurrent gap repairs
+   * from interleaving and missing buffered events.
+   */
+  private enqueueWsEvent(event: IPersistedEvent): void {
+    this.wsEventQueue.push(event)
+    if (!this.processingWsEvents) {
+      this.processWsEventQueue()
+    }
+  }
+
+  /**
+   * Drain the WebSocket event queue, processing events one at a time.
+   */
+  private async processWsEventQueue(): Promise<void> {
+    this.processingWsEvents = true
+    try {
+      let event: IPersistedEvent | undefined
+      while ((event = this.wsEventQueue.shift())) {
+        try {
+          await this.handleWebSocketEvent(event)
+        } catch (error) {
+          logProvider.log.error(
+            { err: error, eventId: event.id },
+            'Failed to handle WebSocket event',
+          )
+        }
+      }
+    } finally {
+      this.processingWsEvents = false
     }
   }
 

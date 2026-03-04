@@ -143,6 +143,71 @@ Three error categories, each with a distinct mechanism:
 If it means "the outside world did something unexpected", throw or propagate an `Error`.
 If it means "the user/caller asked for something the business rules don't allow", return a typed `Result`.
 
+## Structural Honesty
+
+Code structures should honestly represent what they do.
+When language machinery (promises, closures, callbacks) is used to implicitly build a data structure or control flow, the result is harder to reason about, debug, and bound than an explicit equivalent.
+Watch for these patterns and replace them with explicit structures:
+
+- **Unbounded promise chains as hidden buffers.**
+  Chaining `.then()` onto a running promise to serialize async work (`this.pending = this.pending.then(() => work())`) is an unbounded FIFO queue disguised as sequential async code.
+  You cannot inspect its depth, apply backpressure, bound its size, or cancel pending work.
+  Use an explicit queue or buffer with clear capacity semantics.
+
+- **Fire-and-forget promises.**
+  Calling an async function without awaiting or tracking the returned promise (`doWork()` instead of `await doWork()`) creates invisible background work.
+  Failures are silently swallowed, ordering is unpredictable, and shutdown cannot wait for completion.
+  If work is intentionally backgrounded, track it in an explicit structure (e.g., a pending-tasks set) so it can be awaited during teardown.
+
+- **Boolean flags encoding state machines.**
+  Multiple booleans (`isConnected`, `isRetrying`, `isSyncing`) that transition together create implicit states with impossible combinations the type system won't catch.
+  Use a discriminated union or explicit state field: `state: 'idle' | 'connecting' | 'retrying' | 'syncing'`.
+
+- **Recursive setTimeout as hidden loops.**
+  `setTimeout(() => { ...; setTimeout(self, delay) }, delay)` obscures that this is a loop — its termination condition, iteration count, and cleanup are all implicit.
+  Use an explicit `while` loop with `await delay()`, or a dedicated scheduler, so the loop structure is visible and the stop condition is a normal `break`/`return`.
+
+- **Empty `.catch()` as error suppression.**
+  Attaching an empty `.catch()` to silence a promise rejection is not error handling — it is error hiding.
+  If the error is truly ignorable, add a comment explaining why.
+  If it needs handling, handle it.
+  If it should propagate, don't catch it.
+
+## Design Pitfalls
+
+Common design mistakes to avoid when authoring or planning code:
+
+- **Temporal coupling.**
+  Methods that must be called in a specific order (`init()` before `start()` before `process()`), but nothing in the types enforces it.
+  Use type-state patterns or builder APIs so calling out of order is a compile error, not a runtime surprise.
+
+- **Unclear lifecycle ownership.**
+  Resources (connections, subscriptions, timers) created in one place and cleaned up in another — or not at all.
+  Every resource should have a single owner responsible for its creation and disposal.
+  If ownership must transfer, make the handoff explicit.
+
+- **Shared mutable state without ownership.**
+  Multiple components reading and writing the same mutable object with no clear owner.
+  One component owns and mutates; others get read-only views or subscribe to changes.
+
+- **Invisible side effects.**
+  Functions that look simple but secretly write to storage, schedule timers, or mutate shared state.
+  A function's signature and name should reveal what it actually does.
+  If a function has significant side effects, make them visible — through naming, return types, or explicit dependency injection.
+
+- **Derived state stored instead of computed.**
+  Keeping a second copy of data in sync via events or notifications instead of deriving it on read.
+  Two representations of the same truth will eventually diverge.
+  Compute derived values from the source of truth; only cache when profiling shows a real performance need.
+
+- **Responsibility accumulation.**
+  A class that grows to handle connection management, retry logic, serialization, caching, and lifecycle is not a class — it is an application crammed into one file.
+  Each concern should be a separate, composable unit with a clear single responsibility.
+
+- **Hidden coupling through shared knowledge.**
+  Two components that don't import each other but are coupled because they both "know" the same magic string, localStorage key, or URL format.
+  Extract shared knowledge into an explicit constant or type that both components import, so changes are caught by the compiler.
+
 ## Testing
 
 Unit tests use Vitest and test logic in isolation.
