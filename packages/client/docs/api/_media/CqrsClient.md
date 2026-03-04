@@ -6,7 +6,7 @@
 
 # Class: CqrsClient
 
-Defined in: packages/client/src/createCqrsClient.ts:68
+Defined in: packages/client/src/createCqrsClient.ts:67
 
 CQRS Client instance returned by [createCqrsClient](../functions/createCqrsClient.md).
 
@@ -18,7 +18,7 @@ All fields are available immediately — the client is fully initialized at cons
 
 > **new CqrsClient**(`adapter`, `cacheManager`, `commandQueue`, `syncManager`, `queryManager`, `eventCache`, `readModelStore`, `eventProcessorRunner`, `evictionSubscription`, `mode`): `CqrsClient`
 
-Defined in: packages/client/src/createCqrsClient.ts:86
+Defined in: packages/client/src/createCqrsClient.ts:85
 
 #### Parameters
 
@@ -72,7 +72,7 @@ Defined in: packages/client/src/createCqrsClient.ts:86
 
 > `readonly` **cacheManager**: [`CacheManager`](CacheManager.md)
 
-Defined in: packages/client/src/createCqrsClient.ts:70
+Defined in: packages/client/src/createCqrsClient.ts:69
 
 Cache manager for cache key lifecycle and eviction.
 
@@ -82,7 +82,7 @@ Cache manager for cache key lifecycle and eviction.
 
 > `readonly` **commandQueue**: [`ICommandQueue`](../interfaces/ICommandQueue.md)
 
-Defined in: packages/client/src/createCqrsClient.ts:72
+Defined in: packages/client/src/createCqrsClient.ts:71
 
 Command queue for enqueuing and tracking commands.
 
@@ -92,7 +92,7 @@ Command queue for enqueuing and tracking commands.
 
 > `readonly` **mode**: [`ExecutionMode`](../type-aliases/ExecutionMode.md)
 
-Defined in: packages/client/src/createCqrsClient.ts:76
+Defined in: packages/client/src/createCqrsClient.ts:75
 
 Resolved execution mode.
 
@@ -102,7 +102,7 @@ Resolved execution mode.
 
 > `readonly` **queryManager**: [`QueryManager`](QueryManager.md)
 
-Defined in: packages/client/src/createCqrsClient.ts:74
+Defined in: packages/client/src/createCqrsClient.ts:73
 
 Query manager for reading cached data.
 
@@ -114,7 +114,7 @@ Query manager for reading cached data.
 
 > **get** **events$**(): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
-Defined in: packages/client/src/createCqrsClient.ts:132
+Defined in: packages/client/src/createCqrsClient.ts:131
 
 Observable of all library events.
 
@@ -130,7 +130,7 @@ Observable of all library events.
 
 > **get** **sessionManager**(): [`SessionManager`](SessionManager.md)
 
-Defined in: packages/client/src/createCqrsClient.ts:127
+Defined in: packages/client/src/createCqrsClient.ts:126
 
 Session manager for user identity and session lifecycle.
 
@@ -146,7 +146,7 @@ Session manager for user identity and session lifecycle.
 
 > **get** **status**(): [`AdapterStatus`](../type-aliases/AdapterStatus.md)
 
-Defined in: packages/client/src/createCqrsClient.ts:137
+Defined in: packages/client/src/createCqrsClient.ts:136
 
 Current adapter status.
 
@@ -162,7 +162,7 @@ Current adapter status.
 
 > **get** **syncManager**(): [`CqrsClientSyncManager`](../interfaces/CqrsClientSyncManager.md)
 
-Defined in: packages/client/src/createCqrsClient.ts:112
+Defined in: packages/client/src/createCqrsClient.ts:111
 
 Sync manager for collection sync status and manual triggers.
 
@@ -176,7 +176,7 @@ Sync manager for collection sync status and manual triggers.
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/createCqrsClient.ts:145
+Defined in: packages/client/src/createCqrsClient.ts:144
 
 Close the client and release all resources.
 Stops sync, destroys components, and closes the adapter.

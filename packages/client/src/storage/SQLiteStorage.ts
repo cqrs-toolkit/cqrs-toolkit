@@ -5,7 +5,6 @@
  * main thread (opfs-sahpool VFS) execution modes.
  */
 
-import { logProvider } from '@meticoeus/ddd-es'
 import type { CommandFilter, CommandRecord, CommandStatus } from '../types/commands.js'
 import { assert } from '../utils/assert.js'
 import type {
@@ -36,6 +35,13 @@ interface SqliteDb {
 }
 
 /**
+ * Utility returned by `installOpfsSAHPoolVfs()`.
+ */
+interface SAHPoolUtil {
+  OpfsSAHPoolDb: new (filename: string) => SqliteDb
+}
+
+/**
  * SQLite WASM module type.
  */
 interface SqliteModule {
@@ -43,6 +49,12 @@ interface SqliteModule {
     DB: new (filename: string, mode?: string) => SqliteDb
     OpfsDb?: new (filename: string) => SqliteDb
   }
+  installOpfsSAHPoolVfs?: (opts: {
+    clearOnInit?: boolean
+    initialCapacity?: number
+    directory?: string
+    name?: string
+  }) => Promise<SAHPoolUtil>
 }
 
 /**
@@ -69,6 +81,7 @@ export class SQLiteStorage implements IStorage {
   private readonly dbName: string
   private readonly vfs: VfsType
   private sqliteModule: SqliteModule | undefined
+  private sahPoolUtil: SAHPoolUtil | undefined
   private db: SqliteDb | undefined
   private initialized = false
 
@@ -588,11 +601,13 @@ export class SQLiteStorage implements IStorage {
         }
         return new oo1.OpfsDb(this.dbName)
 
-      case 'opfs-sahpool':
-        // opfs-sahpool requires special initialization
-        // For now, fall back to memory
-        logProvider.log.warn('opfs-sahpool not yet implemented, using memory')
-        return new oo1.DB(':memory:', 'c')
+      case 'opfs-sahpool': {
+        const install = this.sqliteModule.installOpfsSAHPoolVfs
+        assert(install, 'opfs-sahpool VFS not available in this SQLite build')
+        const poolUtil = await install({ clearOnInit: false })
+        this.sahPoolUtil = poolUtil
+        return new poolUtil.OpfsSAHPoolDb(this.dbName)
+      }
 
       case 'memory':
       default:

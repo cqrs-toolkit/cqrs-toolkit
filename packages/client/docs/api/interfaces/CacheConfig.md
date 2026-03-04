@@ -6,7 +6,7 @@
 
 # Interface: CacheConfig
 
-Defined in: packages/client/src/types/config.ts:75
+Defined in: packages/client/src/types/config.ts:74
 
 Cache configuration.
 
@@ -16,7 +16,7 @@ Cache configuration.
 
 > `optional` **defaultTtl**: `number`
 
-Defined in: packages/client/src/types/config.ts:79
+Defined in: packages/client/src/types/config.ts:78
 
 Default TTL for cache keys in milliseconds
 
@@ -26,7 +26,7 @@ Default TTL for cache keys in milliseconds
 
 > `optional` **evictionPolicy**: `"lru"` \| `"fifo"`
 
-Defined in: packages/client/src/types/config.ts:81
+Defined in: packages/client/src/types/config.ts:80
 
 Eviction policy
 
@@ -36,7 +36,7 @@ Eviction policy
 
 > `optional` **maxCacheKeys**: `number`
 
-Defined in: packages/client/src/types/config.ts:77
+Defined in: packages/client/src/types/config.ts:76
 
 Maximum number of cache keys
 
@@ -46,6 +46,6 @@ Maximum number of cache keys
 
 > `optional` **maxWindows**: `number`
 
-Defined in: packages/client/src/types/config.ts:83
+Defined in: packages/client/src/types/config.ts:82
 
 Maximum number of windows/tabs that can hold cache keys simultaneously

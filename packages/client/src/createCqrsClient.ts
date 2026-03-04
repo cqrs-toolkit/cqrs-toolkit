@@ -11,7 +11,6 @@ import { logProvider } from '@meticoeus/ddd-es'
 import type { Observable, Subscription } from 'rxjs'
 import type { AdapterStatus, IAdapter } from './adapters/base/IAdapter.js'
 import { DedicatedWorkerAdapter } from './adapters/dedicated-worker/DedicatedWorkerAdapter.js'
-import { MainThreadAdapter } from './adapters/main-thread/MainThreadAdapter.js'
 import { OnlineOnlyAdapter } from './adapters/online-only/OnlineOnlyAdapter.js'
 import { SharedWorkerAdapter } from './adapters/shared-worker/SharedWorkerAdapter.js'
 import { CacheManager } from './core/cache-manager/CacheManager.js'
@@ -333,8 +332,6 @@ function createAdapterForMode(mode: ExecutionMode, config: ResolvedConfig): IAda
     case 'dedicated-worker':
       assert(config.workerUrl, 'workerUrl is required for dedicated-worker mode')
       return new DedicatedWorkerAdapter({ ...config, workerUrl: config.workerUrl })
-    case 'main-thread':
-      return new MainThreadAdapter(config)
   }
 }
 

@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test'
 import type { CommandSuccessResponse } from '../../../shared/types'
+import { expect, test, url } from '../../e2e-fixtures'
 import {
   getDashNoteTexts,
   gotoWithWsSubscribed,
@@ -8,15 +8,16 @@ import {
 } from '../../e2e-helpers'
 
 const API = 'http://localhost:3001/api'
-const DASH_URL = '/?mode=online-only&ws=true'
 
 test.beforeEach(async ({ request }) => {
   await request.post(`${API}/test/reset`)
 })
 
-test('client self-recovers missed events after WS gap', async ({ page, request }) => {
+test('client self-recovers missed events after WS gap', async ({ page, request, mode }) => {
+  const dashUrl = url('/', mode, true)
+
   // 1. Open dashboard with WS subscription
-  await gotoWithWsSubscribed(page, DASH_URL)
+  await gotoWithWsSubscribed(page, dashUrl)
 
   // 2. Create a note via API — dashboard receives NoteCreated via WS
   const createRes = await request.post(`${API}/notes/commands`, {

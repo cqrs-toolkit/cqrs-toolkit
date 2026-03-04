@@ -1,6 +1,11 @@
+import type { ExecutionMode } from '@cqrs-toolkit/client'
 import { defineConfig } from '@playwright/test'
 
-export default defineConfig({
+interface ModeFixtures {
+  mode: ExecutionMode
+}
+
+export default defineConfig<ModeFixtures>({
   testDir: '.',
   testMatch: '**/*.e2e.ts',
   fullyParallel: false,
@@ -20,5 +25,10 @@ export default defineConfig({
       reuseExistingServer: !process.env['CI'],
     },
   ],
-  projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
+  projects: [
+    {
+      name: 'online-only',
+      use: { browserName: 'chromium', mode: 'online-only' },
+    },
+  ],
 })

@@ -4,7 +4,7 @@
  * Detection order (spec §0.1):
  * 1. SharedWorker available → 'shared-worker' (multi-tab support)
  * 2. Worker available → 'dedicated-worker' (single-tab with dedicated worker)
- * 3. Otherwise → 'main-thread' (single-tab on main thread)
+ * 3. Otherwise → 'online-only' (in-memory, no persistence)
  */
 
 import type { ExecutionMode } from '../types/config.js'
@@ -23,5 +23,5 @@ export function detectMode(): ExecutionMode {
     return 'dedicated-worker'
   }
 
-  return 'main-thread'
+  return 'online-only'
 }

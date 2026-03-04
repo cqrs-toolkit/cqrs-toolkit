@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, url } from '../../e2e-fixtures'
 import {
   addNote,
   addTodo,
@@ -11,125 +11,131 @@ import {
   waitForNoteCount,
 } from '../../e2e-helpers'
 
-const NOTES_URL_NO_WS = '/notes?mode=online-only&ws=false'
-const NOTES_URL = '/notes?mode=online-only&ws=true'
-const DASH_URL_NO_WS = '/?mode=online-only&ws=false'
-const DASH_URL = '/?mode=online-only&ws=true'
-const TODOS_URL = '/todos?mode=online-only&ws=true'
-
 test.beforeEach(async ({ request }) => {
   await request.post('http://localhost:3001/api/test/reset')
 })
 
 test.describe('same-session (no WS)', () => {
-  test('dashboard removes deleted notes', async ({ page }) => {
+  test('dashboard removes deleted notes', async ({ page, mode }) => {
+    const notesUrl = url('/notes', mode, false)
+    const dashUrl = url('/', mode, false)
+
     // Create 8 notes
-    await page.goto(NOTES_URL_NO_WS)
+    await page.goto(notesUrl)
     for (let i = 1; i <= 8; i++) {
       await addNote(page, `Note-${i}`)
     }
     await waitForNoteCount(page, 8)
 
     // Dashboard shows 5 most recent (Note-8 through Note-4)
-    await page.goto(DASH_URL_NO_WS)
+    await page.goto(dashUrl)
     await waitForDashNoteCount(page, 5)
     expect(await getDashNoteTexts(page)).toEqual(['Note-8', 'Note-7', 'Note-6', 'Note-5', 'Note-4'])
 
     // Delete Note-8 (on-dashboard) and Note-6 (on-dashboard)
-    await page.goto(NOTES_URL_NO_WS)
+    await page.goto(notesUrl)
     await deleteNote(page, 'Note-8')
     await deleteNote(page, 'Note-6')
 
     // Dashboard: older notes rotate in
-    await page.goto(DASH_URL_NO_WS)
+    await page.goto(dashUrl)
     await waitForDashNoteCount(page, 5)
     expect(await getDashNoteTexts(page)).toEqual(['Note-7', 'Note-5', 'Note-4', 'Note-3', 'Note-2'])
 
     // Delete Note-1 (off-dashboard)
-    await page.goto(NOTES_URL_NO_WS)
+    await page.goto(notesUrl)
     await deleteNote(page, 'Note-1')
 
     // Dashboard unchanged — off-dashboard delete doesn't affect display
-    await page.goto(DASH_URL_NO_WS)
+    await page.goto(dashUrl)
     await waitForDashNoteCount(page, 5)
     expect(await getDashNoteTexts(page)).toEqual(['Note-7', 'Note-5', 'Note-4', 'Note-3', 'Note-2'])
 
     // Delete Note-7, Note-5, Note-4, Note-3
-    await page.goto(NOTES_URL_NO_WS)
+    await page.goto(notesUrl)
     await deleteNote(page, 'Note-7')
     await deleteNote(page, 'Note-5')
     await deleteNote(page, 'Note-4')
     await deleteNote(page, 'Note-3')
 
     // Dashboard: only Note-2 remains
-    await page.goto(DASH_URL_NO_WS)
+    await page.goto(dashUrl)
     await waitForDashNoteCount(page, 1)
     expect(await getDashNoteTexts(page)).toEqual(['Note-2'])
   })
 })
 
 test.describe('same-session (with WS)', () => {
-  test('dashboard removes deleted notes', async ({ page }) => {
+  test('dashboard removes deleted notes', async ({ page, mode }) => {
+    const notesUrl = url('/notes', mode, true)
+    const dashUrl = url('/', mode, true)
+
     // Create 8 notes
-    await page.goto(NOTES_URL)
+    await page.goto(notesUrl)
     for (let i = 1; i <= 8; i++) {
       await addNote(page, `Note-${i}`)
     }
     await waitForNoteCount(page, 8)
 
     // Dashboard shows 5 most recent
-    await page.goto(DASH_URL)
+    await page.goto(dashUrl)
     await waitForDashNoteCount(page, 5)
     expect(await getDashNoteTexts(page)).toEqual(['Note-8', 'Note-7', 'Note-6', 'Note-5', 'Note-4'])
 
     // Delete Note-8 and Note-6
-    await page.goto(NOTES_URL)
+    await page.goto(notesUrl)
     await deleteNote(page, 'Note-8')
     await deleteNote(page, 'Note-6')
 
     // Dashboard: older notes rotate in
-    await page.goto(DASH_URL)
+    await page.goto(dashUrl)
     await waitForDashNoteCount(page, 5)
     expect(await getDashNoteTexts(page)).toEqual(['Note-7', 'Note-5', 'Note-4', 'Note-3', 'Note-2'])
 
     // Delete Note-1 (off-dashboard)
-    await page.goto(NOTES_URL)
+    await page.goto(notesUrl)
     await deleteNote(page, 'Note-1')
 
     // Dashboard unchanged
-    await page.goto(DASH_URL)
+    await page.goto(dashUrl)
     await waitForDashNoteCount(page, 5)
     expect(await getDashNoteTexts(page)).toEqual(['Note-7', 'Note-5', 'Note-4', 'Note-3', 'Note-2'])
 
     // Delete Note-7, Note-5, Note-4, Note-3
-    await page.goto(NOTES_URL)
+    await page.goto(notesUrl)
     await deleteNote(page, 'Note-7')
     await deleteNote(page, 'Note-5')
     await deleteNote(page, 'Note-4')
     await deleteNote(page, 'Note-3')
 
     // Dashboard: only Note-2 remains
-    await page.goto(DASH_URL)
+    await page.goto(dashUrl)
     await waitForDashNoteCount(page, 1)
     expect(await getDashNoteTexts(page)).toEqual(['Note-2'])
   })
 })
 
 test.describe('multi-session WS', () => {
-  test('dashboard reflects deletions and rotates older notes in', async ({ page, browser }) => {
+  test('dashboard reflects deletions and rotates older notes in', async ({
+    page,
+    browser,
+    mode,
+  }) => {
+    const notesUrl = url('/notes', mode, true)
+    const dashUrl = url('/', mode, true)
     const context2 = await browser.newContext()
     try {
       const pageB = await context2.newPage()
 
       // pageA: create 10 notes
-      await gotoWithWsSubscribed(page, NOTES_URL)
+      await gotoWithWsSubscribed(page, notesUrl)
       for (let i = 1; i <= 10; i++) {
         await addNote(page, `Note-${i}`)
       }
       await waitForNoteCount(page, 10)
 
       // pageB: dashboard shows 5 most recent
-      await gotoWithWsSubscribed(pageB, DASH_URL)
+      await gotoWithWsSubscribed(pageB, dashUrl)
       await waitForDashNoteCount(pageB, 5)
       expect(await getDashNoteTexts(pageB)).toEqual([
         'Note-10',
@@ -197,13 +203,20 @@ test.describe('multi-session WS', () => {
     }
   })
 
-  test('note deletion does not break subsequent todo propagation', async ({ page, browser }) => {
+  test('note deletion does not break subsequent todo propagation', async ({
+    page,
+    browser,
+    mode,
+  }) => {
+    const notesUrl = url('/notes', mode, true)
+    const dashUrl = url('/', mode, true)
+    const todosUrl = url('/todos', mode, true)
     const context2 = await browser.newContext()
     try {
       const pageB = await context2.newPage()
 
       // pageA: create 10 notes, then delete 2
-      await gotoWithWsSubscribed(page, NOTES_URL)
+      await gotoWithWsSubscribed(page, notesUrl)
       for (let i = 1; i <= 10; i++) {
         await addNote(page, `Note-${i}`)
       }
@@ -212,7 +225,7 @@ test.describe('multi-session WS', () => {
       await deleteNote(page, 'Note-9')
 
       // pageB: dashboard shows updated notes (Note-8 through Note-4)
-      await gotoWithWsSubscribed(pageB, DASH_URL)
+      await gotoWithWsSubscribed(pageB, dashUrl)
       await waitForDashNoteCount(pageB, 5)
       expect(await getDashNoteTexts(pageB)).toEqual([
         'Note-8',
@@ -223,7 +236,7 @@ test.describe('multi-session WS', () => {
       ])
 
       // pageA: create a todo
-      await gotoWithWsSubscribed(page, TODOS_URL)
+      await gotoWithWsSubscribed(page, todosUrl)
       await addTodo(page, 'Cross-stream todo')
 
       // pageB: the new todo appears on dashboard (proves WS still works across streams)
@@ -237,19 +250,22 @@ test.describe('multi-session WS', () => {
   test('WS propagation stops after interleaved stream operations (gap bug)', async ({
     page,
     browser,
+    mode,
   }) => {
+    const notesUrl = url('/notes', mode, true)
+    const dashUrl = url('/', mode, true)
     const context2 = await browser.newContext()
     try {
       const pageB = await context2.newPage()
 
       // pageB opens dashboard FIRST (empty server, seeds nothing).
       // This ensures subsequent events arrive via WS and populate the gap buffer.
-      await gotoWithWsSubscribed(pageB, DASH_URL)
+      await gotoWithWsSubscribed(pageB, dashUrl)
 
       // pageA: create 3 notes (each on its own stream).
       // pageB receives all 3 NoteCreated events via WS individually.
       // Gap buffer: {Note-1: [P1], Note-2: [P2], Note-3: [P3]}
-      await gotoWithWsSubscribed(page, NOTES_URL)
+      await gotoWithWsSubscribed(page, notesUrl)
       await addNote(page, 'Note-1')
       await addNote(page, 'Note-2')
       await addNote(page, 'Note-3')

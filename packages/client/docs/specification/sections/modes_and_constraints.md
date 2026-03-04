@@ -11,10 +11,12 @@ The choice of mode affects **where state is stored, which execution context owns
 
 Mode selection follows a tiered fallback:
 
-1. SharedWorker available → **Multi-tab offline mode**
-2. Dedicated Worker available → **Single-tab offline mode**
-3. Neither available → **Main-thread offline mode**
-4. Explicitly configured → **Online-only mode** (in-memory)
+1. SharedWorker available → **Multi-tab offline mode** (Mode B)
+2. Dedicated Worker available → **Single-tab offline mode** (Mode C)
+
+Within worker modes (B and C), persistence is confirmed by probing OPFS inside the worker (see §0.1.3).
+If the probe fails, the library falls through to **Online-only mode** (Mode A).
+Mode A may also be selected explicitly via configuration.
 
 ---
 
@@ -28,11 +30,18 @@ Mode selection follows a tiered fallback:
 
 - No persistence across page reloads.
 
-- Intended for:
+- Mode A is the automatic fallback when the OPFS probe fails inside the worker, regardless of reason.
+  Known cases that trigger this fallback:
+  - Private/incognito browsing on Safari (OPFS disabled)
+  - Private browsing on Firefox (OPFS disabled)
+  - Chrome incognito (OPFS unreliable at quota limits)
+  - Any browser where `createSyncAccessHandle()` is unavailable
+
+- The application intentionally does not attempt persistence in these cases and treats them all identically — in-memory only.
+
+- Mode A may also be selected explicitly for:
   - development
-
   - test environments
-
   - deployments where offline persistence is not required
 
 - Public APIs are identical to offline modes and remain asynchronous.
@@ -73,18 +82,18 @@ Mode selection follows a tiered fallback:
 
   - resilient synchronization
 
-- Platform support: Chrome desktop, Firefox desktop.
+- Platform support: desktop browsers (Chrome, Firefox, Safari), iOS Safari 16+, Firefox for Android.
+  Chrome for Android does not support SharedWorker and falls through to Mode C.
 
 ### 0.1.3 Mode C — Single-tab offline (Dedicated Worker)
 
 - Requires:
   - Dedicated Worker support
-
-  - OPFS (Origin Private File System)
+  - OPFS (Origin Private File System) with `createSyncAccessHandle()` support
 
 - The **Dedicated Worker is the only writer** for all persistent CQRS Client state.
 
-- Storage uses SQLite WASM with OPFS persistence.
+- Storage uses SQLite WASM with OPFS persistence via `opfs-sahpool` VFS.
 
 - **Only one tab may be open at a time.**
 
@@ -92,43 +101,26 @@ Mode selection follows a tiered fallback:
 
 - If another tab already holds the lock:
   - display a blocking modal: "This app is already open in another tab."
-
   - the tab must not proceed to normal operation
 
 - Window contexts communicate with the Dedicated Worker via `postMessage`.
 
 - This mode supports:
   - offline-first startup
-
   - single-tab offline capability
-
   - resilient synchronization
 
-- Platform support: Safari desktop, Android Chrome, environments without SharedWorker.
+- Platform support: Chrome for Android (primary mobile case), and any environment with Dedicated Worker support but without SharedWorker.
+  Modern iOS Safari (16.4+) supports `createSyncAccessHandle()` in dedicated workers, so Mode C with `opfs-sahpool` provides real, persistent SQLite on all major mobile browsers that reach it.
 
-### 0.1.4 Mode D — Single-tab offline (main thread)
+- **OPFS availability detection:**
+  Persistence must be confirmed by probing `createSyncAccessHandle()` inside the worker itself before committing to `opfs-sahpool`.
+  `navigator.storage.getDirectory()` succeeding is not sufficient — the probe must attempt to actually open a SyncAccessHandle.
+  If the probe fails for any reason (private browsing, unsupported browser, quota issues), fall through to Mode A.
 
-- Requires:
-  - OPFS (Origin Private File System) with `opfs-sahpool` VFS support
+### 0.1.4 Tab lock enforcement (Mode C)
 
-- All storage operations run on the **main thread**.
-
-- Storage uses SQLite WASM with OPFS persistence via `opfs-sahpool` VFS.
-
-- **Only one tab may be open at a time** (same enforcement as Mode C).
-
-- This mode supports:
-  - offline-first startup
-
-  - single-tab offline capability
-
-- Platform support: iOS Safari, environments without Worker support.
-
-- **Note:** Main thread execution may cause brief UI blocking during database operations.
-
-### 0.1.5 Tab lock enforcement (Modes C and D)
-
-For single-tab modes, the library must enforce exclusive access:
+Mode C permits only one tab at a time. The library must enforce exclusive access:
 
 ```ts
 async function acquireTabLock(): Promise<boolean> {
@@ -155,22 +147,22 @@ If the lock cannot be acquired:
 
 - The tab may offer to navigate to the existing tab or wait for it to close.
 
-### 0.1.6 SQLite WASM implementation
+### 0.1.5 SQLite WASM implementation
 
 The library uses **`@sqlite.org/sqlite-wasm`** for SQLite WASM support.
 
 VFS selection by mode:
 
-| Mode                 | VFS            | Notes                                                     |
-| -------------------- | -------------- | --------------------------------------------------------- |
-| B (SharedWorker)     | `opfs`         | Synchronous, fast, durable. Requires Worker context.      |
-| C (Dedicated Worker) | `opfs`         | Same as SharedWorker.                                     |
-| D (Main thread)      | `opfs-sahpool` | SharedArrayBuffer-backed async-safe pool for main thread. |
-| A (Online-only)      | N/A            | In-memory storage only; no SQLite.                        |
+| Mode                 | VFS            | Notes                                                                    |
+| -------------------- | -------------- | ------------------------------------------------------------------------ |
+| B (SharedWorker)     | `opfs`         | Direct synchronous access via SyncAccessHandle. Requires Worker context. |
+| C (Dedicated Worker) | `opfs-sahpool` | Pool of pre-opened SyncAccessHandle instances. Requires Worker context.  |
+| A (Online-only)      | N/A            | In-memory storage only; no SQLite.                                       |
 
-The `opfs` VFS provides synchronous file access within Workers and is the preferred choice for performance.
+The `opfs` VFS provides direct synchronous file access via `FileSystemSyncAccessHandle` and is available only inside Worker contexts.
 
-The `opfs-sahpool` VFS uses a SharedArrayBuffer-backed pool to provide async-safe access from the main thread, required for iOS Safari where Workers may not be available or reliable.
+The `opfs-sahpool` VFS maintains a pool of pre-opened `SyncAccessHandle` instances, enabling efficient synchronous SQLite access inside Worker contexts.
+Mode C uses `opfs-sahpool` for its broader browser compatibility across mobile environments.
 
 ---
 

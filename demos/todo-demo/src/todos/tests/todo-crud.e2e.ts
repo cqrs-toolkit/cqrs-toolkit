@@ -1,27 +1,25 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, url } from '../../e2e-fixtures'
 import { addTodo, getTodoTexts, waitForTodoCount } from '../../e2e-helpers'
-
-const TODOS_URL = '/todos?mode=online-only&ws=false'
 
 test.beforeEach(async ({ request }) => {
   await request.post('http://localhost:3001/api/test/reset')
 })
 
-test('shows empty state initially', async ({ page }) => {
-  await page.goto(TODOS_URL)
+test('shows empty state initially', async ({ page, mode }) => {
+  await page.goto(url('/todos', mode, false))
   await expect(page.locator('.empty-state')).toContainText('No todos yet')
 })
 
-test('creates a todo', async ({ page }) => {
-  await page.goto(TODOS_URL)
+test('creates a todo', async ({ page, mode }) => {
+  await page.goto(url('/todos', mode, false))
   await addTodo(page, 'Buy milk')
   await waitForTodoCount(page, 1)
   const texts = await getTodoTexts(page)
   expect(texts).toContain('Buy milk')
 })
 
-test('creates multiple todos', async ({ page }) => {
-  await page.goto(TODOS_URL)
+test('creates multiple todos', async ({ page, mode }) => {
+  await page.goto(url('/todos', mode, false))
   await addTodo(page, 'First task')
   await waitForTodoCount(page, 1)
   await addTodo(page, 'Second task')
@@ -30,8 +28,8 @@ test('creates multiple todos', async ({ page }) => {
   expect(texts).toEqual(['First task', 'Second task'])
 })
 
-test('edits a todo', async ({ page }) => {
-  await page.goto(TODOS_URL)
+test('edits a todo', async ({ page, mode }) => {
+  await page.goto(url('/todos', mode, false))
   await addTodo(page, 'Original text')
   await waitForTodoCount(page, 1)
 
@@ -43,8 +41,8 @@ test('edits a todo', async ({ page }) => {
   await expect(page.locator('.todo-content').first()).toHaveText('Updated text')
 })
 
-test('toggles todo status', async ({ page }) => {
-  await page.goto(TODOS_URL)
+test('toggles todo status', async ({ page, mode }) => {
+  await page.goto(url('/todos', mode, false))
   await addTodo(page, 'Toggle me')
   await waitForTodoCount(page, 1)
 
@@ -58,8 +56,8 @@ test('toggles todo status', async ({ page }) => {
   await expect(page.locator('.todo-item.completed')).toBeVisible()
 })
 
-test('deletes a todo', async ({ page }) => {
-  await page.goto(TODOS_URL)
+test('deletes a todo', async ({ page, mode }) => {
+  await page.goto(url('/todos', mode, false))
   await addTodo(page, 'Delete me')
   await waitForTodoCount(page, 1)
 
@@ -68,7 +66,20 @@ test('deletes a todo', async ({ page }) => {
   await expect(page.locator('.empty-state')).toContainText('No todos yet')
 })
 
-test('shows mode badge', async ({ page }) => {
-  await page.goto(TODOS_URL)
-  await expect(page.locator('.mode-badge')).toContainText('online-only')
+test('shows mode badge', async ({ page, mode }) => {
+  await page.goto(url('/todos', mode, false))
+  await expect(page.locator('.mode-badge')).toContainText(mode)
+})
+
+test('data rehydrates after page reload', async ({ page, mode }) => {
+  await page.goto(url('/todos', mode, false))
+  await addTodo(page, 'Persist me')
+  await waitForTodoCount(page, 1)
+
+  await page.reload()
+
+  // Data should rehydrate (from SQLite cache in main-thread, from server in online-only)
+  await waitForTodoCount(page, 1)
+  const texts = await getTodoTexts(page)
+  expect(texts).toContain('Persist me')
 })

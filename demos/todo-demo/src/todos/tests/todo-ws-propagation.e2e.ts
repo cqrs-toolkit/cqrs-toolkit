@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, url } from '../../e2e-fixtures'
 import {
   addTodo,
   gotoWithWsSubscribed,
@@ -6,19 +6,18 @@ import {
   waitForTodoCount,
 } from '../../e2e-helpers'
 
-const TODOS_URL = '/todos?mode=online-only&ws=true'
-
 test.beforeEach(async ({ request }) => {
   await request.post('http://localhost:3001/api/test/reset')
 })
 
-test('propagates created todo', async ({ page, browser }) => {
+test('propagates created todo', async ({ page, browser, mode }) => {
+  const todosUrl = url('/todos', mode, true)
   const context2 = await browser.newContext()
   try {
     const pageB = await context2.newPage()
 
-    await gotoWithWsSubscribed(pageB, TODOS_URL)
-    await gotoWithWsSubscribed(page, TODOS_URL)
+    await gotoWithWsSubscribed(pageB, todosUrl)
+    await gotoWithWsSubscribed(page, todosUrl)
 
     await addTodo(page, 'Propagated todo')
     await waitForTodoCount(page, 1)
@@ -30,13 +29,14 @@ test('propagates created todo', async ({ page, browser }) => {
   }
 })
 
-test('propagates edited content', async ({ page, browser }) => {
+test('propagates edited content', async ({ page, browser, mode }) => {
+  const todosUrl = url('/todos', mode, true)
   const context2 = await browser.newContext()
   try {
     const pageB = await context2.newPage()
 
-    await gotoWithWsSubscribed(pageB, TODOS_URL)
-    await gotoWithWsSubscribed(page, TODOS_URL)
+    await gotoWithWsSubscribed(pageB, todosUrl)
+    await gotoWithWsSubscribed(page, todosUrl)
 
     await addTodo(page, 'Original')
     await waitForTodoCount(page, 1)
@@ -54,13 +54,14 @@ test('propagates edited content', async ({ page, browser }) => {
   }
 })
 
-test('propagates status change', async ({ page, browser }) => {
+test('propagates status change', async ({ page, browser, mode }) => {
+  const todosUrl = url('/todos', mode, true)
   const context2 = await browser.newContext()
   try {
     const pageB = await context2.newPage()
 
-    await gotoWithWsSubscribed(pageB, TODOS_URL)
-    await gotoWithWsSubscribed(page, TODOS_URL)
+    await gotoWithWsSubscribed(pageB, todosUrl)
+    await gotoWithWsSubscribed(page, todosUrl)
 
     await addTodo(page, 'Toggle me')
     await waitForTodoCount(page, 1)
@@ -79,13 +80,14 @@ test('propagates status change', async ({ page, browser }) => {
   }
 })
 
-test('propagates deletion', async ({ page, browser }) => {
+test('propagates deletion', async ({ page, browser, mode }) => {
+  const todosUrl = url('/todos', mode, true)
   const context2 = await browser.newContext()
   try {
     const pageB = await context2.newPage()
 
-    await gotoWithWsSubscribed(pageB, TODOS_URL)
-    await gotoWithWsSubscribed(page, TODOS_URL)
+    await gotoWithWsSubscribed(pageB, todosUrl)
+    await gotoWithWsSubscribed(page, todosUrl)
 
     await addTodo(page, 'Delete me')
     await waitForTodoCount(page, 1)
@@ -100,13 +102,14 @@ test('propagates deletion', async ({ page, browser }) => {
   }
 })
 
-test('propagates multiple creates', async ({ page, browser }) => {
+test('propagates multiple creates', async ({ page, browser, mode }) => {
+  const todosUrl = url('/todos', mode, true)
   const context2 = await browser.newContext()
   try {
     const pageB = await context2.newPage()
 
-    await gotoWithWsSubscribed(pageB, TODOS_URL)
-    await gotoWithWsSubscribed(page, TODOS_URL)
+    await gotoWithWsSubscribed(pageB, todosUrl)
+    await gotoWithWsSubscribed(page, todosUrl)
 
     await addTodo(page, 'First')
     await waitForTodoCount(page, 1)
@@ -121,13 +124,14 @@ test('propagates multiple creates', async ({ page, browser }) => {
   }
 })
 
-test('ping-pong CRUD across sessions', async ({ page, browser }) => {
+test('ping-pong CRUD across sessions', async ({ page, browser, mode }) => {
+  const todosUrl = url('/todos', mode, true)
   const context2 = await browser.newContext()
   try {
     const pageB = await context2.newPage()
 
-    await gotoWithWsSubscribed(pageB, TODOS_URL)
-    await gotoWithWsSubscribed(page, TODOS_URL)
+    await gotoWithWsSubscribed(pageB, todosUrl)
+    await gotoWithWsSubscribed(page, todosUrl)
 
     // A creates "foo" → B sees it
     await addTodo(page, 'foo')

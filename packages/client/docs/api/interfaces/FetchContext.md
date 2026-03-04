@@ -6,7 +6,7 @@
 
 # Interface: FetchContext
 
-Defined in: packages/client/src/types/config.ts:97
+Defined in: packages/client/src/types/config.ts:96
 
 Network context passed to collection fetch methods.
 
@@ -24,7 +24,7 @@ x-tenant-id for tenant context) in their fetch implementations.
 
 > `readonly` **baseUrl**: `string`
 
-Defined in: packages/client/src/types/config.ts:98
+Defined in: packages/client/src/types/config.ts:97
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: packages/client/src/types/config.ts:98
 
 > `readonly` **headers**: `Record`\<`string`, `string`\>
 
-Defined in: packages/client/src/types/config.ts:99
+Defined in: packages/client/src/types/config.ts:98
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: packages/client/src/types/config.ts:99
 
 > `readonly` **signal**: `AbortSignal`
 
-Defined in: packages/client/src/types/config.ts:100
+Defined in: packages/client/src/types/config.ts:99

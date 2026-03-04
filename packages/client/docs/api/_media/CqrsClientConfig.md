@@ -6,7 +6,7 @@
 
 # Interface: CqrsClientConfig\<TCommand, TEvent\>
 
-Defined in: packages/client/src/types/config.ts:190
+Defined in: packages/client/src/types/config.ts:189
 
 Main CQRS Client configuration.
 
@@ -26,7 +26,7 @@ Main CQRS Client configuration.
 
 > `optional` **cache**: [`CacheConfig`](CacheConfig.md)
 
-Defined in: packages/client/src/types/config.ts:221
+Defined in: packages/client/src/types/config.ts:220
 
 Cache configuration.
 
@@ -36,7 +36,7 @@ Cache configuration.
 
 > `optional` **collections**: [`Collection`](Collection.md)[]
 
-Defined in: packages/client/src/types/config.ts:226
+Defined in: packages/client/src/types/config.ts:225
 
 Collection configurations.
 
@@ -46,7 +46,7 @@ Collection configurations.
 
 > `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)
 
-Defined in: packages/client/src/types/config.ts:232
+Defined in: packages/client/src/types/config.ts:231
 
 Command sender for submitting commands to the server.
 If not provided, commands are queued but not sent.
@@ -57,7 +57,7 @@ If not provided, commands are queued but not sent.
 
 > `optional` **debug**: `boolean`
 
-Defined in: packages/client/src/types/config.ts:248
+Defined in: packages/client/src/types/config.ts:247
 
 Enable debug logging.
 
@@ -67,7 +67,7 @@ Enable debug logging.
 
 > `optional` **domainExecutor**: [`IDomainExecutor`](IDomainExecutor.md)\<`TCommand`, `TEvent`\>
 
-Defined in: packages/client/src/types/config.ts:201
+Defined in: packages/client/src/types/config.ts:200
 
 Domain executor for local command validation.
 If not provided, commands are sent directly without local validation.
@@ -78,10 +78,10 @@ If not provided, commands are sent directly without local validation.
 
 > `optional` **mode**: [`ExecutionModeConfig`](../type-aliases/ExecutionModeConfig.md)
 
-Defined in: packages/client/src/types/config.ts:195
+Defined in: packages/client/src/types/config.ts:194
 
 Execution mode.
-Defaults to 'auto': SharedWorker > Dedicated Worker > Main Thread
+Defaults to 'auto': SharedWorker > Dedicated Worker > Online-only
 
 ---
 
@@ -89,7 +89,7 @@ Defaults to 'auto': SharedWorker > Dedicated Worker > Main Thread
 
 > **network**: [`NetworkConfig`](NetworkConfig.md)
 
-Defined in: packages/client/src/types/config.ts:206
+Defined in: packages/client/src/types/config.ts:205
 
 Network configuration.
 
@@ -99,7 +99,7 @@ Network configuration.
 
 > `optional` **processors**: [`ProcessorRegistration`](ProcessorRegistration.md)\<`unknown`, `Record`\<`string`, `unknown`\>\>[]
 
-Defined in: packages/client/src/types/config.ts:238
+Defined in: packages/client/src/types/config.ts:237
 
 Event processors to register.
 Processors transform domain events into read model updates.
@@ -110,7 +110,7 @@ Processors transform domain events into read model updates.
 
 > `optional` **retainTerminal**: `boolean`
 
-Defined in: packages/client/src/types/config.ts:243
+Defined in: packages/client/src/types/config.ts:242
 
 Retain terminal commands in storage for debugging/introspection.
 
@@ -120,7 +120,7 @@ Retain terminal commands in storage for debugging/introspection.
 
 > `optional` **retry**: [`RetryConfig`](RetryConfig.md)
 
-Defined in: packages/client/src/types/config.ts:216
+Defined in: packages/client/src/types/config.ts:215
 
 Retry configuration for commands.
 
@@ -130,7 +130,7 @@ Retry configuration for commands.
 
 > `optional` **storage**: [`StorageConfig`](StorageConfig.md)
 
-Defined in: packages/client/src/types/config.ts:211
+Defined in: packages/client/src/types/config.ts:210
 
 Storage configuration (ignored for online-only mode).
 
@@ -140,7 +140,7 @@ Storage configuration (ignored for online-only mode).
 
 > `optional` **workerSetup**: `string`[]
 
-Defined in: packages/client/src/types/config.ts:261
+Defined in: packages/client/src/types/config.ts:260
 
 Module URLs to dynamically import in worker context.
 Use this to run setup code (e.g., logger bootstrap) inside the worker
@@ -152,7 +152,7 @@ before storage initialization.
 
 > `optional` **workerUrl**: `string`
 
-Defined in: packages/client/src/types/config.ts:254
+Defined in: packages/client/src/types/config.ts:253
 
 Worker script URL (for modes B and C).
 If not provided, uses default bundled worker.

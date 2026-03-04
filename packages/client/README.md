@@ -116,11 +116,10 @@ Defaults to `'auto'`, which selects the best mode the browser supports.
 | Mode               | Storage       | Multi-tab | Use case                         |
 | ------------------ | ------------- | --------- | -------------------------------- |
 | `online-only`      | In-memory     | No        | Simple proxy, no offline support |
-| `main-thread`      | SQLite (OPFS) | No        | Single-tab offline               |
-| `dedicated-worker` | SQLite (OPFS) | No        | Single-tab, off-main-thread      |
+| `dedicated-worker` | SQLite (OPFS) | No        | Single-tab offline               |
 | `shared-worker`    | SQLite (OPFS) | Yes       | Full multi-tab offline           |
 
-Auto-detection order: `shared-worker` > `dedicated-worker` > `main-thread`.
+Auto-detection order: `shared-worker` > `dedicated-worker` > `online-only`.
 
 ```typescript
 const client = createCqrsClient({

@@ -16,6 +16,3 @@ export {
   TabLockError,
 } from './dedicated-worker/index.js'
 export type { DedicatedWorkerAdapterConfig } from './dedicated-worker/index.js'
-
-// Mode D: Main Thread
-export { MainThreadAdapter, TabLockError as MainThreadTabLockError } from './main-thread/index.js'

@@ -60,5 +60,6 @@ To start just the API server:
 npm run server -w @cqrs-toolkit/todo-demo
 ```
 
-The adapter mode defaults to `online-only`.
-Set the `VITE_CQRS_MODE` env var to `main-thread` for persistent local storage.
+The adapter mode defaults to `auto`, which selects the best mode the browser supports.
+Append `?mode=<mode>` to force a specific mode (`shared-worker`, `dedicated-worker`, or `online-only`); the app will fail to start if the requested mode is not available.
+Passing `auto` explicitly is also supported for clarity.

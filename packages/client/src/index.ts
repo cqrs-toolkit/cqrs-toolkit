@@ -94,8 +94,6 @@ export type {
 export {
   DedicatedWorkerAdapter,
   DedicatedWorkerStorageProxy,
-  MainThreadAdapter,
-  MainThreadTabLockError,
   OnlineOnlyAdapter,
   SharedWorkerAdapter,
   SharedWorkerStorageProxy,

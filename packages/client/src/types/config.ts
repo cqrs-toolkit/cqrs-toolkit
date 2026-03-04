@@ -14,7 +14,6 @@ export type ExecutionMode =
   | 'online-only' // Mode A: In-memory, no persistence
   | 'shared-worker' // Mode B: Multi-tab with SharedWorker
   | 'dedicated-worker' // Mode C: Single-tab with Dedicated Worker
-  | 'main-thread' // Mode D: Single-tab on main thread
 
 /**
  * Execution mode for client configuration.
@@ -190,7 +189,7 @@ export interface Collection {
 export interface CqrsClientConfig<TCommand = unknown, TEvent = unknown> {
   /**
    * Execution mode.
-   * Defaults to 'auto': SharedWorker > Dedicated Worker > Main Thread
+   * Defaults to 'auto': SharedWorker > Dedicated Worker > Online-only
    */
   mode?: ExecutionModeConfig
 

@@ -29,8 +29,6 @@ Offline-capable CQRS/event-sourcing client library.
 - [EventProcessorRunner](classes/EventProcessorRunner.md)
 - [GapBuffer](classes/GapBuffer.md)
 - [InMemoryStorage](classes/InMemoryStorage.md)
-- [MainThreadAdapter](classes/MainThreadAdapter.md)
-- [MainThreadTabLockError](classes/MainThreadTabLockError.md)
 - [OnlineOnlyAdapter](classes/OnlineOnlyAdapter.md)
 - [QueryManager](classes/QueryManager.md)
 - [ReadModelStore](classes/ReadModelStore.md)

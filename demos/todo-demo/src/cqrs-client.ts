@@ -21,7 +21,6 @@ const VALID_MODES = new Set<ExecutionModeConfig>([
   'online-only',
   'shared-worker',
   'dedicated-worker',
-  'main-thread',
 ])
 
 interface EntryOptions {
@@ -46,33 +45,43 @@ function resolveEntryOptions(): EntryOptions {
 function resolveMode(raw: string | null): ExecutionMode {
   const requested: ExecutionModeConfig = VALID_MODES.has(raw as ExecutionModeConfig)
     ? (raw as ExecutionModeConfig)
-    : 'online-only'
+    : 'auto'
 
   if (requested === 'auto') {
     return detectMode()
   }
 
-  return degradeMode(requested)
+  assertModeSupported(requested)
+  return requested
 }
 
 /**
- * Degrade a requested mode to the closest supported mode in the current environment.
+ * Assert that the requested mode is supported in the current environment.
  *
- * Worker modes degrade downward: shared-worker → dedicated-worker → main-thread.
- * online-only and main-thread are always available and never degrade.
+ * When a specific mode is requested via `?mode=`, it must be available — silent
+ * degradation would produce false-positive test results. The library's own fallback
+ * behavior is unaffected because it uses `auto`/`detectMode()`.
  */
-function degradeMode(requested: ExecutionMode): ExecutionMode {
+function assertModeSupported(requested: ExecutionMode): void {
   switch (requested) {
     case 'shared-worker':
-      if (typeof SharedWorker !== 'undefined') return 'shared-worker'
-      if (typeof Worker !== 'undefined') return 'dedicated-worker'
-      return 'main-thread'
+      if (typeof SharedWorker === 'undefined') {
+        throw new Error(
+          `Requested mode "shared-worker" but SharedWorker is not available in this environment.` +
+            ` Use ?mode=auto to let the library pick the best available mode.`,
+        )
+      }
+      return
     case 'dedicated-worker':
-      if (typeof Worker !== 'undefined') return 'dedicated-worker'
-      return 'main-thread'
-    case 'main-thread':
+      if (typeof Worker === 'undefined') {
+        throw new Error(
+          `Requested mode "dedicated-worker" but Worker is not available in this environment.` +
+            ` Use ?mode=auto to let the library pick the best available mode.`,
+        )
+      }
+      return
     case 'online-only':
-      return requested
+      return
   }
 }
 

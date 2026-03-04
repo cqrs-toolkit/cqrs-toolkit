@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / RetryConfig
 
 # Interface: RetryConfig
 
-Defined in: packages/client/src/types/config.ts:59
+Defined in: packages/client/src/types/config.ts:58
 
 Retry configuration for commands.
 
@@ -16,46 +16,46 @@ Retry configuration for commands.
 
 > `optional` **backoffMultiplier**: `number`
 
-Defined in: packages/client/src/types/config.ts:67
+Defined in: packages/client/src/types/config.ts:66
 
 Backoff multiplier
 
-***
+---
 
 ### initialDelay?
 
 > `optional` **initialDelay**: `number`
 
-Defined in: packages/client/src/types/config.ts:63
+Defined in: packages/client/src/types/config.ts:62
 
 Initial delay in milliseconds
 
-***
+---
 
 ### jitter?
 
 > `optional` **jitter**: `boolean`
 
-Defined in: packages/client/src/types/config.ts:69
+Defined in: packages/client/src/types/config.ts:68
 
 Add random jitter to delays
 
-***
+---
 
 ### maxAttempts?
 
 > `optional` **maxAttempts**: `number`
 
-Defined in: packages/client/src/types/config.ts:61
+Defined in: packages/client/src/types/config.ts:60
 
 Maximum retry attempts
 
-***
+---
 
 ### maxDelay?
 
 > `optional` **maxDelay**: `number`
 
-Defined in: packages/client/src/types/config.ts:65
+Defined in: packages/client/src/types/config.ts:64
 
 Maximum delay in milliseconds
