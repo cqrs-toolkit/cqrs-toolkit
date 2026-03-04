@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / SharedWorkerStorageProxy
 
 # Class: SharedWorkerStorageProxy
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:22
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:23
 
 Storage proxy that routes all operations through the SharedWorker.
 
@@ -18,9 +18,9 @@ Storage proxy that routes all operations through the SharedWorker.
 
 ### Constructor
 
-> **new SharedWorkerStorageProxy**(`channel`, `localHolds`): `SharedWorkerStorageProxy`
+> **new SharedWorkerStorageProxy**(`channel`, `localHolds`, `storageConfig`): `SharedWorkerStorageProxy`
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:26
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:28
 
 #### Parameters
 
@@ -32,6 +32,10 @@ Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.
 
 `Set`\<`string`\>
 
+##### storageConfig
+
+[`StorageConfig`](../interfaces/StorageConfig.md)
+
 #### Returns
 
 `SharedWorkerStorageProxy`
@@ -42,7 +46,7 @@ Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.
 
 > **clear**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:40
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:47
 
 Clear all data from storage.
 
@@ -54,13 +58,13 @@ Clear all data from storage.
 
 [`IStorage`](../interfaces/IStorage.md).[`clear`](../interfaces/IStorage.md#clear)
 
-***
+---
 
 ### close()
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:36
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:43
 
 Close the storage backend and release resources.
 
@@ -72,13 +76,13 @@ Close the storage backend and release resources.
 
 [`IStorage`](../interfaces/IStorage.md).[`close`](../interfaces/IStorage.md#close)
 
-***
+---
 
 ### deleteAllCommands()
 
 > **deleteAllCommands**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:129
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:136
 
 Delete all commands (e.g., on session clear).
 
@@ -90,13 +94,13 @@ Delete all commands (e.g., on session clear).
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteAllCommands`](../interfaces/IStorage.md#deleteallcommands)
 
-***
+---
 
 ### deleteAnticipatedEventsByCommand()
 
 > **deleteAnticipatedEventsByCommand**(`commandId`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:166
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:173
 
 Delete all anticipated events for a command.
 
@@ -114,13 +118,13 @@ Delete all anticipated events for a command.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteAnticipatedEventsByCommand`](../interfaces/IStorage.md#deleteanticipatedeventsbycommand)
 
-***
+---
 
 ### deleteCachedEvent()
 
 > **deleteCachedEvent**(`id`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:162
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:169
 
 Delete a cached event.
 
@@ -138,13 +142,13 @@ Delete a cached event.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteCachedEvent`](../interfaces/IStorage.md#deletecachedevent)
 
-***
+---
 
 ### deleteCachedEventsByCacheKey()
 
 > **deleteCachedEventsByCacheKey**(`cacheKey`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:170
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:177
 
 Delete all cached events for a cache key.
 
@@ -162,13 +166,13 @@ Delete all cached events for a cache key.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteCachedEventsByCacheKey`](../interfaces/IStorage.md#deletecachedeventsbycachekey)
 
-***
+---
 
 ### deleteCacheKey()
 
 > **deleteCacheKey**(`key`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:74
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:81
 
 Delete a cache key and all associated data.
 
@@ -186,13 +190,13 @@ Delete a cache key and all associated data.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteCacheKey`](../interfaces/IStorage.md#deletecachekey)
 
-***
+---
 
 ### deleteCommand()
 
 > **deleteCommand**(`commandId`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:125
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:132
 
 Delete a command.
 
@@ -210,13 +214,13 @@ Delete a command.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteCommand`](../interfaces/IStorage.md#deletecommand)
 
-***
+---
 
 ### deleteReadModel()
 
 > **deleteReadModel**(`collection`, `id`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:204
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:211
 
 Delete a read model record.
 
@@ -238,13 +242,13 @@ Delete a read model record.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteReadModel`](../interfaces/IStorage.md#deletereadmodel)
 
-***
+---
 
 ### deleteReadModelsByCacheKey()
 
 > **deleteReadModelsByCacheKey**(`cacheKey`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:208
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:215
 
 Delete all read model records for a cache key.
 
@@ -262,13 +266,13 @@ Delete all read model records for a cache key.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteReadModelsByCacheKey`](../interfaces/IStorage.md#deletereadmodelsbycachekey)
 
-***
+---
 
 ### deleteReadModelsByCollection()
 
 > **deleteReadModelsByCollection**(`collection`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:212
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:219
 
 Delete all read model records for a collection.
 
@@ -286,13 +290,13 @@ Delete all read model records for a collection.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteReadModelsByCollection`](../interfaces/IStorage.md#deletereadmodelsbycollection)
 
-***
+---
 
 ### deleteSession()
 
 > **deleteSession**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:53
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:60
 
 Delete the current session and all associated data.
 
@@ -304,13 +308,13 @@ Delete the current session and all associated data.
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteSession`](../interfaces/IStorage.md#deletesession)
 
-***
+---
 
 ### getAllCacheKeys()
 
 > **getAllCacheKeys**(): `Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md)[]\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:66
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:73
 
 Get all cache keys.
 
@@ -322,13 +326,13 @@ Get all cache keys.
 
 [`IStorage`](../interfaces/IStorage.md).[`getAllCacheKeys`](../interfaces/IStorage.md#getallcachekeys)
 
-***
+---
 
 ### getAnticipatedEventsByCommand()
 
 > **getAnticipatedEventsByCommand**(`commandId`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md)[]\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:148
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:155
 
 Get anticipated events for a command.
 
@@ -346,13 +350,13 @@ Get anticipated events for a command.
 
 [`IStorage`](../interfaces/IStorage.md).[`getAnticipatedEventsByCommand`](../interfaces/IStorage.md#getanticipatedeventsbycommand)
 
-***
+---
 
 ### getCachedEvent()
 
 > **getCachedEvent**(`id`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md) \| `undefined`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:134
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:141
 
 Get a cached event by ID.
 
@@ -370,13 +374,13 @@ Get a cached event by ID.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCachedEvent`](../interfaces/IStorage.md#getcachedevent)
 
-***
+---
 
 ### getCachedEventsByCacheKey()
 
 > **getCachedEventsByCacheKey**(`cacheKey`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md)[]\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:138
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:145
 
 Get cached events for a cache key.
 
@@ -394,13 +398,13 @@ Get cached events for a cache key.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCachedEventsByCacheKey`](../interfaces/IStorage.md#getcachedeventsbycachekey)
 
-***
+---
 
 ### getCachedEventsByStream()
 
 > **getCachedEventsByStream**(`streamId`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md)[]\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:144
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:151
 
 Get cached events for a stream.
 
@@ -418,13 +422,13 @@ Get cached events for a stream.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCachedEventsByStream`](../interfaces/IStorage.md#getcachedeventsbystream)
 
-***
+---
 
 ### getCacheKey()
 
 > **getCacheKey**(`key`): `Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md) \| `undefined`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:62
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:69
 
 Get a cache key record.
 
@@ -442,13 +446,13 @@ Get a cache key record.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCacheKey`](../interfaces/IStorage.md#getcachekey)
 
-***
+---
 
 ### getCommand()
 
 > **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\> \| `undefined`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:101
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:108
 
 Get a command by ID.
 
@@ -466,13 +470,13 @@ Get a command by ID.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCommand`](../interfaces/IStorage.md#getcommand)
 
-***
+---
 
 ### getCommands()
 
 > **getCommands**(`filter?`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\>[]\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:105
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:112
 
 Get commands matching a filter.
 
@@ -490,13 +494,13 @@ Get commands matching a filter.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCommands`](../interfaces/IStorage.md#getcommands)
 
-***
+---
 
 ### getCommandsBlockedBy()
 
 > **getCommandsBlockedBy**(`commandId`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\>[]\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:113
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:120
 
 Get commands blocked by a specific command.
 
@@ -514,13 +518,13 @@ Get commands blocked by a specific command.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCommandsBlockedBy`](../interfaces/IStorage.md#getcommandsblockedby)
 
-***
+---
 
 ### getCommandsByStatus()
 
 > **getCommandsByStatus**(`status`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\>[]\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:109
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:116
 
 Get commands by status.
 
@@ -538,13 +542,13 @@ Get commands by status.
 
 [`IStorage`](../interfaces/IStorage.md).[`getCommandsByStatus`](../interfaces/IStorage.md#getcommandsbystatus)
 
-***
+---
 
 ### getEvictableCacheKeys()
 
 > **getEvictableCacheKeys**(`limit`): `Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md)[]\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:96
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:103
 
 Get cache keys eligible for eviction (holdCount = 0, not frozen).
 
@@ -562,13 +566,13 @@ Get cache keys eligible for eviction (holdCount = 0, not frozen).
 
 [`IStorage`](../interfaces/IStorage.md).[`getEvictableCacheKeys`](../interfaces/IStorage.md#getevictablecachekeys)
 
-***
+---
 
 ### getReadModel()
 
 > **getReadModel**(`collection`, `id`): `Promise`\<[`ReadModelRecord`](../interfaces/ReadModelRecord.md) \| `undefined`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:175
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:182
 
 Get a read model record.
 
@@ -590,13 +594,13 @@ Get a read model record.
 
 [`IStorage`](../interfaces/IStorage.md).[`getReadModel`](../interfaces/IStorage.md#getreadmodel)
 
-***
+---
 
 ### getReadModelsByCacheKey()
 
 > **getReadModelsByCacheKey**(`cacheKey`): `Promise`\<[`ReadModelRecord`](../interfaces/ReadModelRecord.md)[]\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:192
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:199
 
 Get read model records by cache key.
 
@@ -614,13 +618,13 @@ Get read model records by cache key.
 
 [`IStorage`](../interfaces/IStorage.md).[`getReadModelsByCacheKey`](../interfaces/IStorage.md#getreadmodelsbycachekey)
 
-***
+---
 
 ### getReadModelsByCollection()
 
 > **getReadModelsByCollection**(`collection`, `options?`): `Promise`\<[`ReadModelRecord`](../interfaces/ReadModelRecord.md)[]\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:182
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:189
 
 Get all read model records for a collection.
 
@@ -642,13 +646,13 @@ Get all read model records for a collection.
 
 [`IStorage`](../interfaces/IStorage.md).[`getReadModelsByCollection`](../interfaces/IStorage.md#getreadmodelsbycollection)
 
-***
+---
 
 ### getSession()
 
 > **getSession**(): `Promise`\<[`SessionRecord`](../interfaces/SessionRecord.md) \| `undefined`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:45
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:52
 
 Get the current session, if any.
 
@@ -660,13 +664,13 @@ Get the current session, if any.
 
 [`IStorage`](../interfaces/IStorage.md).[`getSession`](../interfaces/IStorage.md#getsession)
 
-***
+---
 
 ### holdCacheKey()
 
 > **holdCacheKey**(`key`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:78
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:85
 
 Increment hold count for a cache key.
 
@@ -684,13 +688,13 @@ Increment hold count for a cache key.
 
 [`IStorage`](../interfaces/IStorage.md).[`holdCacheKey`](../interfaces/IStorage.md#holdcachekey)
 
-***
+---
 
 ### initialize()
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:32
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:39
 
 Initialize the storage backend.
 For SQLite, this creates tables and runs migrations.
@@ -703,13 +707,13 @@ For SQLite, this creates tables and runs migrations.
 
 [`IStorage`](../interfaces/IStorage.md).[`initialize`](../interfaces/IStorage.md#initialize)
 
-***
+---
 
 ### releaseCacheKey()
 
 > **releaseCacheKey**(`key`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:83
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:90
 
 Decrement hold count for a cache key.
 
@@ -727,13 +731,13 @@ Decrement hold count for a cache key.
 
 [`IStorage`](../interfaces/IStorage.md).[`releaseCacheKey`](../interfaces/IStorage.md#releasecachekey)
 
-***
+---
 
 ### saveCachedEvent()
 
 > **saveCachedEvent**(`event`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:154
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:161
 
 Save a cached event.
 
@@ -751,13 +755,13 @@ Save a cached event.
 
 [`IStorage`](../interfaces/IStorage.md).[`saveCachedEvent`](../interfaces/IStorage.md#savecachedevent)
 
-***
+---
 
 ### saveCachedEvents()
 
 > **saveCachedEvents**(`events`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:158
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:165
 
 Save multiple cached events in a batch.
 
@@ -775,13 +779,13 @@ Save multiple cached events in a batch.
 
 [`IStorage`](../interfaces/IStorage.md).[`saveCachedEvents`](../interfaces/IStorage.md#savecachedevents)
 
-***
+---
 
 ### saveCacheKey()
 
 > **saveCacheKey**(`record`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:70
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:77
 
 Save or update a cache key.
 
@@ -799,13 +803,13 @@ Save or update a cache key.
 
 [`IStorage`](../interfaces/IStorage.md).[`saveCacheKey`](../interfaces/IStorage.md#savecachekey)
 
-***
+---
 
 ### saveCommand()
 
 > **saveCommand**(`command`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:117
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:124
 
 Save a new command.
 
@@ -823,13 +827,13 @@ Save a new command.
 
 [`IStorage`](../interfaces/IStorage.md).[`saveCommand`](../interfaces/IStorage.md#savecommand)
 
-***
+---
 
 ### saveReadModel()
 
 > **saveReadModel**(`record`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:196
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:203
 
 Save a read model record.
 
@@ -847,13 +851,13 @@ Save a read model record.
 
 [`IStorage`](../interfaces/IStorage.md).[`saveReadModel`](../interfaces/IStorage.md#savereadmodel)
 
-***
+---
 
 ### saveReadModels()
 
 > **saveReadModels**(`records`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:200
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:207
 
 Save multiple read model records in a batch.
 
@@ -871,13 +875,13 @@ Save multiple read model records in a batch.
 
 [`IStorage`](../interfaces/IStorage.md).[`saveReadModels`](../interfaces/IStorage.md#savereadmodels)
 
-***
+---
 
 ### saveSession()
 
 > **saveSession**(`session`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:49
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:56
 
 Save or update the session.
 
@@ -895,13 +899,13 @@ Save or update the session.
 
 [`IStorage`](../interfaces/IStorage.md).[`saveSession`](../interfaces/IStorage.md#savesession)
 
-***
+---
 
 ### touchCacheKey()
 
 > **touchCacheKey**(`key`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:92
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:99
 
 Touch a cache key (update lastAccessedAt).
 
@@ -919,13 +923,13 @@ Touch a cache key (update lastAccessedAt).
 
 [`IStorage`](../interfaces/IStorage.md).[`touchCacheKey`](../interfaces/IStorage.md#touchcachekey)
 
-***
+---
 
 ### touchSession()
 
 > **touchSession**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:57
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:64
 
 Update the last seen timestamp.
 
@@ -937,13 +941,13 @@ Update the last seen timestamp.
 
 [`IStorage`](../interfaces/IStorage.md).[`touchSession`](../interfaces/IStorage.md#touchsession)
 
-***
+---
 
 ### updateCommand()
 
 > **updateCommand**(`commandId`, `updates`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:121
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerStorageProxy.ts:128
 
 Update an existing command.
 

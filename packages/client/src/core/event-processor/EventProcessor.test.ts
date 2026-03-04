@@ -10,6 +10,35 @@ import { EventProcessorRegistry } from './EventProcessorRegistry.js'
 import { EventProcessorRunner, type ParsedEvent } from './EventProcessorRunner.js'
 import type { ProcessorContext, ProcessorResult } from './types.js'
 
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const DEFAULT_REVISION = 1n
+const DEFAULT_POSITION = 100n
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function makeParsedEvent(overrides: Partial<ParsedEvent> = {}): ParsedEvent {
+  return {
+    id: 'event-1',
+    type: 'TestEvent',
+    streamId: 'stream-1',
+    persistence: 'Permanent',
+    data: {},
+    revision: DEFAULT_REVISION,
+    position: DEFAULT_POSITION,
+    cacheKey: 'cache-1',
+    ...overrides,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
 describe('EventProcessorRegistry', () => {
   let registry: EventProcessorRegistry
 
@@ -146,57 +175,47 @@ describe('EventProcessorRunner', () => {
         }),
       })
 
-      const event: ParsedEvent = {
-        id: 'event-1',
+      const event = makeParsedEvent({
         type: 'TodoCreated',
         streamId: 'todo-1',
-        persistence: 'Permanent',
         data: { id: 'todo-1', title: 'Test todo' },
-        cacheKey: 'cache-1',
-      }
+      })
 
-      const updated = await runner.processEvent(event)
+      const result = await runner.processEvent(event)
 
-      expect(updated).toContain('todos:todo-1')
+      expect(result.updatedIds).toContain('todos:todo-1')
+      expect(result.invalidated).toBe(false)
 
       const record = await storage.getReadModel('todos', 'todo-1')
       expect(record).toBeTruthy()
       expect(JSON.parse(record!.effectiveData)).toEqual({ id: 'todo-1', title: 'Test todo' })
     })
 
-    it('returns empty array when no processors match', async () => {
-      const event: ParsedEvent = {
-        id: 'event-1',
-        type: 'UnknownEvent',
-        streamId: 'stream-1',
-        persistence: 'Permanent',
-        data: {},
-        cacheKey: 'cache-1',
-      }
+    it('returns empty result when no processors match', async () => {
+      const event = makeParsedEvent({ type: 'UnknownEvent' })
 
-      const updated = await runner.processEvent(event)
+      const result = await runner.processEvent(event)
 
-      expect(updated).toHaveLength(0)
+      expect(result.updatedIds).toHaveLength(0)
+      expect(result.invalidated).toBe(false)
     })
 
-    it('handles processor returning null', async () => {
+    it('handles processor returning undefined', async () => {
       registry.register({
         eventTypes: 'TodoCreated',
         processor: () => undefined,
       })
 
-      const event: ParsedEvent = {
-        id: 'event-1',
+      const event = makeParsedEvent({
         type: 'TodoCreated',
         streamId: 'todo-1',
-        persistence: 'Permanent',
         data: { id: 'todo-1' },
-        cacheKey: 'cache-1',
-      }
+      })
 
-      const updated = await runner.processEvent(event)
+      const result = await runner.processEvent(event)
 
-      expect(updated).toHaveLength(0)
+      expect(result.updatedIds).toHaveLength(0)
+      expect(result.invalidated).toBe(false)
     })
 
     it('handles processor returning multiple results', async () => {
@@ -211,24 +230,21 @@ describe('EventProcessorRunner', () => {
           })),
       })
 
-      const event: ParsedEvent = {
-        id: 'event-1',
+      const event = makeParsedEvent({
         type: 'BatchCreated',
         streamId: 'batch-1',
-        persistence: 'Permanent',
         data: {
           items: [
             { id: 'item-1', name: 'First' },
             { id: 'item-2', name: 'Second' },
           ],
         },
-        cacheKey: 'cache-1',
-      }
+      })
 
-      const updated = await runner.processEvent(event)
+      const result = await runner.processEvent(event)
 
-      expect(updated).toContain('items:item-1')
-      expect(updated).toContain('items:item-2')
+      expect(result.updatedIds).toContain('items:item-1')
+      expect(result.updatedIds).toContain('items:item-2')
     })
 
     it('handles merge updates', async () => {
@@ -253,14 +269,11 @@ describe('EventProcessorRunner', () => {
         }),
       })
 
-      const event: ParsedEvent = {
-        id: 'event-2',
+      const event = makeParsedEvent({
         type: 'TodoUpdated',
         streamId: 'todo-1',
-        persistence: 'Permanent',
         data: { done: true },
-        cacheKey: 'cache-1',
-      }
+      })
 
       await runner.processEvent(event)
 
@@ -291,14 +304,11 @@ describe('EventProcessorRunner', () => {
         }),
       })
 
-      const event: ParsedEvent = {
-        id: 'event-3',
+      const event = makeParsedEvent({
         type: 'TodoDeleted',
         streamId: 'todo-1',
-        persistence: 'Permanent',
         data: { id: 'todo-1' },
-        cacheKey: 'cache-1',
-      }
+      })
 
       await runner.processEvent(event)
 
@@ -333,14 +343,12 @@ describe('EventProcessorRunner', () => {
         },
       })
 
-      const event: ParsedEvent = {
-        id: 'event-1',
+      const event = makeParsedEvent({
         type: 'CountIncremented',
         streamId: 'todo-1',
-        persistence: 'Permanent',
-        data: {},
-        cacheKey: 'cache-1',
-      }
+        revision: 5n,
+        position: 200n,
+      })
 
       await runner.processEvent(event)
 
@@ -351,6 +359,105 @@ describe('EventProcessorRunner', () => {
       const record = await storage.getReadModel('todos', 'todo-1')
       const data = JSON.parse(record!.effectiveData)
       expect(data.count).toBe(6)
+    })
+
+    it('context includes streamId, eventId, position, and revision', async () => {
+      let capturedContext: ProcessorContext | undefined
+
+      registry.register({
+        eventTypes: 'TestEvent',
+        processor: (_event, context) => {
+          capturedContext = context
+          return undefined
+        },
+      })
+
+      const event = makeParsedEvent({
+        id: 'evt-42',
+        streamId: 'stream-abc',
+        revision: 7n,
+        position: 500n,
+      })
+
+      await runner.processEvent(event)
+
+      expect(capturedContext).toBeDefined()
+      expect(capturedContext!.streamId).toBe('stream-abc')
+      expect(capturedContext!.eventId).toBe('evt-42')
+      expect(capturedContext!.position).toBe(500n)
+      expect(capturedContext!.revision).toBe(7n)
+    })
+
+    it('supports async processor using getCurrentState', async () => {
+      // Seed existing state
+      await storage.saveReadModel({
+        id: 'counter-1',
+        collection: 'counters',
+        cacheKey: 'cache-1',
+        serverData: JSON.stringify({ id: 'counter-1', value: 10 }),
+        effectiveData: JSON.stringify({ id: 'counter-1', value: 10 }),
+        hasLocalChanges: false,
+        updatedAt: Date.now(),
+      })
+
+      registry.register({
+        eventTypes: 'Incremented',
+        async processor(_event, context) {
+          const current = await context.getCurrentState<{ id: string; value: number }>(
+            'counters',
+            'counter-1',
+          )
+          const newValue = (current?.value ?? 0) + 1
+          return {
+            collection: 'counters',
+            id: 'counter-1',
+            update: { type: 'set', data: { id: 'counter-1', value: newValue } },
+            isServerUpdate: true,
+          }
+        },
+      })
+
+      const event = makeParsedEvent({ type: 'Incremented', streamId: 'counter-1' })
+
+      const result = await runner.processEvent(event)
+
+      expect(result.updatedIds).toContain('counters:counter-1')
+      const record = await storage.getReadModel('counters', 'counter-1')
+      expect(JSON.parse(record!.effectiveData)).toEqual({ id: 'counter-1', value: 11 })
+    })
+
+    it('processor returning { invalidate: true } sets invalidated flag', async () => {
+      registry.register({
+        eventTypes: 'ComplexEvent',
+        processor: () => ({ invalidate: true as const }),
+      })
+
+      const event = makeParsedEvent({ type: 'ComplexEvent' })
+
+      const result = await runner.processEvent(event)
+
+      expect(result.invalidated).toBe(true)
+      expect(result.updatedIds).toHaveLength(0)
+    })
+
+    it('async processor returning { invalidate: true } sets invalidated flag', async () => {
+      registry.register({
+        eventTypes: 'ComplexEvent',
+        async processor(_event, context) {
+          const state = await context.getCurrentState('items', 'item-1')
+          if (!state) {
+            return { invalidate: true as const }
+          }
+          return undefined
+        },
+      })
+
+      const event = makeParsedEvent({ type: 'ComplexEvent' })
+
+      const result = await runner.processEvent(event)
+
+      expect(result.invalidated).toBe(true)
+      expect(result.updatedIds).toHaveLength(0)
     })
 
     it('emits readmodel:updated event', async () => {
@@ -367,14 +474,11 @@ describe('EventProcessorRunner', () => {
       const events: unknown[] = []
       eventBus.on('readmodel:updated').subscribe((e) => events.push(e))
 
-      const event: ParsedEvent = {
-        id: 'event-1',
+      const event = makeParsedEvent({
         type: 'TodoCreated',
         streamId: 'todo-1',
-        persistence: 'Permanent',
         data: { id: 'todo-1' },
-        cacheKey: 'cache-1',
-      }
+      })
 
       await runner.processEvent(event)
 
@@ -395,15 +499,13 @@ describe('EventProcessorRunner', () => {
         }),
       })
 
-      const event: ParsedEvent = {
-        id: 'event-1',
+      const event = makeParsedEvent({
         type: 'TodoCreated',
         streamId: 'todo-1',
         persistence: 'Anticipated',
         data: { id: 'todo-1', title: 'Test' },
         commandId: 'cmd-1',
-        cacheKey: 'cache-1',
-      }
+      })
 
       await runner.processEvent(event)
 
@@ -435,14 +537,11 @@ describe('EventProcessorRunner', () => {
       })
 
       // Server confirms with different title — but local overlay changed title
-      const event: ParsedEvent = {
-        id: 'event-2',
+      const event = makeParsedEvent({
         type: 'TodoUpdated',
         streamId: 'todo-1',
-        persistence: 'Permanent',
         data: { id: 'todo-1', title: 'Server Title', done: true },
-        cacheKey: 'cache-1',
-      }
+      })
 
       await runner.processEvent(event)
 
@@ -482,14 +581,10 @@ describe('EventProcessorRunner', () => {
         }),
       })
 
-      const event: ParsedEvent = {
-        id: 'event-2',
+      const event = makeParsedEvent({
         type: 'CountIncremented',
         streamId: 'todo-1',
-        persistence: 'Permanent',
-        data: {},
-        cacheKey: 'cache-1',
-      }
+      })
 
       await runner.processEvent(event)
 
@@ -528,14 +623,10 @@ describe('EventProcessorRunner', () => {
       const events: unknown[] = []
       eventBus.on('readmodel:updated').subscribe((e) => events.push(e))
 
-      const event: ParsedEvent = {
-        id: 'event-2',
+      const event = makeParsedEvent({
         type: 'TodoUpdated',
         streamId: 'todo-1',
-        persistence: 'Permanent',
-        data: {},
-        cacheKey: 'cache-1',
-      }
+      })
 
       await runner.processEvent(event)
 
@@ -561,27 +652,59 @@ describe('EventProcessorRunner', () => {
       })
 
       const events: ParsedEvent[] = [
-        {
-          id: 'event-1',
+        makeParsedEvent({
           type: 'EventA',
-          streamId: 'stream-1',
-          persistence: 'Permanent',
           data: { name: 'first' },
-          cacheKey: 'cache-1',
-        },
-        {
+        }),
+        makeParsedEvent({
           id: 'event-2',
           type: 'EventB',
-          streamId: 'stream-1',
-          persistence: 'Permanent',
           data: { name: 'second' },
-          cacheKey: 'cache-1',
-        },
+        }),
       ]
 
       await runner.processEvents(events)
 
       expect(processedOrder).toEqual(['first', 'second'])
+    })
+
+    it('aggregates invalidated across batch (OR semantics)', async () => {
+      registry.register({
+        eventTypes: 'NormalEvent',
+        processor: (event: { id: string }): ProcessorResult => ({
+          collection: 'items',
+          id: event.id,
+          update: { type: 'set', data: event },
+          isServerUpdate: true,
+        }),
+      })
+
+      registry.register({
+        eventTypes: 'InvalidatingEvent',
+        processor: () => ({ invalidate: true as const }),
+      })
+
+      const events: ParsedEvent[] = [
+        makeParsedEvent({
+          type: 'NormalEvent',
+          data: { id: 'item-1' },
+        }),
+        makeParsedEvent({
+          id: 'event-2',
+          type: 'InvalidatingEvent',
+        }),
+        makeParsedEvent({
+          id: 'event-3',
+          type: 'NormalEvent',
+          data: { id: 'item-2' },
+        }),
+      ]
+
+      const result = await runner.processEvents(events)
+
+      expect(result.invalidated).toBe(true)
+      expect(result.updatedIds).toContain('items:item-1')
+      expect(result.updatedIds).toContain('items:item-2')
     })
   })
 })

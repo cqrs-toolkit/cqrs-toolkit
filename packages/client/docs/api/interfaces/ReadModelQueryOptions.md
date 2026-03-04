@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / ReadModelQueryOptions
 
@@ -28,19 +28,19 @@ Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:42
 
 Filter by cache key
 
-***
+---
 
 ### limit?
 
 > `optional` **limit**: `number`
 
-Defined in: packages/client/src/storage/IStorage.ts:90
+Defined in: packages/client/src/storage/IStorage.ts:92
 
 #### Inherited from
 
 [`QueryOptions`](QueryOptions.md).[`limit`](QueryOptions.md#limit)
 
-***
+---
 
 ### localChangesOnly?
 
@@ -50,37 +50,37 @@ Defined in: packages/client/src/core/read-model-store/ReadModelStore.ts:44
 
 Only include models with local changes
 
-***
+---
 
 ### offset?
 
 > `optional` **offset**: `number`
 
-Defined in: packages/client/src/storage/IStorage.ts:91
+Defined in: packages/client/src/storage/IStorage.ts:93
 
 #### Inherited from
 
 [`QueryOptions`](QueryOptions.md).[`offset`](QueryOptions.md#offset)
 
-***
+---
 
 ### orderBy?
 
 > `optional` **orderBy**: `string`
 
-Defined in: packages/client/src/storage/IStorage.ts:92
+Defined in: packages/client/src/storage/IStorage.ts:94
 
 #### Inherited from
 
 [`QueryOptions`](QueryOptions.md).[`orderBy`](QueryOptions.md#orderby)
 
-***
+---
 
 ### orderDirection?
 
 > `optional` **orderDirection**: `"asc"` \| `"desc"`
 
-Defined in: packages/client/src/storage/IStorage.ts:93
+Defined in: packages/client/src/storage/IStorage.ts:95
 
 #### Inherited from
 

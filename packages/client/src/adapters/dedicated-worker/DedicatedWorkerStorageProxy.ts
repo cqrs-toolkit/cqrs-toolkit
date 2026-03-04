@@ -15,20 +15,23 @@ import type {
   SessionRecord,
 } from '../../storage/IStorage.js'
 import type { CommandFilter, CommandRecord, CommandStatus } from '../../types/commands.js'
+import type { StorageConfig } from '../../types/config.js'
 
 /**
  * Storage proxy that routes all operations through the Dedicated Worker.
  */
 export class DedicatedWorkerStorageProxy implements IStorage {
   private readonly channel: WorkerMessageChannel
+  private readonly storageConfig: StorageConfig
 
-  constructor(channel: WorkerMessageChannel) {
+  constructor(channel: WorkerMessageChannel, storageConfig: StorageConfig) {
     this.channel = channel
+    this.storageConfig = storageConfig
   }
 
   // Lifecycle
   async initialize(): Promise<void> {
-    await this.channel.request<void>('storage.initialize', [])
+    await this.channel.request<void>('storage.initialize', [this.storageConfig])
   }
 
   async close(): Promise<void> {

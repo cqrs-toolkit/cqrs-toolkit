@@ -121,7 +121,13 @@ export class InMemoryStorage implements IStorage {
         // Capacity eviction is based purely on LRU
         return true
       })
-      .sort((a, b) => a.lastAccessedAt - b.lastAccessedAt) // LRU order
+      .sort((a, b) => {
+        // Ephemeral keys evicted before persistent
+        if (a.evictionPolicy !== b.evictionPolicy) {
+          return a.evictionPolicy === 'ephemeral' ? -1 : 1
+        }
+        return a.lastAccessedAt - b.lastAccessedAt // LRU order
+      })
 
     return evictable.slice(0, limit)
   }

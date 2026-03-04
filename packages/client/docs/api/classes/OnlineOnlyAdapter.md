@@ -1,31 +1,31 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / OnlineOnlyAdapter
 
 # Class: OnlineOnlyAdapter
 
-Defined in: packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:16
+Defined in: packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:21
 
 Online-only adapter for development, testing, and deployments
 where offline persistence is not required.
 
-## Extends
+## Implements
 
-- [`BaseAdapter`](BaseAdapter.md)
+- [`IAdapter`](../interfaces/IAdapter.md)
 
 ## Constructors
 
 ### Constructor
 
-> **new OnlineOnlyAdapter**(`config`): `OnlineOnlyAdapter`
+> **new OnlineOnlyAdapter**(`_config`): `OnlineOnlyAdapter`
 
-Defined in: packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:19
+Defined in: packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:29
 
 #### Parameters
 
-##### config
+##### \_config
 
 [`ResolvedConfig`](../interfaces/ResolvedConfig.md)
 
@@ -33,85 +33,33 @@ Defined in: packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:19
 
 `OnlineOnlyAdapter`
 
-#### Overrides
-
-[`BaseAdapter`](BaseAdapter.md).[`constructor`](BaseAdapter.md#constructor)
-
 ## Properties
-
-### \_sessionManager
-
-> `protected` **\_sessionManager**: [`SessionManager`](SessionManager.md) \| `undefined`
-
-Defined in: packages/client/src/adapters/base/BaseAdapter.ts:71
-
-#### Inherited from
-
-[`BaseAdapter`](BaseAdapter.md).[`_sessionManager`](BaseAdapter.md#_sessionmanager)
-
-***
-
-### \_status
-
-> `protected` **\_status**: [`AdapterStatus`](../type-aliases/AdapterStatus.md) = `'uninitialized'`
-
-Defined in: packages/client/src/adapters/base/BaseAdapter.ts:72
-
-#### Inherited from
-
-[`BaseAdapter`](BaseAdapter.md).[`_status`](BaseAdapter.md#_status)
-
-***
-
-### \_storage
-
-> `protected` **\_storage**: [`IStorage`](../interfaces/IStorage.md) \| `undefined`
-
-Defined in: packages/client/src/adapters/base/BaseAdapter.ts:70
-
-#### Inherited from
-
-[`BaseAdapter`](BaseAdapter.md).[`_storage`](BaseAdapter.md#_storage)
-
-***
-
-### config
-
-> `protected` `readonly` **config**: [`ResolvedConfig`](../interfaces/ResolvedConfig.md)
-
-Defined in: packages/client/src/adapters/base/BaseAdapter.ts:68
-
-#### Inherited from
-
-[`BaseAdapter`](BaseAdapter.md).[`config`](BaseAdapter.md#config)
-
-***
 
 ### eventBus
 
 > `readonly` **eventBus**: [`EventBus`](EventBus.md)
 
-Defined in: packages/client/src/adapters/base/BaseAdapter.ts:69
+Defined in: packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:23
 
 Event bus instance for wiring core components.
 
-#### Inherited from
+#### Implementation of
 
-[`BaseAdapter`](BaseAdapter.md).[`eventBus`](BaseAdapter.md#eventbus)
+[`IAdapter`](../interfaces/IAdapter.md).[`eventBus`](../interfaces/IAdapter.md#eventbus)
 
-***
+---
 
 ### mode
 
 > `readonly` **mode**: [`ExecutionMode`](../type-aliases/ExecutionMode.md) = `'online-only'`
 
-Defined in: packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:17
+Defined in: packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:22
 
 Execution mode of this adapter.
 
-#### Overrides
+#### Implementation of
 
-[`BaseAdapter`](BaseAdapter.md).[`mode`](BaseAdapter.md#mode)
+[`IAdapter`](../interfaces/IAdapter.md).[`mode`](../interfaces/IAdapter.md#mode)
 
 ## Accessors
 
@@ -121,7 +69,7 @@ Execution mode of this adapter.
 
 > **get** **events$**(): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
-Defined in: packages/client/src/adapters/base/BaseAdapter.ts:83
+Defined in: packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:37
 
 Observable of library events.
 
@@ -131,11 +79,11 @@ Observable of library events.
 
 Observable of library events.
 
-#### Inherited from
+#### Implementation of
 
-[`BaseAdapter`](BaseAdapter.md).[`events$`](BaseAdapter.md#events)
+[`IAdapter`](../interfaces/IAdapter.md).[`events$`](../interfaces/IAdapter.md#events)
 
-***
+---
 
 ### sessionManager
 
@@ -143,7 +91,7 @@ Observable of library events.
 
 > **get** **sessionManager**(): [`SessionManager`](SessionManager.md)
 
-Defined in: packages/client/src/adapters/base/BaseAdapter.ts:87
+Defined in: packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:41
 
 Session manager instance.
 
@@ -153,11 +101,11 @@ Session manager instance.
 
 Session manager instance.
 
-#### Inherited from
+#### Implementation of
 
-[`BaseAdapter`](BaseAdapter.md).[`sessionManager`](BaseAdapter.md#sessionmanager)
+[`IAdapter`](../interfaces/IAdapter.md).[`sessionManager`](../interfaces/IAdapter.md#sessionmanager)
 
-***
+---
 
 ### status
 
@@ -165,7 +113,7 @@ Session manager instance.
 
 > **get** **status**(): [`AdapterStatus`](../type-aliases/AdapterStatus.md)
 
-Defined in: packages/client/src/adapters/base/BaseAdapter.ts:79
+Defined in: packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:33
 
 Current adapter status.
 
@@ -175,11 +123,11 @@ Current adapter status.
 
 Current adapter status.
 
-#### Inherited from
+#### Implementation of
 
-[`BaseAdapter`](BaseAdapter.md).[`status`](BaseAdapter.md#status)
+[`IAdapter`](../interfaces/IAdapter.md).[`status`](../interfaces/IAdapter.md#status)
 
-***
+---
 
 ### storage
 
@@ -187,7 +135,7 @@ Current adapter status.
 
 > **get** **storage**(): [`IStorage`](../interfaces/IStorage.md)
 
-Defined in: packages/client/src/adapters/base/BaseAdapter.ts:94
+Defined in: packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:46
 
 Storage instance.
 
@@ -197,9 +145,9 @@ Storage instance.
 
 Storage instance.
 
-#### Inherited from
+#### Implementation of
 
-[`BaseAdapter`](BaseAdapter.md).[`storage`](BaseAdapter.md#storage)
+[`IAdapter`](../interfaces/IAdapter.md).[`storage`](../interfaces/IAdapter.md#storage)
 
 ## Methods
 
@@ -207,7 +155,7 @@ Storage instance.
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/base/BaseAdapter.ts:134
+Defined in: packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:73
 
 Close the adapter and release resources.
 
@@ -215,44 +163,24 @@ Close the adapter and release resources.
 
 `Promise`\<`void`\>
 
-#### Inherited from
+#### Implementation of
 
-[`BaseAdapter`](BaseAdapter.md).[`close`](BaseAdapter.md#close)
+[`IAdapter`](../interfaces/IAdapter.md).[`close`](../interfaces/IAdapter.md#close)
 
-***
-
-### createStorage()
-
-> `protected` **createStorage**(): `Promise`\<[`IStorage`](../interfaces/IStorage.md)\>
-
-Defined in: packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:23
-
-Create the storage instance for this adapter.
-Subclasses must implement this.
-
-#### Returns
-
-`Promise`\<[`IStorage`](../interfaces/IStorage.md)\>
-
-#### Overrides
-
-[`BaseAdapter`](BaseAdapter.md).[`createStorage`](BaseAdapter.md#createstorage)
-
-***
+---
 
 ### initialize()
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/base/BaseAdapter.ts:105
+Defined in: packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:51
 
 Initialize the adapter.
-Subclasses should call super.initialize() first.
 
 #### Returns
 
 `Promise`\<`void`\>
 
-#### Inherited from
+#### Implementation of
 
-[`BaseAdapter`](BaseAdapter.md).[`initialize`](BaseAdapter.md#initialize)
+[`IAdapter`](../interfaces/IAdapter.md).[`initialize`](../interfaces/IAdapter.md#initialize)

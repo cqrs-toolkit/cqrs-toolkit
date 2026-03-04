@@ -21,7 +21,7 @@ export const todoProcessors: ProcessorRegistration[] = [
           status: data.status,
           createdAt: data.createdAt,
           updatedAt: data.createdAt,
-          latestRevision: ctx.revision ?? '0',
+          latestRevision: String(ctx.revision),
         } satisfies Todo,
       },
       isServerUpdate: ctx.persistence !== 'Anticipated',
@@ -37,7 +37,7 @@ export const todoProcessors: ProcessorRegistration[] = [
         data: {
           content: data.content,
           updatedAt: data.updatedAt,
-          ...(ctx.revision !== undefined ? { latestRevision: ctx.revision } : {}),
+          latestRevision: String(ctx.revision),
         },
       },
       isServerUpdate: ctx.persistence !== 'Anticipated',
@@ -53,7 +53,7 @@ export const todoProcessors: ProcessorRegistration[] = [
         data: {
           status: data.status,
           updatedAt: data.updatedAt,
-          ...(ctx.revision !== undefined ? { latestRevision: ctx.revision } : {}),
+          latestRevision: String(ctx.revision),
         },
       },
       isServerUpdate: ctx.persistence !== 'Anticipated',

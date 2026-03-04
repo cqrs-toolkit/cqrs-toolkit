@@ -6,7 +6,7 @@
 
 # Interface: SeedRecordPage
 
-Defined in: packages/client/src/types/config.ts:112
+Defined in: packages/client/src/types/config.ts:114
 
 Result of a read model seed page fetch.
 
@@ -16,7 +16,7 @@ Result of a read model seed page fetch.
 
 > **nextCursor**: `string` \| `null`
 
-Defined in: packages/client/src/types/config.ts:114
+Defined in: packages/client/src/types/config.ts:116
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: packages/client/src/types/config.ts:114
 
 > **records**: [`SeedRecord`](SeedRecord.md)[]
 
-Defined in: packages/client/src/types/config.ts:113
+Defined in: packages/client/src/types/config.ts:115

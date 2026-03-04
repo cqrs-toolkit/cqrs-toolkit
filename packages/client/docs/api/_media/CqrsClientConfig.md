@@ -6,7 +6,7 @@
 
 # Interface: CqrsClientConfig\<TCommand, TEvent\>
 
-Defined in: packages/client/src/types/config.ts:188
+Defined in: packages/client/src/types/config.ts:190
 
 Main CQRS Client configuration.
 
@@ -26,7 +26,7 @@ Main CQRS Client configuration.
 
 > `optional` **cache**: [`CacheConfig`](CacheConfig.md)
 
-Defined in: packages/client/src/types/config.ts:219
+Defined in: packages/client/src/types/config.ts:221
 
 Cache configuration.
 
@@ -36,7 +36,7 @@ Cache configuration.
 
 > `optional` **collections**: [`Collection`](Collection.md)[]
 
-Defined in: packages/client/src/types/config.ts:224
+Defined in: packages/client/src/types/config.ts:226
 
 Collection configurations.
 
@@ -46,7 +46,7 @@ Collection configurations.
 
 > `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)
 
-Defined in: packages/client/src/types/config.ts:230
+Defined in: packages/client/src/types/config.ts:232
 
 Command sender for submitting commands to the server.
 If not provided, commands are queued but not sent.
@@ -57,7 +57,7 @@ If not provided, commands are queued but not sent.
 
 > `optional` **debug**: `boolean`
 
-Defined in: packages/client/src/types/config.ts:246
+Defined in: packages/client/src/types/config.ts:248
 
 Enable debug logging.
 
@@ -67,7 +67,7 @@ Enable debug logging.
 
 > `optional` **domainExecutor**: [`IDomainExecutor`](IDomainExecutor.md)\<`TCommand`, `TEvent`\>
 
-Defined in: packages/client/src/types/config.ts:199
+Defined in: packages/client/src/types/config.ts:201
 
 Domain executor for local command validation.
 If not provided, commands are sent directly without local validation.
@@ -78,7 +78,7 @@ If not provided, commands are sent directly without local validation.
 
 > `optional` **mode**: [`ExecutionModeConfig`](../type-aliases/ExecutionModeConfig.md)
 
-Defined in: packages/client/src/types/config.ts:193
+Defined in: packages/client/src/types/config.ts:195
 
 Execution mode.
 Defaults to 'auto': SharedWorker > Dedicated Worker > Main Thread
@@ -89,7 +89,7 @@ Defaults to 'auto': SharedWorker > Dedicated Worker > Main Thread
 
 > **network**: [`NetworkConfig`](NetworkConfig.md)
 
-Defined in: packages/client/src/types/config.ts:204
+Defined in: packages/client/src/types/config.ts:206
 
 Network configuration.
 
@@ -99,7 +99,7 @@ Network configuration.
 
 > `optional` **processors**: [`ProcessorRegistration`](ProcessorRegistration.md)\<`unknown`, `Record`\<`string`, `unknown`\>\>[]
 
-Defined in: packages/client/src/types/config.ts:236
+Defined in: packages/client/src/types/config.ts:238
 
 Event processors to register.
 Processors transform domain events into read model updates.
@@ -110,7 +110,7 @@ Processors transform domain events into read model updates.
 
 > `optional` **retainTerminal**: `boolean`
 
-Defined in: packages/client/src/types/config.ts:241
+Defined in: packages/client/src/types/config.ts:243
 
 Retain terminal commands in storage for debugging/introspection.
 
@@ -120,7 +120,7 @@ Retain terminal commands in storage for debugging/introspection.
 
 > `optional` **retry**: [`RetryConfig`](RetryConfig.md)
 
-Defined in: packages/client/src/types/config.ts:214
+Defined in: packages/client/src/types/config.ts:216
 
 Retry configuration for commands.
 
@@ -130,7 +130,7 @@ Retry configuration for commands.
 
 > `optional` **storage**: [`StorageConfig`](StorageConfig.md)
 
-Defined in: packages/client/src/types/config.ts:209
+Defined in: packages/client/src/types/config.ts:211
 
 Storage configuration (ignored for online-only mode).
 
@@ -140,7 +140,7 @@ Storage configuration (ignored for online-only mode).
 
 > `optional` **workerSetup**: `string`[]
 
-Defined in: packages/client/src/types/config.ts:259
+Defined in: packages/client/src/types/config.ts:261
 
 Module URLs to dynamically import in worker context.
 Use this to run setup code (e.g., logger bootstrap) inside the worker
@@ -152,7 +152,7 @@ before storage initialization.
 
 > `optional` **workerUrl**: `string`
 
-Defined in: packages/client/src/types/config.ts:252
+Defined in: packages/client/src/types/config.ts:254
 
 Worker script URL (for modes B and C).
 If not provided, uses default bundled worker.

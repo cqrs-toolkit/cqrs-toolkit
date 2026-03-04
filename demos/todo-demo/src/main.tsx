@@ -14,7 +14,7 @@ import TodosPage from './pages/TodosPage'
 logProvider.setLogger(pino({ level: 'debug', browser: { asObject: false } }))
 
 const client = await initializeClient()
-await client.sessionManager.signalAuthenticated('demo-user')
+await client.syncManager.setAuthenticated({ userId: 'demo-user' })
 
 const root = document.getElementById('root')
 if (!root) throw new Error('Missing #root element')

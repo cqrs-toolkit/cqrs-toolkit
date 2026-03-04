@@ -60,6 +60,7 @@ describe('InMemoryStorage', () => {
         frozen: false,
         expiresAt: null,
         createdAt: 1000,
+        evictionPolicy: 'persistent',
       }
       await storage.saveCacheKey(cacheKey)
 
@@ -90,6 +91,7 @@ describe('InMemoryStorage', () => {
       frozen: false,
       expiresAt: null,
       createdAt: 1000,
+      evictionPolicy: 'persistent',
     }
 
     it('saves and retrieves cache key', async () => {

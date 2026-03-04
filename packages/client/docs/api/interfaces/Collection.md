@@ -6,7 +6,7 @@
 
 # Interface: Collection
 
-Defined in: packages/client/src/types/config.ts:132
+Defined in: packages/client/src/types/config.ts:134
 
 A synchronized event collection.
 
@@ -19,7 +19,7 @@ Consumer code implements the fetch methods to control HTTP conventions.
 
 > `readonly` **name**: `string`
 
-Defined in: packages/client/src/types/config.ts:133
+Defined in: packages/client/src/types/config.ts:135
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: packages/client/src/types/config.ts:133
 
 > `readonly` `optional` **seedOnInit**: `boolean`
 
-Defined in: packages/client/src/types/config.ts:179
+Defined in: packages/client/src/types/config.ts:181
 
 Whether to seed on initial sync. Default: true.
 
@@ -37,7 +37,7 @@ Whether to seed on initial sync. Default: true.
 
 > `readonly` `optional` **seedPageSize**: `number`
 
-Defined in: packages/client/src/types/config.ts:182
+Defined in: packages/client/src/types/config.ts:184
 
 Page size for seeding. Default: 100.
 
@@ -47,7 +47,7 @@ Page size for seeding. Default: 100.
 
 > `optional` **fetchSeedEvents**(`ctx`, `cursor`, `limit`): `Promise`\<[`SeedEventPage`](SeedEventPage.md)\>
 
-Defined in: packages/client/src/types/config.ts:166
+Defined in: packages/client/src/types/config.ts:168
 
 Fetch a page of events for initial seeding (fallback).
 Events are processed through event processors to build read models.
@@ -79,7 +79,7 @@ Only used if fetchSeedRecords is not defined.
 
 > `optional` **fetchSeedRecords**(`ctx`, `cursor`, `limit`): `Promise`\<[`SeedRecordPage`](SeedRecordPage.md)\>
 
-Defined in: packages/client/src/types/config.ts:153
+Defined in: packages/client/src/types/config.ts:155
 
 Fetch a page of pre-computed read model records for initial seeding.
 This is the primary seeding mechanism — records go directly into the
@@ -112,7 +112,7 @@ If neither is defined, seeding is skipped for this collection.
 
 > `optional` **fetchStreamEvents**(`ctx`, `streamId`, `afterRevision`): `Promise`\<[`IPersistedEvent`](../type-aliases/IPersistedEvent.md)[]\>
 
-Defined in: packages/client/src/types/config.ts:172
+Defined in: packages/client/src/types/config.ts:174
 
 Fetch per-stream events for gap recovery and command response processing.
 If undefined, gap recovery processes buffered events as-is (lossy).
@@ -141,7 +141,7 @@ If undefined, gap recovery processes buffered events as-is (lossy).
 
 > **getTopics**(): `string`[]
 
-Defined in: packages/client/src/types/config.ts:136
+Defined in: packages/client/src/types/config.ts:138
 
 WS topic patterns to subscribe to. Return [] for no subscription.
 
@@ -155,7 +155,7 @@ WS topic patterns to subscribe to. Return [] for no subscription.
 
 > **matchesStream**(`streamId`): `boolean`
 
-Defined in: packages/client/src/types/config.ts:143
+Defined in: packages/client/src/types/config.ts:145
 
 Test whether a streamId belongs to this collection.
 Called for WS events and command response events to route them.

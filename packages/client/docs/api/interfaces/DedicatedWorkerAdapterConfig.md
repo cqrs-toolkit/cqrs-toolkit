@@ -20,7 +20,7 @@ Configuration for DedicatedWorkerAdapter.
 
 > **cache**: [`CacheConfig`](CacheConfig.md)
 
-Defined in: packages/client/src/types/config.ts:219
+Defined in: packages/client/src/types/config.ts:221
 
 Cache configuration.
 
@@ -34,7 +34,7 @@ Cache configuration.
 
 > **collections**: [`Collection`](Collection.md)[]
 
-Defined in: packages/client/src/types/config.ts:300
+Defined in: packages/client/src/types/config.ts:303
 
 #### Inherited from
 
@@ -46,7 +46,7 @@ Defined in: packages/client/src/types/config.ts:300
 
 > `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)
 
-Defined in: packages/client/src/types/config.ts:297
+Defined in: packages/client/src/types/config.ts:300
 
 #### Inherited from
 
@@ -58,7 +58,7 @@ Defined in: packages/client/src/types/config.ts:297
 
 > **debug**: `boolean`
 
-Defined in: packages/client/src/types/config.ts:246
+Defined in: packages/client/src/types/config.ts:248
 
 Enable debug logging.
 
@@ -72,7 +72,7 @@ Enable debug logging.
 
 > `optional` **domainExecutor**: [`IDomainExecutor`](IDomainExecutor.md)\<`unknown`, `unknown`\>
 
-Defined in: packages/client/src/types/config.ts:296
+Defined in: packages/client/src/types/config.ts:299
 
 #### Inherited from
 
@@ -84,7 +84,7 @@ Defined in: packages/client/src/types/config.ts:296
 
 > **mode**: [`ExecutionModeConfig`](../type-aliases/ExecutionModeConfig.md)
 
-Defined in: packages/client/src/types/config.ts:193
+Defined in: packages/client/src/types/config.ts:195
 
 Execution mode.
 Defaults to 'auto': SharedWorker > Dedicated Worker > Main Thread
@@ -99,7 +99,7 @@ Defaults to 'auto': SharedWorker > Dedicated Worker > Main Thread
 
 > **network**: [`NetworkConfig`](NetworkConfig.md)
 
-Defined in: packages/client/src/types/config.ts:204
+Defined in: packages/client/src/types/config.ts:206
 
 Network configuration.
 
@@ -113,7 +113,7 @@ Network configuration.
 
 > **processors**: [`ProcessorRegistration`](ProcessorRegistration.md)\<`unknown`, `Record`\<`string`, `unknown`\>\>[]
 
-Defined in: packages/client/src/types/config.ts:301
+Defined in: packages/client/src/types/config.ts:304
 
 #### Inherited from
 
@@ -125,7 +125,7 @@ Defined in: packages/client/src/types/config.ts:301
 
 > **retainTerminal**: `boolean`
 
-Defined in: packages/client/src/types/config.ts:241
+Defined in: packages/client/src/types/config.ts:243
 
 Retain terminal commands in storage for debugging/introspection.
 
@@ -139,7 +139,7 @@ Retain terminal commands in storage for debugging/introspection.
 
 > **retry**: [`RetryConfig`](RetryConfig.md)
 
-Defined in: packages/client/src/types/config.ts:214
+Defined in: packages/client/src/types/config.ts:216
 
 Retry configuration for commands.
 
@@ -153,7 +153,7 @@ Retry configuration for commands.
 
 > **storage**: [`StorageConfig`](StorageConfig.md)
 
-Defined in: packages/client/src/types/config.ts:209
+Defined in: packages/client/src/types/config.ts:211
 
 Storage configuration (ignored for online-only mode).
 
@@ -167,7 +167,7 @@ Storage configuration (ignored for online-only mode).
 
 > `optional` **workerSetup**: `string`[]
 
-Defined in: packages/client/src/types/config.ts:299
+Defined in: packages/client/src/types/config.ts:302
 
 #### Inherited from
 

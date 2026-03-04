@@ -20,6 +20,7 @@ export function createTestCacheKey(overrides: Partial<CacheKeyRecord> = {}): Cac
     frozen: false,
     expiresAt: null,
     createdAt: now,
+    evictionPolicy: 'persistent',
     ...overrides,
   }
 }

@@ -6,6 +6,8 @@
  * - Holds prevent eviction (e.g., data being displayed)
  * - Freeze prevents any changes to the cache key
  * - LRU eviction based on access time
+ * - Per-window hold tracking enables tab-death cleanup
+ * - Ephemeral keys are auto-evicted when unheld and cannot be frozen
  */
 
 import type { CacheKeyRecord, IStorage } from '../../storage/IStorage.js'
@@ -20,6 +22,8 @@ export interface CacheManagerConfig {
   storage: IStorage
   eventBus: EventBus
   cacheConfig?: CacheConfig
+  /** Unique identifier for this window/tab */
+  windowId: string
 }
 
 /**
@@ -32,6 +36,8 @@ export interface AcquireCacheKeyOptions {
   ttl?: number
   /** Scope for the cache key */
   scope?: string
+  /** Eviction policy for new keys (default: 'persistent') */
+  evictionPolicy?: 'persistent' | 'ephemeral'
 }
 
 /**
@@ -43,6 +49,14 @@ export class CacheManager {
   private readonly maxCacheKeys: number
   private readonly defaultTtl: number
   private readonly evictionPolicy: 'lru' | 'fifo'
+  private readonly windowId: string
+  private readonly maxWindows: number
+
+  /** Per-key set of windowIds that hold the key */
+  private readonly holdsByKey = new Map<string, Set<string>>()
+
+  /** Registered windows (for capacity guard) */
+  private readonly registeredWindows = new Set<string>()
 
   constructor(config: CacheManagerConfig) {
     this.storage = config.storage
@@ -50,6 +64,33 @@ export class CacheManager {
     this.maxCacheKeys = config.cacheConfig?.maxCacheKeys ?? 1000
     this.defaultTtl = config.cacheConfig?.defaultTtl ?? 30 * 60 * 1000 // 30 minutes
     this.evictionPolicy = config.cacheConfig?.evictionPolicy ?? 'lru'
+    this.windowId = config.windowId
+    this.maxWindows = config.cacheConfig?.maxWindows ?? 10
+  }
+
+  /**
+   * Initialize the cache manager.
+   * Resets all persisted hold counts, evicts ephemeral keys, and registers this window.
+   */
+  async initialize(): Promise<void> {
+    // Reset all persisted holdCounts to 0
+    const allKeys = await this.storage.getAllCacheKeys()
+    for (const record of allKeys) {
+      if (record.holdCount !== 0) {
+        await this.storage.saveCacheKey({ ...record, holdCount: 0 })
+      }
+    }
+
+    // Evict all ephemeral keys
+    for (const record of allKeys) {
+      if (record.evictionPolicy === 'ephemeral') {
+        await this.storage.deleteCacheKey(record.key)
+        this.eventBus.emit('cache:evicted', { cacheKey: record.key, reason: 'explicit' })
+      }
+    }
+
+    // Register own window
+    this.registeredWindows.add(this.windowId)
   }
 
   /**
@@ -82,23 +123,25 @@ export class CacheManager {
       record = {
         key,
         lastAccessedAt: now,
-        holdCount: options?.hold ? 1 : 0,
+        holdCount: 0,
         frozen: false,
         expiresAt: ttl > 0 ? now + ttl : null,
         createdAt: now,
+        evictionPolicy: options?.evictionPolicy ?? 'persistent',
       }
       await this.storage.saveCacheKey(record)
     } else {
-      // Update existing cache key
+      // Update existing cache key (do NOT change evictionPolicy on existing records)
       const updates: Partial<CacheKeyRecord> = {
         lastAccessedAt: now,
       }
 
-      if (options?.hold) {
-        updates.holdCount = record.holdCount + 1
-      }
-
       await this.storage.saveCacheKey({ ...record, ...updates })
+    }
+
+    // Place hold via per-window tracking if requested
+    if (options?.hold) {
+      await this.hold(key)
     }
 
     return key
@@ -135,33 +178,131 @@ export class CacheManager {
   }
 
   /**
-   * Place a hold on a cache key.
-   * While held, the cache key cannot be evicted.
+   * Place a hold on a cache key for this window.
+   * While held by any window, the cache key cannot be evicted.
+   * Idempotent: calling hold twice for the same window is a no-op.
    *
    * @param key - Cache key identifier
    */
   async hold(key: string): Promise<void> {
-    await this.storage.holdCacheKey(key)
+    let windowSet = this.holdsByKey.get(key)
+    if (!windowSet) {
+      windowSet = new Set()
+      this.holdsByKey.set(key, windowSet)
+    }
+
+    if (windowSet.has(this.windowId)) {
+      return // Already held by this window
+    }
+
+    const wasEmpty = windowSet.size === 0
+    windowSet.add(this.windowId)
+
+    if (wasEmpty) {
+      await this.storage.holdCacheKey(key)
+    }
   }
 
   /**
-   * Release a hold on a cache key.
+   * Release a hold on a cache key for this window.
+   * If this was the last window holding the key, the persisted holdCount drops to 0.
+   * Ephemeral keys are auto-evicted when the last hold is released.
    *
    * @param key - Cache key identifier
    */
   async release(key: string): Promise<void> {
-    await this.storage.releaseCacheKey(key)
+    const windowSet = this.holdsByKey.get(key)
+    if (!windowSet || !windowSet.has(this.windowId)) {
+      return
+    }
+
+    windowSet.delete(this.windowId)
+
+    if (windowSet.size === 0) {
+      this.holdsByKey.delete(key)
+      await this.storage.releaseCacheKey(key)
+
+      // Auto-evict ephemeral keys when no windows hold them
+      const record = await this.storage.getCacheKey(key)
+      if (record?.evictionPolicy === 'ephemeral') {
+        await this.storage.deleteCacheKey(key)
+        this.eventBus.emit('cache:evicted', { cacheKey: key, reason: 'explicit' })
+      }
+    }
+  }
+
+  /**
+   * Release all holds for a specific window across all cache keys.
+   * Used for tab-death cleanup.
+   *
+   * @param windowId - Window identifier to release
+   */
+  async releaseAllForWindow(windowId: string): Promise<void> {
+    for (const [key, windowSet] of this.holdsByKey) {
+      if (!windowSet.has(windowId)) {
+        continue
+      }
+
+      windowSet.delete(windowId)
+
+      if (windowSet.size === 0) {
+        this.holdsByKey.delete(key)
+        await this.storage.releaseCacheKey(key)
+
+        // Auto-evict ephemeral keys when no windows hold them
+        const record = await this.storage.getCacheKey(key)
+        if (record?.evictionPolicy === 'ephemeral') {
+          await this.storage.deleteCacheKey(key)
+          this.eventBus.emit('cache:evicted', { cacheKey: key, reason: 'explicit' })
+        }
+      }
+    }
+  }
+
+  /**
+   * Register a window for capacity tracking.
+   * Returns false and emits event if at capacity.
+   *
+   * @param windowId - Window identifier to register
+   * @returns Whether registration succeeded
+   */
+  registerWindow(windowId: string): boolean {
+    if (this.registeredWindows.has(windowId)) {
+      return true // Already registered
+    }
+
+    if (this.registeredWindows.size >= this.maxWindows) {
+      this.eventBus.emit('cache:too-many-windows', {
+        windowId,
+        maxWindows: this.maxWindows,
+      })
+      return false
+    }
+
+    this.registeredWindows.add(windowId)
+    return true
+  }
+
+  /**
+   * Unregister a window, releasing all its holds.
+   *
+   * @param windowId - Window identifier to unregister
+   */
+  async unregisterWindow(windowId: string): Promise<void> {
+    this.registeredWindows.delete(windowId)
+    await this.releaseAllForWindow(windowId)
   }
 
   /**
    * Freeze a cache key.
    * While frozen, no changes can be made to data under this cache key.
+   * Ephemeral keys cannot be frozen (no-op).
    *
    * @param key - Cache key identifier
    */
   async freeze(key: string): Promise<void> {
     const record = await this.storage.getCacheKey(key)
-    if (record) {
+    if (record && record.evictionPolicy !== 'ephemeral') {
       await this.storage.saveCacheKey({ ...record, frozen: true })
     }
   }
@@ -192,7 +333,8 @@ export class CacheManager {
   /**
    * Explicitly evict a cache key.
    * This will delete the cache key and all associated data.
-   * Cannot evict frozen or held cache keys.
+   * Cannot evict held cache keys. Cannot evict frozen persistent keys.
+   * Ephemeral keys skip the frozen check (they can never be frozen).
    *
    * @param key - Cache key identifier
    * @returns Whether eviction succeeded
@@ -203,11 +345,12 @@ export class CacheManager {
       return false
     }
 
-    if (record.frozen) {
+    if (record.holdCount > 0) {
       return false
     }
 
-    if (record.holdCount > 0) {
+    // Only persistent keys can be frozen, but check anyway
+    if (record.frozen) {
       return false
     }
 
@@ -246,6 +389,36 @@ export class CacheManager {
   }
 
   /**
+   * Check for session/user mismatch. If the current session belongs to a
+   * different user, wipes all cache keys and emits `cache:session-reset`.
+   *
+   * @param userId - Expected user identifier
+   * @returns Whether a mismatch was detected and the cache was reset
+   */
+  async checkSessionUser(userId: string): Promise<boolean> {
+    const session = await this.storage.getSession()
+    if (!session || session.userId === userId) {
+      return false
+    }
+
+    // User changed — wipe everything
+    const allKeys = await this.storage.getAllCacheKeys()
+    for (const record of allKeys) {
+      await this.storage.deleteCacheKey(record.key)
+    }
+
+    this.holdsByKey.clear()
+    this.registeredWindows.clear()
+
+    this.eventBus.emit('cache:session-reset', {
+      previousUserId: session.userId,
+      newUserId: userId,
+    })
+
+    return true
+  }
+
+  /**
    * Evict cache keys if we're at capacity.
    */
   private async maybeEvict(): Promise<void> {
@@ -254,7 +427,7 @@ export class CacheManager {
       return
     }
 
-    // Evict oldest by access time (LRU)
+    // Evict oldest by access time (LRU), ephemeral first
     const toEvict = count - this.maxCacheKeys + 1 // Make room for one more
     const evictable = await this.storage.getEvictableCacheKeys(toEvict)
 

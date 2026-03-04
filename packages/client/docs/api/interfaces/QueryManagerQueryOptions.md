@@ -44,7 +44,7 @@ Place a hold on the cache key while query is active
 
 > `optional` **limit**: `number`
 
-Defined in: packages/client/src/storage/IStorage.ts:90
+Defined in: packages/client/src/storage/IStorage.ts:92
 
 #### Inherited from
 
@@ -70,7 +70,7 @@ Only include models with local changes
 
 > `optional` **offset**: `number`
 
-Defined in: packages/client/src/storage/IStorage.ts:91
+Defined in: packages/client/src/storage/IStorage.ts:93
 
 #### Inherited from
 
@@ -82,7 +82,7 @@ Defined in: packages/client/src/storage/IStorage.ts:91
 
 > `optional` **orderBy**: `string`
 
-Defined in: packages/client/src/storage/IStorage.ts:92
+Defined in: packages/client/src/storage/IStorage.ts:94
 
 #### Inherited from
 
@@ -94,7 +94,7 @@ Defined in: packages/client/src/storage/IStorage.ts:92
 
 > `optional` **orderDirection**: `"asc"` \| `"desc"`
 
-Defined in: packages/client/src/storage/IStorage.ts:93
+Defined in: packages/client/src/storage/IStorage.ts:95
 
 #### Inherited from
 

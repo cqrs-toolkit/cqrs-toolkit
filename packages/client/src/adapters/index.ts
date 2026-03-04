@@ -2,8 +2,7 @@
  * Adapter exports.
  */
 
-export { BaseAdapter } from './base/BaseAdapter.js'
-export type { AdapterStatus, IAdapter } from './base/BaseAdapter.js'
+export type { AdapterStatus, IAdapter } from './base/IAdapter.js'
 export { OnlineOnlyAdapter } from './online-only/OnlineOnlyAdapter.js'
 
 // Mode B: SharedWorker

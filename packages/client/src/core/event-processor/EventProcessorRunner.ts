@@ -8,7 +8,12 @@ import type { EventPersistence } from '../../types/events.js'
 import type { EventBus } from '../events/EventBus.js'
 import type { ReadModelStore } from '../read-model-store/ReadModelStore.js'
 import { EventProcessorRegistry } from './EventProcessorRegistry.js'
-import type { EventProcessor, ProcessorContext, ProcessorResult } from './types.js'
+import type {
+  EventProcessor,
+  InvalidateSignal,
+  ProcessorContext,
+  ProcessorResult,
+} from './types.js'
 
 /**
  * Event processor runner configuration.
@@ -29,8 +34,17 @@ export interface ParsedEvent {
   persistence: EventPersistence
   data: unknown
   commandId?: string
-  revision?: string
+  revision: bigint
+  position: bigint
   cacheKey: string
+}
+
+/**
+ * Result of processing one or more events.
+ */
+export interface ProcessEventResult {
+  updatedIds: string[]
+  invalidated: boolean
 }
 
 /**
@@ -51,20 +65,24 @@ export class EventProcessorRunner {
    * Process an event and apply updates to the read model store.
    *
    * @param event - Parsed event to process
-   * @returns IDs of updated read models
+   * @returns IDs of updated read models and whether any processor signalled invalidation
    */
-  async processEvent(event: ParsedEvent): Promise<string[]> {
+  async processEvent(event: ParsedEvent): Promise<ProcessEventResult> {
     const processors = this.registry.getProcessors(event.type, event.persistence)
     if (processors.length === 0) {
-      return []
+      return { updatedIds: [], invalidated: false }
     }
 
     const context = this.createContext(event)
     const allResults: ProcessorResult[] = []
+    let invalidated = false
 
     for (const processor of processors) {
       const result = await this.runProcessor(processor, event, context)
-      allResults.push(...result)
+      if (result.invalidated) {
+        invalidated = true
+      }
+      allResults.push(...result.results)
     }
 
     // Apply all results, tracking which actually modified data
@@ -90,24 +108,28 @@ export class EventProcessorRunner {
       this.eventBus.emit('readmodel:updated', { collection, ids })
     }
 
-    return updatedIds
+    return { updatedIds, invalidated }
   }
 
   /**
    * Process multiple events in order.
    *
    * @param events - Events to process
-   * @returns Total IDs updated
+   * @returns Aggregated result across all events
    */
-  async processEvents(events: ParsedEvent[]): Promise<string[]> {
+  async processEvents(events: ParsedEvent[]): Promise<ProcessEventResult> {
     const allUpdated: string[] = []
+    let anyInvalidated = false
 
     for (const event of events) {
-      const updated = await this.processEvent(event)
-      allUpdated.push(...updated)
+      const result = await this.processEvent(event)
+      allUpdated.push(...result.updatedIds)
+      if (result.invalidated) {
+        anyInvalidated = true
+      }
     }
 
-    return allUpdated
+    return { updatedIds: allUpdated, invalidated: anyInvalidated }
   }
 
   /**
@@ -117,23 +139,27 @@ export class EventProcessorRunner {
     processor: EventProcessor,
     event: ParsedEvent,
     context: ProcessorContext,
-  ): Promise<ProcessorResult[]> {
+  ): Promise<{ results: ProcessorResult[]; invalidated: boolean }> {
     try {
-      const result = processor(event.data, context)
+      const result = await processor(event.data, context)
 
       if (result === undefined) {
-        return []
+        return { results: [], invalidated: false }
+      }
+
+      if (isInvalidateSignal(result)) {
+        return { results: [], invalidated: true }
       }
 
       if (Array.isArray(result)) {
-        return result
+        return { results: result, invalidated: false }
       }
 
-      return [result]
+      return { results: [result], invalidated: false }
     } catch (error) {
       // Log error but don't fail processing
       logProvider.log.error({ err: error, eventType: event.type }, 'Event processor error')
-      return []
+      return { results: [], invalidated: false }
     }
   }
 
@@ -145,6 +171,9 @@ export class EventProcessorRunner {
       persistence: event.persistence,
       commandId: event.commandId,
       revision: event.revision,
+      position: event.position,
+      streamId: event.streamId,
+      eventId: event.id,
       getCurrentState: async <T>(collection: string, id: string): Promise<T | undefined> => {
         const model = await this.readModelStore.getById<T>(collection, id)
         if (!model) return undefined
@@ -180,4 +209,16 @@ export class EventProcessorRunner {
 
     return false
   }
+}
+
+/**
+ * Type guard for InvalidateSignal.
+ */
+function isInvalidateSignal(value: unknown): value is InvalidateSignal {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'invalidate' in value &&
+    value.invalidate === true
+  )
 }

@@ -6,8 +6,8 @@
  */
 
 import { logProvider } from '@meticoeus/ddd-es'
-import assert from 'node:assert'
 import type { CommandFilter, CommandRecord, CommandStatus } from '../types/commands.js'
+import { assert } from '../utils/assert.js'
 import type {
   CacheKeyRecord,
   CachedEventRecord,
@@ -167,53 +167,24 @@ export class SQLiteStorage implements IStorage {
 
   async getCacheKey(key: string): Promise<CacheKeyRecord | undefined> {
     this.assertInitialized()
-    const row = this.queryOne<{
-      key: string
-      last_accessed_at: number
-      hold_count: number
-      frozen: number
-      expires_at: number | null
-      created_at: number
-    }>('SELECT * FROM cache_keys WHERE key = ?', [key])
+    const row = this.queryOne<CacheKeyRow>('SELECT * FROM cache_keys WHERE key = ?', [key])
 
     if (!row) return undefined
 
-    return {
-      key: row.key,
-      lastAccessedAt: row.last_accessed_at,
-      holdCount: row.hold_count,
-      frozen: row.frozen === 1,
-      expiresAt: row.expires_at,
-      createdAt: row.created_at,
-    }
+    return this.rowToCacheKey(row)
   }
 
   async getAllCacheKeys(): Promise<CacheKeyRecord[]> {
     this.assertInitialized()
-    const rows = this.query<{
-      key: string
-      last_accessed_at: number
-      hold_count: number
-      frozen: number
-      expires_at: number | null
-      created_at: number
-    }>('SELECT * FROM cache_keys')
-
-    return rows.map((row) => ({
-      key: row.key,
-      lastAccessedAt: row.last_accessed_at,
-      holdCount: row.hold_count,
-      frozen: row.frozen === 1,
-      expiresAt: row.expires_at,
-      createdAt: row.created_at,
-    }))
+    const rows = this.query<CacheKeyRow>('SELECT * FROM cache_keys')
+    return rows.map((row) => this.rowToCacheKey(row))
   }
 
   async saveCacheKey(record: CacheKeyRecord): Promise<void> {
     this.assertInitialized()
     this.exec(
-      `INSERT OR REPLACE INTO cache_keys (key, last_accessed_at, hold_count, frozen, expires_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT OR REPLACE INTO cache_keys (key, last_accessed_at, hold_count, frozen, expires_at, created_at, eviction_policy)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         record.key,
         record.lastAccessedAt,
@@ -221,6 +192,7 @@ export class SQLiteStorage implements IStorage {
         record.frozen ? 1 : 0,
         record.expiresAt,
         record.createdAt,
+        record.evictionPolicy,
       ],
     )
   }
@@ -249,29 +221,16 @@ export class SQLiteStorage implements IStorage {
 
   async getEvictableCacheKeys(limit: number): Promise<CacheKeyRecord[]> {
     this.assertInitialized()
-    const rows = this.query<{
-      key: string
-      last_accessed_at: number
-      hold_count: number
-      frozen: number
-      expires_at: number | null
-      created_at: number
-    }>(
+    const rows = this.query<CacheKeyRow>(
       `SELECT * FROM cache_keys
        WHERE hold_count = 0 AND frozen = 0
-       ORDER BY last_accessed_at ASC
+       ORDER BY CASE eviction_policy WHEN 'ephemeral' THEN 0 ELSE 1 END,
+                last_accessed_at ASC
        LIMIT ?`,
       [limit],
     )
 
-    return rows.map((row) => ({
-      key: row.key,
-      lastAccessedAt: row.last_accessed_at,
-      holdCount: row.hold_count,
-      frozen: row.frozen === 1,
-      expiresAt: row.expires_at,
-      createdAt: row.created_at,
-    }))
+    return rows.map((row) => this.rowToCacheKey(row))
   }
 
   // Command operations
@@ -725,6 +684,18 @@ export class SQLiteStorage implements IStorage {
     }
   }
 
+  private rowToCacheKey(row: CacheKeyRow): CacheKeyRecord {
+    return {
+      key: row.key,
+      lastAccessedAt: row.last_accessed_at,
+      holdCount: row.hold_count,
+      frozen: row.frozen === 1,
+      expiresAt: row.expires_at,
+      createdAt: row.created_at,
+      evictionPolicy: row.eviction_policy as CacheKeyRecord['evictionPolicy'],
+    }
+  }
+
   private rowToReadModel(row: ReadModelRow): ReadModelRecord {
     return {
       id: row.id,
@@ -739,6 +710,16 @@ export class SQLiteStorage implements IStorage {
 }
 
 // Row types for SQLite results
+
+interface CacheKeyRow {
+  key: string
+  last_accessed_at: number
+  hold_count: number
+  frozen: number
+  expires_at: number | null
+  created_at: number
+  eviction_policy: string
+}
 
 interface CommandRow {
   command_id: string

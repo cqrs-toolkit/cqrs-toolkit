@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS cache_keys (
   hold_count INTEGER NOT NULL DEFAULT 0,
   frozen INTEGER NOT NULL DEFAULT 0,
   expires_at INTEGER,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  eviction_policy TEXT NOT NULL DEFAULT 'persistent'
 )`
 
 export const CACHE_KEYS_ACCESS_INDEX = `

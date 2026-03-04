@@ -642,13 +642,45 @@ describe('CommandQueue', () => {
       expect(commandSender.send).toHaveBeenCalledTimes(1)
 
       // Destroy the queue while retry timer is pending
-      commandQueue.destroy()
+      await commandQueue.destroy()
 
       // Wait long enough for any scheduled retry to have fired if not cleared
       await new Promise((resolve) => setTimeout(resolve, 600))
 
       // Send should not have been called again after destroy
       expect(commandSender.send).toHaveBeenCalledTimes(1)
+    })
+
+    it('awaits in-flight command processing on destroy', async () => {
+      let resolveSend: ((value: unknown) => void) | undefined
+      vi.mocked(commandSender.send).mockImplementation(
+        () => new Promise((resolve) => (resolveSend = resolve)),
+      )
+
+      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      if (!result.ok) throw new Error('Expected success')
+
+      commandQueue.resume()
+      // Let processing pick up the command
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      expect(commandSender.send).toHaveBeenCalledTimes(1)
+
+      // Start destroy while send is in-flight
+      let destroyResolved = false
+      const destroyPromise = commandQueue.destroy().then(() => {
+        destroyResolved = true
+      })
+
+      // destroy() should not have resolved yet — send is still in-flight
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      expect(destroyResolved).toBe(false)
+
+      // Complete the send
+      resolveSend!({ id: '123' })
+
+      // Now destroy should resolve
+      await destroyPromise
+      expect(destroyResolved).toBe(true)
     })
 
     it('cancels dependent commands on failure', async () => {

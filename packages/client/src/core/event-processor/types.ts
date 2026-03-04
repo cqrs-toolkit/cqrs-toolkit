@@ -28,13 +28,30 @@ export interface ProcessorResult<T extends object = Record<string, unknown>> {
 }
 
 /**
+ * Signal that the processor cannot apply the event and the collection should be refetched.
+ */
+export interface InvalidateSignal {
+  invalidate: true
+}
+
+/**
+ * Possible return values from an event processor.
+ */
+export type ProcessorReturn<TModel extends object = Record<string, unknown>> =
+  | ProcessorResult<TModel>[]
+  | ProcessorResult<TModel>
+  | InvalidateSignal
+  | undefined
+
+/**
  * Event processor function signature.
- * Receives an event and returns zero or more read model updates.
+ * Receives an event and returns zero or more read model updates, or an invalidation signal.
+ * May be sync or async.
  */
 export type EventProcessor<TEvent = unknown, TModel extends object = Record<string, unknown>> = (
   event: TEvent,
   context: ProcessorContext,
-) => ProcessorResult<TModel>[] | ProcessorResult<TModel> | undefined
+) => ProcessorReturn<TModel> | Promise<ProcessorReturn<TModel>>
 
 /**
  * Context passed to event processors.
@@ -44,8 +61,14 @@ export interface ProcessorContext {
   persistence: EventPersistence
   /** For anticipated events, the command ID */
   commandId?: string
-  /** Stream revision of the event (string for JSON read model compatibility). Undefined for anticipated/stateful events. */
-  revision?: string
+  /** Stream revision of the event */
+  revision: bigint
+  /** Global position of the event */
+  position: bigint
+  /** Stream ID the event belongs to */
+  streamId: string
+  /** Unique event ID */
+  eventId: string
   /** Get current read model state (may not exist) */
   getCurrentState: <T>(collection: string, id: string) => Promise<T | undefined>
 }
@@ -67,7 +90,7 @@ export interface ProcessorRegistration<
   processor(
     event: TEvent,
     context: ProcessorContext,
-  ): ProcessorResult<TModel>[] | ProcessorResult<TModel> | undefined
+  ): ProcessorReturn<TModel> | Promise<ProcessorReturn<TModel>>
   /** Optional: Only process certain persistence types */
   persistenceTypes?: EventPersistence[]
 }

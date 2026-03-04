@@ -6,7 +6,6 @@
  */
 
 import { logProvider } from '@meticoeus/ddd-es'
-import assert from 'node:assert'
 import { interval, Observable, Subject, Subscription, takeUntil } from 'rxjs'
 import { EventBus } from '../../core/events/EventBus.js'
 import { SessionManager } from '../../core/session/SessionManager.js'
@@ -15,8 +14,9 @@ import type { EventMessage } from '../../protocol/messages.js'
 import type { IStorage } from '../../storage/IStorage.js'
 import type { ExecutionMode, ResolvedConfig } from '../../types/config.js'
 import type { LibraryEvent } from '../../types/events.js'
+import { assert } from '../../utils/assert.js'
 import { generateId } from '../../utils/uuid.js'
-import type { AdapterStatus } from '../base/BaseAdapter.js'
+import type { AdapterStatus, IAdapter } from '../base/IAdapter.js'
 import { SharedWorkerStorageProxy } from './SharedWorkerStorageProxy.js'
 
 /**
@@ -40,7 +40,7 @@ const DEFAULT_HEARTBEAT_INTERVAL = 10000
  * - Handles window registration and heartbeats
  * - Restores holds after worker restarts
  */
-export class SharedWorkerAdapter {
+export class SharedWorkerAdapter implements IAdapter {
   readonly mode: ExecutionMode = 'shared-worker'
 
   private readonly config: SharedWorkerAdapterConfig
@@ -140,7 +140,11 @@ export class SharedWorkerAdapter {
       this.startHeartbeat()
 
       // Create storage proxy
-      this._storage = new SharedWorkerStorageProxy(this.channel, this.localHolds)
+      this._storage = new SharedWorkerStorageProxy(
+        this.channel,
+        this.localHolds,
+        this.config.storage,
+      )
       await this._storage.initialize()
 
       // Create session manager
@@ -178,11 +182,8 @@ export class SharedWorkerAdapter {
       this.channel = undefined
     }
 
-    // Close storage proxy
-    if (this._storage) {
-      await this._storage.close()
-      this._storage = undefined
-    }
+    // Clear storage proxy reference
+    this._storage = undefined
 
     // Signal destroy
     this.destroy$.next()

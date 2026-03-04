@@ -45,6 +45,9 @@ export type LibraryEventType =
   | 'sync:completed'
   | 'sync:failed'
   | 'cache:evicted'
+  | 'cache:too-many-windows'
+  | 'cache:session-reset'
+  | 'sync:seed-completed'
   | 'command:enqueued'
   | 'command:status-changed'
   | 'command:completed'
@@ -64,6 +67,9 @@ export interface LibraryEventPayloads {
   'sync:completed': { collection: string; eventCount: number }
   'sync:failed': { collection: string; error: string }
   'cache:evicted': { cacheKey: string; reason: 'lru' | 'explicit' | 'expired' | 'session-change' }
+  'cache:too-many-windows': { windowId: string; maxWindows: number }
+  'cache:session-reset': { previousUserId: string; newUserId: string }
+  'sync:seed-completed': { collection: string; cacheKey: string; recordCount: number }
   'command:enqueued': { commandId: string; type: string }
   'command:status-changed': { commandId: string; status: string; previousStatus: string }
   'command:completed': { commandId: string; type: string }

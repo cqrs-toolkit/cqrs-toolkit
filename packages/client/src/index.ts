@@ -57,10 +57,13 @@ export { EventProcessorRegistry, EventProcessorRunner } from './core/event-proce
 export type {
   EventProcessor,
   EventProcessorRunnerConfig,
+  InvalidateSignal,
   ParsedEvent,
+  ProcessEventResult,
   ProcessorContext,
   ProcessorRegistration,
   ProcessorResult,
+  ProcessorReturn,
   UpdateOperation,
 } from './core/event-processor/index.js'
 export { EventBus } from './core/events/index.js'
@@ -89,7 +92,6 @@ export type {
 
 // Adapters
 export {
-  BaseAdapter,
   DedicatedWorkerAdapter,
   DedicatedWorkerStorageProxy,
   MainThreadAdapter,

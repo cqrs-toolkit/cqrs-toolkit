@@ -249,40 +249,43 @@ export class QueryManager {
   /**
    * Place a hold on a cache key.
    * While held, the data cannot be evicted.
+   * Only calls cacheManager.hold() on the 0→1 transition.
    *
    * @param cacheKey - Cache key to hold
    */
   async hold(cacheKey: string): Promise<void> {
-    await this.cacheManager.hold(cacheKey)
     const current = this.activeHolds.get(cacheKey) ?? 0
+    if (current === 0) {
+      await this.cacheManager.hold(cacheKey)
+    }
     this.activeHolds.set(cacheKey, current + 1)
   }
 
   /**
    * Release a hold on a cache key.
+   * Only calls cacheManager.release() on the 1→0 transition.
    *
    * @param cacheKey - Cache key to release
    */
   async release(cacheKey: string): Promise<void> {
     const current = this.activeHolds.get(cacheKey) ?? 0
-    if (current > 0) {
+    if (current <= 0) return
+
+    if (current === 1) {
+      this.activeHolds.delete(cacheKey)
       await this.cacheManager.release(cacheKey)
-      if (current === 1) {
-        this.activeHolds.delete(cacheKey)
-      } else {
-        this.activeHolds.set(cacheKey, current - 1)
-      }
+    } else {
+      this.activeHolds.set(cacheKey, current - 1)
     }
   }
 
   /**
    * Release all active holds.
+   * One cacheManager.release() per key regardless of local count.
    */
   async releaseAll(): Promise<void> {
-    for (const [cacheKey, count] of this.activeHolds) {
-      for (let i = 0; i < count; i++) {
-        await this.cacheManager.release(cacheKey)
-      }
+    for (const cacheKey of this.activeHolds.keys()) {
+      await this.cacheManager.release(cacheKey)
     }
     this.activeHolds.clear()
   }

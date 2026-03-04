@@ -1,13 +1,13 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
-[@cqrs-toolkit/client](../globals.md) / ALL\_TABLES
+[@cqrs-toolkit/client](../globals.md) / ALL_TABLES
 
-# Variable: ALL\_TABLES
+# Variable: ALL_TABLES
 
-> `const` **ALL\_TABLES**: `string`[]
+> `const` **ALL_TABLES**: `string`[]
 
-Defined in: packages/client/src/storage/schema/tables.ts:120
+Defined in: packages/client/src/storage/schema/tables.ts:121
 
 All table creation statements in order.

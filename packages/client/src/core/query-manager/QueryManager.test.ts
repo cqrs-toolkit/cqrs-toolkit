@@ -27,7 +27,7 @@ describe('QueryManager', () => {
     storage = new InMemoryStorage()
     await storage.initialize()
     eventBus = new EventBus()
-    cacheManager = new CacheManager({ storage, eventBus })
+    cacheManager = new CacheManager({ storage, eventBus, windowId: 'test-window' })
     readModelStore = new ReadModelStore({ storage })
     queryManager = new QueryManager({ eventBus, cacheManager, readModelStore })
 

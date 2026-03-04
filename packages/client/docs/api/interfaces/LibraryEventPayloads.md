@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / LibraryEventPayloads
 
 # Interface: LibraryEventPayloads
 
-Defined in: packages/client/src/types/events.ts:59
+Defined in: packages/client/src/types/events.ts:62
 
 Library event payload types.
 
@@ -16,7 +16,7 @@ Library event payload types.
 
 > **cache:evicted**: `object`
 
-Defined in: packages/client/src/types/events.ts:66
+Defined in: packages/client/src/types/events.ts:69
 
 #### cacheKey
 
@@ -26,13 +26,45 @@ Defined in: packages/client/src/types/events.ts:66
 
 > **reason**: `"explicit"` \| `"lru"` \| `"expired"` \| `"session-change"`
 
-***
+---
+
+### cache:session-reset
+
+> **cache:session-reset**: `object`
+
+Defined in: packages/client/src/types/events.ts:71
+
+#### newUserId
+
+> **newUserId**: `string`
+
+#### previousUserId
+
+> **previousUserId**: `string`
+
+---
+
+### cache:too-many-windows
+
+> **cache:too-many-windows**: `object`
+
+Defined in: packages/client/src/types/events.ts:70
+
+#### maxWindows
+
+> **maxWindows**: `number`
+
+#### windowId
+
+> **windowId**: `string`
+
+---
 
 ### command:completed
 
 > **command:completed**: `object`
 
-Defined in: packages/client/src/types/events.ts:69
+Defined in: packages/client/src/types/events.ts:75
 
 #### commandId
 
@@ -42,13 +74,13 @@ Defined in: packages/client/src/types/events.ts:69
 
 > **type**: `string`
 
-***
+---
 
 ### command:enqueued
 
 > **command:enqueued**: `object`
 
-Defined in: packages/client/src/types/events.ts:67
+Defined in: packages/client/src/types/events.ts:73
 
 #### commandId
 
@@ -58,13 +90,13 @@ Defined in: packages/client/src/types/events.ts:67
 
 > **type**: `string`
 
-***
+---
 
 ### command:failed
 
 > **command:failed**: `object`
 
-Defined in: packages/client/src/types/events.ts:70
+Defined in: packages/client/src/types/events.ts:76
 
 #### commandId
 
@@ -78,13 +110,13 @@ Defined in: packages/client/src/types/events.ts:70
 
 > **type**: `string`
 
-***
+---
 
 ### command:status-changed
 
 > **command:status-changed**: `object`
 
-Defined in: packages/client/src/types/events.ts:68
+Defined in: packages/client/src/types/events.ts:74
 
 #### commandId
 
@@ -98,25 +130,25 @@ Defined in: packages/client/src/types/events.ts:68
 
 > **status**: `string`
 
-***
+---
 
 ### connectivity:changed
 
 > **connectivity:changed**: `object`
 
-Defined in: packages/client/src/types/events.ts:62
+Defined in: packages/client/src/types/events.ts:65
 
 #### online
 
 > **online**: `boolean`
 
-***
+---
 
 ### error:network
 
 > **error:network**: `object`
 
-Defined in: packages/client/src/types/events.ts:73
+Defined in: packages/client/src/types/events.ts:79
 
 #### code?
 
@@ -126,13 +158,13 @@ Defined in: packages/client/src/types/events.ts:73
 
 > **message**: `string`
 
-***
+---
 
 ### error:storage
 
 > **error:storage**: `object`
 
-Defined in: packages/client/src/types/events.ts:72
+Defined in: packages/client/src/types/events.ts:78
 
 #### code?
 
@@ -142,13 +174,13 @@ Defined in: packages/client/src/types/events.ts:72
 
 > **message**: `string`
 
-***
+---
 
 ### readmodel:updated
 
 > **readmodel:updated**: `object`
 
-Defined in: packages/client/src/types/events.ts:71
+Defined in: packages/client/src/types/events.ts:77
 
 #### collection
 
@@ -158,13 +190,13 @@ Defined in: packages/client/src/types/events.ts:71
 
 > **ids**: `string`[]
 
-***
+---
 
 ### session:changed
 
 > **session:changed**: `object`
 
-Defined in: packages/client/src/types/events.ts:60
+Defined in: packages/client/src/types/events.ts:63
 
 #### isNew
 
@@ -174,25 +206,25 @@ Defined in: packages/client/src/types/events.ts:60
 
 > **userId**: `string`
 
-***
+---
 
 ### session:destroyed
 
 > **session:destroyed**: `object`
 
-Defined in: packages/client/src/types/events.ts:61
+Defined in: packages/client/src/types/events.ts:64
 
 #### reason
 
 > **reason**: `"user-changed"` \| `"explicit"` \| `"storage-error"`
 
-***
+---
 
 ### sync:completed
 
 > **sync:completed**: `object`
 
-Defined in: packages/client/src/types/events.ts:64
+Defined in: packages/client/src/types/events.ts:67
 
 #### collection
 
@@ -202,13 +234,13 @@ Defined in: packages/client/src/types/events.ts:64
 
 > **eventCount**: `number`
 
-***
+---
 
 ### sync:failed
 
 > **sync:failed**: `object`
 
-Defined in: packages/client/src/types/events.ts:65
+Defined in: packages/client/src/types/events.ts:68
 
 #### collection
 
@@ -218,13 +250,33 @@ Defined in: packages/client/src/types/events.ts:65
 
 > **error**: `string`
 
-***
+---
+
+### sync:seed-completed
+
+> **sync:seed-completed**: `object`
+
+Defined in: packages/client/src/types/events.ts:72
+
+#### cacheKey
+
+> **cacheKey**: `string`
+
+#### collection
+
+> **collection**: `string`
+
+#### recordCount
+
+> **recordCount**: `number`
+
+---
 
 ### sync:started
 
 > **sync:started**: `object`
 
-Defined in: packages/client/src/types/events.ts:63
+Defined in: packages/client/src/types/events.ts:66
 
 #### collection
 

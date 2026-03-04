@@ -40,6 +40,13 @@ export interface MessageChannelConfig {
 const DEFAULT_REQUEST_TIMEOUT = 30000
 
 /**
+ * Context passed to method handlers identifying the requesting window.
+ */
+export interface RequestContext {
+  windowId: string | undefined
+}
+
+/**
  * Generic worker interface that supports postMessage.
  */
 export interface MessageTarget {
@@ -321,8 +328,16 @@ export class WorkerMessageHandler {
   private readonly connectedPorts = new Set<MessagePort>()
   private readonly windowLastSeen = new Map<string, number>()
   private readonly windowPorts = new Map<string, MessagePort>()
+  private readonly portToWindowId = new Map<MessagePort, string>()
+  private readonly windowRemovedCallbacks: Array<(windowId: string) => Promise<void>> = []
+  private restoreHoldsHandler:
+    | ((data: RestoreHoldsRequest) => Promise<{ restoredKeys: string[]; failedKeys: string[] }>)
+    | undefined
 
-  private methodHandlers = new Map<string, (args: unknown[]) => Promise<unknown>>()
+  private methodHandlers = new Map<
+    string,
+    (args: unknown[], context: RequestContext) => Promise<unknown>
+  >()
 
   constructor(config: MessageChannelConfig = {}) {
     this.workerInstanceId = generateId()
@@ -370,12 +385,25 @@ export class WorkerMessageHandler {
   }
 
   /**
+   * Send worker-instance message (Dedicated Worker startup).
+   */
+  sendWorkerInstance(): void {
+    this.sendResponse({
+      type: 'worker-instance',
+      workerInstanceId: this.workerInstanceId,
+    } as WorkerInstanceMessage)
+  }
+
+  /**
    * Register a method handler.
    *
    * @param method - Method name
    * @param handler - Handler function
    */
-  registerMethod(method: string, handler: (args: unknown[]) => Promise<unknown>): void {
+  registerMethod(
+    method: string,
+    handler: (args: unknown[], context: RequestContext) => Promise<unknown>,
+  ): void {
     this.methodHandlers.set(method, handler)
   }
 
@@ -452,17 +480,43 @@ export class WorkerMessageHandler {
   }
 
   /**
-   * Remove a window registration.
+   * Remove a window registration and notify listeners.
    *
    * @param windowId - Window identifier
    */
-  removeWindow(windowId: string): void {
+  async removeWindow(windowId: string): Promise<void> {
     this.windowLastSeen.delete(windowId)
     const port = this.windowPorts.get(windowId)
     if (port) {
       this.connectedPorts.delete(port)
       this.windowPorts.delete(windowId)
+      this.portToWindowId.delete(port)
     }
+    for (const callback of this.windowRemovedCallbacks) {
+      await callback(windowId)
+    }
+  }
+
+  /**
+   * Register a callback for when a window is removed.
+   *
+   * @param callback - Async callback receiving the removed window ID
+   */
+  onWindowRemoved(callback: (windowId: string) => Promise<void>): void {
+    this.windowRemovedCallbacks.push(callback)
+  }
+
+  /**
+   * Register the handler for restore-holds requests.
+   *
+   * @param handler - Handler that restores holds and returns results
+   */
+  setRestoreHoldsHandler(
+    handler: (
+      data: RestoreHoldsRequest,
+    ) => Promise<{ restoredKeys: string[]; failedKeys: string[] }>,
+  ): void {
+    this.restoreHoldsHandler = handler
   }
 
   private handleMessage(rawData: unknown, port: MessagePort | undefined): void {
@@ -492,6 +546,7 @@ export class WorkerMessageHandler {
     this.windowLastSeen.set(data.windowId, Date.now())
     if (port) {
       this.windowPorts.set(data.windowId, port)
+      this.portToWindowId.set(port, data.windowId)
     }
 
     const response: RegisterWindowResponse = {
@@ -512,13 +567,40 @@ export class WorkerMessageHandler {
     this.windowLastSeen.set(data.windowId, Date.now())
   }
 
-  private handleUnregister(data: UnregisterWindowMessage): void {
-    this.removeWindow(data.windowId)
+  private async handleUnregister(data: UnregisterWindowMessage): Promise<void> {
+    await this.removeWindow(data.windowId)
   }
 
-  private handleRestoreHolds(_data: RestoreHoldsRequest, _port: MessagePort | undefined): void {
-    // Subclasses should override this to handle hold restoration
-    // Default implementation just acknowledges
+  private async handleRestoreHolds(
+    data: RestoreHoldsRequest,
+    port: MessagePort | undefined,
+  ): Promise<void> {
+    let restoredKeys: string[] = []
+    let failedKeys: string[] = data.cacheKeys
+
+    if (this.restoreHoldsHandler) {
+      try {
+        const result = await this.restoreHoldsHandler(data)
+        restoredKeys = result.restoredKeys
+        failedKeys = result.failedKeys
+      } catch (err) {
+        logProvider.log.error({ err }, 'Failed to handle restore holds')
+      }
+    }
+
+    const response: RestoreHoldsResponse = {
+      type: 'restore-holds-response',
+      requestId: data.requestId,
+      success: true,
+      restoredKeys,
+      failedKeys,
+    }
+
+    if (port) {
+      this.sendToPort(port, response)
+    } else {
+      this.sendResponse(response)
+    }
   }
 
   private tabLockHolder: string | undefined
@@ -566,7 +648,9 @@ export class WorkerMessageHandler {
         }
       } else {
         try {
-          const result = await handler(data.args)
+          const windowId = port ? this.portToWindowId.get(port) : undefined
+          const context: RequestContext = { windowId }
+          const result = await handler(data.args, context)
           response = {
             type: 'response',
             requestId: data.requestId,

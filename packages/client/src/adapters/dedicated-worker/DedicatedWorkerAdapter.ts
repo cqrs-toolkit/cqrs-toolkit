@@ -6,7 +6,6 @@
  * Only one tab may be open at a time (enforced by tab lock).
  */
 
-import assert from 'node:assert'
 import { Observable, Subject, takeUntil } from 'rxjs'
 import { EventBus } from '../../core/events/EventBus.js'
 import { SessionManager } from '../../core/session/SessionManager.js'
@@ -15,8 +14,9 @@ import type { EventMessage } from '../../protocol/messages.js'
 import type { IStorage } from '../../storage/IStorage.js'
 import type { ExecutionMode, ResolvedConfig } from '../../types/config.js'
 import type { LibraryEvent } from '../../types/events.js'
+import { assert } from '../../utils/assert.js'
 import { generateId } from '../../utils/uuid.js'
-import type { AdapterStatus } from '../base/BaseAdapter.js'
+import type { AdapterStatus, IAdapter } from '../base/IAdapter.js'
 import { DedicatedWorkerStorageProxy } from './DedicatedWorkerStorageProxy.js'
 
 /**
@@ -45,7 +45,7 @@ export class TabLockError extends Error {
  * - Enforces single-tab operation via tab lock
  * - Provides a storage proxy for window-side code
  */
-export class DedicatedWorkerAdapter {
+export class DedicatedWorkerAdapter implements IAdapter {
   readonly mode: ExecutionMode = 'dedicated-worker'
 
   private readonly config: DedicatedWorkerAdapterConfig
@@ -59,6 +59,7 @@ export class DedicatedWorkerAdapter {
 
   private worker: Worker | undefined
   private channel: WorkerMessageChannel | undefined
+  private beforeUnloadHandler: (() => void) | undefined
 
   constructor(config: DedicatedWorkerAdapterConfig) {
     this.config = config
@@ -133,7 +134,7 @@ export class DedicatedWorkerAdapter {
       }
 
       // Create storage proxy
-      this._storage = new DedicatedWorkerStorageProxy(this.channel)
+      this._storage = new DedicatedWorkerStorageProxy(this.channel, this.config.storage)
       await this._storage.initialize()
 
       // Create session manager
@@ -168,6 +169,9 @@ export class DedicatedWorkerAdapter {
       return
     }
 
+    // Remove beforeunload listener
+    this.removeBeforeUnload()
+
     // Release tab lock
     if (this.channel) {
       this.channel.releaseTabLock(this.tabId)
@@ -199,11 +203,19 @@ export class DedicatedWorkerAdapter {
 
   private setupBeforeUnload(): void {
     if (typeof window !== 'undefined') {
-      window.addEventListener('beforeunload', () => {
+      this.beforeUnloadHandler = () => {
         if (this.channel) {
           this.channel.releaseTabLock(this.tabId)
         }
-      })
+      }
+      window.addEventListener('beforeunload', this.beforeUnloadHandler)
+    }
+  }
+
+  private removeBeforeUnload(): void {
+    if (this.beforeUnloadHandler && typeof window !== 'undefined') {
+      window.removeEventListener('beforeunload', this.beforeUnloadHandler)
+      this.beforeUnloadHandler = undefined
     }
   }
 }

@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / ProcessorContext
 
 # Interface: ProcessorContext
 
-Defined in: packages/client/src/core/event-processor/types.ts:42
+Defined in: packages/client/src/core/event-processor/types.ts:59
 
 Context passed to event processors.
 
@@ -16,17 +16,27 @@ Context passed to event processors.
 
 > `optional` **commandId**: `string`
 
-Defined in: packages/client/src/core/event-processor/types.ts:46
+Defined in: packages/client/src/core/event-processor/types.ts:63
 
 For anticipated events, the command ID
 
-***
+---
+
+### eventId
+
+> **eventId**: `string`
+
+Defined in: packages/client/src/core/event-processor/types.ts:71
+
+Unique event ID
+
+---
 
 ### getCurrentState()
 
 > **getCurrentState**: \<`T`\>(`collection`, `id`) => `Promise`\<`T` \| `undefined`\>
 
-Defined in: packages/client/src/core/event-processor/types.ts:50
+Defined in: packages/client/src/core/event-processor/types.ts:73
 
 Get current read model state (may not exist)
 
@@ -50,22 +60,42 @@ Get current read model state (may not exist)
 
 `Promise`\<`T` \| `undefined`\>
 
-***
+---
 
 ### persistence
 
 > **persistence**: [`EventPersistence`](../type-aliases/EventPersistence.md)
 
-Defined in: packages/client/src/core/event-processor/types.ts:44
+Defined in: packages/client/src/core/event-processor/types.ts:61
 
 Event persistence type
 
-***
+---
 
-### revision?
+### position
 
-> `optional` **revision**: `string`
+> **position**: `bigint`
 
-Defined in: packages/client/src/core/event-processor/types.ts:48
+Defined in: packages/client/src/core/event-processor/types.ts:67
 
-Stream revision of the event (string for JSON read model compatibility). Undefined for anticipated/stateful events.
+Global position of the event
+
+---
+
+### revision
+
+> **revision**: `bigint`
+
+Defined in: packages/client/src/core/event-processor/types.ts:65
+
+Stream revision of the event
+
+---
+
+### streamId
+
+> **streamId**: `string`
+
+Defined in: packages/client/src/core/event-processor/types.ts:69
+
+Stream ID the event belongs to

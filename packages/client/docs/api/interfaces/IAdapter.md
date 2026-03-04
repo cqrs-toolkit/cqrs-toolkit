@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / IAdapter
 
 # Interface: IAdapter
 
-Defined in: packages/client/src/adapters/base/BaseAdapter.ts:20
+Defined in: packages/client/src/adapters/base/IAdapter.ts:20
 
 Base adapter interface that all mode adapters must implement.
 
@@ -16,57 +16,57 @@ Base adapter interface that all mode adapters must implement.
 
 > `readonly` **eventBus**: [`EventBus`](../classes/EventBus.md)
 
-Defined in: packages/client/src/adapters/base/BaseAdapter.ts:39
+Defined in: packages/client/src/adapters/base/IAdapter.ts:39
 
 Event bus instance for wiring core components.
 
-***
+---
 
 ### events$
 
 > `readonly` **events$**: `Observable`\<[`LibraryEvent`](LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
-Defined in: packages/client/src/adapters/base/BaseAdapter.ts:34
+Defined in: packages/client/src/adapters/base/IAdapter.ts:34
 
 Observable of library events.
 
-***
+---
 
 ### mode
 
 > `readonly` **mode**: [`ExecutionMode`](../type-aliases/ExecutionMode.md)
 
-Defined in: packages/client/src/adapters/base/BaseAdapter.ts:24
+Defined in: packages/client/src/adapters/base/IAdapter.ts:24
 
 Execution mode of this adapter.
 
-***
+---
 
 ### sessionManager
 
 > `readonly` **sessionManager**: [`SessionManager`](../classes/SessionManager.md)
 
-Defined in: packages/client/src/adapters/base/BaseAdapter.ts:44
+Defined in: packages/client/src/adapters/base/IAdapter.ts:44
 
 Session manager instance.
 
-***
+---
 
 ### status
 
 > `readonly` **status**: [`AdapterStatus`](../type-aliases/AdapterStatus.md)
 
-Defined in: packages/client/src/adapters/base/BaseAdapter.ts:29
+Defined in: packages/client/src/adapters/base/IAdapter.ts:29
 
 Current adapter status.
 
-***
+---
 
 ### storage
 
 > `readonly` **storage**: [`IStorage`](IStorage.md)
 
-Defined in: packages/client/src/adapters/base/BaseAdapter.ts:49
+Defined in: packages/client/src/adapters/base/IAdapter.ts:49
 
 Storage instance.
 
@@ -76,7 +76,7 @@ Storage instance.
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/base/BaseAdapter.ts:59
+Defined in: packages/client/src/adapters/base/IAdapter.ts:59
 
 Close the adapter and release resources.
 
@@ -84,13 +84,13 @@ Close the adapter and release resources.
 
 `Promise`\<`void`\>
 
-***
+---
 
 ### initialize()
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/base/BaseAdapter.ts:54
+Defined in: packages/client/src/adapters/base/IAdapter.ts:54
 
 Initialize the adapter.
 

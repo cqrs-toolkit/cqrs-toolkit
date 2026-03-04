@@ -2,6 +2,7 @@
  * Utility exports.
  */
 
+export { assert } from './assert.js'
 export {
   DEFAULT_RETRY_CONFIG,
   calculateBackoffDelay,

@@ -10,11 +10,12 @@
 /// <reference lib="webworker" />
 
 import { createConsoleLogger, logProvider } from '@meticoeus/ddd-es'
-import assert from 'node:assert'
 import { EventBus } from '../../core/events/EventBus.js'
 import { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
 import type { IStorage } from '../../storage/IStorage.js'
 import { SQLiteStorage } from '../../storage/SQLiteStorage.js'
+import type { StorageConfig } from '../../types/config.js'
+import { assert } from '../../utils/assert.js'
 
 // Set a default warn-level console logger so logProvider doesn't throw before consumer setup
 logProvider.setLogger(createConsoleLogger({ level: 'warn' }))
@@ -50,6 +51,13 @@ class DedicatedStorageWorker {
     this.messageHandler.handleMessageEvent(event)
   }
 
+  /**
+   * Send worker-instance message to the window.
+   */
+  sendWorkerInstance(): void {
+    this.messageHandler.sendWorkerInstance()
+  }
+
   private registerWorkerSetup(): void {
     this.messageHandler.registerMethod('worker.setup', async (args) => {
       const scripts = args[0] as string[]
@@ -61,11 +69,12 @@ class DedicatedStorageWorker {
 
   private registerStorageMethods(): void {
     // Initialization
-    this.messageHandler.registerMethod('storage.initialize', async () => {
+    this.messageHandler.registerMethod('storage.initialize', async (args) => {
       if (!this.storage) {
+        const config = args[0] as StorageConfig | undefined
         this.storage = new SQLiteStorage({
-          vfs: 'opfs',
-          dbName: 'cqrs-client',
+          vfs: config?.vfs ?? 'opfs',
+          dbName: config?.dbName ?? 'cqrs-client',
         })
         await this.storage.initialize()
       }
@@ -261,3 +270,7 @@ const worker = new DedicatedStorageWorker()
 self.onmessage = (event: MessageEvent) => {
   worker.handleMessage(event)
 }
+
+// Send worker-instance on startup (delivered async via postMessage,
+// arrives after the window's channel.connect() sets up its listener)
+worker.sendWorkerInstance()

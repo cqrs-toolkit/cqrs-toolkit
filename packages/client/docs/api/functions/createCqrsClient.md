@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / createCqrsClient
 
@@ -8,7 +8,7 @@
 
 > **createCqrsClient**(`config`): `Promise`\<[`CqrsClient`](../classes/CqrsClient.md)\>
 
-Defined in: packages/client/src/createCqrsClient.ts:184
+Defined in: packages/client/src/createCqrsClient.ts:190
 
 Create a new CQRS Client instance.
 

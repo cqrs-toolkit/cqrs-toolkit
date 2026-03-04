@@ -8,7 +8,7 @@
 
 > `const` **DEFAULT_CONFIG**: `object`
 
-Defined in: packages/client/src/types/config.ts:265
+Defined in: packages/client/src/types/config.ts:267
 
 Default configuration values.
 
@@ -29,6 +29,10 @@ Default configuration values.
 #### cache.maxCacheKeys
 
 > `readonly` **maxCacheKeys**: `1000` = `1000`
+
+#### cache.maxWindows
+
+> `readonly` **maxWindows**: `10` = `10`
 
 ### mode
 

@@ -58,7 +58,7 @@ Count
 
 > **destroy**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:293
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:296
 
 Destroy the query manager.
 
@@ -186,10 +186,11 @@ Map of ID to query result
 
 > **hold**(`cacheKey`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:255
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:256
 
 Place a hold on a cache key.
 While held, the data cannot be evicted.
+Only calls cacheManager.hold() on the 0→1 transition.
 
 #### Parameters
 
@@ -245,9 +246,10 @@ List query result
 
 > **release**(`cacheKey`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:266
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:270
 
 Release a hold on a cache key.
+Only calls cacheManager.release() on the 1→0 transition.
 
 #### Parameters
 
@@ -267,9 +269,10 @@ Cache key to release
 
 > **releaseAll**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:281
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:286
 
 Release all active holds.
+One cacheManager.release() per key regardless of local count.
 
 #### Returns
 

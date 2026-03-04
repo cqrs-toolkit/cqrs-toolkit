@@ -579,8 +579,12 @@ export class CommandQueue implements ICommandQueue {
 
   /**
    * Destroy the command queue and release resources.
+   * Waits for any in-flight command processing to settle before returning.
    */
-  destroy(): void {
+  async destroy(): Promise<void> {
+    // Stop the processing loop from picking up new commands
+    this._paused = true
+
     for (const timerId of this.retryTimers) {
       clearTimeout(timerId)
     }
@@ -589,5 +593,10 @@ export class CommandQueue implements ICommandQueue {
     this.destroy$.next()
     this.destroy$.complete()
     this.commandEvents.complete()
+
+    // Wait for in-flight processing to settle (pausing ensures it finishes promptly)
+    if (this.processingPromise) {
+      await this.processingPromise
+    }
   }
 }

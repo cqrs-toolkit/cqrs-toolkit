@@ -35,6 +35,8 @@ export interface CacheKeyRecord {
   expiresAt: number | null
   /** Creation timestamp */
   createdAt: number
+  /** Eviction policy — persistent keys can be frozen and survive restarts; ephemeral keys cannot */
+  evictionPolicy: 'persistent' | 'ephemeral'
 }
 
 /**

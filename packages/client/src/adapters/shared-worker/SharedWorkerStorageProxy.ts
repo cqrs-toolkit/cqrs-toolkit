@@ -15,6 +15,7 @@ import type {
   SessionRecord,
 } from '../../storage/IStorage.js'
 import type { CommandFilter, CommandRecord, CommandStatus } from '../../types/commands.js'
+import type { StorageConfig } from '../../types/config.js'
 
 /**
  * Storage proxy that routes all operations through the SharedWorker.
@@ -22,19 +23,25 @@ import type { CommandFilter, CommandRecord, CommandStatus } from '../../types/co
 export class SharedWorkerStorageProxy implements IStorage {
   private readonly channel: WorkerMessageChannel
   private readonly localHolds: Set<string>
+  private readonly storageConfig: StorageConfig
 
-  constructor(channel: WorkerMessageChannel, localHolds: Set<string>) {
+  constructor(
+    channel: WorkerMessageChannel,
+    localHolds: Set<string>,
+    storageConfig: StorageConfig,
+  ) {
     this.channel = channel
     this.localHolds = localHolds
+    this.storageConfig = storageConfig
   }
 
   // Lifecycle
   async initialize(): Promise<void> {
-    await this.channel.request<void>('storage.initialize', [])
+    await this.channel.request<void>('storage.initialize', [this.storageConfig])
   }
 
   async close(): Promise<void> {
-    await this.channel.request<void>('storage.close', [])
+    // No-op: SharedWorker manages its own storage lifecycle.
   }
 
   async clear(): Promise<void> {

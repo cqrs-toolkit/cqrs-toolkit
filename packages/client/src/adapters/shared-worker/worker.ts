@@ -11,11 +11,12 @@
 /// <reference lib="webworker" />
 
 import { createConsoleLogger, logProvider } from '@meticoeus/ddd-es'
-import assert from 'node:assert'
 import { EventBus } from '../../core/events/EventBus.js'
 import { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
 import type { IStorage } from '../../storage/IStorage.js'
 import { SQLiteStorage } from '../../storage/SQLiteStorage.js'
+import type { StorageConfig } from '../../types/config.js'
+import { assert } from '../../utils/assert.js'
 
 // Set a default warn-level console logger so logProvider doesn't throw before consumer setup
 logProvider.setLogger(createConsoleLogger({ level: 'warn' }))
@@ -59,6 +60,35 @@ class StorageWorker {
 
     // Start liveness check
     this.startLivenessCheck()
+
+    // Release holds when a window is removed
+    this.messageHandler.onWindowRemoved(async (windowId) => {
+      await this.releaseWindowHolds(windowId)
+    })
+
+    // Handle hold restoration after worker restart
+    this.messageHandler.setRestoreHoldsHandler(async (data) => {
+      const restoredKeys: string[] = []
+      const failedKeys: string[] = []
+      const storage = this.storage
+
+      if (!storage) {
+        return { restoredKeys: [], failedKeys: data.cacheKeys }
+      }
+
+      for (const key of data.cacheKeys) {
+        const cacheKey = await storage.getCacheKey(key)
+        if (cacheKey) {
+          await storage.holdCacheKey(key)
+          this.trackWindowHold(data.windowId, key)
+          restoredKeys.push(key)
+        } else {
+          failedKeys.push(key)
+        }
+      }
+
+      return { restoredKeys, failedKeys }
+    })
   }
 
   /**
@@ -79,21 +109,20 @@ class StorageWorker {
 
   private registerStorageMethods(): void {
     // Initialization
-    this.messageHandler.registerMethod('storage.initialize', async () => {
+    this.messageHandler.registerMethod('storage.initialize', async (args) => {
       if (!this.storage) {
+        const config = args[0] as StorageConfig | undefined
         this.storage = new SQLiteStorage({
-          vfs: 'opfs',
-          dbName: 'cqrs-client',
+          vfs: config?.vfs ?? 'opfs',
+          dbName: config?.dbName ?? 'cqrs-client',
         })
         await this.storage.initialize()
       }
     })
 
     this.messageHandler.registerMethod('storage.close', async () => {
-      if (this.storage) {
-        await this.storage.close()
-        this.storage = undefined
-      }
+      // No-op: SharedWorker manages its own storage lifecycle.
+      // Individual windows must not close shared storage.
     })
 
     this.messageHandler.registerMethod('storage.clear', async () => {
@@ -134,12 +163,20 @@ class StorageWorker {
       return this.getStorage().deleteCacheKey(args[0] as string)
     })
 
-    this.messageHandler.registerMethod('storage.holdCacheKey', async (args) => {
-      return this.getStorage().holdCacheKey(args[0] as string)
+    this.messageHandler.registerMethod('storage.holdCacheKey', async (args, context) => {
+      const key = args[0] as string
+      await this.getStorage().holdCacheKey(key)
+      if (context.windowId) {
+        this.trackWindowHold(context.windowId, key)
+      }
     })
 
-    this.messageHandler.registerMethod('storage.releaseCacheKey', async (args) => {
-      return this.getStorage().releaseCacheKey(args[0] as string)
+    this.messageHandler.registerMethod('storage.releaseCacheKey', async (args, context) => {
+      const key = args[0] as string
+      await this.getStorage().releaseCacheKey(key)
+      if (context.windowId) {
+        this.untrackWindowHold(context.windowId, key)
+      }
     })
 
     this.messageHandler.registerMethod('storage.touchCacheKey', async (args) => {
@@ -273,31 +310,30 @@ class StorageWorker {
 
   private startLivenessCheck(): void {
     this.livenessCheckInterval = setInterval(() => {
-      this.checkWindowLiveness()
+      this.checkWindowLiveness().catch((err) => {
+        logProvider.log.error({ err }, 'Liveness check failed')
+      })
     }, LIVENESS_CHECK_INTERVAL_MS)
   }
 
-  private checkWindowLiveness(): void {
+  private async checkWindowLiveness(): Promise<void> {
     const deadWindows = this.messageHandler.getDeadWindows(WINDOW_TTL_MS)
-
     for (const windowId of deadWindows) {
-      // Release all holds for this window
-      this.releaseWindowHolds(windowId)
-
-      // Remove window registration
-      this.messageHandler.removeWindow(windowId)
+      await this.messageHandler.removeWindow(windowId)
     }
   }
 
-  private releaseWindowHolds(windowId: string): void {
+  private async releaseWindowHolds(windowId: string): Promise<void> {
+    const storage = this.storage
+    if (!storage) return
+
     for (const [cacheKey, windowIds] of this.activeWindowIdsByKey) {
       if (windowIds.has(windowId)) {
         windowIds.delete(windowId)
 
-        // If no windows are holding this key, release it in storage
         if (windowIds.size === 0) {
           this.activeWindowIdsByKey.delete(cacheKey)
-          // Note: actual storage release would need to track hold counts properly
+          await storage.releaseCacheKey(cacheKey)
         }
       }
     }

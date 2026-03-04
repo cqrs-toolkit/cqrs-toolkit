@@ -6,7 +6,7 @@
 
 # Class: EventProcessorRunner
 
-Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:39
+Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:53
 
 Event processor runner.
 
@@ -16,7 +16,7 @@ Event processor runner.
 
 > **new EventProcessorRunner**(`config`): `EventProcessorRunner`
 
-Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:44
+Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:58
 
 #### Parameters
 
@@ -32,9 +32,9 @@ Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:44
 
 ### processEvent()
 
-> **processEvent**(`event`): `Promise`\<`string`[]\>
+> **processEvent**(`event`): `Promise`\<[`ProcessEventResult`](../interfaces/ProcessEventResult.md)\>
 
-Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:56
+Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:70
 
 Process an event and apply updates to the read model store.
 
@@ -48,17 +48,17 @@ Parsed event to process
 
 #### Returns
 
-`Promise`\<`string`[]\>
+`Promise`\<[`ProcessEventResult`](../interfaces/ProcessEventResult.md)\>
 
-IDs of updated read models
+IDs of updated read models and whether any processor signalled invalidation
 
 ---
 
 ### processEvents()
 
-> **processEvents**(`events`): `Promise`\<`string`[]\>
+> **processEvents**(`events`): `Promise`\<[`ProcessEventResult`](../interfaces/ProcessEventResult.md)\>
 
-Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:102
+Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:120
 
 Process multiple events in order.
 
@@ -72,6 +72,6 @@ Events to process
 
 #### Returns
 
-`Promise`\<`string`[]\>
+`Promise`\<[`ProcessEventResult`](../interfaces/ProcessEventResult.md)\>
 
-Total IDs updated
+Aggregated result across all events

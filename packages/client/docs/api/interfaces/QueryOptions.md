@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / QueryOptions
 
 # Interface: QueryOptions
 
-Defined in: packages/client/src/storage/IStorage.ts:89
+Defined in: packages/client/src/storage/IStorage.ts:91
 
 Query options for list operations.
 
@@ -20,28 +20,28 @@ Query options for list operations.
 
 > `optional` **limit**: `number`
 
-Defined in: packages/client/src/storage/IStorage.ts:90
+Defined in: packages/client/src/storage/IStorage.ts:92
 
-***
+---
 
 ### offset?
 
 > `optional` **offset**: `number`
 
-Defined in: packages/client/src/storage/IStorage.ts:91
+Defined in: packages/client/src/storage/IStorage.ts:93
 
-***
+---
 
 ### orderBy?
 
 > `optional` **orderBy**: `string`
 
-Defined in: packages/client/src/storage/IStorage.ts:92
+Defined in: packages/client/src/storage/IStorage.ts:94
 
-***
+---
 
 ### orderDirection?
 
 > `optional` **orderDirection**: `"asc"` \| `"desc"`
 
-Defined in: packages/client/src/storage/IStorage.ts:93
+Defined in: packages/client/src/storage/IStorage.ts:95

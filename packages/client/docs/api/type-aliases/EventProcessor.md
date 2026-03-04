@@ -6,12 +6,13 @@
 
 # Type Alias: EventProcessor()\<TEvent, TModel\>
 
-> **EventProcessor**\<`TEvent`, `TModel`\> = (`event`, `context`) => [`ProcessorResult`](../interfaces/ProcessorResult.md)\<`TModel`\>[] \| [`ProcessorResult`](../interfaces/ProcessorResult.md)\<`TModel`\> \| `undefined`
+> **EventProcessor**\<`TEvent`, `TModel`\> = (`event`, `context`) => [`ProcessorReturn`](ProcessorReturn.md)\<`TModel`\> \| `Promise`\<[`ProcessorReturn`](ProcessorReturn.md)\<`TModel`\>\>
 
-Defined in: packages/client/src/core/event-processor/types.ts:34
+Defined in: packages/client/src/core/event-processor/types.ts:51
 
 Event processor function signature.
-Receives an event and returns zero or more read model updates.
+Receives an event and returns zero or more read model updates, or an invalidation signal.
+May be sync or async.
 
 ## Type Parameters
 
@@ -35,4 +36,4 @@ Receives an event and returns zero or more read model updates.
 
 ## Returns
 
-[`ProcessorResult`](../interfaces/ProcessorResult.md)\<`TModel`\>[] \| [`ProcessorResult`](../interfaces/ProcessorResult.md)\<`TModel`\> \| `undefined`
+[`ProcessorReturn`](ProcessorReturn.md)\<`TModel`\> \| `Promise`\<[`ProcessorReturn`](ProcessorReturn.md)\<`TModel`\>\>

@@ -6,7 +6,7 @@
 
 # Interface: EventProcessorRunnerConfig
 
-Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:16
+Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:21
 
 Event processor runner configuration.
 
@@ -16,7 +16,7 @@ Event processor runner configuration.
 
 > **eventBus**: [`EventBus`](../classes/EventBus.md)
 
-Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:18
+Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:23
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:18
 
 > **readModelStore**: [`ReadModelStore`](../classes/ReadModelStore.md)
 
-Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:17
+Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:22
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:17
 
 > **registry**: [`EventProcessorRegistry`](../classes/EventProcessorRegistry.md)
 
-Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:19
+Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:24

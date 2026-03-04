@@ -6,7 +6,7 @@
 
 # Interface: ProcessorRegistration\<TEvent, TModel\>
 
-Defined in: packages/client/src/core/event-processor/types.ts:60
+Defined in: packages/client/src/core/event-processor/types.ts:83
 
 Processor registration.
 
@@ -30,7 +30,7 @@ This allows typed processors to be collected into heterogeneous arrays.
 
 > **eventTypes**: `string` \| `string`[]
 
-Defined in: packages/client/src/core/event-processor/types.ts:65
+Defined in: packages/client/src/core/event-processor/types.ts:88
 
 Event type(s) this processor handles
 
@@ -40,7 +40,7 @@ Event type(s) this processor handles
 
 > `optional` **persistenceTypes**: [`EventPersistence`](../type-aliases/EventPersistence.md)[]
 
-Defined in: packages/client/src/core/event-processor/types.ts:72
+Defined in: packages/client/src/core/event-processor/types.ts:95
 
 Optional: Only process certain persistence types
 
@@ -48,9 +48,9 @@ Optional: Only process certain persistence types
 
 ### processor()
 
-> **processor**(`event`, `context`): [`ProcessorResult`](ProcessorResult.md)\<`TModel`\> \| [`ProcessorResult`](ProcessorResult.md)\<`TModel`\>[] \| `undefined`
+> **processor**(`event`, `context`): [`ProcessorReturn`](../type-aliases/ProcessorReturn.md)\<`TModel`\> \| `Promise`\<[`ProcessorReturn`](../type-aliases/ProcessorReturn.md)\<`TModel`\>\>
 
-Defined in: packages/client/src/core/event-processor/types.ts:67
+Defined in: packages/client/src/core/event-processor/types.ts:90
 
 The processor function
 
@@ -66,4 +66,4 @@ The processor function
 
 #### Returns
 
-[`ProcessorResult`](ProcessorResult.md)\<`TModel`\> \| [`ProcessorResult`](ProcessorResult.md)\<`TModel`\>[] \| `undefined`
+[`ProcessorReturn`](../type-aliases/ProcessorReturn.md)\<`TModel`\> \| `Promise`\<[`ProcessorReturn`](../type-aliases/ProcessorReturn.md)\<`TModel`\>\>

@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / CqrsClientSyncManager
 
@@ -17,7 +17,7 @@ Start/stop are managed internally by the client lifecycle.
 
 > `readonly` **connectivity**: [`ConnectivityManager`](../classes/ConnectivityManager.md)
 
-Defined in: packages/client/src/createCqrsClient.ts:55
+Defined in: packages/client/src/createCqrsClient.ts:59
 
 Connectivity manager for network status observation.
 
@@ -35,7 +35,7 @@ Get sync status for all collections.
 
 [`CollectionSyncStatus`](CollectionSyncStatus.md)[]
 
-***
+---
 
 ### getCollectionStatus()
 
@@ -55,7 +55,43 @@ Get sync status for a specific collection.
 
 [`CollectionSyncStatus`](CollectionSyncStatus.md) \| `undefined`
 
-***
+---
+
+### setAuthenticated()
+
+> **setAuthenticated**(`params`): `Promise`\<\{ `resumed`: `boolean`; \}\>
+
+Defined in: packages/client/src/createCqrsClient.ts:55
+
+Signal that the user has been authenticated.
+
+#### Parameters
+
+##### params
+
+###### userId
+
+`string`
+
+#### Returns
+
+`Promise`\<\{ `resumed`: `boolean`; \}\>
+
+---
+
+### setUnauthenticated()
+
+> **setUnauthenticated**(): `Promise`\<`void`\>
+
+Defined in: packages/client/src/createCqrsClient.ts:57
+
+Signal that the user has logged out.
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
 
 ### syncCollection()
 

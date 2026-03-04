@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](README.md)
 
-***
+---
 
 # @cqrs-toolkit/client
 
@@ -15,7 +15,6 @@ Offline-capable CQRS/event-sourcing client library.
 
 ## Classes
 
-- [BaseAdapter](classes/BaseAdapter.md)
 - [CacheManager](classes/CacheManager.md)
 - [CommandQueue](classes/CommandQueue.md)
 - [CommandSendError](classes/CommandSendError.md)
@@ -82,6 +81,7 @@ Offline-capable CQRS/event-sourcing client library.
 - [ICommandQueue](interfaces/ICommandQueue.md)
 - [ICommandSender](interfaces/ICommandSender.md)
 - [IDomainExecutor](interfaces/IDomainExecutor.md)
+- [InvalidateSignal](interfaces/InvalidateSignal.md)
 - [IStorage](interfaces/IStorage.md)
 - [LibraryEvent](interfaces/LibraryEvent.md)
 - [LibraryEventPayloads](interfaces/LibraryEventPayloads.md)
@@ -90,6 +90,7 @@ Offline-capable CQRS/event-sourcing client library.
 - [NetworkConfig](interfaces/NetworkConfig.md)
 - [ParsedEvent](interfaces/ParsedEvent.md)
 - [PostProcessPlan](interfaces/PostProcessPlan.md)
+- [ProcessEventResult](interfaces/ProcessEventResult.md)
 - [ProcessorContext](interfaces/ProcessorContext.md)
 - [ProcessorRegistration](interfaces/ProcessorRegistration.md)
 - [ProcessorResult](interfaces/ProcessorResult.md)
@@ -133,6 +134,7 @@ Offline-capable CQRS/event-sourcing client library.
 - [IPersistedEvent](type-aliases/IPersistedEvent.md)
 - [ISerializedEvent](type-aliases/ISerializedEvent.md)
 - [LibraryEventType](type-aliases/LibraryEventType.md)
+- [ProcessorReturn](type-aliases/ProcessorReturn.md)
 - [SessionState](type-aliases/SessionState.md)
 - [SqliteVfsType](type-aliases/SqliteVfsType.md)
 - [UpdateOperation](type-aliases/UpdateOperation.md)
@@ -141,11 +143,11 @@ Offline-capable CQRS/event-sourcing client library.
 
 ## Variables
 
-- [ALL\_TABLES](variables/ALL_TABLES.md)
-- [CACHE\_KEY\_NAMESPACE](variables/CACHE_KEY_NAMESPACE.md)
-- [CACHE\_KEY\_NS](variables/CACHE_KEY_NS.md)
-- [DEFAULT\_CONFIG](variables/DEFAULT_CONFIG.md)
-- [DEFAULT\_RETRY\_CONFIG](variables/DEFAULT_RETRY_CONFIG.md)
+- [ALL_TABLES](variables/ALL_TABLES.md)
+- [CACHE_KEY_NAMESPACE](variables/CACHE_KEY_NAMESPACE.md)
+- [CACHE_KEY_NS](variables/CACHE_KEY_NS.md)
+- [DEFAULT_CONFIG](variables/DEFAULT_CONFIG.md)
+- [DEFAULT_RETRY_CONFIG](variables/DEFAULT_RETRY_CONFIG.md)
 - [MIGRATIONS](variables/MIGRATIONS.md)
 
 ## Functions

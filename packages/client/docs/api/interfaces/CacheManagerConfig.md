@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / CacheManagerConfig
 
 # Interface: CacheManagerConfig
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:19
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:21
 
 Cache manager configuration.
 
@@ -16,20 +16,30 @@ Cache manager configuration.
 
 > `optional` **cacheConfig**: [`CacheConfig`](CacheConfig.md)
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:22
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:24
 
-***
+---
 
 ### eventBus
 
 > **eventBus**: [`EventBus`](../classes/EventBus.md)
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:21
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:23
 
-***
+---
 
 ### storage
 
 > **storage**: [`IStorage`](IStorage.md)
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:20
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:22
+
+---
+
+### windowId
+
+> **windowId**: `string`
+
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:26
+
+Unique identifier for this window/tab

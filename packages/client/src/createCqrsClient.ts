@@ -8,9 +8,8 @@
  */
 
 import { logProvider } from '@meticoeus/ddd-es'
-import assert from 'node:assert'
 import type { Observable } from 'rxjs'
-import type { AdapterStatus, IAdapter } from './adapters/base/BaseAdapter.js'
+import type { AdapterStatus, IAdapter } from './adapters/base/IAdapter.js'
 import { DedicatedWorkerAdapter } from './adapters/dedicated-worker/DedicatedWorkerAdapter.js'
 import { MainThreadAdapter } from './adapters/main-thread/MainThreadAdapter.js'
 import { OnlineOnlyAdapter } from './adapters/online-only/OnlineOnlyAdapter.js'
@@ -39,6 +38,7 @@ import type {
 } from './types/config.js'
 import { resolveConfig } from './types/config.js'
 import type { EventPersistence, LibraryEvent } from './types/events.js'
+import { assert } from './utils/assert.js'
 
 /**
  * Restricted view of SyncManager exposed to consumers.
@@ -51,6 +51,10 @@ export interface CqrsClientSyncManager {
   getAllStatus(): CollectionSyncStatus[]
   /** Force-sync a specific collection from the server. */
   syncCollection(collection: string): Promise<void>
+  /** Signal that the user has been authenticated. */
+  setAuthenticated(params: { userId: string }): Promise<{ resumed: boolean }>
+  /** Signal that the user has logged out. */
+  setUnauthenticated(): Promise<void>
   /** Connectivity manager for network status observation. */
   readonly connectivity: ConnectivityManager
 }
@@ -107,6 +111,8 @@ export class CqrsClient {
       getCollectionStatus: (collection) => sm.getCollectionStatus(collection),
       getAllStatus: () => sm.getAllStatus(),
       syncCollection: (collection) => sm.syncCollection(collection),
+      setAuthenticated: (params) => sm.setAuthenticated(params),
+      setUnauthenticated: () => sm.setUnauthenticated(),
       get connectivity() {
         return sm.getConnectivity()
       },
@@ -133,9 +139,9 @@ export class CqrsClient {
    * Stops sync, destroys components, and closes the adapter.
    */
   async close(): Promise<void> {
-    this.internalSyncManager.destroy()
+    await this.internalSyncManager.destroy()
     await this.queryManager.destroy()
-    this.internalCommandQueue.destroy()
+    await this.internalCommandQueue.destroy()
     await this.adapter.close()
   }
 }
@@ -189,83 +195,92 @@ export async function createCqrsClient(config: CqrsClientConfig): Promise<CqrsCl
   const adapter = createAdapterForMode(mode, resolved)
   await adapter.initialize()
 
-  // 2. Extract adapter resources
-  const { storage, eventBus } = adapter
+  // If anything after adapter.initialize() throws (e.g. syncManager.start()),
+  // close the adapter so its locks, storage, and workers aren't orphaned.
+  try {
+    // 2. Extract adapter resources
+    const { storage, eventBus } = adapter
 
-  // 3. Register event processors
-  const registry = new EventProcessorRegistry()
-  for (const registration of resolved.processors) {
-    registry.register(registration)
-  }
+    // 3. Register event processors
+    const registry = new EventProcessorRegistry()
+    for (const registration of resolved.processors) {
+      registry.register(registration)
+    }
 
-  // 4. Create core components
-  const cacheManager = new CacheManager({
-    storage,
-    eventBus,
-    cacheConfig: resolved.cache,
-  })
+    // 4. Create core components
+    const cacheManager = new CacheManager({
+      storage,
+      eventBus,
+      cacheConfig: resolved.cache,
+      windowId: crypto.randomUUID(),
+    })
+    await cacheManager.initialize()
 
-  const eventCache = new EventCache({
-    storage,
-    eventBus,
-  })
+    const eventCache = new EventCache({
+      storage,
+      eventBus,
+    })
 
-  const readModelStore = new ReadModelStore({
-    storage,
-  })
+    const readModelStore = new ReadModelStore({
+      storage,
+    })
 
-  const eventProcessorRunner = new EventProcessorRunner({
-    readModelStore,
-    eventBus,
-    registry,
-  })
+    const eventProcessorRunner = new EventProcessorRunner({
+      readModelStore,
+      eventBus,
+      registry,
+    })
 
-  const commandQueue = new CommandQueue({
-    storage,
-    eventBus,
-    domainExecutor: resolved.domainExecutor,
-    commandSender: resolved.commandSender,
-    retryConfig: resolved.retry,
-    retainTerminal: resolved.retainTerminal,
-    onCommandResponse: createCommandResponseHandler(
+    const commandQueue = new CommandQueue({
+      storage,
+      eventBus,
+      domainExecutor: resolved.domainExecutor,
+      commandSender: resolved.commandSender,
+      retryConfig: resolved.retry,
+      retainTerminal: resolved.retainTerminal,
+      onCommandResponse: createCommandResponseHandler(
+        cacheManager,
+        eventProcessorRunner,
+        resolved.collections,
+      ),
+    })
+
+    const queryManager = new QueryManager({
+      eventBus,
       cacheManager,
+      readModelStore,
+    })
+
+    const syncManager = new SyncManager({
+      eventBus,
+      sessionManager: adapter.sessionManager,
+      commandQueue,
+      eventCache,
+      cacheManager,
+      eventProcessor: eventProcessorRunner,
+      readModelStore,
+      networkConfig: resolved.network,
+      collections: resolved.collections,
+    })
+
+    // 5. Start sync
+    await syncManager.start()
+
+    return new CqrsClient(
+      adapter,
+      cacheManager,
+      commandQueue,
+      syncManager,
+      queryManager,
+      eventCache,
+      readModelStore,
       eventProcessorRunner,
-      resolved.collections,
-    ),
-  })
-
-  const queryManager = new QueryManager({
-    eventBus,
-    cacheManager,
-    readModelStore,
-  })
-
-  const syncManager = new SyncManager({
-    eventBus,
-    sessionManager: adapter.sessionManager,
-    commandQueue,
-    eventCache,
-    cacheManager,
-    eventProcessor: eventProcessorRunner,
-    readModelStore,
-    networkConfig: resolved.network,
-    collections: resolved.collections,
-  })
-
-  // 5. Start sync
-  await syncManager.start()
-
-  return new CqrsClient(
-    adapter,
-    cacheManager,
-    commandQueue,
-    syncManager,
-    queryManager,
-    eventCache,
-    readModelStore,
-    eventProcessorRunner,
-    mode,
-  )
+      mode,
+    )
+  } catch (error) {
+    await adapter.close()
+    throw error
+  }
 }
 
 /**
@@ -309,7 +324,8 @@ interface ResponseEvent {
   streamId: string
   data: unknown
   persistence?: EventPersistence
-  revision?: string
+  revision: string
+  position: string
 }
 
 /**
@@ -333,7 +349,11 @@ function isResponseEvent(value: unknown): value is ResponseEvent {
     typeof value.type === 'string' &&
     'streamId' in value &&
     typeof value.streamId === 'string' &&
-    'data' in value
+    'data' in value &&
+    'revision' in value &&
+    typeof value.revision === 'string' &&
+    'position' in value &&
+    typeof value.position === 'string'
   )
 }
 
@@ -377,7 +397,8 @@ function createCommandResponseHandler(
         persistence: raw.persistence ?? 'Permanent',
         data: raw.data,
         commandId: command.commandId,
-        revision: raw.revision,
+        revision: BigInt(raw.revision),
+        position: BigInt(raw.position),
         cacheKey,
       }
 

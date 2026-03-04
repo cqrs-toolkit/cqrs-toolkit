@@ -21,7 +21,7 @@ export const noteProcessors: ProcessorRegistration[] = [
           body: data.body,
           createdAt: data.createdAt,
           updatedAt: data.createdAt,
-          latestRevision: ctx.revision ?? '0',
+          latestRevision: String(ctx.revision),
         } satisfies Note,
       },
       isServerUpdate: ctx.persistence !== 'Anticipated',
@@ -37,7 +37,7 @@ export const noteProcessors: ProcessorRegistration[] = [
         data: {
           title: data.title,
           updatedAt: data.updatedAt,
-          ...(ctx.revision !== undefined ? { latestRevision: ctx.revision } : {}),
+          latestRevision: String(ctx.revision),
         },
       },
       isServerUpdate: ctx.persistence !== 'Anticipated',
@@ -53,7 +53,7 @@ export const noteProcessors: ProcessorRegistration[] = [
         data: {
           body: data.body,
           updatedAt: data.updatedAt,
-          ...(ctx.revision !== undefined ? { latestRevision: ctx.revision } : {}),
+          latestRevision: String(ctx.revision),
         },
       },
       isServerUpdate: ctx.persistence !== 'Anticipated',

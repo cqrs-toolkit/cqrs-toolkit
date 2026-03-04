@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../../../../globals.md) / [testing](../README.md) / createExpiredCacheKey
 
@@ -8,7 +8,7 @@
 
 > **createExpiredCacheKey**(`overrides?`): [`CacheKeyRecord`](../../../../interfaces/CacheKeyRecord.md)
 
-Defined in: packages/client/src/testing/factories/cacheKey.ts:44
+Defined in: packages/client/src/testing/factories/cacheKey.ts:45
 
 Create an expired cache key.
 

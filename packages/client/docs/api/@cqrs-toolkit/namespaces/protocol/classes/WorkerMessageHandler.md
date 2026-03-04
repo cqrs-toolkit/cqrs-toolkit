@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / WorkerMessageHandler
 
 # Class: WorkerMessageHandler
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:317
+Defined in: packages/client/src/protocol/MessageChannel.ts:324
 
 Message handler for worker-side communication.
 
@@ -16,7 +16,7 @@ Message handler for worker-side communication.
 
 > **new WorkerMessageHandler**(`config?`): `WorkerMessageHandler`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:327
+Defined in: packages/client/src/protocol/MessageChannel.ts:342
 
 #### Parameters
 
@@ -36,7 +36,7 @@ Defined in: packages/client/src/protocol/MessageChannel.ts:327
 
 > **get** **instanceId**(): `string`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:338
+Defined in: packages/client/src/protocol/MessageChannel.ts:353
 
 Get the worker instance ID.
 
@@ -50,7 +50,7 @@ Get the worker instance ID.
 
 > **broadcastEvent**(`eventName`, `payload`): `void`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:388
+Defined in: packages/client/src/protocol/MessageChannel.ts:416
 
 Broadcast an event to all connected windows.
 
@@ -72,13 +72,13 @@ Event payload
 
 `void`
 
-***
+---
 
 ### getDeadWindows()
 
 > **getDeadWindows**(`ttlMs`): `string`[]
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:441
+Defined in: packages/client/src/protocol/MessageChannel.ts:469
 
 Get dead windows (exceeded TTL).
 
@@ -96,13 +96,13 @@ Time-to-live in milliseconds
 
 Array of dead window IDs
 
-***
+---
 
 ### getRegisteredWindows()
 
 > **getRegisteredWindows**(): `string`[]
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:416
+Defined in: packages/client/src/protocol/MessageChannel.ts:444
 
 Get registered window IDs.
 
@@ -110,13 +110,13 @@ Get registered window IDs.
 
 `string`[]
 
-***
+---
 
 ### handleConnect()
 
 > **handleConnect**(`port`): `void`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:347
+Defined in: packages/client/src/protocol/MessageChannel.ts:362
 
 Handle a new connection (SharedWorker).
 
@@ -132,13 +132,13 @@ MessagePort from the connect event
 
 `void`
 
-***
+---
 
 ### handleMessageEvent()
 
 > **handleMessageEvent**(`event`): `void`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:368
+Defined in: packages/client/src/protocol/MessageChannel.ts:383
 
 Handle a message (Dedicated Worker).
 
@@ -154,13 +154,13 @@ Message event
 
 `void`
 
-***
+---
 
 ### isWindowAlive()
 
 > **isWindowAlive**(`windowId`, `ttlMs`): `boolean`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:427
+Defined in: packages/client/src/protocol/MessageChannel.ts:455
 
 Check if a window is still alive (within TTL).
 
@@ -184,13 +184,35 @@ Time-to-live in milliseconds
 
 Whether the window is alive
 
-***
+---
+
+### onWindowRemoved()
+
+> **onWindowRemoved**(`callback`): `void`
+
+Defined in: packages/client/src/protocol/MessageChannel.ts:505
+
+Register a callback for when a window is removed.
+
+#### Parameters
+
+##### callback
+
+(`windowId`) => `Promise`\<`void`\>
+
+Async callback receiving the removed window ID
+
+#### Returns
+
+`void`
+
+---
 
 ### registerMethod()
 
 > **registerMethod**(`method`, `handler`): `void`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:378
+Defined in: packages/client/src/protocol/MessageChannel.ts:403
 
 Register a method handler.
 
@@ -204,7 +226,7 @@ Method name
 
 ##### handler
 
-(`args`) => `Promise`\<`unknown`\>
+(`args`, `context`) => `Promise`\<`unknown`\>
 
 Handler function
 
@@ -212,15 +234,15 @@ Handler function
 
 `void`
 
-***
+---
 
 ### removeWindow()
 
-> **removeWindow**(`windowId`): `void`
+> **removeWindow**(`windowId`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:459
+Defined in: packages/client/src/protocol/MessageChannel.ts:487
 
-Remove a window registration.
+Remove a window registration and notify listeners.
 
 #### Parameters
 
@@ -232,15 +254,15 @@ Window identifier
 
 #### Returns
 
-`void`
+`Promise`\<`void`\>
 
-***
+---
 
 ### sendResponse()
 
 > **sendResponse**(`response`): `void`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:405
+Defined in: packages/client/src/protocol/MessageChannel.ts:433
 
 Send response to requester (Dedicated Worker).
 
@@ -251,6 +273,42 @@ Send response to requester (Dedicated Worker).
 [`WorkerMessage`](../type-aliases/WorkerMessage.md)
 
 Response message
+
+#### Returns
+
+`void`
+
+---
+
+### sendWorkerInstance()
+
+> **sendWorkerInstance**(): `void`
+
+Defined in: packages/client/src/protocol/MessageChannel.ts:390
+
+Send worker-instance message (Dedicated Worker startup).
+
+#### Returns
+
+`void`
+
+---
+
+### setRestoreHoldsHandler()
+
+> **setRestoreHoldsHandler**(`handler`): `void`
+
+Defined in: packages/client/src/protocol/MessageChannel.ts:514
+
+Register the handler for restore-holds requests.
+
+#### Parameters
+
+##### handler
+
+(`data`) => `Promise`\<\{ `failedKeys`: `string`[]; `restoredKeys`: `string`[]; \}\>
+
+Handler that restores holds and returns results
 
 #### Returns
 

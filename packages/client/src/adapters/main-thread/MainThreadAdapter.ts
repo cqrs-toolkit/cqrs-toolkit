@@ -6,7 +6,6 @@
  * Only one tab may be open at a time (enforced via Web Locks API or BroadcastChannel).
  */
 
-import assert from 'node:assert'
 import { Observable } from 'rxjs'
 import { EventBus } from '../../core/events/EventBus.js'
 import { SessionManager } from '../../core/session/SessionManager.js'
@@ -14,8 +13,9 @@ import type { IStorage } from '../../storage/IStorage.js'
 import { SQLiteStorage } from '../../storage/SQLiteStorage.js'
 import type { ExecutionMode, ResolvedConfig } from '../../types/config.js'
 import type { LibraryEvent } from '../../types/events.js'
+import { assert } from '../../utils/assert.js'
 import { generateId } from '../../utils/uuid.js'
-import type { AdapterStatus } from '../base/BaseAdapter.js'
+import type { AdapterStatus, IAdapter } from '../base/IAdapter.js'
 
 /**
  * Error thrown when tab lock cannot be acquired.
@@ -35,7 +35,7 @@ export class TabLockError extends Error {
  * - Uses opfs-sahpool VFS for async-safe access
  * - Enforces single-tab operation via Web Locks API or BroadcastChannel
  */
-export class MainThreadAdapter {
+export class MainThreadAdapter implements IAdapter {
   readonly mode: ExecutionMode = 'main-thread'
 
   private readonly config: ResolvedConfig
@@ -48,6 +48,7 @@ export class MainThreadAdapter {
 
   private lockController: AbortController | undefined
   private broadcastChannel: BroadcastChannel | undefined
+  private beforeUnloadHandler: (() => void) | undefined
 
   constructor(config: ResolvedConfig) {
     this.config = config
@@ -94,8 +95,8 @@ export class MainThreadAdapter {
 
       // Create SQLite storage with opfs-sahpool VFS (async-safe for main thread)
       this._storage = new SQLiteStorage({
-        vfs: 'opfs-sahpool',
-        dbName: 'cqrs-client',
+        vfs: this.config.storage.vfs ?? 'opfs-sahpool',
+        dbName: this.config.storage.dbName ?? 'cqrs-client',
       })
       await this._storage.initialize()
 
@@ -124,6 +125,9 @@ export class MainThreadAdapter {
     if (this._status === 'closed') {
       return
     }
+
+    // Remove beforeunload listener
+    this.removeBeforeUnload()
 
     // Release tab lock
     this.releaseTabLock()
@@ -201,10 +205,13 @@ export class MainThreadAdapter {
         const data = event.data as { type: string; tabId: string }
 
         if (data.type === 'lock-request' && data.tabId !== this.tabId) {
-          // Another tab is requesting the lock
           if (lockAcquired) {
             // We have the lock, deny the request
             this.broadcastChannel?.postMessage({ type: 'lock-denied', tabId: this.tabId })
+          } else if (data.tabId < this.tabId) {
+            // Other tab has priority (lower ID) — yield
+            clearTimeout(responseTimeout)
+            resolve(false)
           }
         } else if (data.type === 'lock-denied') {
           // Another tab has the lock
@@ -241,9 +248,17 @@ export class MainThreadAdapter {
 
   private setupBeforeUnload(): void {
     if (typeof window !== 'undefined') {
-      window.addEventListener('beforeunload', () => {
+      this.beforeUnloadHandler = () => {
         this.releaseTabLock()
-      })
+      }
+      window.addEventListener('beforeunload', this.beforeUnloadHandler)
+    }
+  }
+
+  private removeBeforeUnload(): void {
+    if (this.beforeUnloadHandler && typeof window !== 'undefined') {
+      window.removeEventListener('beforeunload', this.beforeUnloadHandler)
+      this.beforeUnloadHandler = undefined
     }
   }
 }

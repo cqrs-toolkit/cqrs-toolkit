@@ -77,9 +77,18 @@ export class SyncManager {
   /** Queue for serializing WebSocket event processing. */
   private readonly wsEventQueue: IPersistedEvent[] = []
   private processingWsEvents = false
+  private wsProcessingPromise: Promise<void> | undefined
 
   /** Single-flight guard for startSync — prevents overlapping syncs and captures rejections. */
   private startSyncPromise: Promise<void> | undefined
+
+  /** Highest applied revision per stream. Initialized during seeding, advanced on happy-path processing. */
+  private readonly knownRevisions = new Map<string, bigint>()
+
+  /** Debounced collection refetch timers for invalidation responses. */
+  private readonly pendingRefetches = new Map<string, ReturnType<typeof setTimeout>>()
+
+  private static readonly INVALIDATION_REFETCH_DELAY_MS = 500
 
   constructor(config: SyncManagerConfig) {
     this.eventBus = config.eventBus
@@ -111,6 +120,10 @@ export class SyncManager {
   /**
    * Start the sync manager.
    * Begins connectivity monitoring and initial sync.
+   *
+   * Offline-first startup contract: SessionManager.initialize() sets networkPaused=true,
+   * so start() will not trigger sync until the consumer calls setAuthenticated().
+   * This allows the app to render immediately from cached data while auth resolves.
    */
   async start(): Promise<void> {
     // Recreate destroy$ so takeUntil subscriptions work after a stop()/start() cycle
@@ -167,7 +180,7 @@ export class SyncManager {
    * Terminates subscriptions, aborts in-flight fetches, disconnects WebSocket.
    * Connectivity monitoring is paused but not destroyed.
    */
-  stop(): void {
+  async stop(): Promise<void> {
     this.destroy$.next()
     this.destroy$.complete()
 
@@ -183,16 +196,28 @@ export class SyncManager {
     // Clear pending WS events
     this.wsEventQueue.length = 0
 
+    // Cancel pending invalidation refetches
+    for (const timer of this.pendingRefetches.values()) clearTimeout(timer)
+    this.pendingRefetches.clear()
+
     this.disconnectWebSocket()
     this.connectivity.stop()
+
+    // Wait for in-flight async operations to settle.
+    // allSettled because aborted fetches may reject — we want to wait for
+    // settlement, not propagate errors that are already handled internally.
+    const pending = [this.startSyncPromise, this.wsProcessingPromise].filter(Boolean)
+    if (pending.length > 0) {
+      await Promise.allSettled(pending)
+    }
   }
 
   /**
    * Permanently destroy the sync manager. Not reversible.
    * Calls stop(), then destroys the connectivity manager.
    */
-  destroy(): void {
-    this.stop()
+  async destroy(): Promise<void> {
+    await this.stop()
     this.connectivity.destroy()
   }
 
@@ -227,6 +252,22 @@ export class SyncManager {
     }
 
     await this.seedCollection(config)
+  }
+
+  /**
+   * Signal that the user has been authenticated.
+   * Delegates to SessionManager and returns whether the session was resumed.
+   */
+  async setAuthenticated(params: { userId: string }): Promise<{ resumed: boolean }> {
+    return this.sessionManager.signalAuthenticated(params.userId)
+  }
+
+  /**
+   * Signal that the user has logged out.
+   * Delegates to SessionManager.
+   */
+  async setUnauthenticated(): Promise<void> {
+    await this.sessionManager.signalLoggedOut()
   }
 
   /**
@@ -269,6 +310,13 @@ export class SyncManager {
 
     // Clear pending WS events
     this.wsEventQueue.length = 0
+
+    // Clear revision tracking
+    this.knownRevisions.clear()
+
+    // Cancel pending invalidation refetches
+    for (const timer of this.pendingRefetches.values()) clearTimeout(timer)
+    this.pendingRefetches.clear()
 
     // Pause command queue
     this.commandQueue.pause()
@@ -371,6 +419,7 @@ export class SyncManager {
     pageSize: number,
   ): Promise<void> {
     let cursor: string | null = null
+    let totalRecords = 0
 
     do {
       const page = await collection.fetchSeedRecords!(ctx, cursor, pageSize)
@@ -380,10 +429,18 @@ export class SyncManager {
         for (const record of page.records) {
           await this.readModelStore.setServerData(collection.name, record.id, record.data, cacheKey)
         }
+        totalRecords += page.records.length
       }
 
+      if (page.records.length < pageSize) break
       cursor = page.nextCursor
     } while (cursor)
+
+    this.eventBus.emit('sync:seed-completed', {
+      collection: collection.name,
+      cacheKey,
+      recordCount: totalRecords,
+    })
   }
 
   /**
@@ -410,13 +467,31 @@ export class SyncManager {
         const parsedEvents = page.events.map((e) => this.toParsedEvent(e, cacheKey))
         await this.eventProcessor.processEvents(parsedEvents)
 
+        // Track highest revision per stream for gap detection during WS processing
+        for (const event of page.events) {
+          const persistence = normalizeEventPersistence(event)
+          if (persistence === 'Permanent') {
+            const current = this.knownRevisions.get(event.streamId)
+            if (current === undefined || event.revision > current) {
+              this.knownRevisions.set(event.streamId, event.revision)
+            }
+          }
+        }
+
         eventCount += page.events.length
       }
 
+      if (page.events.length < pageSize) break
       cursor = page.nextCursor
     } while (cursor)
 
     logProvider.log.debug({ collection: collection.name, eventCount }, 'Event-based seed completed')
+
+    this.eventBus.emit('sync:seed-completed', {
+      collection: collection.name,
+      cacheKey,
+      recordCount: eventCount,
+    })
   }
 
   /**
@@ -551,7 +626,7 @@ export class SyncManager {
   private enqueueWsEvent(event: IPersistedEvent): void {
     this.wsEventQueue.push(event)
     if (!this.processingWsEvents) {
-      this.processWsEventQueue()
+      this.wsProcessingPromise = this.processWsEventQueue()
     }
   }
 
@@ -574,6 +649,7 @@ export class SyncManager {
       }
     } finally {
       this.processingWsEvents = false
+      this.wsProcessingPromise = undefined
     }
   }
 
@@ -583,7 +659,7 @@ export class SyncManager {
    */
   private async handleWebSocketEvent(event: IPersistedEvent): Promise<void> {
     const matchingCollections = this.getMatchingCollections(event.streamId)
-    const [primaryCollection, ...rest] = matchingCollections
+    const [primaryCollection] = matchingCollections
     if (!primaryCollection) return
 
     const cacheKey = await this.cacheManager.acquire(primaryCollection.name)
@@ -591,23 +667,55 @@ export class SyncManager {
     const cached = await this.eventCache.cacheServerEvent(event, { cacheKey })
     if (!cached) return // Duplicate
 
-    const gaps = this.eventCache.getStreamGaps(event.streamId)
-    if (gaps.length > 0) {
-      // Gap detected — repair if not already repairing this stream
-      if (!this.repairing.has(event.streamId)) {
-        await this.repairStreamGap(event.streamId, primaryCollection.name, cacheKey)
+    const persistence = normalizeEventPersistence(event)
+
+    // Stateful events skip revision checks — applied best-effort and processed immediately (spec §4.7)
+    if (persistence === 'Stateful') {
+      const parsed = this.toParsedEvent(event, cacheKey)
+      const result = await this.eventProcessor.processEvent(parsed)
+
+      if (result.invalidated) {
+        for (const collection of matchingCollections) {
+          this.scheduleCollectionRefetch(collection.name)
+        }
       }
-      // Either repair processed this event, or it's buffered for an in-progress repair
+
+      for (const collection of matchingCollections) {
+        this.updateCollectionStatus(collection.name, {
+          lastSyncedPosition: event.position,
+        })
+      }
       return
     }
 
-    // Happy path — no gaps, process immediately
-    const parsed = this.toParsedEvent(event, cacheKey)
-    await this.eventProcessor.processEvent(parsed)
+    // Permanent events: check revision ordering.
+    // Default -1n represents "no stream" — the state before the first event (revision 0).
+    const expectedRevision = (this.knownRevisions.get(event.streamId) ?? -1n) + 1n
 
-    // Clear this event from gap buffer and advance known revision
+    if (event.revision !== expectedRevision) {
+      // Gap or out-of-order — event is already in GapBuffer from caching, trigger repair
+      if (!this.repairing.has(event.streamId)) {
+        await this.repairStreamGap(event.streamId, primaryCollection.name, cacheKey)
+      }
+      return
+    }
+
+    // Happy path — expected revision, process immediately
+    const parsed = this.toParsedEvent(event, cacheKey)
+    const result = await this.eventProcessor.processEvent(parsed)
+
+    // Advance known revision
+    this.knownRevisions.set(event.streamId, event.revision)
+
+    // Clear this event from gap buffer and advance known position
     this.eventCache.clearGapBuffer(event.streamId, event.revision)
     this.eventCache.setKnownPosition(event.streamId, event.revision)
+
+    if (result.invalidated) {
+      for (const collection of matchingCollections) {
+        this.scheduleCollectionRefetch(collection.name)
+      }
+    }
 
     for (const collection of matchingCollections) {
       this.updateCollectionStatus(collection.name, {
@@ -662,15 +770,30 @@ export class SyncManager {
    */
   private async processBufferedEventsForStream(streamId: string, cacheKey: string): Promise<void> {
     const buffered = this.eventCache.getBufferedEvents(streamId)
+    let anyInvalidated = false
+
     for (const entry of buffered) {
       const parsed = this.toParsedEvent(entry.event, cacheKey)
-      await this.eventProcessor.processEvent(parsed)
+      const result = await this.eventProcessor.processEvent(parsed)
+      if (result.invalidated) {
+        anyInvalidated = true
+      }
     }
 
     const last = buffered[buffered.length - 1]
     if (last) {
       this.eventCache.clearGapBuffer(streamId, last.position)
       this.eventCache.setKnownPosition(streamId, last.position)
+
+      // Update known revision from the last buffered event's revision
+      this.knownRevisions.set(streamId, last.event.revision)
+    }
+
+    if (anyInvalidated) {
+      const matchingCollections = this.getMatchingCollections(streamId)
+      for (const collection of matchingCollections) {
+        this.scheduleCollectionRefetch(collection.name)
+      }
     }
   }
 
@@ -685,9 +808,28 @@ export class SyncManager {
       streamId: event.streamId,
       persistence,
       data: event.data,
-      revision: persistence !== 'Stateful' ? String(event.revision) : undefined,
+      revision: event.revision,
+      position: event.position,
       cacheKey,
     }
+  }
+
+  /**
+   * Schedule a debounced refetch for a collection after an invalidation signal.
+   * Repeated invalidations within the delay window are coalesced into a single refetch.
+   */
+  private scheduleCollectionRefetch(collectionName: string): void {
+    const existing = this.pendingRefetches.get(collectionName)
+    if (existing !== undefined) clearTimeout(existing)
+
+    const timer = setTimeout(() => {
+      this.pendingRefetches.delete(collectionName)
+      this.syncCollection(collectionName).catch((err) => {
+        logProvider.log.error({ err, collection: collectionName }, 'Invalidation refetch failed')
+      })
+    }, SyncManager.INVALIDATION_REFETCH_DELAY_MS)
+
+    this.pendingRefetches.set(collectionName, timer)
   }
 
   /**

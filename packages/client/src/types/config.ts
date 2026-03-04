@@ -79,6 +79,8 @@ export interface CacheConfig {
   defaultTtl?: number
   /** Eviction policy */
   evictionPolicy?: 'lru' | 'fifo'
+  /** Maximum number of windows/tabs that can hold cache keys simultaneously */
+  maxWindows?: number
 }
 
 /**
@@ -278,6 +280,7 @@ export const DEFAULT_CONFIG = {
     maxCacheKeys: 1000,
     defaultTtl: 30 * 60 * 1000, // 30 minutes
     evictionPolicy: 'lru' as const,
+    maxWindows: 10,
   },
   network: {
     timeout: 30000,

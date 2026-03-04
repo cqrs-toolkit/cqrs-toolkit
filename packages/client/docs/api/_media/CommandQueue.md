@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / CommandQueue
 
@@ -74,7 +74,7 @@ Command ID to cancel
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md).[`cancelCommand`](../interfaces/ICommandQueue.md#cancelcommand)
 
-***
+---
 
 ### commandEvents$()
 
@@ -103,21 +103,22 @@ Observable of events for that command
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md).[`commandEvents$`](../interfaces/ICommandQueue.md#commandevents)
 
-***
+---
 
 ### destroy()
 
-> **destroy**(): `void`
+> **destroy**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/command-queue/CommandQueue.ts:583
+Defined in: packages/client/src/core/command-queue/CommandQueue.ts:584
 
 Destroy the command queue and release resources.
+Waits for any in-flight command processing to settle before returning.
 
 #### Returns
 
-`void`
+`Promise`\<`void`\>
 
-***
+---
 
 ### enqueue()
 
@@ -164,7 +165,7 @@ Enqueue result with validation status
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md).[`enqueue`](../interfaces/ICommandQueue.md#enqueue)
 
-***
+---
 
 ### enqueueAndWait()
 
@@ -213,7 +214,7 @@ Combined enqueue and completion result
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md).[`enqueueAndWait`](../interfaces/ICommandQueue.md#enqueueandwait)
 
-***
+---
 
 ### getCommand()
 
@@ -241,7 +242,7 @@ Command record or undefined
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md).[`getCommand`](../interfaces/ICommandQueue.md#getcommand)
 
-***
+---
 
 ### isPaused()
 
@@ -259,7 +260,7 @@ Check if command processing is paused.
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md).[`isPaused`](../interfaces/ICommandQueue.md#ispaused)
 
-***
+---
 
 ### listCommands()
 
@@ -287,7 +288,7 @@ Matching commands
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md).[`listCommands`](../interfaces/ICommandQueue.md#listcommands)
 
-***
+---
 
 ### pause()
 
@@ -305,7 +306,7 @@ Pause command processing.
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md).[`pause`](../interfaces/ICommandQueue.md#pause)
 
-***
+---
 
 ### processPendingCommands()
 
@@ -324,7 +325,7 @@ Called by the sync manager when network is available.
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md).[`processPendingCommands`](../interfaces/ICommandQueue.md#processpendingcommands)
 
-***
+---
 
 ### resume()
 
@@ -342,7 +343,7 @@ Resume command processing.
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md).[`resume`](../interfaces/ICommandQueue.md#resume)
 
-***
+---
 
 ### retryCommand()
 
@@ -368,7 +369,7 @@ Command ID to retry
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md).[`retryCommand`](../interfaces/ICommandQueue.md#retrycommand)
 
-***
+---
 
 ### waitForCompletion()
 
