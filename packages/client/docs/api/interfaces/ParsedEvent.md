@@ -52,17 +52,17 @@ Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:34
 
 ---
 
-### position
+### position?
 
-> **position**: `bigint`
+> `optional` **position**: `bigint`
 
 Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:38
 
 ---
 
-### revision
+### revision?
 
-> **revision**: `bigint`
+> `optional` **revision**: `bigint`
 
 Defined in: packages/client/src/core/event-processor/EventProcessorRunner.ts:37
 

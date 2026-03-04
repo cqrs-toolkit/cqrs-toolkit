@@ -72,23 +72,23 @@ Event persistence type
 
 ---
 
-### position
+### position?
 
-> **position**: `bigint`
+> `optional` **position**: `bigint`
 
 Defined in: packages/client/src/core/event-processor/types.ts:67
 
-Global position of the event
+Global position of the event (absent for anticipated events)
 
 ---
 
-### revision
+### revision?
 
-> **revision**: `bigint`
+> `optional` **revision**: `bigint`
 
 Defined in: packages/client/src/core/event-processor/types.ts:65
 
-Stream revision of the event
+Stream revision of the event (absent for anticipated events)
 
 ---
 

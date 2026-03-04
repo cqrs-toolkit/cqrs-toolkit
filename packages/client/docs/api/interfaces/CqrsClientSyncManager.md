@@ -6,7 +6,7 @@
 
 # Interface: CqrsClientSyncManager
 
-Defined in: packages/client/src/createCqrsClient.ts:47
+Defined in: packages/client/src/createCqrsClient.ts:48
 
 Restricted view of SyncManager exposed to consumers.
 Start/stop are managed internally by the client lifecycle.
@@ -17,7 +17,7 @@ Start/stop are managed internally by the client lifecycle.
 
 > `readonly` **connectivity**: [`ConnectivityManager`](../classes/ConnectivityManager.md)
 
-Defined in: packages/client/src/createCqrsClient.ts:59
+Defined in: packages/client/src/createCqrsClient.ts:60
 
 Connectivity manager for network status observation.
 
@@ -27,7 +27,7 @@ Connectivity manager for network status observation.
 
 > **getAllStatus**(): [`CollectionSyncStatus`](CollectionSyncStatus.md)[]
 
-Defined in: packages/client/src/createCqrsClient.ts:51
+Defined in: packages/client/src/createCqrsClient.ts:52
 
 Get sync status for all collections.
 
@@ -41,7 +41,7 @@ Get sync status for all collections.
 
 > **getCollectionStatus**(`collection`): [`CollectionSyncStatus`](CollectionSyncStatus.md) \| `undefined`
 
-Defined in: packages/client/src/createCqrsClient.ts:49
+Defined in: packages/client/src/createCqrsClient.ts:50
 
 Get sync status for a specific collection.
 
@@ -61,7 +61,7 @@ Get sync status for a specific collection.
 
 > **setAuthenticated**(`params`): `Promise`\<\{ `resumed`: `boolean`; \}\>
 
-Defined in: packages/client/src/createCqrsClient.ts:55
+Defined in: packages/client/src/createCqrsClient.ts:56
 
 Signal that the user has been authenticated.
 
@@ -83,7 +83,7 @@ Signal that the user has been authenticated.
 
 > **setUnauthenticated**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/createCqrsClient.ts:57
+Defined in: packages/client/src/createCqrsClient.ts:58
 
 Signal that the user has logged out.
 
@@ -97,7 +97,7 @@ Signal that the user has logged out.
 
 > **syncCollection**(`collection`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/createCqrsClient.ts:53
+Defined in: packages/client/src/createCqrsClient.ts:54
 
 Force-sync a specific collection from the server.
 

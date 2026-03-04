@@ -641,6 +641,29 @@ describe('CacheManager', () => {
       expect(await cacheManager.getCount()).toBe(2)
     })
   })
+
+  describe('onSessionDestroyed', () => {
+    it('deletes all cache keys from storage', async () => {
+      await cacheManager.acquire('collection-1')
+      await cacheManager.acquire('collection-2')
+      expect(await cacheManager.getCount()).toBe(2)
+
+      await cacheManager.onSessionDestroyed()
+
+      expect(await cacheManager.getCount()).toBe(0)
+    })
+
+    it('clears in-memory holds and registered windows', async () => {
+      const key = await cacheManager.acquire('todos', undefined, { hold: true })
+
+      await cacheManager.onSessionDestroyed()
+
+      // Re-create cache key — hold should start fresh (not carry over)
+      const newKey = await cacheManager.acquire('todos')
+      const record = await cacheManager.get(newKey)
+      expect(record?.holdCount).toBe(0)
+    })
+  })
 })
 
 describe('deriveCacheKey', () => {

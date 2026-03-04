@@ -330,4 +330,36 @@ describe('QueryManager', () => {
       expect(cacheKey?.holdCount).toBe(0)
     })
   })
+
+  describe('onSessionDestroyed', () => {
+    it('clears all active holds without calling cacheManager.release()', async () => {
+      const result = await queryManager.getById<Todo>('todos', 'todo-1')
+      await queryManager.hold(result.cacheKey)
+      await queryManager.hold(result.cacheKey) // refcount = 2 internally
+
+      queryManager.onSessionDestroyed()
+
+      // Internal tracking was cleared — release should be a no-op (no error, no call to cacheManager)
+      // Verify by doing a release — it should not throw or call through
+      await queryManager.release(result.cacheKey) // no-op since activeHolds was cleared
+
+      // Hold count in storage should still be 1 (we didn't call cacheManager.release)
+      const cacheKey = await cacheManager.get(result.cacheKey)
+      expect(cacheKey?.holdCount).toBe(1)
+    })
+  })
+
+  describe('releaseForCacheKey', () => {
+    it('removes hold tracking for an evicted cache key', async () => {
+      const result = await queryManager.getById<Todo>('todos', 'todo-1')
+      await queryManager.hold(result.cacheKey)
+      await queryManager.hold(result.cacheKey)
+
+      queryManager.releaseForCacheKey(result.cacheKey)
+
+      // Hold count in storage is unchanged (key was evicted, no release call)
+      const cacheKey = await cacheManager.get(result.cacheKey)
+      expect(cacheKey?.holdCount).toBe(1)
+    })
+  })
 })

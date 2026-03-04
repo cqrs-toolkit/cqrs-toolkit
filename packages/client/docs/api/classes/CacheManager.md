@@ -140,7 +140,7 @@ Number of cache keys evicted
 
 > **evictExpired**(): `Promise`\<`number`\>
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:446
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:459
 
 Evict expired cache keys.
 Should be called periodically (e.g., on activity).
@@ -301,6 +301,21 @@ Cache key identifier
 `Promise`\<`boolean`\>
 
 Whether the cache key is frozen
+
+---
+
+### onSessionDestroyed()
+
+> **onSessionDestroyed**(): `Promise`\<`void`\>
+
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:425
+
+Handle session destroyed — wipe all cache keys and in-memory state.
+Deletes each cache key via storage.deleteCacheKey() which cascade-deletes events + read models.
+
+#### Returns
+
+`Promise`\<`void`\>
 
 ---
 

@@ -6,7 +6,7 @@
 
 # Class: EventCache
 
-Defined in: packages/client/src/core/event-cache/EventCache.ts:40
+Defined in: packages/client/src/core/event-cache/EventCache.ts:42
 
 Event cache implementation.
 
@@ -16,7 +16,7 @@ Event cache implementation.
 
 > **new EventCache**(`config`): `EventCache`
 
-Defined in: packages/client/src/core/event-cache/EventCache.ts:45
+Defined in: packages/client/src/core/event-cache/EventCache.ts:53
 
 #### Parameters
 
@@ -34,7 +34,7 @@ Defined in: packages/client/src/core/event-cache/EventCache.ts:45
 
 > **cacheAnticipatedEvent**\<`T`\>(`event`, `options`): `Promise`\<`string`\>
 
-Defined in: packages/client/src/core/event-cache/EventCache.ts:133
+Defined in: packages/client/src/core/event-cache/EventCache.ts:147
 
 Cache an anticipated event (optimistic local event).
 
@@ -70,7 +70,7 @@ Generated event ID
 
 > **cacheAnticipatedEvents**\<`T`\>(`events`, `options`): `Promise`\<`string`[]\>
 
-Defined in: packages/client/src/core/event-cache/EventCache.ts:164
+Defined in: packages/client/src/core/event-cache/EventCache.ts:178
 
 Cache multiple anticipated events for a command.
 
@@ -102,11 +102,35 @@ Generated event IDs
 
 ---
 
+### cacheResponseEvent()
+
+> **cacheResponseEvent**(`event`): `Promise`\<`void`\>
+
+Defined in: packages/client/src/core/event-cache/EventCache.ts:363
+
+Cache a command response event for WS dedup and immediate processing.
+Constructs a CachedEventRecord from a ParsedEvent, saves to storage (INSERT OR IGNORE),
+and adds to gap buffer for Permanent events.
+
+#### Parameters
+
+##### event
+
+[`ParsedEvent`](../interfaces/ParsedEvent.md)
+
+Parsed event from command response
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
 ### cacheServerEvent()
 
 > **cacheServerEvent**(`event`, `options`): `Promise`\<`boolean`\>
 
-Defined in: packages/client/src/core/event-cache/EventCache.ts:58
+Defined in: packages/client/src/core/event-cache/EventCache.ts:66
 
 Cache a persisted event from the server.
 
@@ -136,7 +160,7 @@ Whether the event was cached (false if duplicate)
 
 > **cacheServerEvents**(`events`, `options`): `Promise`\<`number`\>
 
-Defined in: packages/client/src/core/event-cache/EventCache.ts:98
+Defined in: packages/client/src/core/event-cache/EventCache.ts:109
 
 Cache multiple persisted events in batch.
 
@@ -164,16 +188,41 @@ Number of events submitted (duplicates are silently skipped by storage)
 
 ---
 
+### clearByCacheKey()
+
+> **clearByCacheKey**(`cacheKey`): `string`[]
+
+Defined in: packages/client/src/core/event-cache/EventCache.ts:344
+
+Clear gap buffer entries for all streams associated with a cache key.
+Returns the affected streamIds so callers can clean up their own per-stream state.
+
+#### Parameters
+
+##### cacheKey
+
+`string`
+
+Cache key to clear
+
+#### Returns
+
+`string`[]
+
+Array of streamIds that were cleared
+
+---
+
 ### clearGapBuffer()
 
 > **clearGapBuffer**(`streamId?`, `upToPosition?`): `void`
 
-Defined in: packages/client/src/core/event-cache/EventCache.ts:310
+Defined in: packages/client/src/core/event-cache/EventCache.ts:324
 
 Clear gap buffer.
 With both arguments: clears for a specific stream up to a position.
 With streamId only: clears all gap tracking state for that stream.
-Without arguments: clears all gap tracking state.
+Without arguments: clears all gap tracking state and the cacheKeyStreams index.
 
 #### Parameters
 
@@ -199,7 +248,7 @@ Optional position to clear up to
 
 > **deleteAnticipatedEvents**(`commandId`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/event-cache/EventCache.ts:243
+Defined in: packages/client/src/core/event-cache/EventCache.ts:257
 
 Delete anticipated events for a command.
 Called when command succeeds/fails and anticipated events should be removed.
@@ -218,11 +267,25 @@ Command identifier
 
 ---
 
+### destroy()
+
+> **destroy**(): `void`
+
+Defined in: packages/client/src/core/event-cache/EventCache.ts:391
+
+Destroy the event cache. Completes subscriptions and clears in-memory state.
+
+#### Returns
+
+`void`
+
+---
+
 ### getAnticipatedEventsByCommand()
 
 > **getAnticipatedEventsByCommand**(`commandId`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md)[]\>
 
-Defined in: packages/client/src/core/event-cache/EventCache.ts:233
+Defined in: packages/client/src/core/event-cache/EventCache.ts:247
 
 Get anticipated events for a command.
 
@@ -246,7 +309,7 @@ Anticipated events
 
 > **getBufferedEvents**(`streamId`): `object`[]
 
-Defined in: packages/client/src/core/event-cache/EventCache.ts:273
+Defined in: packages/client/src/core/event-cache/EventCache.ts:287
 
 Get buffered events for a stream, sorted by revision.
 Used during gap repair to process events in order.
@@ -271,7 +334,7 @@ Buffered events sorted by position/revision
 
 > **getEvent**(`id`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md) \| `undefined`\>
 
-Defined in: packages/client/src/core/event-cache/EventCache.ts:203
+Defined in: packages/client/src/core/event-cache/EventCache.ts:217
 
 Get a cached event by ID.
 
@@ -295,7 +358,7 @@ Cached event record or undefined
 
 > **getEventsByCacheKey**(`cacheKey`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md)[]\>
 
-Defined in: packages/client/src/core/event-cache/EventCache.ts:213
+Defined in: packages/client/src/core/event-cache/EventCache.ts:227
 
 Get all events for a cache key.
 
@@ -319,7 +382,7 @@ Cached events
 
 > **getEventsByStream**(`streamId`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md)[]\>
 
-Defined in: packages/client/src/core/event-cache/EventCache.ts:223
+Defined in: packages/client/src/core/event-cache/EventCache.ts:237
 
 Get all events for a stream, sorted by position.
 
@@ -343,7 +406,7 @@ Cached events in order
 
 > **getGaps**(): `Map`\<`string`, [`EventGap`](../interfaces/EventGap.md)[]\>
 
-Defined in: packages/client/src/core/event-cache/EventCache.ts:252
+Defined in: packages/client/src/core/event-cache/EventCache.ts:266
 
 Get detected gaps in the event stream.
 
@@ -359,7 +422,7 @@ Map of stream ID to gaps
 
 > **getStreamGaps**(`streamId`): [`EventGap`](../interfaces/EventGap.md)[]
 
-Defined in: packages/client/src/core/event-cache/EventCache.ts:262
+Defined in: packages/client/src/core/event-cache/EventCache.ts:276
 
 Get detected gaps for a specific stream.
 
@@ -383,7 +446,7 @@ Gaps for the stream, empty array if none
 
 > **hasGaps**(): `boolean`
 
-Defined in: packages/client/src/core/event-cache/EventCache.ts:282
+Defined in: packages/client/src/core/event-cache/EventCache.ts:296
 
 Check if there are any gaps in the event stream.
 
@@ -399,7 +462,7 @@ Whether there are gaps
 
 > **setKnownPosition**(`streamId`, `position`): `void`
 
-Defined in: packages/client/src/core/event-cache/EventCache.ts:297
+Defined in: packages/client/src/core/event-cache/EventCache.ts:311
 
 Set the known highest position for a stream.
 Used when resuming from persisted state.

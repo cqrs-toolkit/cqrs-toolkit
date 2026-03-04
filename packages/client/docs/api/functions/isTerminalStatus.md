@@ -1,14 +1,14 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / isTerminalStatus
 
 # Function: isTerminalStatus()
 
-> **isTerminalStatus**(`status`): `boolean`
+> **isTerminalStatus**(`status`): `status is TerminalCommandStatus`
 
-Defined in: packages/client/src/types/commands.ts:273
+Defined in: packages/client/src/types/commands.ts:278
 
 Check if command is in a terminal state.
 
@@ -20,4 +20,4 @@ Check if command is in a terminal state.
 
 ## Returns
 
-`boolean`
+`status is TerminalCommandStatus`

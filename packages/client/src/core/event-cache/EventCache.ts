@@ -9,10 +9,12 @@
  */
 
 import type { IPersistedEvent } from '@meticoeus/ddd-es'
+import { Subject } from 'rxjs'
 import type { CachedEventRecord, IStorage } from '../../storage/IStorage.js'
 import type { AnticipatedEvent } from '../../types/events.js'
 import { normalizeEventPersistence } from '../../types/events.js'
 import { generateId } from '../../utils/uuid.js'
+import type { ParsedEvent } from '../event-processor/EventProcessorRunner.js'
 import type { EventBus } from '../events/EventBus.js'
 import { GapBuffer, type EventGap } from './GapDetector.js'
 
@@ -41,6 +43,12 @@ export class EventCache {
   private readonly storage: IStorage
   private readonly eventBus: EventBus
   private readonly gapBuffer: GapBuffer<IPersistedEvent>
+
+  /** Index from cache key to the set of streamIds cached under that key. */
+  private readonly cacheKeyStreams = new Map<string, Set<string>>()
+
+  /** Lifecycle signal for destroying subscriptions. */
+  private readonly destroy$ = new Subject<void>()
 
   constructor(config: EventCacheConfig) {
     this.storage = config.storage
@@ -78,6 +86,9 @@ export class EventCache {
 
     await this.storage.saveCachedEvent(record)
 
+    // Track cacheKey → streamId index
+    this.trackCacheKeyStream(options.cacheKey, event.streamId)
+
     // Track for gap detection (use revision, not position — revision is per-stream sequential)
     if (persistence === 'Permanent') {
       this.gapBuffer.add(event.streamId, event.revision, event)
@@ -113,8 +124,11 @@ export class EventCache {
 
     await this.storage.saveCachedEvents(records)
 
-    // Track for gap detection (use revision, not position — revision is per-stream sequential)
     for (const event of events) {
+      // Track cacheKey → streamId index
+      this.trackCacheKeyStream(options.cacheKey, event.streamId)
+
+      // Track for gap detection (use revision, not position — revision is per-stream sequential)
       if (normalizeEventPersistence(event) === 'Permanent') {
         this.gapBuffer.add(event.streamId, event.revision, event)
       }
@@ -302,7 +316,7 @@ export class EventCache {
    * Clear gap buffer.
    * With both arguments: clears for a specific stream up to a position.
    * With streamId only: clears all gap tracking state for that stream.
-   * Without arguments: clears all gap tracking state.
+   * Without arguments: clears all gap tracking state and the cacheKeyStreams index.
    *
    * @param streamId - Optional stream identifier
    * @param upToPosition - Optional position to clear up to
@@ -316,6 +330,99 @@ export class EventCache {
       }
     } else {
       this.gapBuffer.clear()
+      this.cacheKeyStreams.clear()
     }
+  }
+
+  /**
+   * Clear gap buffer entries for all streams associated with a cache key.
+   * Returns the affected streamIds so callers can clean up their own per-stream state.
+   *
+   * @param cacheKey - Cache key to clear
+   * @returns Array of streamIds that were cleared
+   */
+  clearByCacheKey(cacheKey: string): string[] {
+    const streamIds = this.cacheKeyStreams.get(cacheKey)
+    if (!streamIds) return []
+
+    const cleared = Array.from(streamIds)
+    for (const streamId of cleared) {
+      this.gapBuffer.clearStream(streamId)
+    }
+    this.cacheKeyStreams.delete(cacheKey)
+    return cleared
+  }
+
+  /**
+   * Cache a command response event for WS dedup and immediate processing.
+   * Constructs a CachedEventRecord from a ParsedEvent, saves to storage (INSERT OR IGNORE),
+   * and adds to gap buffer for Permanent events.
+   *
+   * @param event - Parsed event from command response
+   */
+  async cacheResponseEvent(event: ParsedEvent): Promise<void> {
+    const record: CachedEventRecord = {
+      id: event.id,
+      type: event.type,
+      streamId: event.streamId,
+      persistence: event.persistence,
+      data: JSON.stringify(event.data),
+      position: event.position !== undefined ? event.position.toString() : null,
+      revision: event.revision !== undefined ? event.revision.toString() : null,
+      commandId: event.commandId ?? null,
+      cacheKey: event.cacheKey,
+      createdAt: Date.now(),
+    }
+
+    await this.storage.saveCachedEvent(record)
+
+    // Track cacheKey → streamId index
+    this.trackCacheKeyStream(event.cacheKey, event.streamId)
+
+    // Add to gap buffer for Permanent events
+    if (event.persistence === 'Permanent' && event.revision !== undefined) {
+      this.gapBuffer.add(event.streamId, event.revision, toDummyPersistedEvent(event))
+    }
+  }
+
+  /**
+   * Destroy the event cache. Completes subscriptions and clears in-memory state.
+   */
+  destroy(): void {
+    this.destroy$.next()
+    this.destroy$.complete()
+    this.gapBuffer.clear()
+    this.cacheKeyStreams.clear()
+  }
+
+  /**
+   * Record a streamId under a cache key in the in-memory index.
+   */
+  private trackCacheKeyStream(cacheKey: string, streamId: string): void {
+    let streams = this.cacheKeyStreams.get(cacheKey)
+    if (!streams) {
+      streams = new Set()
+      this.cacheKeyStreams.set(cacheKey, streams)
+    }
+    streams.add(streamId)
+  }
+}
+
+/**
+ * Create a minimal IPersistedEvent for gap buffer tracking from a ParsedEvent.
+ * The gap buffer only uses streamId, revision, and position — other fields
+ * are placeholders. The cast is necessary because ParsedEvent.data is `unknown`
+ * while IPersistedEvent requires DataType (which demands an `id` field).
+ */
+function toDummyPersistedEvent(event: ParsedEvent): IPersistedEvent {
+  return {
+    id: event.id,
+    type: event.type,
+    streamId: event.streamId,
+    data: event.data as IPersistedEvent['data'],
+    metadata: { correlationId: event.commandId ?? event.id },
+    created: new Date().toISOString(),
+    revision: event.revision ?? 0n,
+    position: event.position ?? 0n,
   }
 }

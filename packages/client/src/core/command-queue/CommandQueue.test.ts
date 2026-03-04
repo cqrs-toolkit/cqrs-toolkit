@@ -8,6 +8,7 @@ import type { CommandRecord } from '../../types/commands.js'
 import type { IDomainExecutor } from '../../types/domain.js'
 import { domainFailure, domainSuccess } from '../../types/domain.js'
 import { EventBus } from '../events/EventBus.js'
+import type { IAnticipatedEventHandler } from './CommandQueue.js'
 import { CommandQueue } from './CommandQueue.js'
 import type { ICommandSender } from './types.js'
 import { CommandSendError } from './types.js'
@@ -15,13 +16,23 @@ import { CommandSendError } from './types.js'
 describe('CommandQueue', () => {
   let storage: InMemoryStorage
   let eventBus: EventBus
+  let anticipatedEventHandler: IAnticipatedEventHandler & {
+    cache: ReturnType<typeof vi.fn>
+    cleanup: ReturnType<typeof vi.fn>
+    clearAll: ReturnType<typeof vi.fn>
+  }
   let commandQueue: CommandQueue
 
   beforeEach(async () => {
     storage = new InMemoryStorage()
     await storage.initialize()
     eventBus = new EventBus()
-    commandQueue = new CommandQueue({ storage, eventBus })
+    anticipatedEventHandler = {
+      cache: vi.fn().mockResolvedValue(undefined),
+      cleanup: vi.fn().mockResolvedValue(undefined),
+      clearAll: vi.fn().mockResolvedValue(undefined),
+    }
+    commandQueue = new CommandQueue({ storage, eventBus, anticipatedEventHandler })
   })
 
   describe('enqueue', () => {
@@ -99,7 +110,12 @@ describe('CommandQueue', () => {
       domainExecutor = {
         execute: vi.fn(),
       }
-      commandQueue = new CommandQueue({ storage, eventBus, domainExecutor })
+      commandQueue = new CommandQueue({
+        storage,
+        eventBus,
+        anticipatedEventHandler,
+        domainExecutor,
+      })
     })
 
     it('returns validation errors when domain validation fails', async () => {
@@ -312,7 +328,12 @@ describe('CommandQueue', () => {
       const domainExecutor: IDomainExecutor = {
         execute: () => domainFailure([{ path: 'email', message: 'Invalid email' }]),
       }
-      commandQueue = new CommandQueue({ storage, eventBus, domainExecutor })
+      commandQueue = new CommandQueue({
+        storage,
+        eventBus,
+        anticipatedEventHandler,
+        domainExecutor,
+      })
 
       const result = await commandQueue.enqueueAndWait({
         type: 'CreateUser',
@@ -440,6 +461,7 @@ describe('CommandQueue', () => {
       commandQueue = new CommandQueue({
         storage,
         eventBus,
+        anticipatedEventHandler,
         commandSender,
         retryConfig: { maxAttempts: 3, initialDelay: 10 },
       })
@@ -624,6 +646,7 @@ describe('CommandQueue', () => {
       commandQueue = new CommandQueue({
         storage,
         eventBus,
+        anticipatedEventHandler,
         commandSender,
         retryConfig: { maxAttempts: 3, initialDelay: 500 },
       })
@@ -734,7 +757,12 @@ describe('CommandQueue', () => {
 
   describe('retainTerminal', () => {
     it('stores retainTerminal config flag', () => {
-      const queue = new CommandQueue({ storage, eventBus, retainTerminal: true })
+      const queue = new CommandQueue({
+        storage,
+        eventBus,
+        anticipatedEventHandler,
+        retainTerminal: true,
+      })
       // The flag is stored but has no behavioral effect yet.
       // Verify construction succeeds without error.
       expect(queue).toBeDefined()
@@ -755,6 +783,263 @@ describe('CommandQueue', () => {
       commandQueue.resume()
       commandQueue.pause()
       expect(commandQueue.isPaused()).toBe(true)
+    })
+  })
+
+  describe('anticipated event caching', () => {
+    let domainExecutor: IDomainExecutor
+
+    beforeEach(() => {
+      domainExecutor = {
+        execute: vi.fn(),
+      }
+      commandQueue = new CommandQueue({
+        storage,
+        eventBus,
+        anticipatedEventHandler,
+        domainExecutor,
+      })
+    })
+
+    it('calls cache() with correct commandId and events when domain executor succeeds', async () => {
+      const events = [{ type: 'TodoCreated', data: { id: '1', title: 'Test' }, streamId: 'todo-1' }]
+      vi.mocked(domainExecutor.execute).mockReturnValue(domainSuccess(events))
+
+      const result = await commandQueue.enqueue({
+        type: 'CreateTodo',
+        payload: { title: 'Test' },
+      })
+
+      if (!result.ok) throw new Error('Expected success')
+
+      expect(anticipatedEventHandler.cache).toHaveBeenCalledTimes(1)
+      expect(anticipatedEventHandler.cache).toHaveBeenCalledWith(result.value.commandId, events)
+    })
+
+    it('does not call cache() when domain executor is not configured', async () => {
+      commandQueue = new CommandQueue({ storage, eventBus, anticipatedEventHandler })
+
+      await commandQueue.enqueue({ type: 'CreateTodo', payload: {} })
+
+      expect(anticipatedEventHandler.cache).not.toHaveBeenCalled()
+    })
+
+    it('does not call cache() when anticipated events array is empty', async () => {
+      vi.mocked(domainExecutor.execute).mockReturnValue(domainSuccess([]))
+
+      await commandQueue.enqueue({ type: 'CreateTodo', payload: {} })
+
+      expect(anticipatedEventHandler.cache).not.toHaveBeenCalled()
+    })
+
+    it('enqueue succeeds even if cache() throws', async () => {
+      const events = [{ type: 'TodoCreated', data: { id: '1', title: 'Test' }, streamId: 'todo-1' }]
+      vi.mocked(domainExecutor.execute).mockReturnValue(domainSuccess(events))
+      anticipatedEventHandler.cache.mockRejectedValue(new Error('Cache failure'))
+
+      const result = await commandQueue.enqueue({
+        type: 'CreateTodo',
+        payload: { title: 'Test' },
+      })
+
+      expect(result.ok).toBe(true)
+      if (result.ok) {
+        expect(result.value.commandId).toBeDefined()
+      }
+    })
+  })
+
+  describe('anticipated event cleanup', () => {
+    let commandSender: ICommandSender
+
+    beforeEach(() => {
+      commandSender = {
+        send: vi.fn().mockResolvedValue({ id: '123' }),
+      }
+      commandQueue = new CommandQueue({
+        storage,
+        eventBus,
+        anticipatedEventHandler,
+        commandSender,
+        retryConfig: { maxAttempts: 2, initialDelay: 10 },
+      })
+    })
+
+    it('calls cleanup() when command succeeds', async () => {
+      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      if (!result.ok) throw new Error('Expected success')
+
+      commandQueue.resume()
+      await commandQueue.processPendingCommands()
+
+      expect(anticipatedEventHandler.cleanup).toHaveBeenCalledWith(
+        result.value.commandId,
+        'succeeded',
+      )
+    })
+
+    it('calls cleanup() when command fails permanently', async () => {
+      vi.mocked(commandSender.send).mockRejectedValue(
+        new CommandSendError('Validation error', 'VALIDATION', false),
+      )
+
+      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      if (!result.ok) throw new Error('Expected success')
+
+      commandQueue.resume()
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      expect(anticipatedEventHandler.cleanup).toHaveBeenCalledWith(result.value.commandId, 'failed')
+    })
+
+    it('calls cleanup() when command is cancelled', async () => {
+      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      if (!result.ok) throw new Error('Expected success')
+
+      await commandQueue.cancelCommand(result.value.commandId)
+
+      expect(anticipatedEventHandler.cleanup).toHaveBeenCalledWith(
+        result.value.commandId,
+        'cancelled',
+      )
+    })
+
+    it('calls cleanup() for cascaded cancellations', async () => {
+      vi.mocked(commandSender.send).mockRejectedValue(new CommandSendError('Error', 'ERROR', false))
+
+      const first = await commandQueue.enqueue({ type: 'First', payload: {} })
+      if (!first.ok) throw new Error('Expected success')
+
+      const second = await commandQueue.enqueue({
+        type: 'Second',
+        payload: {},
+        dependsOn: [first.value.commandId],
+      })
+      if (!second.ok) throw new Error('Expected success')
+
+      commandQueue.resume()
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      // Both first (failed) and second (cascaded cancel) should trigger cleanup
+      expect(anticipatedEventHandler.cleanup).toHaveBeenCalledWith(first.value.commandId, 'failed')
+      expect(anticipatedEventHandler.cleanup).toHaveBeenCalledWith(
+        second.value.commandId,
+        'cancelled',
+      )
+    })
+
+    it('does not call cleanup() on retry (stays pending)', async () => {
+      vi.mocked(commandSender.send)
+        .mockRejectedValueOnce(new CommandSendError('Network error', 'NETWORK', true))
+        .mockResolvedValueOnce({ id: '123' })
+
+      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      if (!result.ok) throw new Error('Expected success')
+
+      commandQueue.resume()
+
+      // Wait for first attempt to fail and enter retry
+      await new Promise((resolve) => setTimeout(resolve, 30))
+
+      // After first failure (retry scheduled), cleanup should not have been called
+      // because status went back to 'pending', not a terminal state
+      const stored = await storage.getCommand(result.value.commandId)
+      if (stored?.status === 'pending') {
+        // The command is still pending (retrying), cleanup should not have been called yet
+        expect(anticipatedEventHandler.cleanup).not.toHaveBeenCalled()
+      }
+    })
+  })
+
+  describe('reset', () => {
+    it('pauses the queue', async () => {
+      commandQueue.resume()
+      expect(commandQueue.isPaused()).toBe(false)
+
+      await commandQueue.reset()
+      expect(commandQueue.isPaused()).toBe(true)
+    })
+
+    it('clears pending retry timers', async () => {
+      const commandSender: ICommandSender = {
+        send: vi.fn().mockRejectedValue(new CommandSendError('Error', 'NETWORK', true)),
+      }
+      commandQueue = new CommandQueue({
+        storage,
+        eventBus,
+        anticipatedEventHandler,
+        commandSender,
+        retryConfig: { maxAttempts: 3, initialDelay: 500 },
+      })
+
+      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      if (!result.ok) throw new Error('Expected success')
+
+      commandQueue.resume()
+
+      // Wait for first attempt to fail and schedule retry
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(commandSender.send).toHaveBeenCalledTimes(1)
+
+      // Reset clears timers
+      await commandQueue.reset()
+
+      // Wait long enough for any scheduled retry to have fired if not cleared
+      await new Promise((resolve) => setTimeout(resolve, 600))
+
+      // Send should not have been called again
+      expect(commandSender.send).toHaveBeenCalledTimes(1)
+    })
+
+    it('waits for in-flight processing', async () => {
+      let resolveSend: ((value: unknown) => void) | undefined
+      const commandSender: ICommandSender = {
+        send: vi.fn().mockImplementation(() => new Promise((resolve) => (resolveSend = resolve))),
+      }
+      commandQueue = new CommandQueue({
+        storage,
+        eventBus,
+        anticipatedEventHandler,
+        commandSender,
+      })
+
+      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      if (!result.ok) throw new Error('Expected success')
+
+      commandQueue.resume()
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      expect(commandSender.send).toHaveBeenCalledTimes(1)
+
+      // Start reset while send is in-flight
+      let resetResolved = false
+      const resetPromise = commandQueue.reset().then(() => {
+        resetResolved = true
+      })
+
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      expect(resetResolved).toBe(false)
+
+      // Complete the send
+      resolveSend!({ id: '123' })
+
+      await resetPromise
+      expect(resetResolved).toBe(true)
+    })
+  })
+
+  describe('clearAll', () => {
+    it('pauses the queue, clears anticipated tracking, and deletes all commands', async () => {
+      commandQueue.resume()
+      await commandQueue.enqueue({ type: 'First', payload: {} })
+      await commandQueue.enqueue({ type: 'Second', payload: {} })
+
+      await commandQueue.clearAll()
+
+      expect(commandQueue.isPaused()).toBe(true)
+      expect(anticipatedEventHandler.clearAll).toHaveBeenCalledTimes(1)
+
+      const commands = await commandQueue.listCommands()
+      expect(commands).toHaveLength(0)
     })
   })
 })

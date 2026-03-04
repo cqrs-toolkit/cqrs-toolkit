@@ -61,10 +61,10 @@ export interface ProcessorContext {
   persistence: EventPersistence
   /** For anticipated events, the command ID */
   commandId?: string
-  /** Stream revision of the event */
-  revision: bigint
-  /** Global position of the event */
-  position: bigint
+  /** Stream revision of the event (absent for anticipated events) */
+  revision?: bigint
+  /** Global position of the event (absent for anticipated events) */
+  position?: bigint
   /** Stream ID the event belongs to */
   streamId: string
   /** Unique event ID */

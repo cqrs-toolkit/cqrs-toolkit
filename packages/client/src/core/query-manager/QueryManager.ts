@@ -280,6 +280,23 @@ export class QueryManager {
   }
 
   /**
+   * Handle session destroyed — clear all in-memory holds without calling cacheManager.release().
+   * CacheManager state is already being wiped separately.
+   */
+  onSessionDestroyed(): void {
+    this.activeHolds.clear()
+  }
+
+  /**
+   * Release hold tracking for an evicted cache key.
+   * Removes the entry from activeHolds without calling cacheManager.release()
+   * since the cache key has already been evicted from storage.
+   */
+  releaseForCacheKey(cacheKey: string): void {
+    this.activeHolds.delete(cacheKey)
+  }
+
+  /**
    * Release all active holds.
    * One cacheManager.release() per key regardless of local count.
    */

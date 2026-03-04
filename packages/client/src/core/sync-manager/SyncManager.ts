@@ -19,6 +19,7 @@ import type { CommandQueue } from '../command-queue/CommandQueue.js'
 import type { EventCache } from '../event-cache/EventCache.js'
 import type { EventProcessorRunner, ParsedEvent } from '../event-processor/index.js'
 import type { EventBus } from '../events/EventBus.js'
+import type { QueryManager } from '../query-manager/QueryManager.js'
 import type { ReadModelStore } from '../read-model-store/ReadModelStore.js'
 import type { SessionManager } from '../session/SessionManager.js'
 import { ConnectivityManager } from './ConnectivityManager.js'
@@ -34,6 +35,7 @@ export interface SyncManagerConfig {
   cacheManager: CacheManager
   eventProcessor: EventProcessorRunner
   readModelStore: ReadModelStore
+  queryManager: QueryManager
   networkConfig: NetworkConfig
   collections: Collection[]
 }
@@ -60,6 +62,7 @@ export class SyncManager {
   private readonly cacheManager: CacheManager
   private readonly eventProcessor: EventProcessorRunner
   private readonly readModelStore: ReadModelStore
+  private readonly queryManager: QueryManager
   private readonly networkConfig: NetworkConfig
   private readonly collections: Collection[]
 
@@ -98,6 +101,7 @@ export class SyncManager {
     this.cacheManager = config.cacheManager
     this.eventProcessor = config.eventProcessor
     this.readModelStore = config.readModelStore
+    this.queryManager = config.queryManager
     this.networkConfig = config.networkConfig
     this.collections = config.collections
 
@@ -165,7 +169,9 @@ export class SyncManager {
       .on('session:destroyed')
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
-        this.onSessionDestroyed()
+        this.onSessionDestroyed().catch((err) => {
+          logProvider.log.error({ err }, 'onSessionDestroyed failed')
+        })
       })
     this.subscriptions.push(destroyedSub)
 
@@ -298,30 +304,39 @@ export class SyncManager {
    * Cleans up sync state while keeping connectivity monitoring alive
    * so we're ready when a new session starts.
    */
-  private onSessionDestroyed(): void {
+  private async onSessionDestroyed(): Promise<void> {
     logProvider.log.debug('Session destroyed, cleaning up sync state')
 
-    // Disconnect WebSocket
+    // 1. Disconnect WebSocket
     this.disconnectWebSocket()
 
-    // Abort in-flight fetches and create a fresh AbortController for the next session
+    // 2. Abort in-flight fetches and create a fresh AbortController for the next session
     this.abortController?.abort()
     this.abortController = new AbortController()
 
-    // Clear pending WS events
+    // 3. Clear pending WS events
     this.wsEventQueue.length = 0
 
-    // Clear revision tracking
+    // 4. Clear revision tracking
     this.knownRevisions.clear()
 
-    // Cancel pending invalidation refetches
+    // 5. Cancel pending invalidation refetches
     for (const timer of this.pendingRefetches.values()) clearTimeout(timer)
     this.pendingRefetches.clear()
 
-    // Pause command queue
-    this.commandQueue.pause()
+    // 6. Clear all commands — pauses, clears retry timers, waits for in-flight, deletes commands
+    await this.commandQueue.clearAll()
 
-    // Reset all collection statuses
+    // 7. Cascade-delete all cache keys, events, and read models from storage + clear in-memory state
+    await this.cacheManager.onSessionDestroyed()
+
+    // 8. Clear gap buffer and cacheKeyStreams index
+    this.eventCache.clearGapBuffer()
+
+    // 9. Clear query manager holds (without calling cacheManager — already wiped)
+    this.queryManager.onSessionDestroyed()
+
+    // 10. Reset all collection statuses
     for (const collection of this.collections) {
       this.collectionStatus.set(collection.name, {
         collection: collection.name,
@@ -830,6 +845,48 @@ export class SyncManager {
     }, SyncManager.INVALIDATION_REFETCH_DELAY_MS)
 
     this.pendingRefetches.set(collectionName, timer)
+  }
+
+  /**
+   * Clear known revisions for specific streams.
+   * Used when a cache key is evicted and the associated stream state is no longer valid.
+   */
+  clearKnownRevisions(streamIds: string[]): void {
+    for (const streamId of streamIds) {
+      this.knownRevisions.delete(streamId)
+    }
+  }
+
+  /**
+   * Process command response events.
+   * Events are processed immediately for fast UI feedback. If a gap is detected
+   * (response revision > expected), a collection refetch is scheduled to fill in
+   * missing events asynchronously.
+   */
+  async processResponseEvents(events: ParsedEvent[]): Promise<void> {
+    for (const event of events) {
+      // 1. Cache for WS dedup (INSERT OR IGNORE)
+      await this.eventCache.cacheResponseEvent(event)
+
+      // 2. Process immediately for read model update
+      await this.eventProcessor.processEvent(event)
+
+      // 3. For Permanent events, check revision continuity
+      if (event.persistence === 'Permanent' && event.revision !== undefined) {
+        const expected = (this.knownRevisions.get(event.streamId) ?? -1n) + 1n
+
+        if (event.revision !== expected) {
+          // Gap detected — schedule async collection refetch for self-healing
+          const matchingCollections = this.getMatchingCollections(event.streamId)
+          for (const collection of matchingCollections) {
+            this.scheduleCollectionRefetch(collection.name)
+          }
+        }
+
+        // Advance known revision
+        this.knownRevisions.set(event.streamId, event.revision)
+      }
+    }
   }
 
   /**

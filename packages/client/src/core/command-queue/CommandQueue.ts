@@ -28,6 +28,7 @@ import type {
   EnqueueCommand,
   EnqueueOptions,
   EnqueueResult,
+  TerminalCommandStatus,
   WaitOptions,
 } from '../../types/commands.js'
 import { EnqueueAndWaitException, isTerminalStatus } from '../../types/commands.js'
@@ -41,11 +42,26 @@ import type { ICommandQueue, ICommandSender } from './types.js'
 import { CommandSendError } from './types.js'
 
 /**
+ * Handler for anticipated event lifecycle.
+ * CommandQueue hands off anticipated events at the right lifecycle points — the handler
+ * implementation coordinates EventCache, CacheManager, EventProcessorRunner, and collection routing.
+ */
+export interface IAnticipatedEventHandler {
+  /** Cache anticipated events in EventCache and send through event processor pipeline. */
+  cache(commandId: string, events: unknown[]): Promise<void>
+  /** Clean up anticipated events when command reaches terminal state. Reverts read models on failure/cancellation. */
+  cleanup(commandId: string, terminalStatus: TerminalCommandStatus): Promise<void>
+  /** Clear all tracking state (in-memory only — storage cleanup handled by session cascade). */
+  clearAll(): Promise<void>
+}
+
+/**
  * Command queue configuration.
  */
 export interface CommandQueueConfig {
   storage: IStorage
   eventBus: EventBus
+  anticipatedEventHandler: IAnticipatedEventHandler
   domainExecutor?: IDomainExecutor
   commandSender?: ICommandSender
   retryConfig?: RetryConfig
@@ -66,6 +82,7 @@ const DEFAULT_WAIT_TIMEOUT = 30000
 export class CommandQueue implements ICommandQueue {
   private readonly storage: IStorage
   private readonly eventBus: EventBus
+  private readonly anticipatedEventHandler: IAnticipatedEventHandler
   private readonly domainExecutor?: IDomainExecutor
   private readonly commandSender?: ICommandSender
   private readonly retryConfig: RetryConfig
@@ -87,6 +104,7 @@ export class CommandQueue implements ICommandQueue {
   constructor(config: CommandQueueConfig) {
     this.storage = config.storage
     this.eventBus = config.eventBus
+    this.anticipatedEventHandler = config.anticipatedEventHandler
     this.domainExecutor = config.domainExecutor
     this.commandSender = config.commandSender
     this.retryConfig = config.retryConfig ?? {}
@@ -151,6 +169,18 @@ export class CommandQueue implements ICommandQueue {
 
     // Save command
     await this.storage.saveCommand(record)
+
+    // Cache anticipated events for optimistic updates
+    if (anticipatedEvents.length > 0) {
+      try {
+        await this.anticipatedEventHandler.cache(commandId, anticipatedEvents)
+      } catch (err) {
+        logProvider.log.error(
+          { err, commandId },
+          'Failed to cache anticipated events (command still enqueued)',
+        )
+      }
+    }
 
     logProvider.log.debug(
       { commandId, type: command.type, status: initialStatus },
@@ -470,6 +500,18 @@ export class CommandQueue implements ICommandQueue {
 
     await this.storage.updateCommand(command.commandId, updates)
 
+    // Clean up anticipated events when command reaches terminal state
+    if (isTerminalStatus(newStatus)) {
+      try {
+        await this.anticipatedEventHandler.cleanup(command.commandId, newStatus)
+      } catch (err) {
+        logProvider.log.error(
+          { err, commandId: command.commandId },
+          'Failed to clean up anticipated events',
+        )
+      }
+    }
+
     const updatedCommand = { ...command, ...updates }
 
     // Emit status change event
@@ -557,6 +599,36 @@ export class CommandQueue implements ICommandQueue {
       source: 'local',
       message: String(error),
     }
+  }
+
+  /**
+   * Clear all command state for session destroy.
+   * Pauses, clears retry timers, waits for in-flight, clears anticipated event tracking, deletes all commands.
+   */
+  async clearAll(): Promise<void> {
+    await this.reset()
+    await this.anticipatedEventHandler.clearAll()
+    await this.storage.deleteAllCommands()
+    logProvider.log.debug('Command queue cleared')
+  }
+
+  /**
+   * Reset the command queue for a session change.
+   * Pauses, clears retry timers, and waits for in-flight processing to settle.
+   */
+  async reset(): Promise<void> {
+    this._paused = true
+
+    for (const timerId of this.retryTimers) {
+      clearTimeout(timerId)
+    }
+    this.retryTimers.clear()
+
+    if (this.processingPromise) {
+      await this.processingPromise
+    }
+
+    logProvider.log.debug('Command queue reset')
   }
 
   pause(): void {

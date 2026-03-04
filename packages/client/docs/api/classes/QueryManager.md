@@ -58,7 +58,7 @@ Count
 
 > **destroy**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:296
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:313
 
 Destroy the query manager.
 
@@ -242,6 +242,21 @@ List query result
 
 ---
 
+### onSessionDestroyed()
+
+> **onSessionDestroyed**(): `void`
+
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:286
+
+Handle session destroyed — clear all in-memory holds without calling cacheManager.release().
+CacheManager state is already being wiped separately.
+
+#### Returns
+
+`void`
+
+---
+
 ### release()
 
 > **release**(`cacheKey`): `Promise`\<`void`\>
@@ -269,7 +284,7 @@ Cache key to release
 
 > **releaseAll**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:286
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:303
 
 Release all active holds.
 One cacheManager.release() per key regardless of local count.
@@ -277,6 +292,28 @@ One cacheManager.release() per key regardless of local count.
 #### Returns
 
 `Promise`\<`void`\>
+
+---
+
+### releaseForCacheKey()
+
+> **releaseForCacheKey**(`cacheKey`): `void`
+
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:295
+
+Release hold tracking for an evicted cache key.
+Removes the entry from activeHolds without calling cacheManager.release()
+since the cache key has already been evicted from storage.
+
+#### Parameters
+
+##### cacheKey
+
+`string`
+
+#### Returns
+
+`void`
 
 ---
 

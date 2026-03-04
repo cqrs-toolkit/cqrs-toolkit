@@ -34,8 +34,8 @@ export interface ParsedEvent {
   persistence: EventPersistence
   data: unknown
   commandId?: string
-  revision: bigint
-  position: bigint
+  revision?: bigint
+  position?: bigint
   cacheKey: string
 }
 

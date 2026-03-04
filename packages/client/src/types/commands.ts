@@ -268,8 +268,13 @@ export function isEnqueueFailure<TEvent>(
 }
 
 /**
+ * Terminal command statuses — command processing is complete.
+ */
+export type TerminalCommandStatus = 'succeeded' | 'failed' | 'cancelled'
+
+/**
  * Check if command is in a terminal state.
  */
-export function isTerminalStatus(status: CommandStatus): boolean {
+export function isTerminalStatus(status: CommandStatus): status is TerminalCommandStatus {
   return status === 'succeeded' || status === 'failed' || status === 'cancelled'
 }

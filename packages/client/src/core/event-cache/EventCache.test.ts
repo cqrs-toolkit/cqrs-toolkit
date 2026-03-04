@@ -279,6 +279,146 @@ describe('EventCache', () => {
       expect(await eventCache.getEvent(id)).toBeUndefined()
     })
   })
+
+  describe('clearByCacheKey', () => {
+    it('clears gap buffer entries for all streams under a cache key', async () => {
+      const event1 = createPersistedEvent({
+        id: 'event-1',
+        streamId: 'stream-1',
+        revision: 0n,
+        position: 100n,
+      })
+      const event2 = createPersistedEvent({
+        id: 'event-2',
+        streamId: 'stream-2',
+        revision: 0n,
+        position: 101n,
+      })
+
+      await eventCache.cacheServerEvent(event1, { cacheKey: 'cache-1' })
+      await eventCache.cacheServerEvent(event2, { cacheKey: 'cache-1' })
+
+      const cleared = eventCache.clearByCacheKey('cache-1')
+
+      expect(cleared).toContain('stream-1')
+      expect(cleared).toContain('stream-2')
+      expect(eventCache.getBufferedEvents('stream-1')).toHaveLength(0)
+      expect(eventCache.getBufferedEvents('stream-2')).toHaveLength(0)
+    })
+
+    it('returns empty array for unknown cache key', () => {
+      const cleared = eventCache.clearByCacheKey('unknown')
+      expect(cleared).toHaveLength(0)
+    })
+
+    it('does not affect streams under other cache keys', async () => {
+      const event1 = createPersistedEvent({
+        id: 'event-1',
+        streamId: 'stream-1',
+        revision: 0n,
+        position: 100n,
+      })
+      const event2 = createPersistedEvent({
+        id: 'event-2',
+        streamId: 'stream-2',
+        revision: 0n,
+        position: 101n,
+      })
+
+      await eventCache.cacheServerEvent(event1, { cacheKey: 'cache-1' })
+      await eventCache.cacheServerEvent(event2, { cacheKey: 'cache-2' })
+
+      eventCache.clearByCacheKey('cache-1')
+
+      expect(eventCache.getBufferedEvents('stream-1')).toHaveLength(0)
+      expect(eventCache.getBufferedEvents('stream-2')).toHaveLength(1)
+    })
+  })
+
+  describe('cacheResponseEvent', () => {
+    it('caches a response event to storage for WS dedup', async () => {
+      await eventCache.cacheResponseEvent({
+        id: 'resp-1',
+        type: 'TodoCreated',
+        streamId: 'todo-1',
+        persistence: 'Permanent',
+        data: { id: 'todo-1', title: 'Test' },
+        revision: 0n,
+        position: 100n,
+        commandId: 'cmd-1',
+        cacheKey: 'cache-1',
+      })
+
+      const stored = await eventCache.getEvent('resp-1')
+      expect(stored).toMatchObject({
+        id: 'resp-1',
+        type: 'TodoCreated',
+        persistence: 'Permanent',
+      })
+    })
+
+    it('subsequent WS event with same ID is rejected as duplicate', async () => {
+      await eventCache.cacheResponseEvent({
+        id: 'resp-1',
+        type: 'TodoCreated',
+        streamId: 'todo-1',
+        persistence: 'Permanent',
+        data: { id: 'todo-1', title: 'Test' },
+        revision: 0n,
+        position: 100n,
+        cacheKey: 'cache-1',
+      })
+
+      // Now the same event arrives via WS
+      const wsEvent = createPersistedEvent({
+        id: 'resp-1',
+        type: 'TodoCreated',
+        streamId: 'todo-1',
+        revision: 0n,
+        position: 100n,
+      })
+
+      const cached = await eventCache.cacheServerEvent(wsEvent, { cacheKey: 'cache-1' })
+      expect(cached).toBe(false)
+    })
+  })
+
+  describe('clearGapBuffer (full clear)', () => {
+    it('clears cacheKeyStreams index along with gap buffer', async () => {
+      const event = createPersistedEvent({
+        id: 'event-1',
+        streamId: 'stream-1',
+        revision: 0n,
+        position: 100n,
+      })
+
+      await eventCache.cacheServerEvent(event, { cacheKey: 'cache-1' })
+
+      // Full clear (no arguments)
+      eventCache.clearGapBuffer()
+
+      // clearByCacheKey should return empty since cacheKeyStreams was cleared
+      const cleared = eventCache.clearByCacheKey('cache-1')
+      expect(cleared).toHaveLength(0)
+    })
+  })
+
+  describe('destroy', () => {
+    it('clears all in-memory state', async () => {
+      const event = createPersistedEvent({
+        id: 'event-1',
+        streamId: 'stream-1',
+        revision: 0n,
+        position: 100n,
+      })
+      await eventCache.cacheServerEvent(event, { cacheKey: 'cache-1' })
+
+      eventCache.destroy()
+
+      expect(eventCache.getBufferedEvents('stream-1')).toHaveLength(0)
+      expect(eventCache.clearByCacheKey('cache-1')).toHaveLength(0)
+    })
+  })
 })
 
 describe('GapDetector', () => {

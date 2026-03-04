@@ -6,7 +6,7 @@
 
 # Class: SyncManager
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:55
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:57
 
 Sync manager.
 
@@ -16,7 +16,7 @@ Sync manager.
 
 > **new SyncManager**(`config`): `SyncManager`
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:93
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:96
 
 #### Parameters
 
@@ -30,11 +30,32 @@ Defined in: packages/client/src/core/sync-manager/SyncManager.ts:93
 
 ## Methods
 
+### clearKnownRevisions()
+
+> **clearKnownRevisions**(`streamIds`): `void`
+
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:854
+
+Clear known revisions for specific streams.
+Used when a cache key is evicted and the associated stream state is no longer valid.
+
+#### Parameters
+
+##### streamIds
+
+`string`[]
+
+#### Returns
+
+`void`
+
+---
+
 ### destroy()
 
 > **destroy**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:219
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:225
 
 Permanently destroy the sync manager. Not reversible.
 Calls stop(), then destroys the connectivity manager.
@@ -49,7 +70,7 @@ Calls stop(), then destroys the connectivity manager.
 
 > **getAllStatus**(): [`CollectionSyncStatus`](../interfaces/CollectionSyncStatus.md)[]
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:241
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:247
 
 Get all collection statuses.
 
@@ -63,7 +84,7 @@ Get all collection statuses.
 
 > **getCollectionStatus**(`collection`): [`CollectionSyncStatus`](../interfaces/CollectionSyncStatus.md) \| `undefined`
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:234
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:240
 
 Get sync status for a collection.
 
@@ -83,7 +104,7 @@ Get sync status for a collection.
 
 > **getConnectivity**(): [`ConnectivityManager`](ConnectivityManager.md)
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:227
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:233
 
 Get connectivity manager.
 
@@ -93,11 +114,34 @@ Get connectivity manager.
 
 ---
 
+### processResponseEvents()
+
+> **processResponseEvents**(`events`): `Promise`\<`void`\>
+
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:866
+
+Process command response events.
+Events are processed immediately for fast UI feedback. If a gap is detected
+(response revision > expected), a collection refetch is scheduled to fill in
+missing events asynchronously.
+
+#### Parameters
+
+##### events
+
+[`ParsedEvent`](../interfaces/ParsedEvent.md)[]
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
 ### setAuthenticated()
 
 > **setAuthenticated**(`params`): `Promise`\<\{ `resumed`: `boolean`; \}\>
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:261
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:267
 
 Signal that the user has been authenticated.
 Delegates to SessionManager and returns whether the session was resumed.
@@ -120,7 +164,7 @@ Delegates to SessionManager and returns whether the session was resumed.
 
 > **setUnauthenticated**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:269
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:275
 
 Signal that the user has logged out.
 Delegates to SessionManager.
@@ -135,7 +179,7 @@ Delegates to SessionManager.
 
 > **start**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:128
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:132
 
 Start the sync manager.
 Begins connectivity monitoring and initial sync.
@@ -154,7 +198,7 @@ This allows the app to render immediately from cached data while auth resolves.
 
 > **stop**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:183
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:189
 
 Stop the sync manager. Reversible — can call start() again after.
 Terminates subscriptions, aborts in-flight fetches, disconnects WebSocket.
@@ -170,7 +214,7 @@ Connectivity monitoring is paused but not destroyed.
 
 > **syncCollection**(`collection`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:248
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:254
 
 Force sync a specific collection.
 

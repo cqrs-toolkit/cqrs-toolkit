@@ -419,6 +419,19 @@ export class CacheManager {
   }
 
   /**
+   * Handle session destroyed — wipe all cache keys and in-memory state.
+   * Deletes each cache key via storage.deleteCacheKey() which cascade-deletes events + read models.
+   */
+  async onSessionDestroyed(): Promise<void> {
+    const allKeys = await this.storage.getAllCacheKeys()
+    for (const record of allKeys) {
+      await this.storage.deleteCacheKey(record.key)
+    }
+    this.holdsByKey.clear()
+    this.registeredWindows.clear()
+  }
+
+  /**
    * Evict cache keys if we're at capacity.
    */
   private async maybeEvict(): Promise<void> {
