@@ -11,6 +11,31 @@ export const test = base.extend<ModeFixtures>({
 
 export { expect } from '@playwright/test'
 
-export function url(path: string, mode: string, ws: boolean): string {
-  return `${path}?mode=${mode}&ws=${ws}`
+/**
+ * Session-to-port mapping.
+ * Each session runs on a separate origin for OPFS isolation in worker modes.
+ */
+const SESSION_PORTS = {
+  a: 5173,
+  b: 5174,
+} as const
+
+interface UrlParams {
+  mode: string
+  ws: boolean
+  /** Which client session to target. Default: 'a' (primary). */
+  session?: 'a' | 'b'
+}
+
+/**
+ * Build a test URL with mode and ws query parameters.
+ *
+ * Session 'a' (default): returns a relative path (resolved against Playwright's baseURL).
+ * Other sessions: returns a full URL on that session's origin.
+ */
+export function url(path: string, params: UrlParams): string {
+  const relative = `${path}?mode=${params.mode}&ws=${params.ws}`
+  const session = params.session ?? 'a'
+  if (session === 'a') return relative
+  return `http://localhost:${SESSION_PORTS[session]}${relative}`
 }

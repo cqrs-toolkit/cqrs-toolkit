@@ -20,15 +20,19 @@ export * from './types/index.js'
 export {
   ALL_TABLES,
   InMemoryStorage,
+  LocalSqliteDb,
   MIGRATIONS,
   SQLiteStorage,
   getPendingMigrations,
   getSchemaVersion,
+  loadAndOpenDb,
 } from './storage/index.js'
 export type {
   CacheKeyRecord,
   CachedEventRecord,
+  ISqliteDb,
   IStorage,
+  LoadAndOpenDbConfig,
   Migration,
   QueryOptions,
   ReadModelRecord,
@@ -44,7 +48,11 @@ export {
   deriveCacheKey as deriveCacheKeyFromManager,
   deriveScopedCacheKey,
 } from './core/cache-manager/index.js'
-export type { AcquireCacheKeyOptions, CacheManagerConfig } from './core/cache-manager/index.js'
+export type {
+  AcquireCacheKeyOptions,
+  CacheManagerConfig,
+  ICacheManager,
+} from './core/cache-manager/index.js'
 export { CommandQueue, CommandSendError } from './core/command-queue/index.js'
 export type {
   CommandQueueConfig,
@@ -69,6 +77,7 @@ export type {
 export { EventBus } from './core/events/index.js'
 export { QueryManager } from './core/query-manager/index.js'
 export type {
+  IQueryManager,
   ListQueryResult,
   QueryManagerConfig,
   QueryOptions as QueryManagerQueryOptions,
@@ -87,24 +96,33 @@ export type {
   CollectionSyncStatus,
   ConnectivityManagerConfig,
   ConnectivityState,
+  IConnectivity,
   SyncManagerConfig,
 } from './core/sync-manager/index.js'
 
 // Adapters
 export {
   DedicatedWorkerAdapter,
-  DedicatedWorkerStorageProxy,
   OnlineOnlyAdapter,
   SharedWorkerAdapter,
-  SharedWorkerStorageProxy,
   TabLockError,
 } from './adapters/index.js'
 export type {
   AdapterStatus,
   DedicatedWorkerAdapterConfig,
   IAdapter,
+  IOnlineOnlyAdapter,
+  IWorkerAdapter,
   SharedWorkerAdapterConfig,
 } from './adapters/index.js'
+
+// Worker entry points (consumer calls from their worker script)
+export {
+  OpfsUnavailableException,
+  startDedicatedWorker,
+  startSharedWorker,
+  startSqliteWorker,
+} from './adapters/worker-core/index.js'
 
 // Protocol (for worker communication)
 export * as protocol from './protocol/index.js'

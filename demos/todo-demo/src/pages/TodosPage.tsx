@@ -1,9 +1,9 @@
 import { createSignal, For, onCleanup, onMount, Show } from 'solid-js'
 import type { Todo } from '../../shared/todos/types'
+import { useClient } from '../bootstrap/cqrs-context'
 import AddTodo from '../components/AddTodo'
 import PageShell from '../components/PageShell'
 import TodoItem from '../components/TodoItem'
-import { useClient } from '../cqrs-context'
 
 export default function TodosPage() {
   const client = useClient()

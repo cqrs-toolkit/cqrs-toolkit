@@ -24,7 +24,7 @@ Last successful API contact timestamp
 
 ### network
 
-> **network**: `"offline"` \| `"online"` \| `"unknown"`
+> **network**: `"online"` \| `"offline"` \| `"unknown"`
 
 Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:23
 

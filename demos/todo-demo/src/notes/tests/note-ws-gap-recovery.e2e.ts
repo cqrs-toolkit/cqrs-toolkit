@@ -14,10 +14,8 @@ test.beforeEach(async ({ request }) => {
 })
 
 test('client self-recovers missed events after WS gap', async ({ page, request, mode }) => {
-  const dashUrl = url('/', mode, true)
-
   // 1. Open dashboard with WS subscription
-  await gotoWithWsSubscribed(page, dashUrl)
+  await gotoWithWsSubscribed(page, url('/', { mode, ws: true }))
 
   // 2. Create a note via API — dashboard receives NoteCreated via WS
   const createRes = await request.post(`${API}/notes/commands`, {

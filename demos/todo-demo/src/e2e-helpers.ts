@@ -1,5 +1,13 @@
 import { expect, type Page } from '@playwright/test'
 
+/**
+ * Assert the client started in the expected execution mode.
+ * Checks the mode badge rendered in the DOM (which shows `client.mode`).
+ */
+export async function assertMode(page: Page, expected: string): Promise<void> {
+  await expect(page.locator('.mode-badge')).toContainText(`mode: ${expected}`)
+}
+
 export async function addTodo(page: Page, text: string): Promise<void> {
   await page.getByPlaceholder('What needs to be done?').fill(text)
   await page.getByRole('button', { name: 'Add' }).click()

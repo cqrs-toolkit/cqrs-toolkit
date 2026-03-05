@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../../../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../../../globals.md) / protocol
 
@@ -8,6 +8,7 @@
 
 ## Classes
 
+- [RpcError](classes/RpcError.md)
 - [WorkerMessageChannel](classes/WorkerMessageChannel.md)
 - [WorkerMessageHandler](classes/WorkerMessageHandler.md)
 

@@ -24,11 +24,24 @@ export default defineConfig<ModeFixtures>({
       port: 5173,
       reuseExistingServer: !process.env['CI'],
     },
+    {
+      command: 'npm run client:peer',
+      port: 5174,
+      reuseExistingServer: !process.env['CI'],
+    },
   ],
   projects: [
     {
       name: 'online-only',
       use: { browserName: 'chromium', mode: 'online-only' },
+    },
+    {
+      name: 'dedicated-worker',
+      use: { browserName: 'chromium', mode: 'dedicated-worker' },
+    },
+    {
+      name: 'shared-worker',
+      use: { browserName: 'chromium', mode: 'shared-worker' },
     },
   ],
 })

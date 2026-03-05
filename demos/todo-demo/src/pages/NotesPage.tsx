@@ -1,9 +1,9 @@
 import { createSignal, For, onCleanup, onMount, Show } from 'solid-js'
 import type { Note } from '../../shared/notes/types'
+import { useClient } from '../bootstrap/cqrs-context'
 import AddNote from '../components/AddNote'
 import NoteItem from '../components/NoteItem'
 import PageShell from '../components/PageShell'
-import { useClient } from '../cqrs-context'
 
 export default function NotesPage() {
   const client = useClient()

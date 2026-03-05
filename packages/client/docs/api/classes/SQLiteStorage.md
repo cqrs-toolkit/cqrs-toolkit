@@ -6,7 +6,7 @@
 
 # Class: SQLiteStorage
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:80
+Defined in: packages/client/src/storage/SQLiteStorage.ts:34
 
 SQLite storage implementation.
 
@@ -18,15 +18,15 @@ SQLite storage implementation.
 
 ### Constructor
 
-> **new SQLiteStorage**(`config?`): `SQLiteStorage`
+> **new SQLiteStorage**(`config`): `SQLiteStorage`
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:88
+Defined in: packages/client/src/storage/SQLiteStorage.ts:38
 
 #### Parameters
 
-##### config?
+##### config
 
-[`SQLiteStorageConfig`](../interfaces/SQLiteStorageConfig.md) = `{}`
+[`SQLiteStorageConfig`](../interfaces/SQLiteStorageConfig.md)
 
 #### Returns
 
@@ -38,7 +38,7 @@ Defined in: packages/client/src/storage/SQLiteStorage.ts:88
 
 > **clear**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:124
+Defined in: packages/client/src/storage/SQLiteStorage.ts:58
 
 Clear all data from storage.
 
@@ -56,7 +56,7 @@ Clear all data from storage.
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:116
+Defined in: packages/client/src/storage/SQLiteStorage.ts:53
 
 Close the storage backend and release resources.
 
@@ -74,7 +74,7 @@ Close the storage backend and release resources.
 
 > **deleteAllCommands**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:363
+Defined in: packages/client/src/storage/SQLiteStorage.ts:299
 
 Delete all commands (e.g., on session clear).
 
@@ -92,7 +92,7 @@ Delete all commands (e.g., on session clear).
 
 > **deleteAnticipatedEventsByCommand**(`commandId`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:460
+Defined in: packages/client/src/storage/SQLiteStorage.ts:398
 
 Delete all anticipated events for a command.
 
@@ -116,7 +116,7 @@ Delete all anticipated events for a command.
 
 > **deleteCachedEvent**(`id`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:455
+Defined in: packages/client/src/storage/SQLiteStorage.ts:393
 
 Delete a cached event.
 
@@ -140,7 +140,7 @@ Delete a cached event.
 
 > **deleteCachedEventsByCacheKey**(`cacheKey`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:467
+Defined in: packages/client/src/storage/SQLiteStorage.ts:406
 
 Delete all cached events for a cache key.
 
@@ -164,7 +164,7 @@ Delete all cached events for a cache key.
 
 > **deleteCacheKey**(`key`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:213
+Defined in: packages/client/src/storage/SQLiteStorage.ts:147
 
 Delete a cache key and all associated data.
 
@@ -188,7 +188,7 @@ Delete a cache key and all associated data.
 
 > **deleteCommand**(`commandId`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:357
+Defined in: packages/client/src/storage/SQLiteStorage.ts:293
 
 Delete a command.
 
@@ -212,7 +212,7 @@ Delete a command.
 
 > **deleteReadModel**(`collection`, `id`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:565
+Defined in: packages/client/src/storage/SQLiteStorage.ts:504
 
 Delete a read model record.
 
@@ -240,7 +240,7 @@ Delete a read model record.
 
 > **deleteReadModelsByCacheKey**(`cacheKey`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:570
+Defined in: packages/client/src/storage/SQLiteStorage.ts:509
 
 Delete all read model records for a cache key.
 
@@ -264,7 +264,7 @@ Delete all read model records for a cache key.
 
 > **deleteReadModelsByCollection**(`collection`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:575
+Defined in: packages/client/src/storage/SQLiteStorage.ts:514
 
 Delete all read model records for a collection.
 
@@ -288,7 +288,7 @@ Delete all read model records for a collection.
 
 > **deleteSession**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:164
+Defined in: packages/client/src/storage/SQLiteStorage.ts:98
 
 Delete the current session and all associated data.
 
@@ -306,7 +306,7 @@ Delete the current session and all associated data.
 
 > **getAllCacheKeys**(): `Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md)[]\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:190
+Defined in: packages/client/src/storage/SQLiteStorage.ts:124
 
 Get all cache keys.
 
@@ -324,7 +324,7 @@ Get all cache keys.
 
 > **getAnticipatedEventsByCommand**(`commandId`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md)[]\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:397
+Defined in: packages/client/src/storage/SQLiteStorage.ts:335
 
 Get anticipated events for a command.
 
@@ -348,7 +348,7 @@ Get anticipated events for a command.
 
 > **getCachedEvent**(`id`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md) \| `undefined`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:371
+Defined in: packages/client/src/storage/SQLiteStorage.ts:307
 
 Get a cached event by ID.
 
@@ -372,7 +372,7 @@ Get a cached event by ID.
 
 > **getCachedEventsByCacheKey**(`cacheKey`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md)[]\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:380
+Defined in: packages/client/src/storage/SQLiteStorage.ts:316
 
 Get cached events for a cache key.
 
@@ -396,7 +396,7 @@ Get cached events for a cache key.
 
 > **getCachedEventsByStream**(`streamId`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md)[]\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:386
+Defined in: packages/client/src/storage/SQLiteStorage.ts:324
 
 Get cached events for a stream.
 
@@ -420,7 +420,7 @@ Get cached events for a stream.
 
 > **getCacheKey**(`key`): `Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md) \| `undefined`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:181
+Defined in: packages/client/src/storage/SQLiteStorage.ts:115
 
 Get a cache key record.
 
@@ -444,7 +444,7 @@ Get a cache key record.
 
 > **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\> \| `undefined`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:251
+Defined in: packages/client/src/storage/SQLiteStorage.ts:187
 
 Get a command by ID.
 
@@ -468,7 +468,7 @@ Get a command by ID.
 
 > **getCommands**(`filter?`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\>[]\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:262
+Defined in: packages/client/src/storage/SQLiteStorage.ts:198
 
 Get commands matching a filter.
 
@@ -492,7 +492,7 @@ Get commands matching a filter.
 
 > **getCommandsBlockedBy**(`commandId`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\>[]\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:314
+Defined in: packages/client/src/storage/SQLiteStorage.ts:250
 
 Get commands blocked by a specific command.
 
@@ -516,7 +516,7 @@ Get commands blocked by a specific command.
 
 > **getCommandsByStatus**(`status`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\>[]\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:310
+Defined in: packages/client/src/storage/SQLiteStorage.ts:246
 
 Get commands by status.
 
@@ -540,7 +540,7 @@ Get commands by status.
 
 > **getEvictableCacheKeys**(`limit`): `Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md)[]\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:235
+Defined in: packages/client/src/storage/SQLiteStorage.ts:171
 
 Get cache keys eligible for eviction (holdCount = 0, not frozen).
 
@@ -564,7 +564,7 @@ Get cache keys eligible for eviction (holdCount = 0, not frozen).
 
 > **getReadModel**(`collection`, `id`): `Promise`\<[`ReadModelRecord`](../interfaces/ReadModelRecord.md) \| `undefined`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:474
+Defined in: packages/client/src/storage/SQLiteStorage.ts:413
 
 Get a read model record.
 
@@ -592,7 +592,7 @@ Get a read model record.
 
 > **getReadModelsByCacheKey**(`cacheKey`): `Promise`\<[`ReadModelRecord`](../interfaces/ReadModelRecord.md)[]\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:514
+Defined in: packages/client/src/storage/SQLiteStorage.ts:453
 
 Get read model records by cache key.
 
@@ -616,7 +616,7 @@ Get read model records by cache key.
 
 > **getReadModelsByCollection**(`collection`, `options?`): `Promise`\<[`ReadModelRecord`](../interfaces/ReadModelRecord.md)[]\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:486
+Defined in: packages/client/src/storage/SQLiteStorage.ts:425
 
 Get all read model records for a collection.
 
@@ -644,7 +644,7 @@ Get all read model records for a collection.
 
 > **getSession**(): `Promise`\<[`SessionRecord`](../interfaces/SessionRecord.md) \| `undefined`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:136
+Defined in: packages/client/src/storage/SQLiteStorage.ts:70
 
 Get the current session, if any.
 
@@ -662,7 +662,7 @@ Get the current session, if any.
 
 > **holdCacheKey**(`key`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:220
+Defined in: packages/client/src/storage/SQLiteStorage.ts:154
 
 Increment hold count for a cache key.
 
@@ -686,7 +686,7 @@ Increment hold count for a cache key.
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:96
+Defined in: packages/client/src/storage/SQLiteStorage.ts:44
 
 Initialize the storage backend.
 For SQLite, this creates tables and runs migrations.
@@ -705,7 +705,7 @@ For SQLite, this creates tables and runs migrations.
 
 > **releaseCacheKey**(`key`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:225
+Defined in: packages/client/src/storage/SQLiteStorage.ts:159
 
 Decrement hold count for a cache key.
 
@@ -729,7 +729,7 @@ Decrement hold count for a cache key.
 
 > **saveCachedEvent**(`event`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:406
+Defined in: packages/client/src/storage/SQLiteStorage.ts:344
 
 Save a cached event.
 
@@ -753,7 +753,7 @@ Save a cached event.
 
 > **saveCachedEvents**(`events`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:427
+Defined in: packages/client/src/storage/SQLiteStorage.ts:365
 
 Save multiple cached events in a batch.
 
@@ -777,7 +777,7 @@ Save multiple cached events in a batch.
 
 > **saveCacheKey**(`record`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:196
+Defined in: packages/client/src/storage/SQLiteStorage.ts:130
 
 Save or update a cache key.
 
@@ -801,7 +801,7 @@ Save or update a cache key.
 
 > **saveCommand**(`command`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:323
+Defined in: packages/client/src/storage/SQLiteStorage.ts:259
 
 Save a new command.
 
@@ -825,7 +825,7 @@ Save a new command.
 
 > **saveReadModel**(`record`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:522
+Defined in: packages/client/src/storage/SQLiteStorage.ts:461
 
 Save a read model record.
 
@@ -849,7 +849,7 @@ Save a read model record.
 
 > **saveReadModels**(`records`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:540
+Defined in: packages/client/src/storage/SQLiteStorage.ts:479
 
 Save multiple read model records in a batch.
 
@@ -873,7 +873,7 @@ Save multiple read model records in a batch.
 
 > **saveSession**(`session`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:155
+Defined in: packages/client/src/storage/SQLiteStorage.ts:89
 
 Save or update the session.
 
@@ -897,7 +897,7 @@ Save or update the session.
 
 > **touchCacheKey**(`key`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:230
+Defined in: packages/client/src/storage/SQLiteStorage.ts:166
 
 Touch a cache key (update lastAccessedAt).
 
@@ -921,7 +921,7 @@ Touch a cache key (update lastAccessedAt).
 
 > **touchSession**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:174
+Defined in: packages/client/src/storage/SQLiteStorage.ts:108
 
 Update the last seen timestamp.
 
@@ -939,7 +939,7 @@ Update the last seen timestamp.
 
 > **updateCommand**(`commandId`, `updates`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:348
+Defined in: packages/client/src/storage/SQLiteStorage.ts:284
 
 Update an existing command.
 

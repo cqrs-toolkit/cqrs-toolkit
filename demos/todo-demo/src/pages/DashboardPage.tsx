@@ -4,8 +4,7 @@ import { filter } from 'rxjs'
 import { createSignal, For, onCleanup, onMount, Show } from 'solid-js'
 import type { Note } from '../../shared/notes/types'
 import type { Todo } from '../../shared/todos/types'
-import { options } from '../cqrs-client'
-import { useClient } from '../cqrs-context'
+import { useClient } from '../bootstrap/cqrs-context'
 
 type PanelState = 'loading' | 'ready' | 'error'
 
@@ -117,8 +116,8 @@ export default function DashboardPage() {
     <div class="max-w-4xl mx-auto px-4 py-8">
       <h1 class="text-2xl font-bold text-center mb-1">CQRS Client Demo</h1>
       <div class="text-center mb-8">
-        <span class="inline-block text-xs px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
-          mode: {options.mode} | ws: {String(options.ws)} | status: {client.status} | sync: todos=
+        <span class="mode-badge inline-block text-xs px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
+          mode: {client.mode} | status: {client.status} | sync: todos=
           {syncLabel(todosSync())} notes={syncLabel(notesSync())}
         </span>
       </div>

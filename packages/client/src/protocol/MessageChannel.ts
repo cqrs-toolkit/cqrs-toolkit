@@ -8,6 +8,23 @@
 import { logProvider } from '@meticoeus/ddd-es'
 import { Observable, Subject, filter, firstValueFrom, take, timeout } from 'rxjs'
 import { generateId } from '../utils/uuid.js'
+
+/**
+ * Error thrown when an RPC request to the worker fails.
+ *
+ * Carries the optional `errorCode` from the worker-side error so the
+ * adapter layer can reconstruct typed exceptions (e.g., OpfsUnavailableException).
+ */
+export class RpcError extends Error {
+  readonly errorCode: string | undefined
+
+  constructor(message: string, errorCode?: string) {
+    super(message)
+    this.name = 'RpcError'
+    this.errorCode = errorCode
+  }
+}
+
 import type {
   EventMessage,
   HeartbeatMessage,
@@ -144,9 +161,7 @@ export class WorkerMessageChannel {
     const response = await responsePromise
 
     if (!response.success) {
-      throw Object.assign(new Error(response.error ?? 'Request failed'), {
-        code: response.errorCode,
-      })
+      throw new RpcError(response.error ?? 'Request failed', response.errorCode)
     }
 
     return response.result as T
@@ -330,6 +345,7 @@ export class WorkerMessageHandler {
   private readonly windowPorts = new Map<string, MessagePort>()
   private readonly portToWindowId = new Map<MessagePort, string>()
   private readonly windowRemovedCallbacks: Array<(windowId: string) => Promise<void>> = []
+  private isDedicatedWorker = false
   private restoreHoldsHandler:
     | ((data: RestoreHoldsRequest) => Promise<{ restoredKeys: string[]; failedKeys: string[] }>)
     | undefined
@@ -388,6 +404,7 @@ export class WorkerMessageHandler {
    * Send worker-instance message (Dedicated Worker startup).
    */
   sendWorkerInstance(): void {
+    this.isDedicatedWorker = true
     this.sendResponse({
       type: 'worker-instance',
       workerInstanceId: this.workerInstanceId,
@@ -420,8 +437,12 @@ export class WorkerMessageHandler {
       payload,
     }
 
-    for (const port of this.connectedPorts) {
-      this.sendToPort(port, message)
+    if (this.isDedicatedWorker) {
+      this.sendResponse(message)
+    } else {
+      for (const port of this.connectedPorts) {
+        this.sendToPort(port, message)
+      }
     }
   }
 
@@ -688,6 +709,11 @@ export class WorkerMessageHandler {
 }
 
 function getErrorCode(err: unknown): string | undefined {
+  if (typeof err === 'object' && err !== null) {
+    // Exception subclasses use `errorCode: string`
+    if ('errorCode' in err && typeof err.errorCode === 'string') return err.errorCode
+  }
+  // External errors may use `code: string` (e.g., DOMException)
   if (!(err instanceof Error) || !('code' in err)) return undefined
   const code: unknown = err.code
   return typeof code === 'string' ? code : undefined

@@ -184,15 +184,12 @@ export interface Collection {
 }
 
 /**
- * Main CQRS Client configuration.
+ * Shared CQRS configuration.
+ *
+ * Contains all domain-level settings shared between the main thread and worker.
+ * The consumer writes this once and imports it from both entry points.
  */
-export interface CqrsClientConfig<TCommand = unknown, TEvent = unknown> {
-  /**
-   * Execution mode.
-   * Defaults to 'auto': SharedWorker > Dedicated Worker > Online-only
-   */
-  mode?: ExecutionModeConfig
-
+export interface CqrsConfig<TCommand = unknown, TEvent = unknown> {
   /**
    * Domain executor for local command validation.
    * If not provided, commands are sent directly without local validation.
@@ -247,17 +244,47 @@ export interface CqrsClientConfig<TCommand = unknown, TEvent = unknown> {
   debug?: boolean
 
   /**
-   * Worker script URL (for modes B and C).
-   * If not provided, uses default bundled worker.
-   */
-  workerUrl?: string
-
-  /**
-   * Module URLs to dynamically import in worker context.
+   * Module URLs to dynamically import before initialization.
    * Use this to run setup code (e.g., logger bootstrap) inside the worker
    * before storage initialization.
    */
   workerSetup?: string[]
+}
+
+/**
+ * Main-thread CQRS Client configuration.
+ *
+ * Extends the shared config with main-thread-only concerns:
+ * mode selection and worker script URL.
+ */
+export interface CqrsClientConfig<TCommand = unknown, TEvent = unknown> extends CqrsConfig<
+  TCommand,
+  TEvent
+> {
+  /**
+   * Execution mode.
+   * Defaults to 'auto': SharedWorker > Dedicated Worker > Online-only
+   */
+  mode?: ExecutionModeConfig
+
+  /**
+   * Worker script URL (for modes B and C).
+   * Points to the consumer's worker entry point that calls
+   * startDedicatedWorker() or startSharedWorker().
+   */
+  workerUrl?: string
+
+  /**
+   * URL to the consumer's SQLite worker script.
+   * Required for shared-worker mode — the SharedWorker spawns a child
+   * DedicatedWorker at this URL for SQLite I/O (OPFS requires a
+   * DedicatedWorker context).
+   *
+   * Must be resolved on the main thread where the bundler can process
+   * asset URL imports (e.g., Vite's `?worker&url` suffix).
+   * Passed to the SharedWorker via RPC during initialization.
+   */
+  sqliteWorkerUrl?: string
 }
 
 /**
@@ -287,30 +314,28 @@ export const DEFAULT_CONFIG = {
 } as const
 
 /**
- * Resolved configuration with all defaults applied.
+ * Resolved shared configuration with all defaults applied.
  */
 export interface ResolvedConfig<TCommand = unknown, TEvent = unknown> extends Required<
   Omit<
-    CqrsClientConfig<TCommand, TEvent>,
-    'domainExecutor' | 'commandSender' | 'workerUrl' | 'workerSetup' | 'collections' | 'processors'
+    CqrsConfig<TCommand, TEvent>,
+    'domainExecutor' | 'commandSender' | 'workerSetup' | 'collections' | 'processors'
   >
 > {
   domainExecutor?: IDomainExecutor<TCommand, TEvent>
   commandSender?: ICommandSender
-  workerUrl?: string
   workerSetup?: string[]
   collections: Collection[]
   processors: ProcessorRegistration[]
 }
 
 /**
- * Resolve configuration with defaults.
+ * Resolve shared configuration with defaults.
  */
 export function resolveConfig<TCommand, TEvent>(
-  config: CqrsClientConfig<TCommand, TEvent>,
+  config: CqrsConfig<TCommand, TEvent>,
 ): ResolvedConfig<TCommand, TEvent> {
   return {
-    mode: config.mode ?? DEFAULT_CONFIG.mode,
     domainExecutor: config.domainExecutor,
     commandSender: config.commandSender,
     network: {
@@ -333,7 +358,6 @@ export function resolveConfig<TCommand, TEvent>(
     processors: config.processors ?? [],
     retainTerminal: config.retainTerminal ?? false,
     debug: config.debug ?? false,
-    workerUrl: config.workerUrl,
     workerSetup: config.workerSetup,
   }
 }

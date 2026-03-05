@@ -21,7 +21,8 @@ import {
 } from 'rxjs'
 import type { CacheManager } from '../cache-manager/CacheManager.js'
 import type { EventBus } from '../events/EventBus.js'
-import type { ReadModelQueryOptions, ReadModelStore } from '../read-model-store/index.js'
+import type { ReadModelStore } from '../read-model-store/index.js'
+import type { IQueryManager, ListQueryResult, QueryOptions, QueryResult } from './types.js'
 
 /**
  * Query manager configuration.
@@ -32,46 +33,13 @@ export interface QueryManagerConfig {
   readModelStore: ReadModelStore
 }
 
-/**
- * Query options.
- */
-export interface QueryOptions extends ReadModelQueryOptions {
-  /** Place a hold on the cache key while query is active */
-  hold?: boolean
-  /** Custom scope for the cache key */
-  scope?: string
-}
-
-/**
- * Query result with metadata.
- */
-export interface QueryResult<T> {
-  /** The data, or undefined if not found */
-  data: T | undefined
-  /** Whether the data has local changes pending sync */
-  hasLocalChanges: boolean
-  /** Cache key used for this query */
-  cacheKey: string
-}
-
-/**
- * List query result.
- */
-export interface ListQueryResult<T> {
-  /** The data items */
-  data: T[]
-  /** Total count (may differ from data.length with pagination) */
-  total: number
-  /** Whether any items have local changes */
-  hasLocalChanges: boolean
-  /** Cache key used for this query */
-  cacheKey: string
-}
+// Re-export types for backwards compatibility
+export type { ListQueryResult, QueryOptions, QueryResult } from './types.js'
 
 /**
  * Query manager.
  */
-export class QueryManager {
+export class QueryManager implements IQueryManager {
   private readonly eventBus: EventBus
   private readonly cacheManager: CacheManager
   private readonly readModelStore: ReadModelStore

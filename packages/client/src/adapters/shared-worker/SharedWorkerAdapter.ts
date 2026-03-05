@@ -1,30 +1,39 @@
 /**
  * SharedWorker adapter (Mode B) - Window-side proxy.
  *
- * This adapter runs in the main window context and communicates
- * with a SharedWorker that manages the SQLite storage.
+ * Connects to a consumer-provided SharedWorker that owns all CQRS components.
+ * The main thread gets proxy objects for CommandQueue, QueryManager,
+ * CacheManager, and SyncManager. Handles window registration, heartbeats,
+ * and hold restoration after worker restarts.
  */
 
 import { logProvider } from '@meticoeus/ddd-es'
-import { interval, Observable, Subject, Subscription, takeUntil } from 'rxjs'
-import { EventBus } from '../../core/events/EventBus.js'
-import { SessionManager } from '../../core/session/SessionManager.js'
+import { Observable, Subject, Subscription, interval, map, share, takeUntil } from 'rxjs'
+import type { ICacheManager } from '../../core/cache-manager/types.js'
+import type { ICommandQueue } from '../../core/command-queue/types.js'
+import type { IQueryManager } from '../../core/query-manager/types.js'
+import type { CqrsClientSyncManager } from '../../createCqrsClient.js'
 import { WorkerMessageChannel } from '../../protocol/MessageChannel.js'
 import type { EventMessage } from '../../protocol/messages.js'
-import type { IStorage } from '../../storage/IStorage.js'
-import type { ExecutionMode, ResolvedConfig } from '../../types/config.js'
 import type { LibraryEvent } from '../../types/events.js'
 import { assert } from '../../utils/assert.js'
 import { generateId } from '../../utils/uuid.js'
-import type { AdapterStatus, IAdapter } from '../base/IAdapter.js'
-import { SharedWorkerStorageProxy } from './SharedWorkerStorageProxy.js'
+import type { AdapterStatus, IWorkerAdapter } from '../base/IAdapter.js'
+import { CacheManagerProxy } from '../proxy/CacheManagerProxy.js'
+import { CommandQueueProxy } from '../proxy/CommandQueueProxy.js'
+import { QueryManagerProxy } from '../proxy/QueryManagerProxy.js'
+import { SyncManagerProxy } from '../proxy/SyncManagerProxy.js'
 
 /**
  * Configuration for SharedWorkerAdapter.
  */
-export interface SharedWorkerAdapterConfig extends ResolvedConfig {
-  /** URL to the SharedWorker script */
+export interface SharedWorkerAdapterConfig {
+  /** URL to the consumer's SharedWorker script */
   workerUrl: string
+  /** URL to the consumer's SQLite worker script (passed to worker via RPC) */
+  sqliteWorkerUrl?: string
+  /** Request timeout in milliseconds (default: 30000) */
+  requestTimeout?: number
   /** Heartbeat interval in milliseconds (default: 10000) */
   heartbeatInterval?: number
 }
@@ -35,34 +44,35 @@ const DEFAULT_HEARTBEAT_INTERVAL = 10000
  * SharedWorker adapter for multi-tab offline support.
  *
  * This adapter:
- * - Connects to a SharedWorker that manages SQLite storage
- * - Provides a storage proxy for window-side code
+ * - Connects to a SharedWorker that owns all CQRS components
+ * - Provides proxy objects for main-thread consumers
  * - Handles window registration and heartbeats
  * - Restores holds after worker restarts
  */
-export class SharedWorkerAdapter implements IAdapter {
-  readonly mode: ExecutionMode = 'shared-worker'
+export class SharedWorkerAdapter implements IWorkerAdapter {
+  readonly mode = 'shared-worker' as const
 
   private readonly config: SharedWorkerAdapterConfig
-  readonly eventBus: EventBus
   private readonly windowId: string
   private readonly destroy$ = new Subject<void>()
 
   private _status: AdapterStatus = 'uninitialized'
-  private _storage: SharedWorkerStorageProxy | undefined
-  private _sessionManager: SessionManager | undefined
+  private _commandQueue: CommandQueueProxy | undefined
+  private _queryManager: QueryManagerProxy | undefined
+  private _cacheManager: CacheManagerProxy | undefined
+  private _syncManager: SyncManagerProxy | undefined
+  private _events$: Observable<LibraryEvent> | undefined
 
   private worker: SharedWorker | undefined
   private channel: WorkerMessageChannel | undefined
   private heartbeatSubscription: Subscription | undefined
   private currentWorkerInstanceId: string | undefined
 
-  /** Cache keys held by this window (for restoration after restart) */
+  /** Cache keys held by this window (for restoration after worker restart) */
   private readonly localHolds = new Set<string>()
 
   constructor(config: SharedWorkerAdapterConfig) {
     this.config = config
-    this.eventBus = new EventBus()
     this.windowId = generateId()
   }
 
@@ -71,17 +81,28 @@ export class SharedWorkerAdapter implements IAdapter {
   }
 
   get events$(): Observable<LibraryEvent> {
-    return this.eventBus.events$
+    assert(this._events$, 'Adapter not initialized')
+    return this._events$
   }
 
-  get sessionManager(): SessionManager {
-    assert(this._sessionManager, 'Adapter not initialized')
-    return this._sessionManager
+  get commandQueue(): ICommandQueue {
+    assert(this._commandQueue, 'Adapter not initialized')
+    return this._commandQueue
   }
 
-  get storage(): IStorage {
-    assert(this._storage, 'Adapter not initialized')
-    return this._storage
+  get queryManager(): IQueryManager {
+    assert(this._queryManager, 'Adapter not initialized')
+    return this._queryManager
+  }
+
+  get cacheManager(): ICacheManager {
+    assert(this._cacheManager, 'Adapter not initialized')
+    return this._cacheManager
+  }
+
+  get syncManager(): CqrsClientSyncManager {
+    assert(this._syncManager, 'Adapter not initialized')
+    return this._syncManager
   }
 
   /**
@@ -96,27 +117,31 @@ export class SharedWorkerAdapter implements IAdapter {
       // Create SharedWorker
       this.worker = new SharedWorker(this.config.workerUrl, {
         type: 'module',
-        name: 'cqrs-client-storage',
+        name: 'cqrs-client',
       })
 
       // Create message channel
       this.channel = new WorkerMessageChannel(this.worker.port, {
-        requestTimeout: this.config.network.timeout,
+        requestTimeout: this.config.requestTimeout,
       })
 
       // Connect to worker
       this.channel.connect(this.worker.port)
       this.worker.port.start()
 
-      // Listen for library events from worker
-      this.channel.libraryEvents$
-        .pipe(takeUntil(this.destroy$))
-        .subscribe((event: EventMessage) => {
-          this.eventBus.emit(
-            event.eventName as LibraryEvent['type'],
-            event.payload as LibraryEvent['payload'],
-          )
-        })
+      // Build shared broadcast observable for proxies
+      const broadcastEvents$ = this.channel.libraryEvents$.pipe(share(), takeUntil(this.destroy$))
+
+      // Build events$ observable for consumers
+      this._events$ = broadcastEvents$.pipe(
+        map(
+          (event: EventMessage): LibraryEvent => ({
+            type: event.eventName as LibraryEvent['type'],
+            payload: event.payload as LibraryEvent['payload'],
+            timestamp: Date.now(),
+          }),
+        ),
+      )
 
       // Listen for worker instance changes (restarts)
       this.channel.workerInstanceChanges$.pipe(takeUntil(this.destroy$)).subscribe((instanceId) => {
@@ -131,28 +156,20 @@ export class SharedWorkerAdapter implements IAdapter {
 
       this.currentWorkerInstanceId = registration.workerInstanceId
 
-      // Run worker setup scripts (e.g., logger bootstrap)
-      if (this.config.workerSetup?.length) {
-        await this.channel.request('worker.setup', [this.config.workerSetup])
-      }
-
       // Start heartbeat
       this.startHeartbeat()
 
-      // Create storage proxy
-      this._storage = new SharedWorkerStorageProxy(
-        this.channel,
-        this.localHolds,
-        this.config.storage,
-      )
-      await this._storage.initialize()
+      // Trigger worker-side orchestrator initialization (pass sqlite worker URL from main thread)
+      await this.channel.request('orchestrator.initialize', [this.config.sqliteWorkerUrl])
 
-      // Create session manager
-      this._sessionManager = new SessionManager({
-        storage: this._storage,
-        eventBus: this.eventBus,
-      })
-      await this._sessionManager.initialize()
+      // Create proxy objects
+      this._commandQueue = new CommandQueueProxy(this.channel, broadcastEvents$)
+      this._queryManager = new QueryManagerProxy(this.channel, broadcastEvents$)
+      this._cacheManager = new CacheManagerProxy(this.channel)
+      this._syncManager = new SyncManagerProxy(this.channel, broadcastEvents$)
+
+      // Sync connectivity state from worker
+      await this._syncManager.syncState()
 
       this._status = 'ready'
     } catch (error) {
@@ -182,15 +199,13 @@ export class SharedWorkerAdapter implements IAdapter {
       this.channel = undefined
     }
 
-    // Clear storage proxy reference
-    this._storage = undefined
+    // Destroy proxies
+    this._commandQueue?.destroy()
+    this._syncManager?.destroy()
 
     // Signal destroy
     this.destroy$.next()
     this.destroy$.complete()
-
-    // Complete event bus
-    this.eventBus.complete()
 
     // Close worker connection
     if (this.worker) {

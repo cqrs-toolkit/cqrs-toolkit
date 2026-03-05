@@ -8,9 +8,9 @@
 
 > **resolveConfig**\<`TCommand`, `TEvent`\>(`config`): [`ResolvedConfig`](../interfaces/ResolvedConfig.md)\<`TCommand`, `TEvent`\>
 
-Defined in: packages/client/src/types/config.ts:309
+Defined in: packages/client/src/types/config.ts:335
 
-Resolve configuration with defaults.
+Resolve shared configuration with defaults.
 
 ## Type Parameters
 
@@ -26,7 +26,7 @@ Resolve configuration with defaults.
 
 ### config
 
-[`CqrsClientConfig`](../interfaces/CqrsClientConfig.md)\<`TCommand`, `TEvent`\>
+[`CqrsConfig`](../interfaces/CqrsConfig.md)\<`TCommand`, `TEvent`\>
 
 ## Returns
 

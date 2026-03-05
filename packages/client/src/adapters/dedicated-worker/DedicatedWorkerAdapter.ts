@@ -1,30 +1,36 @@
 /**
  * Dedicated Worker adapter (Mode C) - Window-side proxy.
  *
- * This adapter runs in the main window context and communicates
- * with a Dedicated Worker that manages the SQLite storage.
- * Only one tab may be open at a time (enforced by tab lock).
+ * Connects to a consumer-provided Dedicated Worker that owns all CQRS
+ * components. The main thread gets proxy objects for CommandQueue,
+ * QueryManager, CacheManager, and SyncManager.
  */
 
-import { Observable, Subject, takeUntil } from 'rxjs'
-import { EventBus } from '../../core/events/EventBus.js'
-import { SessionManager } from '../../core/session/SessionManager.js'
-import { WorkerMessageChannel } from '../../protocol/MessageChannel.js'
+import { Observable, Subject, map, share, takeUntil } from 'rxjs'
+import type { ICacheManager } from '../../core/cache-manager/types.js'
+import type { ICommandQueue } from '../../core/command-queue/types.js'
+import type { IQueryManager } from '../../core/query-manager/types.js'
+import type { CqrsClientSyncManager } from '../../createCqrsClient.js'
+import { RpcError, WorkerMessageChannel } from '../../protocol/MessageChannel.js'
 import type { EventMessage } from '../../protocol/messages.js'
-import type { IStorage } from '../../storage/IStorage.js'
-import type { ExecutionMode, ResolvedConfig } from '../../types/config.js'
 import type { LibraryEvent } from '../../types/events.js'
 import { assert } from '../../utils/assert.js'
 import { generateId } from '../../utils/uuid.js'
-import type { AdapterStatus, IAdapter } from '../base/IAdapter.js'
-import { DedicatedWorkerStorageProxy } from './DedicatedWorkerStorageProxy.js'
+import type { AdapterStatus, IWorkerAdapter } from '../base/IAdapter.js'
+import { CacheManagerProxy } from '../proxy/CacheManagerProxy.js'
+import { CommandQueueProxy } from '../proxy/CommandQueueProxy.js'
+import { QueryManagerProxy } from '../proxy/QueryManagerProxy.js'
+import { SyncManagerProxy } from '../proxy/SyncManagerProxy.js'
+import { OpfsUnavailableException } from '../worker-core/probeOpfs.js'
 
 /**
  * Configuration for DedicatedWorkerAdapter.
  */
-export interface DedicatedWorkerAdapterConfig extends ResolvedConfig {
-  /** URL to the Dedicated Worker script */
+export interface DedicatedWorkerAdapterConfig {
+  /** URL to the consumer's Dedicated Worker script */
   workerUrl: string
+  /** Request timeout in milliseconds (default: 30000) */
+  requestTimeout?: number
 }
 
 /**
@@ -41,21 +47,23 @@ export class TabLockError extends Error {
  * Dedicated Worker adapter for single-tab offline support.
  *
  * This adapter:
- * - Connects to a Dedicated Worker that manages SQLite storage
+ * - Connects to a Dedicated Worker that owns all CQRS components
  * - Enforces single-tab operation via tab lock
- * - Provides a storage proxy for window-side code
+ * - Provides proxy objects for main-thread consumers
  */
-export class DedicatedWorkerAdapter implements IAdapter {
-  readonly mode: ExecutionMode = 'dedicated-worker'
+export class DedicatedWorkerAdapter implements IWorkerAdapter {
+  readonly mode = 'dedicated-worker' as const
 
   private readonly config: DedicatedWorkerAdapterConfig
-  readonly eventBus: EventBus
   private readonly tabId: string
   private readonly destroy$ = new Subject<void>()
 
   private _status: AdapterStatus = 'uninitialized'
-  private _storage: DedicatedWorkerStorageProxy | undefined
-  private _sessionManager: SessionManager | undefined
+  private _commandQueue: CommandQueueProxy | undefined
+  private _queryManager: QueryManagerProxy | undefined
+  private _cacheManager: CacheManagerProxy | undefined
+  private _syncManager: SyncManagerProxy | undefined
+  private _events$: Observable<LibraryEvent> | undefined
 
   private worker: Worker | undefined
   private channel: WorkerMessageChannel | undefined
@@ -63,7 +71,6 @@ export class DedicatedWorkerAdapter implements IAdapter {
 
   constructor(config: DedicatedWorkerAdapterConfig) {
     this.config = config
-    this.eventBus = new EventBus()
     this.tabId = generateId()
   }
 
@@ -72,17 +79,28 @@ export class DedicatedWorkerAdapter implements IAdapter {
   }
 
   get events$(): Observable<LibraryEvent> {
-    return this.eventBus.events$
+    assert(this._events$, 'Adapter not initialized')
+    return this._events$
   }
 
-  get sessionManager(): SessionManager {
-    assert(this._sessionManager, 'Adapter not initialized')
-    return this._sessionManager
+  get commandQueue(): ICommandQueue {
+    assert(this._commandQueue, 'Adapter not initialized')
+    return this._commandQueue
   }
 
-  get storage(): IStorage {
-    assert(this._storage, 'Adapter not initialized')
-    return this._storage
+  get queryManager(): IQueryManager {
+    assert(this._queryManager, 'Adapter not initialized')
+    return this._queryManager
+  }
+
+  get cacheManager(): ICacheManager {
+    assert(this._cacheManager, 'Adapter not initialized')
+    return this._cacheManager
+  }
+
+  get syncManager(): CqrsClientSyncManager {
+    assert(this._syncManager, 'Adapter not initialized')
+    return this._syncManager
   }
 
   /**
@@ -99,50 +117,57 @@ export class DedicatedWorkerAdapter implements IAdapter {
       // Create Dedicated Worker
       this.worker = new Worker(this.config.workerUrl, {
         type: 'module',
-        name: 'cqrs-client-storage',
+        name: 'cqrs-client',
       })
 
       // Create message channel
       this.channel = new WorkerMessageChannel(this.worker, {
-        requestTimeout: this.config.network.timeout,
+        requestTimeout: this.config.requestTimeout,
       })
 
       // Connect to worker
       this.channel.connect(this.worker)
 
-      // Listen for library events from worker
-      this.channel.libraryEvents$
-        .pipe(takeUntil(this.destroy$))
-        .subscribe((event: EventMessage) => {
-          this.eventBus.emit(
-            event.eventName as LibraryEvent['type'],
-            event.payload as LibraryEvent['payload'],
-          )
-        })
+      // Build shared broadcast observable for proxies
+      const broadcastEvents$ = this.channel.libraryEvents$.pipe(share(), takeUntil(this.destroy$))
+
+      // Build events$ observable for consumers
+      this._events$ = broadcastEvents$.pipe(
+        map(
+          (event: EventMessage): LibraryEvent => ({
+            type: event.eventName as LibraryEvent['type'],
+            payload: event.payload as LibraryEvent['payload'],
+            timestamp: Date.now(),
+          }),
+        ),
+      )
 
       // Request tab lock
       const lockResponse = await this.channel.requestTabLock(this.tabId)
       if (!lockResponse.acquired) {
         throw new TabLockError(
-          `This app is already open in another tab. Only one tab may be open at a time.`,
+          'This app is already open in another tab. Only one tab may be open at a time.',
         )
       }
 
-      // Run worker setup scripts (e.g., logger bootstrap)
-      if (this.config.workerSetup?.length) {
-        await this.channel.request('worker.setup', [this.config.workerSetup])
+      // Trigger worker-side orchestrator initialization (includes OPFS probe)
+      try {
+        await this.channel.request('orchestrator.initialize')
+      } catch (error) {
+        if (error instanceof RpcError && error.errorCode === 'OPFS_UNAVAILABLE') {
+          throw new OpfsUnavailableException()
+        }
+        throw error
       }
 
-      // Create storage proxy
-      this._storage = new DedicatedWorkerStorageProxy(this.channel, this.config.storage)
-      await this._storage.initialize()
+      // Create proxy objects
+      this._commandQueue = new CommandQueueProxy(this.channel, broadcastEvents$)
+      this._queryManager = new QueryManagerProxy(this.channel, broadcastEvents$)
+      this._cacheManager = new CacheManagerProxy(this.channel)
+      this._syncManager = new SyncManagerProxy(this.channel, broadcastEvents$)
 
-      // Create session manager
-      this._sessionManager = new SessionManager({
-        storage: this._storage,
-        eventBus: this.eventBus,
-      })
-      await this._sessionManager.initialize()
+      // Sync connectivity state from worker
+      await this._syncManager.syncState()
 
       // Set up beforeunload to release lock
       this.setupBeforeUnload()
@@ -172,25 +197,25 @@ export class DedicatedWorkerAdapter implements IAdapter {
     // Remove beforeunload listener
     this.removeBeforeUnload()
 
-    // Release tab lock
+    // Tell worker to close orchestrator
     if (this.channel) {
+      try {
+        await this.channel.request('orchestrator.close')
+      } catch {
+        // Worker may already be dead
+      }
       this.channel.releaseTabLock(this.tabId)
       this.channel.destroy()
       this.channel = undefined
     }
 
-    // Close storage proxy
-    if (this._storage) {
-      await this._storage.close()
-      this._storage = undefined
-    }
+    // Destroy proxies
+    this._commandQueue?.destroy()
+    this._syncManager?.destroy()
 
     // Signal destroy
     this.destroy$.next()
     this.destroy$.complete()
-
-    // Complete event bus
-    this.eventBus.complete()
 
     // Terminate worker
     if (this.worker) {

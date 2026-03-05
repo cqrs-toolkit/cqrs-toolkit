@@ -1,5 +1,5 @@
 import { createSignal } from 'solid-js'
-import { useClient } from '../cqrs-context'
+import { useClient } from '../bootstrap/cqrs-context'
 
 interface AddNoteProps {
   onError: (message: string | undefined) => void

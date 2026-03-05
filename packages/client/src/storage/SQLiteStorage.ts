@@ -1,12 +1,15 @@
 /**
- * SQLite storage implementation using @sqlite.org/sqlite-wasm.
+ * SQLite storage implementation.
  *
- * This implementation supports both Worker context (opfs VFS) and
- * main thread (opfs-sahpool VFS) execution modes.
+ * Always receives an injected `ISqliteDb` — never loads WASM or opens
+ * databases itself.  Two creation paths exist upstream:
+ *
+ * - **Mode C** (DedicatedWorker): `loadAndOpenDb()` → `LocalSqliteDb`
+ * - **Mode B** (SharedWorker): `RemoteSqliteDb` proxying to a child worker
  */
 
 import type { CommandFilter, CommandRecord, CommandStatus } from '../types/commands.js'
-import { assert } from '../utils/assert.js'
+import type { ISqliteDb } from './ISqliteDb.js'
 import type {
   CacheKeyRecord,
   CachedEventRecord,
@@ -18,77 +21,22 @@ import type {
 import { ALL_TABLES, getPendingMigrations } from './schema/index.js'
 
 /**
- * SQLite database instance type (from @sqlite.org/sqlite-wasm).
- *
- * The generic on the query overload declares the row shape we expect back.
- * Since we control the schema through migrations and SQLite enforces column
- * types, the row type parameter is a sound declaration of what we know we're
- * getting — not a speculative cast.
- */
-interface SqliteDb {
-  exec<T = Record<string, unknown>>(
-    sql: string,
-    options: { bind?: unknown[]; rowMode: 'object'; returnValue: 'resultRows' },
-  ): T[]
-  exec(sql: string, options?: { bind?: unknown[] }): void
-  close(): void
-}
-
-/**
- * Utility returned by `installOpfsSAHPoolVfs()`.
- */
-interface SAHPoolUtil {
-  OpfsSAHPoolDb: new (filename: string) => SqliteDb
-}
-
-/**
- * SQLite WASM module type.
- */
-interface SqliteModule {
-  oo1: {
-    DB: new (filename: string, mode?: string) => SqliteDb
-    OpfsDb?: new (filename: string) => SqliteDb
-  }
-  installOpfsSAHPoolVfs?: (opts: {
-    clearOnInit?: boolean
-    initialCapacity?: number
-    directory?: string
-    name?: string
-  }) => Promise<SAHPoolUtil>
-}
-
-/**
- * VFS type for storage.
- */
-export type VfsType = 'opfs' | 'opfs-sahpool' | 'memory'
-
-/**
  * SQLite storage configuration.
  */
 export interface SQLiteStorageConfig {
-  /** Database file name */
-  dbName?: string
-  /** VFS to use */
-  vfs?: VfsType
-  /** Pre-initialized SQLite module (for worker contexts) */
-  sqlite?: SqliteModule
+  /** Injected async SQLite database handle */
+  db: ISqliteDb
 }
 
 /**
  * SQLite storage implementation.
  */
 export class SQLiteStorage implements IStorage {
-  private readonly dbName: string
-  private readonly vfs: VfsType
-  private sqliteModule: SqliteModule | undefined
-  private sahPoolUtil: SAHPoolUtil | undefined
-  private db: SqliteDb | undefined
+  private readonly db: ISqliteDb
   private initialized = false
 
-  constructor(config: SQLiteStorageConfig = {}) {
-    this.dbName = config.dbName ?? 'cqrs-client.db'
-    this.vfs = config.vfs ?? 'memory'
-    this.sqliteModule = config.sqlite
+  constructor(config: SQLiteStorageConfig) {
+    this.db = config.db
   }
 
   // Lifecycle
@@ -96,46 +44,32 @@ export class SQLiteStorage implements IStorage {
   async initialize(): Promise<void> {
     if (this.initialized) return
 
-    // Load SQLite module if not provided
-    if (!this.sqliteModule) {
-      this.sqliteModule = await this.loadSqliteModule()
-    }
-
-    // Open database
-    this.db = await this.openDatabase()
-
-    // Create tables
     await this.createSchema()
-
-    // Run migrations
     await this.runMigrations()
 
     this.initialized = true
   }
 
   async close(): Promise<void> {
-    if (this.db) {
-      this.db.close()
-      this.db = undefined
-    }
+    await this.db.close()
     this.initialized = false
   }
 
   async clear(): Promise<void> {
     this.assertInitialized()
     // Delete all data but keep schema
-    this.exec('DELETE FROM session')
-    this.exec('DELETE FROM cache_keys')
-    this.exec('DELETE FROM commands')
-    this.exec('DELETE FROM cached_events')
-    this.exec('DELETE FROM read_models')
+    await this.exec('DELETE FROM session')
+    await this.exec('DELETE FROM cache_keys')
+    await this.exec('DELETE FROM commands')
+    await this.exec('DELETE FROM cached_events')
+    await this.exec('DELETE FROM read_models')
   }
 
   // Session operations
 
   async getSession(): Promise<SessionRecord | undefined> {
     this.assertInitialized()
-    const row = this.queryOne<{
+    const row = await this.queryOne<{
       id: number
       user_id: string
       created_at: number
@@ -154,7 +88,7 @@ export class SQLiteStorage implements IStorage {
 
   async saveSession(session: SessionRecord): Promise<void> {
     this.assertInitialized()
-    this.exec(
+    await this.exec(
       `INSERT OR REPLACE INTO session (id, user_id, created_at, last_seen_at)
        VALUES (1, ?, ?, ?)`,
       [session.userId, session.createdAt, session.lastSeenAt],
@@ -164,23 +98,23 @@ export class SQLiteStorage implements IStorage {
   async deleteSession(): Promise<void> {
     this.assertInitialized()
     // Delete session and all associated data
-    this.exec('DELETE FROM session')
-    this.exec('DELETE FROM cache_keys')
-    this.exec('DELETE FROM commands')
-    this.exec('DELETE FROM cached_events')
-    this.exec('DELETE FROM read_models')
+    await this.exec('DELETE FROM session')
+    await this.exec('DELETE FROM cache_keys')
+    await this.exec('DELETE FROM commands')
+    await this.exec('DELETE FROM cached_events')
+    await this.exec('DELETE FROM read_models')
   }
 
   async touchSession(): Promise<void> {
     this.assertInitialized()
-    this.exec('UPDATE session SET last_seen_at = ? WHERE id = 1', [Date.now()])
+    await this.exec('UPDATE session SET last_seen_at = ? WHERE id = 1', [Date.now()])
   }
 
   // Cache key operations
 
   async getCacheKey(key: string): Promise<CacheKeyRecord | undefined> {
     this.assertInitialized()
-    const row = this.queryOne<CacheKeyRow>('SELECT * FROM cache_keys WHERE key = ?', [key])
+    const row = await this.queryOne<CacheKeyRow>('SELECT * FROM cache_keys WHERE key = ?', [key])
 
     if (!row) return undefined
 
@@ -189,13 +123,13 @@ export class SQLiteStorage implements IStorage {
 
   async getAllCacheKeys(): Promise<CacheKeyRecord[]> {
     this.assertInitialized()
-    const rows = this.query<CacheKeyRow>('SELECT * FROM cache_keys')
+    const rows = await this.query<CacheKeyRow>('SELECT * FROM cache_keys')
     return rows.map((row) => this.rowToCacheKey(row))
   }
 
   async saveCacheKey(record: CacheKeyRecord): Promise<void> {
     this.assertInitialized()
-    this.exec(
+    await this.exec(
       `INSERT OR REPLACE INTO cache_keys (key, last_accessed_at, hold_count, frozen, expires_at, created_at, eviction_policy)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -212,29 +146,31 @@ export class SQLiteStorage implements IStorage {
 
   async deleteCacheKey(key: string): Promise<void> {
     this.assertInitialized()
-    this.exec('DELETE FROM cache_keys WHERE key = ?', [key])
-    this.exec('DELETE FROM cached_events WHERE cache_key = ?', [key])
-    this.exec('DELETE FROM read_models WHERE cache_key = ?', [key])
+    await this.exec('DELETE FROM cache_keys WHERE key = ?', [key])
+    await this.exec('DELETE FROM cached_events WHERE cache_key = ?', [key])
+    await this.exec('DELETE FROM read_models WHERE cache_key = ?', [key])
   }
 
   async holdCacheKey(key: string): Promise<void> {
     this.assertInitialized()
-    this.exec('UPDATE cache_keys SET hold_count = hold_count + 1 WHERE key = ?', [key])
+    await this.exec('UPDATE cache_keys SET hold_count = hold_count + 1 WHERE key = ?', [key])
   }
 
   async releaseCacheKey(key: string): Promise<void> {
     this.assertInitialized()
-    this.exec('UPDATE cache_keys SET hold_count = MAX(0, hold_count - 1) WHERE key = ?', [key])
+    await this.exec('UPDATE cache_keys SET hold_count = MAX(0, hold_count - 1) WHERE key = ?', [
+      key,
+    ])
   }
 
   async touchCacheKey(key: string): Promise<void> {
     this.assertInitialized()
-    this.exec('UPDATE cache_keys SET last_accessed_at = ? WHERE key = ?', [Date.now(), key])
+    await this.exec('UPDATE cache_keys SET last_accessed_at = ? WHERE key = ?', [Date.now(), key])
   }
 
   async getEvictableCacheKeys(limit: number): Promise<CacheKeyRecord[]> {
     this.assertInitialized()
-    const rows = this.query<CacheKeyRow>(
+    const rows = await this.query<CacheKeyRow>(
       `SELECT * FROM cache_keys
        WHERE hold_count = 0 AND frozen = 0
        ORDER BY CASE eviction_policy WHEN 'ephemeral' THEN 0 ELSE 1 END,
@@ -250,7 +186,7 @@ export class SQLiteStorage implements IStorage {
 
   async getCommand(commandId: string): Promise<CommandRecord | undefined> {
     this.assertInitialized()
-    const row = this.queryOne<CommandRow>('SELECT * FROM commands WHERE command_id = ?', [
+    const row = await this.queryOne<CommandRow>('SELECT * FROM commands WHERE command_id = ?', [
       commandId,
     ])
 
@@ -303,7 +239,7 @@ export class SQLiteStorage implements IStorage {
       }
     }
 
-    const rows = this.query<CommandRow>(sql, params)
+    const rows = await this.query<CommandRow>(sql, params)
     return rows.map((row) => this.rowToCommand(row))
   }
 
@@ -313,7 +249,7 @@ export class SQLiteStorage implements IStorage {
 
   async getCommandsBlockedBy(commandId: string): Promise<CommandRecord[]> {
     this.assertInitialized()
-    const rows = this.query<CommandRow>(
+    const rows = await this.query<CommandRow>(
       `SELECT * FROM commands WHERE EXISTS (SELECT 1 FROM json_each(blocked_by) WHERE value = ?)`,
       [commandId],
     )
@@ -322,7 +258,7 @@ export class SQLiteStorage implements IStorage {
 
   async saveCommand(command: CommandRecord): Promise<void> {
     this.assertInitialized()
-    this.exec(
+    await this.exec(
       `INSERT OR REPLACE INTO commands
        (command_id, service, type, payload, status, depends_on, blocked_by, attempts,
         last_attempt_at, error, server_response, created_at, updated_at)
@@ -356,21 +292,21 @@ export class SQLiteStorage implements IStorage {
 
   async deleteCommand(commandId: string): Promise<void> {
     this.assertInitialized()
-    this.exec('DELETE FROM commands WHERE command_id = ?', [commandId])
-    this.exec('DELETE FROM cached_events WHERE command_id = ?', [commandId])
+    await this.exec('DELETE FROM commands WHERE command_id = ?', [commandId])
+    await this.exec('DELETE FROM cached_events WHERE command_id = ?', [commandId])
   }
 
   async deleteAllCommands(): Promise<void> {
     this.assertInitialized()
-    this.exec('DELETE FROM commands')
-    this.exec("DELETE FROM cached_events WHERE persistence = 'Anticipated'")
+    await this.exec('DELETE FROM commands')
+    await this.exec("DELETE FROM cached_events WHERE persistence = 'Anticipated'")
   }
 
   // Event cache operations
 
   async getCachedEvent(id: string): Promise<CachedEventRecord | undefined> {
     this.assertInitialized()
-    const row = this.queryOne<EventRow>('SELECT * FROM cached_events WHERE id = ?', [id])
+    const row = await this.queryOne<EventRow>('SELECT * FROM cached_events WHERE id = ?', [id])
 
     if (!row) return undefined
 
@@ -379,13 +315,15 @@ export class SQLiteStorage implements IStorage {
 
   async getCachedEventsByCacheKey(cacheKey: string): Promise<CachedEventRecord[]> {
     this.assertInitialized()
-    const rows = this.query<EventRow>('SELECT * FROM cached_events WHERE cache_key = ?', [cacheKey])
+    const rows = await this.query<EventRow>('SELECT * FROM cached_events WHERE cache_key = ?', [
+      cacheKey,
+    ])
     return rows.map((row) => this.rowToEvent(row))
   }
 
   async getCachedEventsByStream(streamId: string): Promise<CachedEventRecord[]> {
     this.assertInitialized()
-    const rows = this.query<EventRow>(
+    const rows = await this.query<EventRow>(
       `SELECT * FROM cached_events WHERE stream_id = ?
        ORDER BY CASE WHEN position IS NOT NULL THEN CAST(position AS INTEGER) END ASC,
                 created_at ASC`,
@@ -396,7 +334,7 @@ export class SQLiteStorage implements IStorage {
 
   async getAnticipatedEventsByCommand(commandId: string): Promise<CachedEventRecord[]> {
     this.assertInitialized()
-    const rows = this.query<EventRow>(
+    const rows = await this.query<EventRow>(
       "SELECT * FROM cached_events WHERE persistence = 'Anticipated' AND command_id = ?",
       [commandId],
     )
@@ -405,7 +343,7 @@ export class SQLiteStorage implements IStorage {
 
   async saveCachedEvent(event: CachedEventRecord): Promise<void> {
     this.assertInitialized()
-    this.exec(
+    await this.exec(
       `INSERT OR REPLACE INTO cached_events
        (id, type, stream_id, persistence, data, position, revision, command_id, cache_key, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -449,31 +387,32 @@ export class SQLiteStorage implements IStorage {
       )
     }
 
-    this.exec(`INSERT OR IGNORE INTO cached_events ${columns} VALUES ${placeholders}`, params)
+    await this.exec(`INSERT OR IGNORE INTO cached_events ${columns} VALUES ${placeholders}`, params)
   }
 
   async deleteCachedEvent(id: string): Promise<void> {
     this.assertInitialized()
-    this.exec('DELETE FROM cached_events WHERE id = ?', [id])
+    await this.exec('DELETE FROM cached_events WHERE id = ?', [id])
   }
 
   async deleteAnticipatedEventsByCommand(commandId: string): Promise<void> {
     this.assertInitialized()
-    this.exec("DELETE FROM cached_events WHERE persistence = 'Anticipated' AND command_id = ?", [
-      commandId,
-    ])
+    await this.exec(
+      "DELETE FROM cached_events WHERE persistence = 'Anticipated' AND command_id = ?",
+      [commandId],
+    )
   }
 
   async deleteCachedEventsByCacheKey(cacheKey: string): Promise<void> {
     this.assertInitialized()
-    this.exec('DELETE FROM cached_events WHERE cache_key = ?', [cacheKey])
+    await this.exec('DELETE FROM cached_events WHERE cache_key = ?', [cacheKey])
   }
 
   // Read model operations
 
   async getReadModel(collection: string, id: string): Promise<ReadModelRecord | undefined> {
     this.assertInitialized()
-    const row = this.queryOne<ReadModelRow>(
+    const row = await this.queryOne<ReadModelRow>(
       'SELECT * FROM read_models WHERE collection = ? AND id = ?',
       [collection, id],
     )
@@ -507,13 +446,13 @@ export class SQLiteStorage implements IStorage {
       }
     }
 
-    const rows = this.query<ReadModelRow>(sql, params)
+    const rows = await this.query<ReadModelRow>(sql, params)
     return rows.map((row) => this.rowToReadModel(row))
   }
 
   async getReadModelsByCacheKey(cacheKey: string): Promise<ReadModelRecord[]> {
     this.assertInitialized()
-    const rows = this.query<ReadModelRow>('SELECT * FROM read_models WHERE cache_key = ?', [
+    const rows = await this.query<ReadModelRow>('SELECT * FROM read_models WHERE cache_key = ?', [
       cacheKey,
     ])
     return rows.map((row) => this.rowToReadModel(row))
@@ -521,7 +460,7 @@ export class SQLiteStorage implements IStorage {
 
   async saveReadModel(record: ReadModelRecord): Promise<void> {
     this.assertInitialized()
-    this.exec(
+    await this.exec(
       `INSERT OR REPLACE INTO read_models
        (id, collection, cache_key, server_data, effective_data, has_local_changes, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -559,71 +498,37 @@ export class SQLiteStorage implements IStorage {
       )
     }
 
-    this.exec(`INSERT OR REPLACE INTO read_models ${columns} VALUES ${placeholders}`, params)
+    await this.exec(`INSERT OR REPLACE INTO read_models ${columns} VALUES ${placeholders}`, params)
   }
 
   async deleteReadModel(collection: string, id: string): Promise<void> {
     this.assertInitialized()
-    this.exec('DELETE FROM read_models WHERE collection = ? AND id = ?', [collection, id])
+    await this.exec('DELETE FROM read_models WHERE collection = ? AND id = ?', [collection, id])
   }
 
   async deleteReadModelsByCacheKey(cacheKey: string): Promise<void> {
     this.assertInitialized()
-    this.exec('DELETE FROM read_models WHERE cache_key = ?', [cacheKey])
+    await this.exec('DELETE FROM read_models WHERE cache_key = ?', [cacheKey])
   }
 
   async deleteReadModelsByCollection(collection: string): Promise<void> {
     this.assertInitialized()
-    this.exec('DELETE FROM read_models WHERE collection = ?', [collection])
+    await this.exec('DELETE FROM read_models WHERE collection = ?', [collection])
   }
 
   // Private helpers
 
-  private async loadSqliteModule(): Promise<SqliteModule> {
-    // Dynamic import of @sqlite.org/sqlite-wasm
-    // This allows the module to be tree-shaken if SQLite is not used
-    const sqlite3InitModule = await import('@sqlite.org/sqlite-wasm')
-    const sqlite3 = await sqlite3InitModule.default()
-    return sqlite3 as SqliteModule
-  }
-
-  private async openDatabase(): Promise<SqliteDb> {
-    if (!this.sqliteModule) {
-      throw new Error('SQLite module not loaded')
-    }
-
-    const { oo1 } = this.sqliteModule
-
-    switch (this.vfs) {
-      case 'opfs':
-        if (!oo1.OpfsDb) {
-          throw new Error('OPFS VFS not available - are you in a Worker?')
-        }
-        return new oo1.OpfsDb(this.dbName)
-
-      case 'opfs-sahpool': {
-        const install = this.sqliteModule.installOpfsSAHPoolVfs
-        assert(install, 'opfs-sahpool VFS not available in this SQLite build')
-        const poolUtil = await install({ clearOnInit: false })
-        this.sahPoolUtil = poolUtil
-        return new poolUtil.OpfsSAHPoolDb(this.dbName)
-      }
-
-      case 'memory':
-      default:
-        return new oo1.DB(':memory:', 'c')
-    }
-  }
-
   private async createSchema(): Promise<void> {
     for (const statement of ALL_TABLES) {
-      this.exec(statement)
+      await this.exec(statement)
     }
   }
 
   private async runMigrations(): Promise<void> {
     // Get current version
-    const rows = this.query<{ version: number }>('SELECT MAX(version) as version FROM migrations')
+    const rows = await this.query<{ version: number }>(
+      'SELECT MAX(version) as version FROM migrations',
+    )
     const currentVersion = rows[0]?.version ?? 0
 
     // Get pending migrations
@@ -631,22 +536,20 @@ export class SQLiteStorage implements IStorage {
 
     for (const migration of pending) {
       for (const sql of migration.sql) {
-        this.exec(sql)
+        await this.exec(sql)
       }
-      this.exec('INSERT INTO migrations (version, applied_at) VALUES (?, ?)', [
+      await this.exec('INSERT INTO migrations (version, applied_at) VALUES (?, ?)', [
         migration.version,
         Date.now(),
       ])
     }
   }
 
-  private exec(sql: string, params?: unknown[]): void {
-    assert(this.db, 'Database not initialized')
-    this.db.exec(sql, { bind: params })
+  private async exec(sql: string, params?: unknown[]): Promise<void> {
+    await this.db.exec(sql, { bind: params })
   }
 
-  private query<T>(sql: string, params?: unknown[]): T[] {
-    assert(this.db, 'Database not initialized')
+  private async query<T>(sql: string, params?: unknown[]): Promise<T[]> {
     return this.db.exec<T>(sql, {
       bind: params,
       rowMode: 'object',
@@ -654,8 +557,9 @@ export class SQLiteStorage implements IStorage {
     })
   }
 
-  private queryOne<T>(sql: string, params?: unknown[]): T | undefined {
-    return this.query<T>(sql, params)[0]
+  private async queryOne<T>(sql: string, params?: unknown[]): Promise<T | undefined> {
+    const rows = await this.query<T>(sql, params)
+    return rows[0]
   }
 
   private assertInitialized(): void {

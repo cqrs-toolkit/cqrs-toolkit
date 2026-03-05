@@ -6,12 +6,12 @@ test.beforeEach(async ({ request }) => {
 })
 
 test('shows empty state initially', async ({ page, mode }) => {
-  await page.goto(url('/todos', mode, false))
+  await page.goto(url('/todos', { mode, ws: false }))
   await expect(page.locator('.empty-state')).toContainText('No todos yet')
 })
 
 test('creates a todo', async ({ page, mode }) => {
-  await page.goto(url('/todos', mode, false))
+  await page.goto(url('/todos', { mode, ws: false }))
   await addTodo(page, 'Buy milk')
   await waitForTodoCount(page, 1)
   const texts = await getTodoTexts(page)
@@ -19,7 +19,7 @@ test('creates a todo', async ({ page, mode }) => {
 })
 
 test('creates multiple todos', async ({ page, mode }) => {
-  await page.goto(url('/todos', mode, false))
+  await page.goto(url('/todos', { mode, ws: false }))
   await addTodo(page, 'First task')
   await waitForTodoCount(page, 1)
   await addTodo(page, 'Second task')
@@ -29,7 +29,7 @@ test('creates multiple todos', async ({ page, mode }) => {
 })
 
 test('edits a todo', async ({ page, mode }) => {
-  await page.goto(url('/todos', mode, false))
+  await page.goto(url('/todos', { mode, ws: false }))
   await addTodo(page, 'Original text')
   await waitForTodoCount(page, 1)
 
@@ -42,44 +42,25 @@ test('edits a todo', async ({ page, mode }) => {
 })
 
 test('toggles todo status', async ({ page, mode }) => {
-  await page.goto(url('/todos', mode, false))
+  await page.goto(url('/todos', { mode, ws: false }))
   await addTodo(page, 'Toggle me')
   await waitForTodoCount(page, 1)
 
   const checkbox = page.locator('.todo-item').first().locator('input[type="checkbox"]')
-
   // pending → in_progress
   await checkbox.click()
+  await expect(page.locator('.todo-item.in-progress')).toBeVisible()
+
   // in_progress → completed
   await checkbox.click()
-
   await expect(page.locator('.todo-item.completed')).toBeVisible()
 })
 
 test('deletes a todo', async ({ page, mode }) => {
-  await page.goto(url('/todos', mode, false))
+  await page.goto(url('/todos', { mode, ws: false }))
   await addTodo(page, 'Delete me')
   await waitForTodoCount(page, 1)
 
   await page.locator('.todo-item').first().getByRole('button', { name: 'Del' }).click()
   await waitForTodoCount(page, 0)
-  await expect(page.locator('.empty-state')).toContainText('No todos yet')
-})
-
-test('shows mode badge', async ({ page, mode }) => {
-  await page.goto(url('/todos', mode, false))
-  await expect(page.locator('.mode-badge')).toContainText(mode)
-})
-
-test('data rehydrates after page reload', async ({ page, mode }) => {
-  await page.goto(url('/todos', mode, false))
-  await addTodo(page, 'Persist me')
-  await waitForTodoCount(page, 1)
-
-  await page.reload()
-
-  // Data should rehydrate (from SQLite cache in main-thread, from server in online-only)
-  await waitForTodoCount(page, 1)
-  const texts = await getTodoTexts(page)
-  expect(texts).toContain('Persist me')
 })

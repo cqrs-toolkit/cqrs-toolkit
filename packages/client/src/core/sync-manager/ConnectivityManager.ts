@@ -39,10 +39,26 @@ export interface ConnectivityManagerConfig {
 }
 
 /**
+ * Consumer-facing connectivity interface.
+ * Both the real ConnectivityManager (online-only / worker-internal) and
+ * ConnectivityProxy (main-thread in worker modes) implement this.
+ */
+export interface IConnectivity {
+  /** Get the current connectivity state. */
+  getState(): ConnectivityState
+  /** Observable of connectivity state changes. */
+  readonly state: Observable<ConnectivityState>
+  /** Observable of online status (browser + API reachable). */
+  readonly online$: Observable<boolean>
+  /** Check if we're effectively online. */
+  isOnline(): boolean
+}
+
+/**
  * Connectivity manager.
  * Tracks browser online status and API reachability.
  */
-export class ConnectivityManager {
+export class ConnectivityManager implements IConnectivity {
   private readonly eventBus: EventBus
   private readonly checkInterval: number
   private readonly healthCheckUrl: string | undefined
@@ -98,11 +114,14 @@ export class ConnectivityManager {
    * Start monitoring connectivity.
    */
   start(): void {
-    if (typeof window === 'undefined') return
+    // Guard: skip in non-browser environments (Node.js / SSR).
+    // Workers lack `window` but have navigator.onLine and online/offline events on `self`.
+    if (typeof navigator === 'undefined' || !('onLine' in navigator)) return
 
-    // Listen for browser online/offline events
-    const online$ = fromEvent(window, 'online').pipe(map(() => true))
-    const offline$ = fromEvent(window, 'offline').pipe(map(() => false))
+    // `self` refers to the global scope in both window and worker contexts.
+    // Both Window and WorkerGlobalScope support online/offline events.
+    const online$ = fromEvent(self, 'online').pipe(map(() => true))
+    const offline$ = fromEvent(self, 'offline').pipe(map(() => false))
 
     this.browserSub = merge(online$, offline$)
       .pipe(startWith(navigator.onLine))

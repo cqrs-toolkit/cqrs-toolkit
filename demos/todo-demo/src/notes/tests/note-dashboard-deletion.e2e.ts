@@ -17,8 +17,8 @@ test.beforeEach(async ({ request }) => {
 
 test.describe('same-session (no WS)', () => {
   test('dashboard removes deleted notes', async ({ page, mode }) => {
-    const notesUrl = url('/notes', mode, false)
-    const dashUrl = url('/', mode, false)
+    const notesUrl = url('/notes', { mode, ws: false })
+    const dashUrl = url('/', { mode, ws: false })
 
     // Create 8 notes
     await page.goto(notesUrl)
@@ -67,8 +67,8 @@ test.describe('same-session (no WS)', () => {
 
 test.describe('same-session (with WS)', () => {
   test('dashboard removes deleted notes', async ({ page, mode }) => {
-    const notesUrl = url('/notes', mode, true)
-    const dashUrl = url('/', mode, true)
+    const notesUrl = url('/notes', { mode, ws: true })
+    const dashUrl = url('/', { mode, ws: true })
 
     // Create 8 notes
     await page.goto(notesUrl)
@@ -121,21 +121,19 @@ test.describe('multi-session WS', () => {
     browser,
     mode,
   }) => {
-    const notesUrl = url('/notes', mode, true)
-    const dashUrl = url('/', mode, true)
     const context2 = await browser.newContext()
     try {
       const pageB = await context2.newPage()
 
       // pageA: create 10 notes
-      await gotoWithWsSubscribed(page, notesUrl)
+      await gotoWithWsSubscribed(page, url('/notes', { mode, ws: true }))
       for (let i = 1; i <= 10; i++) {
         await addNote(page, `Note-${i}`)
       }
       await waitForNoteCount(page, 10)
 
-      // pageB: dashboard shows 5 most recent
-      await gotoWithWsSubscribed(pageB, dashUrl)
+      // pageB: dashboard shows 5 most recent (session B for OPFS isolation)
+      await gotoWithWsSubscribed(pageB, url('/', { mode, ws: true, session: 'b' }))
       await waitForDashNoteCount(pageB, 5)
       expect(await getDashNoteTexts(pageB)).toEqual([
         'Note-10',
@@ -208,15 +206,12 @@ test.describe('multi-session WS', () => {
     browser,
     mode,
   }) => {
-    const notesUrl = url('/notes', mode, true)
-    const dashUrl = url('/', mode, true)
-    const todosUrl = url('/todos', mode, true)
     const context2 = await browser.newContext()
     try {
       const pageB = await context2.newPage()
 
       // pageA: create 10 notes, then delete 2
-      await gotoWithWsSubscribed(page, notesUrl)
+      await gotoWithWsSubscribed(page, url('/notes', { mode, ws: true }))
       for (let i = 1; i <= 10; i++) {
         await addNote(page, `Note-${i}`)
       }
@@ -224,8 +219,8 @@ test.describe('multi-session WS', () => {
       await deleteNote(page, 'Note-10')
       await deleteNote(page, 'Note-9')
 
-      // pageB: dashboard shows updated notes (Note-8 through Note-4)
-      await gotoWithWsSubscribed(pageB, dashUrl)
+      // pageB: dashboard shows updated notes (session B for OPFS isolation)
+      await gotoWithWsSubscribed(pageB, url('/', { mode, ws: true, session: 'b' }))
       await waitForDashNoteCount(pageB, 5)
       expect(await getDashNoteTexts(pageB)).toEqual([
         'Note-8',
@@ -236,7 +231,7 @@ test.describe('multi-session WS', () => {
       ])
 
       // pageA: create a todo
-      await gotoWithWsSubscribed(page, todosUrl)
+      await gotoWithWsSubscribed(page, url('/todos', { mode, ws: true }))
       await addTodo(page, 'Cross-stream todo')
 
       // pageB: the new todo appears on dashboard (proves WS still works across streams)
@@ -252,20 +247,18 @@ test.describe('multi-session WS', () => {
     browser,
     mode,
   }) => {
-    const notesUrl = url('/notes', mode, true)
-    const dashUrl = url('/', mode, true)
     const context2 = await browser.newContext()
     try {
       const pageB = await context2.newPage()
 
       // pageB opens dashboard FIRST (empty server, seeds nothing).
       // This ensures subsequent events arrive via WS and populate the gap buffer.
-      await gotoWithWsSubscribed(pageB, dashUrl)
+      await gotoWithWsSubscribed(pageB, url('/', { mode, ws: true, session: 'b' }))
 
       // pageA: create 3 notes (each on its own stream).
       // pageB receives all 3 NoteCreated events via WS individually.
       // Gap buffer: {Note-1: [P1], Note-2: [P2], Note-3: [P3]}
-      await gotoWithWsSubscribed(page, notesUrl)
+      await gotoWithWsSubscribed(page, url('/notes', { mode, ws: true }))
       await addNote(page, 'Note-1')
       await addNote(page, 'Note-2')
       await addNote(page, 'Note-3')

@@ -1,13 +1,25 @@
 /**
  * Adapter types shared across all execution modes.
+ *
+ * Uses a discriminated union on `mode` so createCqrsClient can narrow to
+ * the correct set of fields at compile time — online-only adapters expose
+ * raw components for main-thread wiring, worker adapters expose proxies.
  */
 
 import type { Observable } from 'rxjs'
+import type { ICacheManager } from '../../core/cache-manager/types.js'
+import type { ICommandQueue } from '../../core/command-queue/types.js'
 import type { EventBus } from '../../core/events/EventBus.js'
+import type { IQueryManager } from '../../core/query-manager/types.js'
 import type { SessionManager } from '../../core/session/SessionManager.js'
+import type { CqrsClientSyncManager } from '../../createCqrsClient.js'
 import type { IStorage } from '../../storage/IStorage.js'
-import type { ExecutionMode } from '../../types/config.js'
 import type { LibraryEvent } from '../../types/events.js'
+
+/**
+ * Re-export CqrsClientSyncManager for proxy implementations.
+ */
+export type { CqrsClientSyncManager } from '../../createCqrsClient.js'
 
 /**
  * Adapter status.
@@ -15,14 +27,9 @@ import type { LibraryEvent } from '../../types/events.js'
 export type AdapterStatus = 'uninitialized' | 'initializing' | 'ready' | 'error' | 'closed'
 
 /**
- * Base adapter interface that all mode adapters must implement.
+ * Shared fields for all adapter types.
  */
-export interface IAdapter {
-  /**
-   * Execution mode of this adapter.
-   */
-  readonly mode: ExecutionMode
-
+interface IAdapterBase {
   /**
    * Current adapter status.
    */
@@ -34,21 +41,6 @@ export interface IAdapter {
   readonly events$: Observable<LibraryEvent>
 
   /**
-   * Event bus instance for wiring core components.
-   */
-  readonly eventBus: EventBus
-
-  /**
-   * Session manager instance.
-   */
-  readonly sessionManager: SessionManager
-
-  /**
-   * Storage instance.
-   */
-  readonly storage: IStorage
-
-  /**
    * Initialize the adapter.
    */
   initialize(): Promise<void>
@@ -58,3 +50,33 @@ export interface IAdapter {
    */
   close(): Promise<void>
 }
+
+/**
+ * Online-only adapter provides raw components for main-thread wiring.
+ * createCqrsClient uses storage, eventBus, and sessionManager to wire
+ * CommandQueue, CacheManager, QueryManager, SyncManager etc.
+ */
+export interface IOnlineOnlyAdapter extends IAdapterBase {
+  readonly mode: 'online-only'
+  readonly storage: IStorage
+  readonly eventBus: EventBus
+  readonly sessionManager: SessionManager
+}
+
+/**
+ * Worker adapter provides proxy objects. All orchestration happens in the
+ * worker; createCqrsClient just wraps the proxies.
+ */
+export interface IWorkerAdapter extends IAdapterBase {
+  readonly mode: 'shared-worker' | 'dedicated-worker'
+  readonly commandQueue: ICommandQueue
+  readonly queryManager: IQueryManager
+  readonly cacheManager: ICacheManager
+  readonly syncManager: CqrsClientSyncManager
+}
+
+/**
+ * Discriminated union of all adapter types.
+ * Discriminant: `mode` field.
+ */
+export type IAdapter = IOnlineOnlyAdapter | IWorkerAdapter

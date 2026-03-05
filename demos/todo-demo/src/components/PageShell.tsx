@@ -1,7 +1,6 @@
 import { A } from '@solidjs/router'
 import type { JSX } from 'solid-js'
-import { options } from '../cqrs-client'
-import { useClient } from '../cqrs-context'
+import { useClient } from '../bootstrap/cqrs-context'
 
 interface PageShellProps {
   title: string
@@ -21,7 +20,7 @@ export default function PageShell(props: PageShellProps) {
       </A>
       <h1 class="text-2xl font-bold mb-1">{props.title}</h1>
       <span class="mode-badge inline-block text-xs px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200 mb-4">
-        mode: {options.mode} | ws: {String(options.ws)} | status: {client.status}
+        mode: {client.mode} | status: {client.status}
       </span>
       {props.children}
     </div>

@@ -84,7 +84,7 @@ Cache multiple anticipated events for a command.
 
 ##### events
 
-`Omit`\<[`AnticipatedEvent`](../interfaces/AnticipatedEvent.md)\<`T`\>, `"createdAt"` \| `"id"` \| `"persistence"`\>[]
+`Omit`\<[`AnticipatedEvent`](../interfaces/AnticipatedEvent.md)\<`T`\>, `"id"` \| `"createdAt"` \| `"persistence"`\>[]
 
 Events to cache
 

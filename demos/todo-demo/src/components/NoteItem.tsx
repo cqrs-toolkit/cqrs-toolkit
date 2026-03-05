@@ -1,6 +1,6 @@
 import { createSignal, Show } from 'solid-js'
 import type { Note } from '../../shared/notes/types'
-import { useClient } from '../cqrs-context'
+import { useClient } from '../bootstrap/cqrs-context'
 
 interface NoteItemProps {
   note: Note

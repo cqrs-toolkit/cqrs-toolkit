@@ -6,7 +6,7 @@
 
 # Interface: QueryManagerQueryOptions
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:38
+Defined in: packages/client/src/core/query-manager/types.ts:11
 
 Query options.
 
@@ -34,7 +34,7 @@ Filter by cache key
 
 > `optional` **hold**: `boolean`
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:40
+Defined in: packages/client/src/core/query-manager/types.ts:13
 
 Place a hold on the cache key while query is active
 
@@ -106,6 +106,6 @@ Defined in: packages/client/src/storage/IStorage.ts:95
 
 > `optional` **scope**: `string`
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:42
+Defined in: packages/client/src/core/query-manager/types.ts:15
 
 Custom scope for the cache key

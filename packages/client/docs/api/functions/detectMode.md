@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / detectMode
 
@@ -8,7 +8,7 @@
 
 > **detectMode**(): [`ExecutionMode`](../type-aliases/ExecutionMode.md)
 
-Defined in: packages/client/src/core/detectMode.ts:17
+Defined in: packages/client/src/core/detectMode.ts:36
 
 Detect the best execution mode for the current browser environment.
 

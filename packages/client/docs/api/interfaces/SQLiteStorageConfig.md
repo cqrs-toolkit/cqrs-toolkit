@@ -6,36 +6,16 @@
 
 # Interface: SQLiteStorageConfig
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:68
+Defined in: packages/client/src/storage/SQLiteStorage.ts:26
 
 SQLite storage configuration.
 
 ## Properties
 
-### dbName?
+### db
 
-> `optional` **dbName**: `string`
+> **db**: [`ISqliteDb`](ISqliteDb.md)
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:70
+Defined in: packages/client/src/storage/SQLiteStorage.ts:28
 
-Database file name
-
----
-
-### sqlite?
-
-> `optional` **sqlite**: `SqliteModule`
-
-Defined in: packages/client/src/storage/SQLiteStorage.ts:74
-
-Pre-initialized SQLite module (for worker contexts)
-
----
-
-### vfs?
-
-> `optional` **vfs**: [`VfsType`](../type-aliases/VfsType.md)
-
-Defined in: packages/client/src/storage/SQLiteStorage.ts:72
-
-VFS to use
+Injected async SQLite database handle

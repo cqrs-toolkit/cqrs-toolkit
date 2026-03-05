@@ -11,13 +11,12 @@ test.beforeEach(async ({ request }) => {
 })
 
 test('propagates created todo', async ({ page, browser, mode }) => {
-  const todosUrl = url('/todos', mode, true)
   const context2 = await browser.newContext()
   try {
     const pageB = await context2.newPage()
 
-    await gotoWithWsSubscribed(pageB, todosUrl)
-    await gotoWithWsSubscribed(page, todosUrl)
+    await gotoWithWsSubscribed(pageB, url('/todos', { mode, ws: true, session: 'b' }))
+    await gotoWithWsSubscribed(page, url('/todos', { mode, ws: true }))
 
     await addTodo(page, 'Propagated todo')
     await waitForTodoCount(page, 1)
@@ -30,13 +29,12 @@ test('propagates created todo', async ({ page, browser, mode }) => {
 })
 
 test('propagates edited content', async ({ page, browser, mode }) => {
-  const todosUrl = url('/todos', mode, true)
   const context2 = await browser.newContext()
   try {
     const pageB = await context2.newPage()
 
-    await gotoWithWsSubscribed(pageB, todosUrl)
-    await gotoWithWsSubscribed(page, todosUrl)
+    await gotoWithWsSubscribed(pageB, url('/todos', { mode, ws: true, session: 'b' }))
+    await gotoWithWsSubscribed(page, url('/todos', { mode, ws: true }))
 
     await addTodo(page, 'Original')
     await waitForTodoCount(page, 1)
@@ -55,13 +53,12 @@ test('propagates edited content', async ({ page, browser, mode }) => {
 })
 
 test('propagates status change', async ({ page, browser, mode }) => {
-  const todosUrl = url('/todos', mode, true)
   const context2 = await browser.newContext()
   try {
     const pageB = await context2.newPage()
 
-    await gotoWithWsSubscribed(pageB, todosUrl)
-    await gotoWithWsSubscribed(page, todosUrl)
+    await gotoWithWsSubscribed(pageB, url('/todos', { mode, ws: true, session: 'b' }))
+    await gotoWithWsSubscribed(page, url('/todos', { mode, ws: true }))
 
     await addTodo(page, 'Toggle me')
     await waitForTodoCount(page, 1)
@@ -81,13 +78,12 @@ test('propagates status change', async ({ page, browser, mode }) => {
 })
 
 test('propagates deletion', async ({ page, browser, mode }) => {
-  const todosUrl = url('/todos', mode, true)
   const context2 = await browser.newContext()
   try {
     const pageB = await context2.newPage()
 
-    await gotoWithWsSubscribed(pageB, todosUrl)
-    await gotoWithWsSubscribed(page, todosUrl)
+    await gotoWithWsSubscribed(pageB, url('/todos', { mode, ws: true, session: 'b' }))
+    await gotoWithWsSubscribed(page, url('/todos', { mode, ws: true }))
 
     await addTodo(page, 'Delete me')
     await waitForTodoCount(page, 1)
@@ -103,13 +99,12 @@ test('propagates deletion', async ({ page, browser, mode }) => {
 })
 
 test('propagates multiple creates', async ({ page, browser, mode }) => {
-  const todosUrl = url('/todos', mode, true)
   const context2 = await browser.newContext()
   try {
     const pageB = await context2.newPage()
 
-    await gotoWithWsSubscribed(pageB, todosUrl)
-    await gotoWithWsSubscribed(page, todosUrl)
+    await gotoWithWsSubscribed(pageB, url('/todos', { mode, ws: true, session: 'b' }))
+    await gotoWithWsSubscribed(page, url('/todos', { mode, ws: true }))
 
     await addTodo(page, 'First')
     await waitForTodoCount(page, 1)
@@ -125,13 +120,12 @@ test('propagates multiple creates', async ({ page, browser, mode }) => {
 })
 
 test('ping-pong CRUD across sessions', async ({ page, browser, mode }) => {
-  const todosUrl = url('/todos', mode, true)
   const context2 = await browser.newContext()
   try {
     const pageB = await context2.newPage()
 
-    await gotoWithWsSubscribed(pageB, todosUrl)
-    await gotoWithWsSubscribed(page, todosUrl)
+    await gotoWithWsSubscribed(pageB, url('/todos', { mode, ws: true, session: 'b' }))
+    await gotoWithWsSubscribed(page, url('/todos', { mode, ws: true }))
 
     // A creates "foo" → B sees it
     await addTodo(page, 'foo')

@@ -6,7 +6,7 @@
 
 # Interface: ListQueryResult\<T\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:60
+Defined in: packages/client/src/core/query-manager/types.ts:33
 
 List query result.
 
@@ -22,7 +22,7 @@ List query result.
 
 > **cacheKey**: `string`
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:68
+Defined in: packages/client/src/core/query-manager/types.ts:41
 
 Cache key used for this query
 
@@ -32,7 +32,7 @@ Cache key used for this query
 
 > **data**: `T`[]
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:62
+Defined in: packages/client/src/core/query-manager/types.ts:35
 
 The data items
 
@@ -42,7 +42,7 @@ The data items
 
 > **hasLocalChanges**: `boolean`
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:66
+Defined in: packages/client/src/core/query-manager/types.ts:39
 
 Whether any items have local changes
 
@@ -52,6 +52,6 @@ Whether any items have local changes
 
 > **total**: `number`
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:64
+Defined in: packages/client/src/core/query-manager/types.ts:37
 
 Total count (may differ from data.length with pagination)

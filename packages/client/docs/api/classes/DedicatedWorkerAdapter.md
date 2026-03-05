@@ -6,19 +6,19 @@
 
 # Class: DedicatedWorkerAdapter
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:48
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:54
 
 Dedicated Worker adapter for single-tab offline support.
 
 This adapter:
 
-- Connects to a Dedicated Worker that manages SQLite storage
+- Connects to a Dedicated Worker that owns all CQRS components
 - Enforces single-tab operation via tab lock
-- Provides a storage proxy for window-side code
+- Provides proxy objects for main-thread consumers
 
 ## Implements
 
-- [`IAdapter`](../interfaces/IAdapter.md)
+- [`IWorkerAdapter`](../interfaces/IWorkerAdapter.md)
 
 ## Constructors
 
@@ -26,7 +26,7 @@ This adapter:
 
 > **new DedicatedWorkerAdapter**(`config`): `DedicatedWorkerAdapter`
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:64
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:72
 
 #### Parameters
 
@@ -40,33 +40,53 @@ Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter
 
 ## Properties
 
-### eventBus
+### mode
 
-> `readonly` **eventBus**: [`EventBus`](EventBus.md)
+> `readonly` **mode**: `"dedicated-worker"`
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:52
-
-Event bus instance for wiring core components.
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:55
 
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`eventBus`](../interfaces/IAdapter.md#eventbus)
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`mode`](../interfaces/IWorkerAdapter.md#mode)
+
+## Accessors
+
+### cacheManager
+
+#### Get Signature
+
+> **get** **cacheManager**(): [`ICacheManager`](../interfaces/ICacheManager.md)
+
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:96
+
+##### Returns
+
+[`ICacheManager`](../interfaces/ICacheManager.md)
+
+#### Implementation of
+
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`cacheManager`](../interfaces/IWorkerAdapter.md#cachemanager)
 
 ---
 
-### mode
+### commandQueue
 
-> `readonly` **mode**: [`ExecutionMode`](../type-aliases/ExecutionMode.md) = `'dedicated-worker'`
+#### Get Signature
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:49
+> **get** **commandQueue**(): [`ICommandQueue`](../interfaces/ICommandQueue.md)
 
-Execution mode of this adapter.
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:86
+
+##### Returns
+
+[`ICommandQueue`](../interfaces/ICommandQueue.md)
 
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`mode`](../interfaces/IAdapter.md#mode)
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`commandQueue`](../interfaces/IWorkerAdapter.md#commandqueue)
 
-## Accessors
+---
 
 ### events$
 
@@ -74,7 +94,7 @@ Execution mode of this adapter.
 
 > **get** **events$**(): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:74
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:81
 
 Observable of library events.
 
@@ -86,29 +106,25 @@ Observable of library events.
 
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`events$`](../interfaces/IAdapter.md#events)
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`events$`](../interfaces/IWorkerAdapter.md#events)
 
 ---
 
-### sessionManager
+### queryManager
 
 #### Get Signature
 
-> **get** **sessionManager**(): [`SessionManager`](SessionManager.md)
+> **get** **queryManager**(): [`IQueryManager`](../interfaces/IQueryManager.md)
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:78
-
-Session manager instance.
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:91
 
 ##### Returns
 
-[`SessionManager`](SessionManager.md)
-
-Session manager instance.
+[`IQueryManager`](../interfaces/IQueryManager.md)
 
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`sessionManager`](../interfaces/IAdapter.md#sessionmanager)
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`queryManager`](../interfaces/IWorkerAdapter.md#querymanager)
 
 ---
 
@@ -118,7 +134,7 @@ Session manager instance.
 
 > **get** **status**(): [`AdapterStatus`](../type-aliases/AdapterStatus.md)
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:70
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:77
 
 Current adapter status.
 
@@ -130,29 +146,25 @@ Current adapter status.
 
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`status`](../interfaces/IAdapter.md#status)
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`status`](../interfaces/IWorkerAdapter.md#status)
 
 ---
 
-### storage
+### syncManager
 
 #### Get Signature
 
-> **get** **storage**(): [`IStorage`](../interfaces/IStorage.md)
+> **get** **syncManager**(): [`CqrsClientSyncManager`](../interfaces/CqrsClientSyncManager.md)
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:83
-
-Storage instance.
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:101
 
 ##### Returns
 
-[`IStorage`](../interfaces/IStorage.md)
-
-Storage instance.
+[`CqrsClientSyncManager`](../interfaces/CqrsClientSyncManager.md)
 
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`storage`](../interfaces/IAdapter.md#storage)
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`syncManager`](../interfaces/IWorkerAdapter.md#syncmanager)
 
 ## Methods
 
@@ -160,7 +172,7 @@ Storage instance.
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:167
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:192
 
 Close the adapter and release resources.
 
@@ -170,7 +182,7 @@ Close the adapter and release resources.
 
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`close`](../interfaces/IAdapter.md#close)
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`close`](../interfaces/IWorkerAdapter.md#close)
 
 ---
 
@@ -178,7 +190,7 @@ Close the adapter and release resources.
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:93
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:111
 
 Initialize the adapter.
 
@@ -192,4 +204,4 @@ TabLockError if another tab already has the lock
 
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`initialize`](../interfaces/IAdapter.md#initialize)
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`initialize`](../interfaces/IWorkerAdapter.md#initialize)

@@ -6,9 +6,16 @@
 
 # Interface: CqrsClientConfig\<TCommand, TEvent\>
 
-Defined in: packages/client/src/types/config.ts:189
+Defined in: packages/client/src/types/config.ts:260
 
-Main CQRS Client configuration.
+Main-thread CQRS Client configuration.
+
+Extends the shared config with main-thread-only concerns:
+mode selection and worker script URL.
+
+## Extends
+
+- [`CqrsConfig`](CqrsConfig.md)\<`TCommand`, `TEvent`\>
 
 ## Type Parameters
 
@@ -26,9 +33,13 @@ Main CQRS Client configuration.
 
 > `optional` **cache**: [`CacheConfig`](CacheConfig.md)
 
-Defined in: packages/client/src/types/config.ts:220
+Defined in: packages/client/src/types/config.ts:217
 
 Cache configuration.
+
+#### Inherited from
+
+[`CqrsConfig`](CqrsConfig.md).[`cache`](CqrsConfig.md#cache)
 
 ---
 
@@ -36,9 +47,13 @@ Cache configuration.
 
 > `optional` **collections**: [`Collection`](Collection.md)[]
 
-Defined in: packages/client/src/types/config.ts:225
+Defined in: packages/client/src/types/config.ts:222
 
 Collection configurations.
+
+#### Inherited from
+
+[`CqrsConfig`](CqrsConfig.md).[`collections`](CqrsConfig.md#collections)
 
 ---
 
@@ -46,10 +61,14 @@ Collection configurations.
 
 > `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)
 
-Defined in: packages/client/src/types/config.ts:231
+Defined in: packages/client/src/types/config.ts:228
 
 Command sender for submitting commands to the server.
 If not provided, commands are queued but not sent.
+
+#### Inherited from
+
+[`CqrsConfig`](CqrsConfig.md).[`commandSender`](CqrsConfig.md#commandsender)
 
 ---
 
@@ -57,9 +76,13 @@ If not provided, commands are queued but not sent.
 
 > `optional` **debug**: `boolean`
 
-Defined in: packages/client/src/types/config.ts:247
+Defined in: packages/client/src/types/config.ts:244
 
 Enable debug logging.
+
+#### Inherited from
+
+[`CqrsConfig`](CqrsConfig.md).[`debug`](CqrsConfig.md#debug)
 
 ---
 
@@ -67,10 +90,14 @@ Enable debug logging.
 
 > `optional` **domainExecutor**: [`IDomainExecutor`](IDomainExecutor.md)\<`TCommand`, `TEvent`\>
 
-Defined in: packages/client/src/types/config.ts:200
+Defined in: packages/client/src/types/config.ts:197
 
 Domain executor for local command validation.
 If not provided, commands are sent directly without local validation.
+
+#### Inherited from
+
+[`CqrsConfig`](CqrsConfig.md).[`domainExecutor`](CqrsConfig.md#domainexecutor)
 
 ---
 
@@ -78,7 +105,7 @@ If not provided, commands are sent directly without local validation.
 
 > `optional` **mode**: [`ExecutionModeConfig`](../type-aliases/ExecutionModeConfig.md)
 
-Defined in: packages/client/src/types/config.ts:194
+Defined in: packages/client/src/types/config.ts:268
 
 Execution mode.
 Defaults to 'auto': SharedWorker > Dedicated Worker > Online-only
@@ -89,9 +116,13 @@ Defaults to 'auto': SharedWorker > Dedicated Worker > Online-only
 
 > **network**: [`NetworkConfig`](NetworkConfig.md)
 
-Defined in: packages/client/src/types/config.ts:205
+Defined in: packages/client/src/types/config.ts:202
 
 Network configuration.
+
+#### Inherited from
+
+[`CqrsConfig`](CqrsConfig.md).[`network`](CqrsConfig.md#network)
 
 ---
 
@@ -99,10 +130,14 @@ Network configuration.
 
 > `optional` **processors**: [`ProcessorRegistration`](ProcessorRegistration.md)\<`unknown`, `Record`\<`string`, `unknown`\>\>[]
 
-Defined in: packages/client/src/types/config.ts:237
+Defined in: packages/client/src/types/config.ts:234
 
 Event processors to register.
 Processors transform domain events into read model updates.
+
+#### Inherited from
+
+[`CqrsConfig`](CqrsConfig.md).[`processors`](CqrsConfig.md#processors)
 
 ---
 
@@ -110,9 +145,13 @@ Processors transform domain events into read model updates.
 
 > `optional` **retainTerminal**: `boolean`
 
-Defined in: packages/client/src/types/config.ts:242
+Defined in: packages/client/src/types/config.ts:239
 
 Retain terminal commands in storage for debugging/introspection.
+
+#### Inherited from
+
+[`CqrsConfig`](CqrsConfig.md).[`retainTerminal`](CqrsConfig.md#retainterminal)
 
 ---
 
@@ -120,9 +159,30 @@ Retain terminal commands in storage for debugging/introspection.
 
 > `optional` **retry**: [`RetryConfig`](RetryConfig.md)
 
-Defined in: packages/client/src/types/config.ts:215
+Defined in: packages/client/src/types/config.ts:212
 
 Retry configuration for commands.
+
+#### Inherited from
+
+[`CqrsConfig`](CqrsConfig.md).[`retry`](CqrsConfig.md#retry)
+
+---
+
+### sqliteWorkerUrl?
+
+> `optional` **sqliteWorkerUrl**: `string`
+
+Defined in: packages/client/src/types/config.ts:287
+
+URL to the consumer's SQLite worker script.
+Required for shared-worker mode — the SharedWorker spawns a child
+DedicatedWorker at this URL for SQLite I/O (OPFS requires a
+DedicatedWorker context).
+
+Must be resolved on the main thread where the bundler can process
+asset URL imports (e.g., Vite's `?worker&url` suffix).
+Passed to the SharedWorker via RPC during initialization.
 
 ---
 
@@ -130,9 +190,13 @@ Retry configuration for commands.
 
 > `optional` **storage**: [`StorageConfig`](StorageConfig.md)
 
-Defined in: packages/client/src/types/config.ts:210
+Defined in: packages/client/src/types/config.ts:207
 
 Storage configuration (ignored for online-only mode).
+
+#### Inherited from
+
+[`CqrsConfig`](CqrsConfig.md).[`storage`](CqrsConfig.md#storage)
 
 ---
 
@@ -140,11 +204,15 @@ Storage configuration (ignored for online-only mode).
 
 > `optional` **workerSetup**: `string`[]
 
-Defined in: packages/client/src/types/config.ts:260
+Defined in: packages/client/src/types/config.ts:251
 
-Module URLs to dynamically import in worker context.
+Module URLs to dynamically import before initialization.
 Use this to run setup code (e.g., logger bootstrap) inside the worker
 before storage initialization.
+
+#### Inherited from
+
+[`CqrsConfig`](CqrsConfig.md).[`workerSetup`](CqrsConfig.md#workersetup)
 
 ---
 
@@ -152,7 +220,8 @@ before storage initialization.
 
 > `optional` **workerUrl**: `string`
 
-Defined in: packages/client/src/types/config.ts:253
+Defined in: packages/client/src/types/config.ts:275
 
 Worker script URL (for modes B and C).
-If not provided, uses default bundled worker.
+Points to the consumer's worker entry point that calls
+startDedicatedWorker() or startSharedWorker().

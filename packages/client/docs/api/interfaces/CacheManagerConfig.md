@@ -6,7 +6,7 @@
 
 # Interface: CacheManagerConfig
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:21
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:22
 
 Cache manager configuration.
 
@@ -16,7 +16,7 @@ Cache manager configuration.
 
 > `optional` **cacheConfig**: [`CacheConfig`](CacheConfig.md)
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:24
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:25
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: packages/client/src/core/cache-manager/CacheManager.ts:24
 
 > **eventBus**: [`EventBus`](../classes/EventBus.md)
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:23
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:24
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: packages/client/src/core/cache-manager/CacheManager.ts:23
 
 > **storage**: [`IStorage`](IStorage.md)
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:22
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:23
 
 ---
 
@@ -40,6 +40,6 @@ Defined in: packages/client/src/core/cache-manager/CacheManager.ts:22
 
 > **windowId**: `string`
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:26
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:27
 
 Unique identifier for this window/tab

@@ -6,20 +6,20 @@
 
 # Class: SharedWorkerAdapter
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:43
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:52
 
 SharedWorker adapter for multi-tab offline support.
 
 This adapter:
 
-- Connects to a SharedWorker that manages SQLite storage
-- Provides a storage proxy for window-side code
+- Connects to a SharedWorker that owns all CQRS components
+- Provides proxy objects for main-thread consumers
 - Handles window registration and heartbeats
 - Restores holds after worker restarts
 
 ## Implements
 
-- [`IAdapter`](../interfaces/IAdapter.md)
+- [`IWorkerAdapter`](../interfaces/IWorkerAdapter.md)
 
 ## Constructors
 
@@ -27,7 +27,7 @@ This adapter:
 
 > **new SharedWorkerAdapter**(`config`): `SharedWorkerAdapter`
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:63
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:74
 
 #### Parameters
 
@@ -41,33 +41,53 @@ Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:63
 
 ## Properties
 
-### eventBus
+### mode
 
-> `readonly` **eventBus**: [`EventBus`](EventBus.md)
+> `readonly` **mode**: `"shared-worker"`
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:47
-
-Event bus instance for wiring core components.
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:53
 
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`eventBus`](../interfaces/IAdapter.md#eventbus)
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`mode`](../interfaces/IWorkerAdapter.md#mode)
+
+## Accessors
+
+### cacheManager
+
+#### Get Signature
+
+> **get** **cacheManager**(): [`ICacheManager`](../interfaces/ICacheManager.md)
+
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:98
+
+##### Returns
+
+[`ICacheManager`](../interfaces/ICacheManager.md)
+
+#### Implementation of
+
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`cacheManager`](../interfaces/IWorkerAdapter.md#cachemanager)
 
 ---
 
-### mode
+### commandQueue
 
-> `readonly` **mode**: [`ExecutionMode`](../type-aliases/ExecutionMode.md) = `'shared-worker'`
+#### Get Signature
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:44
+> **get** **commandQueue**(): [`ICommandQueue`](../interfaces/ICommandQueue.md)
 
-Execution mode of this adapter.
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:88
+
+##### Returns
+
+[`ICommandQueue`](../interfaces/ICommandQueue.md)
 
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`mode`](../interfaces/IAdapter.md#mode)
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`commandQueue`](../interfaces/IWorkerAdapter.md#commandqueue)
 
-## Accessors
+---
 
 ### events$
 
@@ -75,7 +95,7 @@ Execution mode of this adapter.
 
 > **get** **events$**(): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:73
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:83
 
 Observable of library events.
 
@@ -87,29 +107,25 @@ Observable of library events.
 
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`events$`](../interfaces/IAdapter.md#events)
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`events$`](../interfaces/IWorkerAdapter.md#events)
 
 ---
 
-### sessionManager
+### queryManager
 
 #### Get Signature
 
-> **get** **sessionManager**(): [`SessionManager`](SessionManager.md)
+> **get** **queryManager**(): [`IQueryManager`](../interfaces/IQueryManager.md)
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:77
-
-Session manager instance.
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:93
 
 ##### Returns
 
-[`SessionManager`](SessionManager.md)
-
-Session manager instance.
+[`IQueryManager`](../interfaces/IQueryManager.md)
 
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`sessionManager`](../interfaces/IAdapter.md#sessionmanager)
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`queryManager`](../interfaces/IWorkerAdapter.md#querymanager)
 
 ---
 
@@ -119,7 +135,7 @@ Session manager instance.
 
 > **get** **status**(): [`AdapterStatus`](../type-aliases/AdapterStatus.md)
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:69
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:79
 
 Current adapter status.
 
@@ -131,29 +147,25 @@ Current adapter status.
 
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`status`](../interfaces/IAdapter.md#status)
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`status`](../interfaces/IWorkerAdapter.md#status)
 
 ---
 
-### storage
+### syncManager
 
 #### Get Signature
 
-> **get** **storage**(): [`IStorage`](../interfaces/IStorage.md)
+> **get** **syncManager**(): [`CqrsClientSyncManager`](../interfaces/CqrsClientSyncManager.md)
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:82
-
-Storage instance.
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:103
 
 ##### Returns
 
-[`IStorage`](../interfaces/IStorage.md)
-
-Storage instance.
+[`CqrsClientSyncManager`](../interfaces/CqrsClientSyncManager.md)
 
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`storage`](../interfaces/IAdapter.md#storage)
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`syncManager`](../interfaces/IWorkerAdapter.md#syncmanager)
 
 ## Methods
 
@@ -161,7 +173,7 @@ Storage instance.
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:167
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:184
 
 Close the adapter and release resources.
 
@@ -171,7 +183,7 @@ Close the adapter and release resources.
 
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`close`](../interfaces/IAdapter.md#close)
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`close`](../interfaces/IWorkerAdapter.md#close)
 
 ---
 
@@ -179,7 +191,7 @@ Close the adapter and release resources.
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:90
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:111
 
 Initialize the adapter.
 
@@ -189,4 +201,4 @@ Initialize the adapter.
 
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`initialize`](../interfaces/IAdapter.md#initialize)
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`initialize`](../interfaces/IWorkerAdapter.md#initialize)

@@ -9,17 +9,17 @@ import { EventBus } from '../../core/events/EventBus.js'
 import { SessionManager } from '../../core/session/SessionManager.js'
 import type { IStorage } from '../../storage/IStorage.js'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
-import type { ExecutionMode, ResolvedConfig } from '../../types/config.js'
+import type { ResolvedConfig } from '../../types/config.js'
 import type { LibraryEvent } from '../../types/events.js'
 import { assert } from '../../utils/assert.js'
-import type { AdapterStatus, IAdapter } from '../base/IAdapter.js'
+import type { AdapterStatus, IOnlineOnlyAdapter } from '../base/IAdapter.js'
 
 /**
  * Online-only adapter for development, testing, and deployments
  * where offline persistence is not required.
  */
-export class OnlineOnlyAdapter implements IAdapter {
-  readonly mode: ExecutionMode = 'online-only'
+export class OnlineOnlyAdapter implements IOnlineOnlyAdapter {
+  readonly mode = 'online-only' as const
   readonly eventBus: EventBus
 
   private _status: AdapterStatus = 'uninitialized'

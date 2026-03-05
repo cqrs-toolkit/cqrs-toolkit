@@ -4,16 +4,29 @@
  * Provides an async factory function that wires all internal components together
  * and returns an initialized {@link CqrsClient} instance.
  *
+ * Two paths:
+ * - **Online-only**: adapter provides storage/eventBus/sessionManager, this module
+ *   creates all CQRS components on the main thread.
+ * - **Worker modes**: adapter sends config to the worker which creates all components;
+ *   this module wraps the adapter's proxy objects.
+ *
  * @packageDocumentation
  */
 
 import { logProvider } from '@meticoeus/ddd-es'
-import type { Observable, Subscription } from 'rxjs'
-import type { AdapterStatus, IAdapter } from './adapters/base/IAdapter.js'
+import type { Observable } from 'rxjs'
+import type {
+  AdapterStatus,
+  IAdapter,
+  IOnlineOnlyAdapter,
+  IWorkerAdapter,
+} from './adapters/base/IAdapter.js'
 import { DedicatedWorkerAdapter } from './adapters/dedicated-worker/DedicatedWorkerAdapter.js'
 import { OnlineOnlyAdapter } from './adapters/online-only/OnlineOnlyAdapter.js'
 import { SharedWorkerAdapter } from './adapters/shared-worker/SharedWorkerAdapter.js'
+import { OpfsUnavailableException } from './adapters/worker-core/probeOpfs.js'
 import { CacheManager } from './core/cache-manager/CacheManager.js'
+import type { ICacheManager } from './core/cache-manager/types.js'
 import type { IAnticipatedEventHandler } from './core/command-queue/CommandQueue.js'
 import { CommandQueue } from './core/command-queue/CommandQueue.js'
 import type { ICommandQueue } from './core/command-queue/types.js'
@@ -23,9 +36,9 @@ import { EventProcessorRegistry } from './core/event-processor/EventProcessorReg
 import type { ParsedEvent } from './core/event-processor/EventProcessorRunner.js'
 import { EventProcessorRunner } from './core/event-processor/EventProcessorRunner.js'
 import { QueryManager } from './core/query-manager/QueryManager.js'
+import type { IQueryManager } from './core/query-manager/types.js'
 import { ReadModelStore } from './core/read-model-store/ReadModelStore.js'
-import type { SessionManager } from './core/session/SessionManager.js'
-import { ConnectivityManager } from './core/sync-manager/ConnectivityManager.js'
+import type { IConnectivity } from './core/sync-manager/ConnectivityManager.js'
 import type { CollectionSyncStatus } from './core/sync-manager/SyncManager.js'
 import { SyncManager } from './core/sync-manager/SyncManager.js'
 import type { CommandRecord, TerminalCommandStatus } from './types/commands.js'
@@ -56,7 +69,7 @@ export interface CqrsClientSyncManager {
   /** Signal that the user has logged out. */
   setUnauthenticated(): Promise<void>
   /** Connectivity manager for network status observation. */
-  readonly connectivity: ConnectivityManager
+  readonly connectivity: IConnectivity
 }
 
 /**
@@ -66,65 +79,35 @@ export interface CqrsClientSyncManager {
  */
 export class CqrsClient {
   /** Cache manager for cache key lifecycle and eviction. */
-  readonly cacheManager: CacheManager
+  readonly cacheManager: ICacheManager
   /** Command queue for enqueuing and tracking commands. */
   readonly commandQueue: ICommandQueue
   /** Query manager for reading cached data. */
-  readonly queryManager: QueryManager
+  readonly queryManager: IQueryManager
+  /** Sync manager for collection sync status and manual triggers. */
+  readonly syncManager: CqrsClientSyncManager
   /** Resolved execution mode. */
   readonly mode: ExecutionMode
 
   private readonly adapter: IAdapter
-  private readonly internalCommandQueue: CommandQueue
-  private readonly internalSyncManager: SyncManager
-  private readonly eventCache: EventCache
-  private readonly readModelStore: ReadModelStore
-  private readonly eventProcessorRunner: EventProcessorRunner
-  private readonly evictionSubscription: Subscription
+  private readonly closeResources: () => Promise<void>
 
   constructor(
     adapter: IAdapter,
-    cacheManager: CacheManager,
-    commandQueue: CommandQueue,
-    syncManager: SyncManager,
-    queryManager: QueryManager,
-    eventCache: EventCache,
-    readModelStore: ReadModelStore,
-    eventProcessorRunner: EventProcessorRunner,
-    evictionSubscription: Subscription,
+    cacheManager: ICacheManager,
+    commandQueue: ICommandQueue,
+    queryManager: IQueryManager,
+    syncManager: CqrsClientSyncManager,
+    closeResources: () => Promise<void>,
     mode: ExecutionMode,
   ) {
     this.adapter = adapter
     this.cacheManager = cacheManager
     this.commandQueue = commandQueue
-    this.internalCommandQueue = commandQueue
-    this.internalSyncManager = syncManager
     this.queryManager = queryManager
-    this.eventCache = eventCache
-    this.readModelStore = readModelStore
-    this.eventProcessorRunner = eventProcessorRunner
-    this.evictionSubscription = evictionSubscription
+    this.syncManager = syncManager
+    this.closeResources = closeResources
     this.mode = mode
-  }
-
-  /** Sync manager for collection sync status and manual triggers. */
-  get syncManager(): CqrsClientSyncManager {
-    const sm = this.internalSyncManager
-    return {
-      getCollectionStatus: (collection) => sm.getCollectionStatus(collection),
-      getAllStatus: () => sm.getAllStatus(),
-      syncCollection: (collection) => sm.syncCollection(collection),
-      setAuthenticated: (params) => sm.setAuthenticated(params),
-      setUnauthenticated: () => sm.setUnauthenticated(),
-      get connectivity() {
-        return sm.getConnectivity()
-      },
-    }
-  }
-
-  /** Session manager for user identity and session lifecycle. */
-  get sessionManager(): SessionManager {
-    return this.adapter.sessionManager
   }
 
   /** Observable of all library events. */
@@ -142,11 +125,7 @@ export class CqrsClient {
    * Stops sync, destroys components, and closes the adapter.
    */
   async close(): Promise<void> {
-    this.evictionSubscription.unsubscribe()
-    this.eventCache.destroy()
-    await this.internalSyncManager.destroy()
-    await this.queryManager.destroy()
-    await this.internalCommandQueue.destroy()
+    await this.closeResources()
     await this.adapter.close()
   }
 }
@@ -194,117 +173,206 @@ export class CqrsClient {
  */
 export async function createCqrsClient(config: CqrsClientConfig): Promise<CqrsClient> {
   const resolved = resolveConfig(config)
-  const mode = resolveMode(resolved.mode)
+  const requestedMode = config.mode ?? 'auto'
 
-  // 1. Create and initialize adapter
-  const adapter = createAdapterForMode(mode, resolved)
-  await adapter.initialize()
+  // 1. Create and initialize adapter (with OPFS fallback for auto mode)
+  const { adapter, mode } = await initializeAdapter(
+    requestedMode,
+    config.workerUrl,
+    config.sqliteWorkerUrl,
+    resolved,
+  )
 
-  // If anything after adapter.initialize() throws (e.g. syncManager.start()),
-  // close the adapter so its locks, storage, and workers aren't orphaned.
+  // Two paths based on adapter type
   try {
-    // 2. Extract adapter resources
-    const { storage, eventBus } = adapter
-
-    // 3. Register event processors
-    const registry = new EventProcessorRegistry()
-    for (const registration of resolved.processors) {
-      registry.register(registration)
+    if (adapter.mode === 'online-only') {
+      return createOnlineOnlyClient(adapter, resolved, mode)
     }
-
-    // 4. Create core components
-    const cacheManager = new CacheManager({
-      storage,
-      eventBus,
-      cacheConfig: resolved.cache,
-      windowId: crypto.randomUUID(),
-    })
-    await cacheManager.initialize()
-
-    const eventCache = new EventCache({
-      storage,
-      eventBus,
-    })
-
-    const readModelStore = new ReadModelStore({
-      storage,
-    })
-
-    const eventProcessorRunner = new EventProcessorRunner({
-      readModelStore,
-      eventBus,
-      registry,
-    })
-
-    // Lazy ref for SyncManager — safe because onCommandResponse is never called
-    // before SyncManager exists (queue starts paused, only processes after resume).
-    let syncManagerRef: SyncManager
-
-    const commandQueue = new CommandQueue({
-      storage,
-      eventBus,
-      anticipatedEventHandler: createAnticipatedEventHandler(
-        eventCache,
-        cacheManager,
-        eventProcessorRunner,
-        readModelStore,
-        resolved.collections,
-      ),
-      domainExecutor: resolved.domainExecutor,
-      commandSender: resolved.commandSender,
-      retryConfig: resolved.retry,
-      retainTerminal: resolved.retainTerminal,
-      onCommandResponse: createCommandResponseHandler(
-        () => syncManagerRef,
-        cacheManager,
-        resolved.collections,
-      ),
-    })
-
-    const queryManager = new QueryManager({
-      eventBus,
-      cacheManager,
-      readModelStore,
-    })
-
-    const syncManager = new SyncManager({
-      eventBus,
-      sessionManager: adapter.sessionManager,
-      commandQueue,
-      eventCache,
-      cacheManager,
-      eventProcessor: eventProcessorRunner,
-      readModelStore,
-      queryManager,
-      networkConfig: resolved.network,
-      collections: resolved.collections,
-    })
-    syncManagerRef = syncManager
-
-    // 5. Subscribe to cache:evicted for cross-component cleanup
-    const evictionSubscription = eventBus.on('cache:evicted').subscribe((event) => {
-      const streamIds = eventCache.clearByCacheKey(event.payload.cacheKey)
-      syncManager.clearKnownRevisions(streamIds)
-      queryManager.releaseForCacheKey(event.payload.cacheKey)
-    })
-
-    // 6. Start sync
-    await syncManager.start()
-
-    return new CqrsClient(
-      adapter,
-      cacheManager,
-      commandQueue,
-      syncManager,
-      queryManager,
-      eventCache,
-      readModelStore,
-      eventProcessorRunner,
-      evictionSubscription,
-      mode,
-    )
+    return createWorkerClient(adapter, mode)
   } catch (error) {
     await adapter.close()
+    throw error
+  }
+}
+
+/**
+ * Online-only path: create all CQRS components on the main thread.
+ */
+async function createOnlineOnlyClient(
+  adapter: IOnlineOnlyAdapter,
+  resolved: ResolvedConfig,
+  mode: ExecutionMode,
+): Promise<CqrsClient> {
+  const { storage, eventBus } = adapter
+
+  // Register event processors
+  const registry = new EventProcessorRegistry()
+  for (const registration of resolved.processors) {
+    registry.register(registration)
+  }
+
+  // Create core components
+  const cacheManager = new CacheManager({
+    storage,
+    eventBus,
+    cacheConfig: resolved.cache,
+    windowId: crypto.randomUUID(),
+  })
+  await cacheManager.initialize()
+
+  const eventCache = new EventCache({
+    storage,
+    eventBus,
+  })
+
+  const readModelStore = new ReadModelStore({
+    storage,
+  })
+
+  const eventProcessorRunner = new EventProcessorRunner({
+    readModelStore,
+    eventBus,
+    registry,
+  })
+
+  // Lazy ref for SyncManager — safe because onCommandResponse is never called
+  // before SyncManager exists (queue starts paused, only processes after resume).
+  let syncManagerRef: SyncManager
+
+  const commandQueue = new CommandQueue({
+    storage,
+    eventBus,
+    anticipatedEventHandler: createAnticipatedEventHandler(
+      eventCache,
+      cacheManager,
+      eventProcessorRunner,
+      readModelStore,
+      resolved.collections,
+    ),
+    domainExecutor: resolved.domainExecutor,
+    commandSender: resolved.commandSender,
+    retryConfig: resolved.retry,
+    retainTerminal: resolved.retainTerminal,
+    onCommandResponse: createCommandResponseHandler(
+      () => syncManagerRef,
+      cacheManager,
+      resolved.collections,
+    ),
+  })
+
+  const queryManager = new QueryManager({
+    eventBus,
+    cacheManager,
+    readModelStore,
+  })
+
+  const syncManager = new SyncManager({
+    eventBus,
+    sessionManager: adapter.sessionManager,
+    commandQueue,
+    eventCache,
+    cacheManager,
+    eventProcessor: eventProcessorRunner,
+    readModelStore,
+    queryManager,
+    networkConfig: resolved.network,
+    collections: resolved.collections,
+  })
+  syncManagerRef = syncManager
+
+  // Subscribe to cache:evicted for cross-component cleanup
+  const evictionSubscription = eventBus.on('cache:evicted').subscribe((event) => {
+    const streamIds = eventCache.clearByCacheKey(event.payload.cacheKey)
+    syncManager.clearKnownRevisions(streamIds)
+    queryManager.releaseForCacheKey(event.payload.cacheKey)
+  })
+
+  // Build sync manager facade
+  const syncManagerFacade: CqrsClientSyncManager = {
+    getCollectionStatus: (collection) => syncManager.getCollectionStatus(collection),
+    getAllStatus: () => syncManager.getAllStatus(),
+    syncCollection: (collection) => syncManager.syncCollection(collection),
+    setAuthenticated: (params) => syncManager.setAuthenticated(params),
+    setUnauthenticated: () => syncManager.setUnauthenticated(),
+    get connectivity() {
+      return syncManager.getConnectivity()
+    },
+  }
+
+  // Start sync
+  await syncManager.start()
+
+  // Resource cleanup for online-only mode
+  const closeResources = async (): Promise<void> => {
+    evictionSubscription.unsubscribe()
+    eventCache.destroy()
+    await syncManager.destroy()
+    await queryManager.destroy()
+    await commandQueue.destroy()
+  }
+
+  return new CqrsClient(
+    adapter,
+    cacheManager,
+    commandQueue,
+    queryManager,
+    syncManagerFacade,
+    closeResources,
+    mode,
+  )
+}
+
+/**
+ * Worker path: wrap the adapter's proxy objects.
+ * All components live in the worker — this side is thin.
+ */
+function createWorkerClient(adapter: IWorkerAdapter, mode: ExecutionMode): CqrsClient {
+  const { commandQueue, queryManager, cacheManager, syncManager } = adapter
+
+  // Resource cleanup for worker mode — proxies that have local state
+  const closeResources = async (): Promise<void> => {
+    // CommandQueueProxy and SyncManagerProxy have RxJS subjects to clean up.
+    // QueryManagerProxy and CacheManagerProxy are stateless RPC wrappers.
+    // The adapter's close() tells the worker to shut down all real components.
+  }
+
+  return new CqrsClient(
+    adapter,
+    cacheManager,
+    commandQueue,
+    queryManager,
+    syncManager,
+    closeResources,
+    mode,
+  )
+}
+
+/**
+ * Create, initialize, and return an adapter with the achieved execution mode.
+ *
+ * For `'auto'` mode: if the worker adapter fails due to OPFS unavailability,
+ * falls back to online-only transparently. For explicit modes: propagates all errors.
+ */
+async function initializeAdapter(
+  requestedMode: ExecutionModeConfig,
+  workerUrl: string | undefined,
+  sqliteWorkerUrl: string | undefined,
+  config: ResolvedConfig,
+): Promise<{ adapter: IAdapter; mode: ExecutionMode }> {
+  const mode = resolveMode(requestedMode)
+  const adapter = createAdapterForMode(mode, workerUrl, sqliteWorkerUrl, config)
+
+  try {
+    await adapter.initialize()
+    return { adapter, mode }
+  } catch (error) {
+    // Only fall back for auto mode when a worker mode failed due to OPFS
+    if (requestedMode === 'auto' && error instanceof OpfsUnavailableException) {
+      await adapter.close().catch(() => {})
+      const fallback = createAdapterForMode('online-only', undefined, undefined, config)
+      await fallback.initialize()
+      return { adapter: fallback, mode: 'online-only' }
+    }
     throw error
   }
 }
@@ -322,16 +390,28 @@ function resolveMode(mode: ExecutionModeConfig): ExecutionMode {
 /**
  * Create the appropriate adapter for the given execution mode.
  */
-function createAdapterForMode(mode: ExecutionMode, config: ResolvedConfig): IAdapter {
+function createAdapterForMode(
+  mode: ExecutionMode,
+  workerUrl: string | undefined,
+  sqliteWorkerUrl: string | undefined,
+  config: ResolvedConfig,
+): IAdapter {
   switch (mode) {
     case 'online-only':
       return new OnlineOnlyAdapter(config)
     case 'shared-worker':
-      assert(config.workerUrl, 'workerUrl is required for shared-worker mode')
-      return new SharedWorkerAdapter({ ...config, workerUrl: config.workerUrl })
+      assert(workerUrl, 'workerUrl is required for shared-worker mode')
+      return new SharedWorkerAdapter({
+        workerUrl,
+        sqliteWorkerUrl,
+        requestTimeout: config.network.timeout,
+      })
     case 'dedicated-worker':
-      assert(config.workerUrl, 'workerUrl is required for dedicated-worker mode')
-      return new DedicatedWorkerAdapter({ ...config, workerUrl: config.workerUrl })
+      assert(workerUrl, 'workerUrl is required for dedicated-worker mode')
+      return new DedicatedWorkerAdapter({
+        workerUrl,
+        requestTimeout: config.network.timeout,
+      })
   }
 }
 

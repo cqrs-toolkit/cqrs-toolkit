@@ -71,6 +71,7 @@ export type {
   CacheConfig,
   Collection,
   CqrsClientConfig,
+  CqrsConfig,
   ExecutionMode,
   ExecutionModeConfig,
   FetchContext,

@@ -8,6 +8,6 @@
 
 > **VfsType** = `"opfs"` \| `"opfs-sahpool"` \| `"memory"`
 
-Defined in: packages/client/src/storage/SQLiteStorage.ts:63
+Defined in: packages/client/src/storage/LocalSqliteDb.ts:15
 
-VFS type for storage.
+VFS type for SQLite storage.

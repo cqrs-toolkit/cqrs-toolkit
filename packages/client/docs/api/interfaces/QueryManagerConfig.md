@@ -6,7 +6,7 @@
 
 # Interface: QueryManagerConfig
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:29
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:30
 
 Query manager configuration.
 
@@ -16,7 +16,7 @@ Query manager configuration.
 
 > **cacheManager**: [`CacheManager`](../classes/CacheManager.md)
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:31
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:32
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: packages/client/src/core/query-manager/QueryManager.ts:31
 
 > **eventBus**: [`EventBus`](../classes/EventBus.md)
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:30
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:31
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: packages/client/src/core/query-manager/QueryManager.ts:30
 
 > **readModelStore**: [`ReadModelStore`](../classes/ReadModelStore.md)
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:32
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:33

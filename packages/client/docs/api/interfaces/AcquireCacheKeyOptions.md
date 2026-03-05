@@ -6,7 +6,7 @@
 
 # Interface: AcquireCacheKeyOptions
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:32
+Defined in: packages/client/src/core/cache-manager/types.ts:10
 
 Options for acquiring a cache key.
 
@@ -16,7 +16,7 @@ Options for acquiring a cache key.
 
 > `optional` **evictionPolicy**: `"persistent"` \| `"ephemeral"`
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:40
+Defined in: packages/client/src/core/cache-manager/types.ts:18
 
 Eviction policy for new keys (default: 'persistent')
 
@@ -26,7 +26,7 @@ Eviction policy for new keys (default: 'persistent')
 
 > `optional` **hold**: `boolean`
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:34
+Defined in: packages/client/src/core/cache-manager/types.ts:12
 
 Whether to place a hold (prevents eviction)
 
@@ -36,7 +36,7 @@ Whether to place a hold (prevents eviction)
 
 > `optional` **scope**: `string`
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:38
+Defined in: packages/client/src/core/cache-manager/types.ts:16
 
 Scope for the cache key
 
@@ -46,6 +46,6 @@ Scope for the cache key
 
 > `optional` **ttl**: `number`
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:36
+Defined in: packages/client/src/core/cache-manager/types.ts:14
 
 TTL in milliseconds (overrides default)

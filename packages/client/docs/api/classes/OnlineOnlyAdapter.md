@@ -13,7 +13,7 @@ where offline persistence is not required.
 
 ## Implements
 
-- [`IAdapter`](../interfaces/IAdapter.md)
+- [`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md)
 
 ## Constructors
 
@@ -41,25 +41,21 @@ Defined in: packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:29
 
 Defined in: packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:23
 
-Event bus instance for wiring core components.
-
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`eventBus`](../interfaces/IAdapter.md#eventbus)
+[`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md).[`eventBus`](../interfaces/IOnlineOnlyAdapter.md#eventbus)
 
 ---
 
 ### mode
 
-> `readonly` **mode**: [`ExecutionMode`](../type-aliases/ExecutionMode.md) = `'online-only'`
+> `readonly` **mode**: `"online-only"`
 
 Defined in: packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:22
 
-Execution mode of this adapter.
-
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`mode`](../interfaces/IAdapter.md#mode)
+[`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md).[`mode`](../interfaces/IOnlineOnlyAdapter.md#mode)
 
 ## Accessors
 
@@ -81,7 +77,7 @@ Observable of library events.
 
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`events$`](../interfaces/IAdapter.md#events)
+[`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md).[`events$`](../interfaces/IOnlineOnlyAdapter.md#events)
 
 ---
 
@@ -93,17 +89,13 @@ Observable of library events.
 
 Defined in: packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:41
 
-Session manager instance.
-
 ##### Returns
 
 [`SessionManager`](SessionManager.md)
 
-Session manager instance.
-
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`sessionManager`](../interfaces/IAdapter.md#sessionmanager)
+[`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md).[`sessionManager`](../interfaces/IOnlineOnlyAdapter.md#sessionmanager)
 
 ---
 
@@ -125,7 +117,7 @@ Current adapter status.
 
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`status`](../interfaces/IAdapter.md#status)
+[`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md).[`status`](../interfaces/IOnlineOnlyAdapter.md#status)
 
 ---
 
@@ -137,17 +129,13 @@ Current adapter status.
 
 Defined in: packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:46
 
-Storage instance.
-
 ##### Returns
 
 [`IStorage`](../interfaces/IStorage.md)
 
-Storage instance.
-
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`storage`](../interfaces/IAdapter.md#storage)
+[`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md).[`storage`](../interfaces/IOnlineOnlyAdapter.md#storage)
 
 ## Methods
 
@@ -165,7 +153,7 @@ Close the adapter and release resources.
 
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`close`](../interfaces/IAdapter.md#close)
+[`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md).[`close`](../interfaces/IOnlineOnlyAdapter.md#close)
 
 ---
 
@@ -183,4 +171,4 @@ Initialize the adapter.
 
 #### Implementation of
 
-[`IAdapter`](../interfaces/IAdapter.md).[`initialize`](../interfaces/IAdapter.md#initialize)
+[`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md).[`initialize`](../interfaces/IOnlineOnlyAdapter.md#initialize)

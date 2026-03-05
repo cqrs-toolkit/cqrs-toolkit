@@ -1,89 +1,28 @@
+/**
+ * Shared CQRS configuration.
+ *
+ * Imported by both the main thread (cqrs-client.ts) and worker entry points
+ * (workers/dedicated-worker.ts, workers/shared-worker.ts). Each context runs
+ * this module independently — no serialization needed.
+ */
+
 import {
   CommandSendError,
-  createCqrsClient,
-  detectMode,
   hydrateSerializedEvent,
   type Collection,
-  type CqrsClient,
-  type ExecutionMode,
-  type ExecutionModeConfig,
+  type CqrsConfig,
   type FetchContext,
   type ICommandSender,
   type IPersistedEvent,
   type ISerializedEvent,
   type SeedEventPage,
 } from '@cqrs-toolkit/client'
-import { noteProcessors } from './notes/processor'
-import { todoProcessors } from './todos/processor'
+import { noteProcessors } from '../notes/processor'
+import { todoProcessors } from '../todos/processor'
 
-const VALID_MODES = new Set<ExecutionModeConfig>([
-  'auto',
-  'online-only',
-  'shared-worker',
-  'dedicated-worker',
-])
-
-interface EntryOptions {
-  mode: ExecutionMode
-  /** @default true - enable WebSocket sync */
-  ws: boolean
-  /** @default true - retain commands */
-  cr: boolean
-}
-
-export const options: EntryOptions = resolveEntryOptions()
-
-function resolveEntryOptions(): EntryOptions {
-  const params = new URLSearchParams(window.location.search)
-  return {
-    mode: resolveMode(params.get('mode')),
-    ws: params.get('ws') !== 'false',
-    cr: params.get('cr') !== 'false',
-  }
-}
-
-function resolveMode(raw: string | null): ExecutionMode {
-  const requested: ExecutionModeConfig = VALID_MODES.has(raw as ExecutionModeConfig)
-    ? (raw as ExecutionModeConfig)
-    : 'auto'
-
-  if (requested === 'auto') {
-    return detectMode()
-  }
-
-  assertModeSupported(requested)
-  return requested
-}
-
-/**
- * Assert that the requested mode is supported in the current environment.
- *
- * When a specific mode is requested via `?mode=`, it must be available — silent
- * degradation would produce false-positive test results. The library's own fallback
- * behavior is unaffected because it uses `auto`/`detectMode()`.
- */
-function assertModeSupported(requested: ExecutionMode): void {
-  switch (requested) {
-    case 'shared-worker':
-      if (typeof SharedWorker === 'undefined') {
-        throw new Error(
-          `Requested mode "shared-worker" but SharedWorker is not available in this environment.` +
-            ` Use ?mode=auto to let the library pick the best available mode.`,
-        )
-      }
-      return
-    case 'dedicated-worker':
-      if (typeof Worker === 'undefined') {
-        throw new Error(
-          `Requested mode "dedicated-worker" but Worker is not available in this environment.` +
-            ` Use ?mode=auto to let the library pick the best available mode.`,
-        )
-      }
-      return
-    case 'online-only':
-      return
-  }
-}
+// ---------------------------------------------------------------------------
+// Command sender
+// ---------------------------------------------------------------------------
 
 const commandEndpoints: Record<string, string> = {
   CreateTodo: '/api/todos/commands',
@@ -180,7 +119,7 @@ function aggregateId(streamId: string): string {
 
 const todosCollection: Collection = {
   name: 'todos',
-  getTopics: () => (options.ws ? ['Todo:*'] : []),
+  getTopics: () => ['Todo:*'],
   matchesStream: (streamId) => streamId.startsWith('Todo-'),
   fetchSeedEvents: (ctx, cursor, limit) => fetchEventPage(ctx, '/events/todos', cursor, limit),
   fetchStreamEvents: (ctx, streamId, afterRevision) =>
@@ -189,7 +128,7 @@ const todosCollection: Collection = {
 
 const notesCollection: Collection = {
   name: 'notes',
-  getTopics: () => (options.ws ? ['Note:*'] : []),
+  getTopics: () => ['Note:*'],
   matchesStream: (streamId) => streamId.startsWith('Note-'),
   fetchSeedEvents: (ctx, cursor, limit) => fetchEventPage(ctx, '/events/notes', cursor, limit),
   fetchStreamEvents: (ctx, streamId, afterRevision) =>
@@ -197,18 +136,16 @@ const notesCollection: Collection = {
 }
 
 // ---------------------------------------------------------------------------
-// Client initialization
+// Shared config
 // ---------------------------------------------------------------------------
 
-export async function initializeClient(): Promise<CqrsClient> {
-  const wsUrl = options.ws ? `${window.location.origin.replace(/^http/, 'ws')}/ws` : undefined
-
-  return createCqrsClient({
-    mode: options.mode,
-    network: { baseUrl: `${window.location.origin}/api`, wsUrl },
-    collections: [todosCollection, notesCollection],
-    processors: [...todoProcessors, ...noteProcessors],
-    commandSender,
-    retainTerminal: options.cr,
-  })
+export const cqrsConfig: CqrsConfig = {
+  network: {
+    baseUrl: `${location.origin}/api`,
+    wsUrl: `${location.origin.replace(/^http/, 'ws')}/ws`,
+  },
+  collections: [todosCollection, notesCollection],
+  processors: [...todoProcessors, ...noteProcessors],
+  commandSender,
+  retainTerminal: true,
 }

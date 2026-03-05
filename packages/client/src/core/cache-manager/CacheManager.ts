@@ -14,6 +14,7 @@ import type { CacheKeyRecord, IStorage } from '../../storage/IStorage.js'
 import type { CacheConfig } from '../../types/config.js'
 import type { EventBus } from '../events/EventBus.js'
 import { deriveCacheKey, deriveScopedCacheKey } from './CacheKey.js'
+import type { AcquireCacheKeyOptions, ICacheManager } from './types.js'
 
 /**
  * Cache manager configuration.
@@ -26,24 +27,13 @@ export interface CacheManagerConfig {
   windowId: string
 }
 
-/**
- * Options for acquiring a cache key.
- */
-export interface AcquireCacheKeyOptions {
-  /** Whether to place a hold (prevents eviction) */
-  hold?: boolean
-  /** TTL in milliseconds (overrides default) */
-  ttl?: number
-  /** Scope for the cache key */
-  scope?: string
-  /** Eviction policy for new keys (default: 'persistent') */
-  evictionPolicy?: 'persistent' | 'ephemeral'
-}
+// Re-export types for backwards compatibility
+export type { AcquireCacheKeyOptions } from './types.js'
 
 /**
  * Cache manager implementation.
  */
-export class CacheManager {
+export class CacheManager implements ICacheManager {
   private readonly storage: IStorage
   private readonly eventBus: EventBus
   private readonly maxCacheKeys: number

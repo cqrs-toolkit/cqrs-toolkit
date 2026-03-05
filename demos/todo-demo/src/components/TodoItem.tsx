@@ -1,6 +1,12 @@
 import { createSignal, Show } from 'solid-js'
 import type { Todo, TodoStatus } from '../../shared/todos/types'
-import { useClient } from '../cqrs-context'
+import { useClient } from '../bootstrap/cqrs-context'
+
+const STATUS_CLASS: Record<TodoStatus, string> = {
+  pending: 'pending',
+  in_progress: 'in-progress',
+  completed: 'completed',
+}
 
 interface TodoItemProps {
   todo: Todo
@@ -84,7 +90,7 @@ export default function TodoItem(props: TodoItemProps) {
   return (
     <li
       id={`todo-${props.todo.id}`}
-      class={`todo-item flex items-center gap-2 p-2 rounded border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800${props.todo.status === 'completed' ? ' completed' : ''}`}
+      class={`todo-item ${STATUS_CLASS[props.todo.status]} flex items-center gap-2 p-2 rounded border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800`}
     >
       <input
         type="checkbox"

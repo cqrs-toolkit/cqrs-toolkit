@@ -6,9 +6,13 @@
 
 # Class: CacheManager
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:46
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:36
 
 Cache manager implementation.
+
+## Implements
+
+- [`ICacheManager`](../interfaces/ICacheManager.md)
 
 ## Constructors
 
@@ -16,7 +20,7 @@ Cache manager implementation.
 
 > **new CacheManager**(`config`): `CacheManager`
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:61
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:51
 
 #### Parameters
 
@@ -34,7 +38,7 @@ Defined in: packages/client/src/core/cache-manager/CacheManager.ts:61
 
 > **acquire**(`collection`, `params?`, `options?`): `Promise`\<`string`\>
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:105
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:95
 
 Acquire a cache key for a collection with optional parameters.
 Creates the cache key if it doesn't exist.
@@ -65,13 +69,17 @@ Acquisition options
 
 Cache key identifier
 
+#### Implementation of
+
+[`ICacheManager`](../interfaces/ICacheManager.md).[`acquire`](../interfaces/ICacheManager.md#acquire)
+
 ---
 
 ### checkSessionUser()
 
 > **checkSessionUser**(`userId`): `Promise`\<`boolean`\>
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:398
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:388
 
 Check for session/user mismatch. If the current session belongs to a
 different user, wipes all cache keys and emits `cache:session-reset`.
@@ -96,7 +104,7 @@ Whether a mismatch was detected and the cache was reset
 
 > **evict**(`key`): `Promise`\<`boolean`\>
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:342
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:332
 
 Explicitly evict a cache key.
 This will delete the cache key and all associated data.
@@ -117,13 +125,17 @@ Cache key identifier
 
 Whether eviction succeeded
 
+#### Implementation of
+
+[`ICacheManager`](../interfaces/ICacheManager.md).[`evict`](../interfaces/ICacheManager.md#evict)
+
 ---
 
 ### evictAll()
 
 > **evictAll**(): `Promise`\<`number`\>
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:368
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:358
 
 Evict all evictable cache keys.
 Used during session clear or manual cleanup.
@@ -134,13 +146,17 @@ Used during session clear or manual cleanup.
 
 Number of cache keys evicted
 
+#### Implementation of
+
+[`ICacheManager`](../interfaces/ICacheManager.md).[`evictAll`](../interfaces/ICacheManager.md#evictall)
+
 ---
 
 ### evictExpired()
 
 > **evictExpired**(): `Promise`\<`number`\>
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:459
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:449
 
 Evict expired cache keys.
 Should be called periodically (e.g., on activity).
@@ -151,13 +167,17 @@ Should be called periodically (e.g., on activity).
 
 Number of cache keys evicted
 
+#### Implementation of
+
+[`ICacheManager`](../interfaces/ICacheManager.md).[`evictExpired`](../interfaces/ICacheManager.md#evictexpired)
+
 ---
 
 ### exists()
 
 > **exists**(`key`): `Promise`\<`boolean`\>
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:156
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:146
 
 Check if a cache key exists.
 
@@ -175,13 +195,17 @@ Cache key identifier
 
 Whether the cache key exists
 
+#### Implementation of
+
+[`ICacheManager`](../interfaces/ICacheManager.md).[`exists`](../interfaces/ICacheManager.md#exists)
+
 ---
 
 ### freeze()
 
 > **freeze**(`key`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:303
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:293
 
 Freeze a cache key.
 While frozen, no changes can be made to data under this cache key.
@@ -199,13 +223,17 @@ Cache key identifier
 
 `Promise`\<`void`\>
 
+#### Implementation of
+
+[`ICacheManager`](../interfaces/ICacheManager.md).[`freeze`](../interfaces/ICacheManager.md#freeze)
+
 ---
 
 ### get()
 
 > **get**(`key`): `Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md) \| `undefined`\>
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:167
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:157
 
 Get a cache key record.
 
@@ -223,13 +251,17 @@ Cache key identifier
 
 Cache key record or undefined
 
+#### Implementation of
+
+[`ICacheManager`](../interfaces/ICacheManager.md).[`get`](../interfaces/ICacheManager.md#get)
+
 ---
 
 ### getCount()
 
 > **getCount**(): `Promise`\<`number`\>
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:386
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:376
 
 Get the number of cache keys.
 
@@ -239,13 +271,17 @@ Get the number of cache keys.
 
 Total cache key count
 
+#### Implementation of
+
+[`ICacheManager`](../interfaces/ICacheManager.md).[`getCount`](../interfaces/ICacheManager.md#getcount)
+
 ---
 
 ### hold()
 
 > **hold**(`key`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:187
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:177
 
 Place a hold on a cache key for this window.
 While held by any window, the cache key cannot be evicted.
@@ -263,13 +299,17 @@ Cache key identifier
 
 `Promise`\<`void`\>
 
+#### Implementation of
+
+[`ICacheManager`](../interfaces/ICacheManager.md).[`hold`](../interfaces/ICacheManager.md#hold)
+
 ---
 
 ### initialize()
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:75
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:65
 
 Initialize the cache manager.
 Resets all persisted hold counts, evicts ephemeral keys, and registers this window.
@@ -284,7 +324,7 @@ Resets all persisted hold counts, evicts ephemeral keys, and registers this wind
 
 > **isFrozen**(`key`): `Promise`\<`boolean`\>
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:328
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:318
 
 Check if a cache key is frozen.
 
@@ -302,13 +342,17 @@ Cache key identifier
 
 Whether the cache key is frozen
 
+#### Implementation of
+
+[`ICacheManager`](../interfaces/ICacheManager.md).[`isFrozen`](../interfaces/ICacheManager.md#isfrozen)
+
 ---
 
 ### onSessionDestroyed()
 
 > **onSessionDestroyed**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:425
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:415
 
 Handle session destroyed — wipe all cache keys and in-memory state.
 Deletes each cache key via storage.deleteCacheKey() which cascade-deletes events + read models.
@@ -323,7 +367,7 @@ Deletes each cache key via storage.deleteCacheKey() which cascade-deletes events
 
 > **registerWindow**(`windowId`): `boolean`
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:269
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:259
 
 Register a window for capacity tracking.
 Returns false and emits event if at capacity.
@@ -348,7 +392,7 @@ Whether registration succeeded
 
 > **release**(`key`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:213
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:203
 
 Release a hold on a cache key for this window.
 If this was the last window holding the key, the persisted holdCount drops to 0.
@@ -366,13 +410,17 @@ Cache key identifier
 
 `Promise`\<`void`\>
 
+#### Implementation of
+
+[`ICacheManager`](../interfaces/ICacheManager.md).[`release`](../interfaces/ICacheManager.md#release)
+
 ---
 
 ### releaseAllForWindow()
 
 > **releaseAllForWindow**(`windowId`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:240
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:230
 
 Release all holds for a specific window across all cache keys.
 Used for tab-death cleanup.
@@ -395,7 +443,7 @@ Window identifier to release
 
 > **touch**(`key`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:176
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:166
 
 Touch a cache key to update its access time.
 
@@ -411,13 +459,17 @@ Cache key identifier
 
 `Promise`\<`void`\>
 
+#### Implementation of
+
+[`ICacheManager`](../interfaces/ICacheManager.md).[`touch`](../interfaces/ICacheManager.md#touch)
+
 ---
 
 ### unfreeze()
 
 > **unfreeze**(`key`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:315
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:305
 
 Unfreeze a cache key.
 
@@ -433,13 +485,17 @@ Cache key identifier
 
 `Promise`\<`void`\>
 
+#### Implementation of
+
+[`ICacheManager`](../interfaces/ICacheManager.md).[`unfreeze`](../interfaces/ICacheManager.md#unfreeze)
+
 ---
 
 ### unregisterWindow()
 
 > **unregisterWindow**(`windowId`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:291
+Defined in: packages/client/src/core/cache-manager/CacheManager.ts:281
 
 Unregister a window, releasing all its holds.
 

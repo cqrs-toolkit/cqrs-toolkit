@@ -6,18 +6,13 @@
 
 # Interface: ResolvedConfig\<TCommand, TEvent\>
 
-Defined in: packages/client/src/types/config.ts:292
+Defined in: packages/client/src/types/config.ts:319
 
-Resolved configuration with all defaults applied.
+Resolved shared configuration with all defaults applied.
 
 ## Extends
 
-- `Required`\<`Omit`\<[`CqrsClientConfig`](CqrsClientConfig.md)\<`TCommand`, `TEvent`\>, `"domainExecutor"` \| `"commandSender"` \| `"workerUrl"` \| `"workerSetup"` \| `"collections"` \| `"processors"`\>\>
-
-## Extended by
-
-- [`DedicatedWorkerAdapterConfig`](DedicatedWorkerAdapterConfig.md)
-- [`SharedWorkerAdapterConfig`](SharedWorkerAdapterConfig.md)
+- `Required`\<`Omit`\<[`CqrsConfig`](CqrsConfig.md)\<`TCommand`, `TEvent`\>, `"domainExecutor"` \| `"commandSender"` \| `"workerSetup"` \| `"collections"` \| `"processors"`\>\>
 
 ## Type Parameters
 
@@ -35,13 +30,13 @@ Resolved configuration with all defaults applied.
 
 > **cache**: [`CacheConfig`](CacheConfig.md)
 
-Defined in: packages/client/src/types/config.ts:220
+Defined in: packages/client/src/types/config.ts:217
 
 Cache configuration.
 
 #### Inherited from
 
-`Required.cache`
+[`CqrsClientConfig`](CqrsClientConfig.md).[`cache`](CqrsClientConfig.md#cache)
 
 ---
 
@@ -49,7 +44,7 @@ Cache configuration.
 
 > **collections**: [`Collection`](Collection.md)[]
 
-Defined in: packages/client/src/types/config.ts:302
+Defined in: packages/client/src/types/config.ts:328
 
 ---
 
@@ -57,7 +52,7 @@ Defined in: packages/client/src/types/config.ts:302
 
 > `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)
 
-Defined in: packages/client/src/types/config.ts:299
+Defined in: packages/client/src/types/config.ts:326
 
 ---
 
@@ -65,13 +60,13 @@ Defined in: packages/client/src/types/config.ts:299
 
 > **debug**: `boolean`
 
-Defined in: packages/client/src/types/config.ts:247
+Defined in: packages/client/src/types/config.ts:244
 
 Enable debug logging.
 
 #### Inherited from
 
-`Required.debug`
+[`CqrsClientConfig`](CqrsClientConfig.md).[`debug`](CqrsClientConfig.md#debug)
 
 ---
 
@@ -79,22 +74,7 @@ Enable debug logging.
 
 > `optional` **domainExecutor**: [`IDomainExecutor`](IDomainExecutor.md)\<`TCommand`, `TEvent`\>
 
-Defined in: packages/client/src/types/config.ts:298
-
----
-
-### mode
-
-> **mode**: [`ExecutionModeConfig`](../type-aliases/ExecutionModeConfig.md)
-
-Defined in: packages/client/src/types/config.ts:194
-
-Execution mode.
-Defaults to 'auto': SharedWorker > Dedicated Worker > Online-only
-
-#### Inherited from
-
-`Required.mode`
+Defined in: packages/client/src/types/config.ts:325
 
 ---
 
@@ -102,13 +82,13 @@ Defaults to 'auto': SharedWorker > Dedicated Worker > Online-only
 
 > **network**: [`NetworkConfig`](NetworkConfig.md)
 
-Defined in: packages/client/src/types/config.ts:205
+Defined in: packages/client/src/types/config.ts:202
 
 Network configuration.
 
 #### Inherited from
 
-`Required.network`
+[`CqrsClientConfig`](CqrsClientConfig.md).[`network`](CqrsClientConfig.md#network)
 
 ---
 
@@ -116,7 +96,7 @@ Network configuration.
 
 > **processors**: [`ProcessorRegistration`](ProcessorRegistration.md)\<`unknown`, `Record`\<`string`, `unknown`\>\>[]
 
-Defined in: packages/client/src/types/config.ts:303
+Defined in: packages/client/src/types/config.ts:329
 
 ---
 
@@ -124,13 +104,13 @@ Defined in: packages/client/src/types/config.ts:303
 
 > **retainTerminal**: `boolean`
 
-Defined in: packages/client/src/types/config.ts:242
+Defined in: packages/client/src/types/config.ts:239
 
 Retain terminal commands in storage for debugging/introspection.
 
 #### Inherited from
 
-`Required.retainTerminal`
+[`CqrsClientConfig`](CqrsClientConfig.md).[`retainTerminal`](CqrsClientConfig.md#retainterminal)
 
 ---
 
@@ -138,13 +118,13 @@ Retain terminal commands in storage for debugging/introspection.
 
 > **retry**: [`RetryConfig`](RetryConfig.md)
 
-Defined in: packages/client/src/types/config.ts:215
+Defined in: packages/client/src/types/config.ts:212
 
 Retry configuration for commands.
 
 #### Inherited from
 
-`Required.retry`
+[`CqrsClientConfig`](CqrsClientConfig.md).[`retry`](CqrsClientConfig.md#retry)
 
 ---
 
@@ -152,13 +132,13 @@ Retry configuration for commands.
 
 > **storage**: [`StorageConfig`](StorageConfig.md)
 
-Defined in: packages/client/src/types/config.ts:210
+Defined in: packages/client/src/types/config.ts:207
 
 Storage configuration (ignored for online-only mode).
 
 #### Inherited from
 
-`Required.storage`
+[`CqrsClientConfig`](CqrsClientConfig.md).[`storage`](CqrsClientConfig.md#storage)
 
 ---
 
@@ -166,12 +146,4 @@ Storage configuration (ignored for online-only mode).
 
 > `optional` **workerSetup**: `string`[]
 
-Defined in: packages/client/src/types/config.ts:301
-
----
-
-### workerUrl?
-
-> `optional` **workerUrl**: `string`
-
-Defined in: packages/client/src/types/config.ts:300
+Defined in: packages/client/src/types/config.ts:327
