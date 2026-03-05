@@ -14,7 +14,8 @@ import TodosPage from './pages/TodosPage'
 logProvider.setLogger(pino({ level: 'debug', browser: { asObject: false } }))
 
 const client = await initializeClient()
-await client.syncManager.setAuthenticated({ userId: 'demo-user' })
+const session = await fetchSession()
+await client.syncManager.setAuthenticated({ userId: session.userId })
 
 const root = document.getElementById('root')
 if (!root) throw new Error('Missing #root element')
@@ -32,3 +33,24 @@ render(
   ),
   root,
 )
+
+// ── Helpers ──
+
+function isSessionResponse(
+  data: unknown,
+): data is { authenticated: true; user: { sub: string }; expiresAtMs: number } {
+  if (typeof data !== 'object' || data === null) return false
+  const obj = data as Record<string, unknown>
+  if (obj['authenticated'] !== true) return false
+  if (typeof obj['user'] !== 'object' || obj['user'] === null) return false
+  const user = obj['user'] as Record<string, unknown>
+  return typeof user['sub'] === 'string' && typeof obj['expiresAtMs'] === 'number'
+}
+
+async function fetchSession(): Promise<{ userId: string }> {
+  const res = await fetch('/api/auth/session')
+  if (!res.ok) throw new Error(`Session fetch failed: ${res.status}`)
+  const data: unknown = await res.json()
+  if (!isSessionResponse(data)) throw new Error('Invalid session response')
+  return { userId: data.user.sub }
+}

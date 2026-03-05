@@ -22,6 +22,7 @@
     "format:all": "prettier --write packages demos",
     "test:e2e": "npx playwright test --config demos/todo-demo/playwright.config.ts",
     "format": "./scripts/format-changed.sh",
+    "precommit": "npm run docs && git add . && npm run format && npm run test:run",
     "postinstall": "node .husky/install.mjs"
   },
   "lint-staged": {

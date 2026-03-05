@@ -1,4 +1,5 @@
 import { type CollectionSyncStatus, type LibraryEvent } from '@cqrs-toolkit/client'
+import { createListQuery } from '@cqrs-toolkit/client-solid'
 import { A } from '@solidjs/router'
 import { filter } from 'rxjs'
 import { createSignal, For, onCleanup, onMount, Show } from 'solid-js'
@@ -10,27 +11,12 @@ type PanelState = 'loading' | 'ready' | 'error'
 
 export default function DashboardPage() {
   const client = useClient()
-  const [todos, setTodos] = createSignal<Todo[]>([])
-  const [notes, setNotes] = createSignal<Note[]>([])
+  const todosQuery = createListQuery<Todo>(client.queryManager, 'todos')
+  const notesQuery = createListQuery<Note>(client.queryManager, 'notes')
   const [todosState, setTodosState] = createSignal<PanelState>('loading')
   const [notesState, setNotesState] = createSignal<PanelState>('loading')
   const [todosSync, setTodosSync] = createSignal<CollectionSyncStatus>()
   const [notesSync, setNotesSync] = createSignal<CollectionSyncStatus>()
-
-  let todosCacheKey: string | undefined
-  let notesCacheKey: string | undefined
-
-  async function fetchTodos(): Promise<void> {
-    const result = await client.queryManager.list<Todo>('todos', { hold: true })
-    todosCacheKey = result.cacheKey
-    setTodos(result.data)
-  }
-
-  async function fetchNotes(): Promise<void> {
-    const result = await client.queryManager.list<Note>('notes', { hold: true })
-    notesCacheKey = result.cacheKey
-    setNotes(result.data)
-  }
 
   function markReady(collection: string): void {
     if (collection === 'todos') setTodosState('ready')
@@ -48,14 +34,14 @@ export default function DashboardPage() {
   }
 
   function recentIncompleteTodos(): Todo[] {
-    return todos()
+    return todosQuery.items
       .filter((t) => t.status !== 'completed')
       .slice(-5)
       .reverse()
   }
 
   function recentNotes(): Note[] {
-    return notes().slice(-5).reverse()
+    return notesQuery.items.slice(-5).reverse()
   }
 
   function syncLabel(status: CollectionSyncStatus | undefined): string {
@@ -69,16 +55,6 @@ export default function DashboardPage() {
   onMount(() => {
     refreshSyncStatus()
 
-    // Subscribe to live read-model updates BEFORE any async work.
-    // This prevents a race where seeding completes between the initial fetch
-    // and subscription setup, causing the dashboard to miss the update.
-    const todoSub = client.queryManager.watchCollection('todos').subscribe(() => {
-      fetchTodos()
-    })
-    const noteSub = client.queryManager.watchCollection('notes').subscribe(() => {
-      fetchNotes()
-    })
-
     // Subscribe to sync completion and failure to transition panels out of loading.
     const syncSub = client.events$
       .pipe(
@@ -90,32 +66,26 @@ export default function DashboardPage() {
       .subscribe((event) => {
         refreshSyncStatus()
         if (event.type === 'sync:completed') {
-          const fetch =
-            event.payload.collection === 'todos'
-              ? fetchTodos()
-              : event.payload.collection === 'notes'
-                ? fetchNotes()
-                : null
-          fetch?.then(() => markReady(event.payload.collection))
+          markReady(event.payload.collection)
         } else {
           markError(event.payload.collection)
         }
       })
 
-    // Handle the "already seeded / cached" case: if the collection was seeded
-    // before this component mounted, fetch data and mark ready immediately.
-    const todosSeeded = client.syncManager.getCollectionStatus('todos')?.seeded ?? false
-    const notesSeeded = client.syncManager.getCollectionStatus('notes')?.seeded ?? false
+    // Handle the "already synced" case: if the collection was seeded before this
+    // component mounted, mark ready immediately.
+    // In proxy (worker) modes, getCollectionStatus returns undefined because it's
+    // a synchronous stub — mark ready since data may already be cached in
+    // the worker. Skip only when seeded is explicitly false (sync registered but
+    // not yet complete).
+    const todosStatus = client.syncManager.getCollectionStatus('todos')
+    const notesStatus = client.syncManager.getCollectionStatus('notes')
 
-    if (todosSeeded) fetchTodos().then(() => setTodosState('ready'))
-    if (notesSeeded) fetchNotes().then(() => setNotesState('ready'))
+    if (todosStatus?.seeded !== false) setTodosState('ready')
+    if (notesStatus?.seeded !== false) setNotesState('ready')
 
     onCleanup(() => {
-      todoSub.unsubscribe()
-      noteSub.unsubscribe()
       syncSub.unsubscribe()
-      if (todosCacheKey) client.queryManager.release(todosCacheKey)
-      if (notesCacheKey) client.queryManager.release(notesCacheKey)
     })
   })
 

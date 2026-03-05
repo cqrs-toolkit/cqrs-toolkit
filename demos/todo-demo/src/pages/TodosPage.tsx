@@ -1,4 +1,5 @@
-import { createSignal, For, onCleanup, onMount, Show } from 'solid-js'
+import { createListQuery } from '@cqrs-toolkit/client-solid'
+import { createMemo, createSignal, For, Show } from 'solid-js'
 import type { Todo } from '../../shared/todos/types'
 import { useClient } from '../bootstrap/cqrs-context'
 import AddTodo from '../components/AddTodo'
@@ -9,40 +10,16 @@ import { createEditNavigator } from '../primitives/createEditNavigator'
 export default function TodosPage() {
   const client = useClient()
   const nav = createEditNavigator()
-  const [todos, setTodos] = createSignal<Todo[]>([])
-  const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string>()
-  let cacheKey: string | undefined
+  const query = createListQuery<Todo>(client.queryManager, 'todos')
 
-  async function fetchTodos(): Promise<void> {
-    const result = await client.queryManager.list<Todo>('todos', { hold: true })
-    cacheKey = result.cacheKey
-    setTodos(result.data)
-  }
-
-  onMount(async () => {
-    await fetchTodos()
-    setLoading(false)
-
-    const subscription = client.queryManager.watchCollection('todos').subscribe(() => {
-      fetchTodos()
-    })
-
-    onCleanup(() => {
-      subscription.unsubscribe()
-      if (cacheKey) client.queryManager.release(cacheKey)
-    })
-  })
-
-  function sortedTodos(): Todo[] {
-    return todos()
-      .slice()
-      .sort((a, b) => {
-        if (a.status === 'completed' && b.status !== 'completed') return 1
-        if (a.status !== 'completed' && b.status === 'completed') return -1
-        return b.createdAt.localeCompare(a.createdAt)
-      })
-  }
+  const sortedTodos = createMemo(() =>
+    query.items.slice().sort((a, b) => {
+      if (a.status === 'completed' && b.status !== 'completed') return 1
+      if (a.status !== 'completed' && b.status === 'completed') return -1
+      return b.createdAt.localeCompare(a.createdAt)
+    }),
+  )
 
   return (
     <PageShell title="Todos">
@@ -53,11 +30,11 @@ export default function TodosPage() {
       <div ref={nav.containerRef}>
         <AddTodo onError={setError} formRef={nav.headerRef} />
 
-        <Show when={loading()}>
+        <Show when={query.loading}>
           <p class="text-center text-neutral-400 py-8">Loading...</p>
         </Show>
 
-        <Show when={!loading() && todos().length === 0}>
+        <Show when={!query.loading && sortedTodos().length === 0}>
           <p class="empty-state text-center text-neutral-400 py-8">No todos yet. Add one above.</p>
         </Show>
 

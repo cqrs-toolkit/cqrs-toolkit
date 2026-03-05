@@ -75,9 +75,10 @@ export type {
   UpdateOperation,
 } from './core/event-processor/index.js'
 export { EventBus } from './core/events/index.js'
-export { QueryManager } from './core/query-manager/index.js'
+export { QueryManager, StableRefQueryManager } from './core/query-manager/index.js'
 export type {
   IQueryManager,
+  ItemMeta,
   ListQueryResult,
   QueryManagerConfig,
   QueryOptions as QueryManagerQueryOptions,

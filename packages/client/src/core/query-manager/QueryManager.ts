@@ -75,6 +75,7 @@ export class QueryManager implements IQueryManager {
 
     return {
       data: model?.data,
+      meta: model ? { id: model.id, updatedAt: model.updatedAt } : undefined,
       hasLocalChanges: model?.hasLocalChanges ?? false,
       cacheKey,
     }
@@ -105,6 +106,7 @@ export class QueryManager implements IQueryManager {
       const model = models.get(id)
       results.set(id, {
         data: model?.data,
+        meta: model ? { id: model.id, updatedAt: model.updatedAt } : undefined,
         hasLocalChanges: model?.hasLocalChanges ?? false,
         cacheKey,
       })
@@ -136,6 +138,7 @@ export class QueryManager implements IQueryManager {
 
     return {
       data: models.map((m) => m.data),
+      meta: models.map((m) => ({ id: m.id, updatedAt: m.updatedAt })),
       total,
       hasLocalChanges: models.some((m) => m.hasLocalChanges),
       cacheKey,

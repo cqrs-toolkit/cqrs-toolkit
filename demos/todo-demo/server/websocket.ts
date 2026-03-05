@@ -10,9 +10,10 @@
 import type { ServerMessage } from '@cqrs-toolkit/realtime'
 import { parseClientMessage, serializeServerMessage } from '@cqrs-toolkit/realtime'
 import type { IEvent, ISerializedEvent, Persisted } from '@meticoeus/ddd-es'
-import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
+import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from 'fastify'
 import type { WebSocket } from 'ws'
 import type { DemoEventStore } from './event-store.js'
+import { type FakeUserStore, parseCookieHeader } from './session/routes.js'
 
 const HEARTBEAT_INTERVAL_MS = 30_000
 
@@ -128,10 +129,32 @@ function extractAggregateType(streamId: string): string {
   return streamId.slice(0, dashIndex)
 }
 
-export function websocketPlugin(eventStore: DemoEventStore): FastifyPluginAsync {
-  return async function plugin(app: FastifyInstance): Promise<void> {
+export interface WebSocketControl {
+  pause(): void
+  resume(): void
+}
+
+export function websocketPlugin(
+  eventStore: DemoEventStore,
+  userStore: FakeUserStore,
+): { plugin: FastifyPluginAsync; control: WebSocketControl } {
+  let accepting = true
+  const connectedSockets = new Set<WebSocket>()
+
+  const control: WebSocketControl = {
+    pause() {
+      accepting = false
+      for (const socket of connectedSockets) {
+        socket.terminate()
+      }
+    },
+    resume() {
+      accepting = true
+    },
+  }
+
+  const plugin: FastifyPluginAsync = async function plugin(app: FastifyInstance): Promise<void> {
     const registry = new SubscriptionRegistry()
-    const connectedSockets = new Set<WebSocket>()
 
     // Heartbeat timer
     const heartbeatTimer = setInterval(() => {
@@ -174,51 +197,69 @@ export function websocketPlugin(eventStore: DemoEventStore): FastifyPluginAsync 
     })
 
     // WebSocket route
-    app.get('/ws', { websocket: true }, (socket: WebSocket) => {
-      connectedSockets.add(socket)
+    app.get(
+      '/ws',
+      {
+        websocket: true,
+        preValidation: async (_request, reply) => {
+          if (!accepting) {
+            reply.code(503).send()
+          }
+        },
+      },
+      (socket: WebSocket, request: FastifyRequest) => {
+        connectedSockets.add(socket)
 
-      // Send connected message
-      const connectedMsg: ServerMessage = {
-        type: 'connected',
-        heartbeatInterval: HEARTBEAT_INTERVAL_MS,
-        userId: 'demo-user',
-        expiresAtMs: null,
-      }
-      socket.send(serializeServerMessage(connectedMsg))
+        // Resolve userId from cookie
+        const cookieValue = parseCookieHeader(request.headers.cookie, 'demo_user_id')
+        const user = cookieValue !== undefined ? userStore.get(cookieValue) : undefined
+        const userId = user?.sub ?? 'anonymous'
 
-      socket.on('message', (data: Buffer | ArrayBuffer | Buffer[]) => {
-        const raw = typeof data === 'string' ? data : data.toString()
-        const msg = parseClientMessage(raw)
-
-        if (!msg) {
-          // Silently ignore malformed messages — protocol has no error message type
-          return
+        // Send connected message
+        const connectedMsg: ServerMessage = {
+          type: 'connected',
+          heartbeatInterval: HEARTBEAT_INTERVAL_MS,
+          userId,
+          expiresAtMs: null,
         }
+        socket.send(serializeServerMessage(connectedMsg))
 
-        switch (msg.type) {
-          case 'subscribe':
-            registry.subscribe(socket, msg.topics)
-            socket.send(serializeServerMessage({ type: 'subscribed', topics: msg.topics }))
-            break
+        socket.on('message', (data: Buffer | ArrayBuffer | Buffer[]) => {
+          const raw = typeof data === 'string' ? data : data.toString()
+          const msg = parseClientMessage(raw)
 
-          case 'unsubscribe':
-            registry.unsubscribe(socket, msg.topics)
-            socket.send(serializeServerMessage({ type: 'unsubscribed', topics: msg.topics }))
-            break
-        }
-      })
+          if (!msg) {
+            // Silently ignore malformed messages — protocol has no error message type
+            return
+          }
 
-      socket.on('close', () => {
-        connectedSockets.delete(socket)
-        registry.removeClient(socket)
-      })
+          switch (msg.type) {
+            case 'subscribe':
+              registry.subscribe(socket, msg.topics)
+              socket.send(serializeServerMessage({ type: 'subscribed', topics: msg.topics }))
+              break
 
-      socket.on('error', () => {
-        connectedSockets.delete(socket)
-        registry.removeClient(socket)
-      })
-    })
+            case 'unsubscribe':
+              registry.unsubscribe(socket, msg.topics)
+              socket.send(serializeServerMessage({ type: 'unsubscribed', topics: msg.topics }))
+              break
+          }
+        })
+
+        socket.on('close', () => {
+          connectedSockets.delete(socket)
+          registry.removeClient(socket)
+        })
+
+        socket.on('error', () => {
+          connectedSockets.delete(socket)
+          registry.removeClient(socket)
+        })
+      },
+    )
   }
+
+  return { plugin, control }
 }
 
 // ── Helpers ──

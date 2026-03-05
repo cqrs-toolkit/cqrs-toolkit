@@ -25,7 +25,7 @@ test('creates multiple todos', async ({ page, mode }) => {
   await addTodo(page, 'Second task')
   await waitForTodoCount(page, 2)
   const texts = await getTodoTexts(page)
-  expect(texts).toEqual(['First task', 'Second task'])
+  expect(texts).toEqual(['Second task', 'First task'])
 })
 
 test('edits a todo', async ({ page, mode }) => {

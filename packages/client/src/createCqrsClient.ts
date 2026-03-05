@@ -36,6 +36,7 @@ import { EventProcessorRegistry } from './core/event-processor/EventProcessorReg
 import type { ParsedEvent } from './core/event-processor/EventProcessorRunner.js'
 import { EventProcessorRunner } from './core/event-processor/EventProcessorRunner.js'
 import { QueryManager } from './core/query-manager/QueryManager.js'
+import { StableRefQueryManager } from './core/query-manager/StableRefQueryManager.js'
 import type { IQueryManager } from './core/query-manager/types.js'
 import { ReadModelStore } from './core/read-model-store/ReadModelStore.js'
 import type { IConnectivity } from './core/sync-manager/ConnectivityManager.js'
@@ -272,6 +273,8 @@ async function createOnlineOnlyClient(
     readModelStore,
   })
 
+  const stableQueryManager = new StableRefQueryManager(queryManager)
+
   const syncManager = new SyncManager({
     eventBus,
     sessionManager: adapter.sessionManager,
@@ -313,7 +316,7 @@ async function createOnlineOnlyClient(
     evictionSubscription.unsubscribe()
     eventCache.destroy()
     await syncManager.destroy()
-    await queryManager.destroy()
+    await stableQueryManager.destroy()
     await commandQueue.destroy()
   }
 
@@ -321,7 +324,7 @@ async function createOnlineOnlyClient(
     adapter,
     cacheManager,
     commandQueue,
-    queryManager,
+    stableQueryManager,
     syncManagerFacade,
     closeResources,
     mode,
@@ -338,20 +341,23 @@ function createWorkerClient(
   mode: ExecutionMode,
   debug: boolean,
 ): CqrsClient {
-  const { commandQueue, queryManager, cacheManager, syncManager } = adapter
+  const { commandQueue, cacheManager, syncManager } = adapter
+  const stableQueryManager = new StableRefQueryManager(adapter.queryManager)
 
   // Resource cleanup for worker mode — proxies that have local state
   const closeResources = async (): Promise<void> => {
     // CommandQueueProxy and SyncManagerProxy have RxJS subjects to clean up.
     // QueryManagerProxy and CacheManagerProxy are stateless RPC wrappers.
     // The adapter's close() tells the worker to shut down all real components.
+    // StableRefQueryManager clears its ref cache.
+    await stableQueryManager.destroy()
   }
 
   return new CqrsClient(
     adapter,
     cacheManager,
     commandQueue,
-    queryManager,
+    stableQueryManager,
     syncManager,
     closeResources,
     mode,

@@ -38,7 +38,7 @@ Defined in: packages/client/src/core/query-manager/QueryManager.ts:50
 
 > **count**(`collection`): `Promise`\<`number`\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:202
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:205
 
 Get the count of entities in a collection.
 
@@ -66,7 +66,7 @@ Count
 
 > **destroy**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:281
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:284
 
 Destroy the query manager.
 
@@ -84,7 +84,7 @@ Destroy the query manager.
 
 > **exists**(`collection`, `id`): `Promise`\<`boolean`\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:192
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:195
 
 Check if an entity exists.
 
@@ -164,7 +164,7 @@ Query result
 
 > **getByIds**\<`T`\>(`collection`, `ids`, `options?`): `Promise`\<`Map`\<`string`, [`QueryResult`](../interfaces/QueryResult.md)\<`T`\>\>\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:91
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:92
 
 Get multiple entities by IDs.
 
@@ -210,7 +210,7 @@ Map of ID to query result
 
 > **hold**(`cacheKey`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:224
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:227
 
 Place a hold on a cache key.
 While held, the data cannot be evicted.
@@ -238,7 +238,7 @@ Cache key to hold
 
 > **list**\<`T`\>(`collection`, `options?`): `Promise`\<[`ListQueryResult`](../interfaces/ListQueryResult.md)\<`T`\>\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:123
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:125
 
 List entities in a collection.
 
@@ -278,7 +278,7 @@ List query result
 
 > **onSessionDestroyed**(): `void`
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:254
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:257
 
 Handle session destroyed — clear all in-memory holds without calling cacheManager.release().
 CacheManager state is already being wiped separately.
@@ -293,7 +293,7 @@ CacheManager state is already being wiped separately.
 
 > **release**(`cacheKey`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:238
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:241
 
 Release a hold on a cache key.
 Only calls cacheManager.release() on the 1→0 transition.
@@ -320,7 +320,7 @@ Cache key to release
 
 > **releaseAll**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:271
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:274
 
 Release all active holds.
 One cacheManager.release() per key regardless of local count.
@@ -339,7 +339,7 @@ One cacheManager.release() per key regardless of local count.
 
 > **releaseForCacheKey**(`cacheKey`): `void`
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:263
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:266
 
 Release hold tracking for an evicted cache key.
 Removes the entry from activeHolds without calling cacheManager.release()
@@ -361,7 +361,7 @@ since the cache key has already been evicted from storage.
 
 > **touch**(`collection`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:212
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:215
 
 Touch the cache key for a collection.
 Extends its lifetime in the cache.
@@ -388,7 +388,7 @@ Collection name
 
 > **watchById**\<`T`\>(`collection`, `id`): `Observable`\<`T` \| `undefined`\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:167
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:170
 
 Get an observable that emits when a specific entity changes.
 
@@ -428,7 +428,7 @@ Observable of the entity data
 
 > **watchCollection**(`collection`): `Observable`\<`string`[]\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:152
+Defined in: packages/client/src/core/query-manager/QueryManager.ts:155
 
 Get an observable that emits when data in a collection changes.
 Use this for reactive UI updates.

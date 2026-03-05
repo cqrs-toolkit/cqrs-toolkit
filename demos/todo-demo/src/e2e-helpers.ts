@@ -79,11 +79,23 @@ export async function gotoWithWsSubscribed(page: Page, url: string): Promise<voi
 }
 
 /**
+ * Wait for the WebSocket to disconnect (subscribed state removed).
+ *
+ * Works in all execution modes — waits for the `.ws-subscribed` CSS class
+ * to be removed from the DOM.
+ */
+export async function waitForWsDisconnected(page: Page): Promise<void> {
+  await expect(page.locator('.ws-subscribed')).not.toBeAttached()
+}
+
+/**
  * Wait for a WebSocket reconnection to complete (subscribed state).
  *
  * Works in all execution modes — waits for the `.ws-subscribed` CSS class
  * to reappear after a disconnection.
+ *
+ * @param timeout - defaults to 11s to accommodate the 5s reconnect timer
  */
-export async function waitForWsReconnection(page: Page): Promise<void> {
-  await expect(page.locator('.ws-subscribed')).toBeAttached()
+export async function waitForWsReconnection(page: Page, timeout = 11_000): Promise<void> {
+  await expect(page.locator('.ws-subscribed')).toBeAttached({ timeout })
 }

@@ -2,6 +2,7 @@
   "files": [],
   "references": [
     { "path": "packages/realtime/tsconfig.build.json" },
-    { "path": "packages/client/tsconfig.build.json" }
+    { "path": "packages/client/tsconfig.build.json" },
+    { "path": "packages/client-solid/tsconfig.build.json" }
   ]
 }

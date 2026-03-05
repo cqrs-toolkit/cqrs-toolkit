@@ -1,4 +1,5 @@
-import { createSignal, For, onCleanup, onMount, Show } from 'solid-js'
+import { createListQuery } from '@cqrs-toolkit/client-solid'
+import { createSignal, For, Show } from 'solid-js'
 import type { Note } from '../../shared/notes/types'
 import { useClient } from '../bootstrap/cqrs-context'
 import AddNote from '../components/AddNote'
@@ -9,30 +10,8 @@ import { createEditNavigator } from '../primitives/createEditNavigator'
 export default function NotesPage() {
   const client = useClient()
   const nav = createEditNavigator()
-  const [notes, setNotes] = createSignal<Note[]>([])
-  const [loading, setLoading] = createSignal(true)
   const [error, setError] = createSignal<string>()
-  let cacheKey: string | undefined
-
-  async function fetchNotes(): Promise<void> {
-    const result = await client.queryManager.list<Note>('notes', { hold: true })
-    cacheKey = result.cacheKey
-    setNotes(result.data)
-  }
-
-  onMount(async () => {
-    await fetchNotes()
-    setLoading(false)
-
-    const subscription = client.queryManager.watchCollection('notes').subscribe(() => {
-      fetchNotes()
-    })
-
-    onCleanup(() => {
-      subscription.unsubscribe()
-      if (cacheKey) client.queryManager.release(cacheKey)
-    })
-  })
+  const query = createListQuery<Note>(client.queryManager, 'notes')
 
   return (
     <PageShell title="Notes">
@@ -43,16 +22,16 @@ export default function NotesPage() {
       <div ref={nav.containerRef}>
         <AddNote onError={setError} formRef={nav.headerRef} />
 
-        <Show when={loading()}>
+        <Show when={query.loading}>
           <p class="text-center text-neutral-400 py-8">Loading...</p>
         </Show>
 
-        <Show when={!loading() && notes().length === 0}>
+        <Show when={!query.loading && query.items.length === 0}>
           <p class="empty-state text-center text-neutral-400 py-8">No notes yet. Add one above.</p>
         </Show>
 
         <ul ref={nav.listRef} class="space-y-2 p-0">
-          <For each={notes()}>{(note) => <NoteItem note={note} onError={setError} />}</For>
+          <For each={query.items}>{(note) => <NoteItem note={note} onError={setError} />}</For>
         </ul>
       </div>
     </PageShell>

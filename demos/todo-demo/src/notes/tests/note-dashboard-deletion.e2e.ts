@@ -10,6 +10,9 @@ import {
   waitForDashTodosReady,
   waitForNoteCount,
 } from '../../e2e-helpers'
+import { testNavigator } from '../../e2e-nav'
+
+const { Dashboard, Notes } = testNavigator
 
 test.beforeEach(async ({ request }) => {
   await request.post('http://localhost:3001/api/test/reset')
@@ -17,49 +20,46 @@ test.beforeEach(async ({ request }) => {
 
 test.describe('same-session (no WS)', () => {
   test('dashboard removes deleted notes', async ({ page, mode }) => {
-    const notesUrl = url('/notes', { mode, ws: false })
-    const dashUrl = url('/', { mode, ws: false })
-
     // Create 8 notes
-    await page.goto(notesUrl)
+    await page.goto(url('/notes', { mode, ws: false }))
     for (let i = 1; i <= 8; i++) {
       await addNote(page, `Note-${i}`)
     }
     await waitForNoteCount(page, 8)
 
     // Dashboard shows 5 most recent (Note-8 through Note-4)
-    await page.goto(dashUrl)
+    await Notes.goToDashboard(page)
     await waitForDashNoteCount(page, 5)
     expect(await getDashNoteTexts(page)).toEqual(['Note-8', 'Note-7', 'Note-6', 'Note-5', 'Note-4'])
 
     // Delete Note-8 (on-dashboard) and Note-6 (on-dashboard)
-    await page.goto(notesUrl)
+    await Dashboard.goToNotes(page)
     await deleteNote(page, 'Note-8')
     await deleteNote(page, 'Note-6')
 
     // Dashboard: older notes rotate in
-    await page.goto(dashUrl)
+    await Notes.goToDashboard(page)
     await waitForDashNoteCount(page, 5)
     expect(await getDashNoteTexts(page)).toEqual(['Note-7', 'Note-5', 'Note-4', 'Note-3', 'Note-2'])
 
     // Delete Note-1 (off-dashboard)
-    await page.goto(notesUrl)
+    await Dashboard.goToNotes(page)
     await deleteNote(page, 'Note-1')
 
     // Dashboard unchanged — off-dashboard delete doesn't affect display
-    await page.goto(dashUrl)
+    await Notes.goToDashboard(page)
     await waitForDashNoteCount(page, 5)
     expect(await getDashNoteTexts(page)).toEqual(['Note-7', 'Note-5', 'Note-4', 'Note-3', 'Note-2'])
 
     // Delete Note-7, Note-5, Note-4, Note-3
-    await page.goto(notesUrl)
+    await Dashboard.goToNotes(page)
     await deleteNote(page, 'Note-7')
     await deleteNote(page, 'Note-5')
     await deleteNote(page, 'Note-4')
     await deleteNote(page, 'Note-3')
 
     // Dashboard: only Note-2 remains
-    await page.goto(dashUrl)
+    await Notes.goToDashboard(page)
     await waitForDashNoteCount(page, 1)
     expect(await getDashNoteTexts(page)).toEqual(['Note-2'])
   })
@@ -67,49 +67,46 @@ test.describe('same-session (no WS)', () => {
 
 test.describe('same-session (with WS)', () => {
   test('dashboard removes deleted notes', async ({ page, mode }) => {
-    const notesUrl = url('/notes', { mode, ws: true })
-    const dashUrl = url('/', { mode, ws: true })
-
     // Create 8 notes
-    await page.goto(notesUrl)
+    await page.goto(url('/notes', { mode, ws: true }))
     for (let i = 1; i <= 8; i++) {
       await addNote(page, `Note-${i}`)
     }
     await waitForNoteCount(page, 8)
 
     // Dashboard shows 5 most recent
-    await page.goto(dashUrl)
+    await Notes.goToDashboard(page)
     await waitForDashNoteCount(page, 5)
     expect(await getDashNoteTexts(page)).toEqual(['Note-8', 'Note-7', 'Note-6', 'Note-5', 'Note-4'])
 
     // Delete Note-8 and Note-6
-    await page.goto(notesUrl)
+    await Dashboard.goToNotes(page)
     await deleteNote(page, 'Note-8')
     await deleteNote(page, 'Note-6')
 
     // Dashboard: older notes rotate in
-    await page.goto(dashUrl)
+    await Notes.goToDashboard(page)
     await waitForDashNoteCount(page, 5)
     expect(await getDashNoteTexts(page)).toEqual(['Note-7', 'Note-5', 'Note-4', 'Note-3', 'Note-2'])
 
     // Delete Note-1 (off-dashboard)
-    await page.goto(notesUrl)
+    await Dashboard.goToNotes(page)
     await deleteNote(page, 'Note-1')
 
     // Dashboard unchanged
-    await page.goto(dashUrl)
+    await Notes.goToDashboard(page)
     await waitForDashNoteCount(page, 5)
     expect(await getDashNoteTexts(page)).toEqual(['Note-7', 'Note-5', 'Note-4', 'Note-3', 'Note-2'])
 
     // Delete Note-7, Note-5, Note-4, Note-3
-    await page.goto(notesUrl)
+    await Dashboard.goToNotes(page)
     await deleteNote(page, 'Note-7')
     await deleteNote(page, 'Note-5')
     await deleteNote(page, 'Note-4')
     await deleteNote(page, 'Note-3')
 
     // Dashboard: only Note-2 remains
-    await page.goto(dashUrl)
+    await Notes.goToDashboard(page)
     await waitForDashNoteCount(page, 1)
     expect(await getDashNoteTexts(page)).toEqual(['Note-2'])
   })
@@ -230,8 +227,9 @@ test.describe('multi-session WS', () => {
         'Note-4',
       ])
 
-      // pageA: create a todo
-      await gotoWithWsSubscribed(page, url('/todos', { mode, ws: true }))
+      // pageA: navigate to todos via SPA (WS connection persists)
+      await Notes.goToDashboard(page)
+      await Dashboard.goToTodos(page)
       await addTodo(page, 'Cross-stream todo')
 
       // pageB: the new todo appears on dashboard (proves WS still works across streams)

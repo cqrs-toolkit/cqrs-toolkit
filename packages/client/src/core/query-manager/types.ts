@@ -16,11 +16,23 @@ export interface QueryOptions extends ReadModelQueryOptions {
 }
 
 /**
+ * Identity and change-detection metadata for a single item.
+ * Carried alongside query results so decorators (e.g. StableRefQueryManager)
+ * can reconcile references without inspecting consumer data.
+ */
+export interface ItemMeta {
+  readonly id: string
+  readonly updatedAt: number
+}
+
+/**
  * Query result with metadata.
  */
 export interface QueryResult<T> {
   /** The data, or undefined if not found */
   data: T | undefined
+  /** Identity metadata for change detection, undefined when data is undefined */
+  meta: ItemMeta | undefined
   /** Whether the data has local changes pending sync */
   hasLocalChanges: boolean
   /** Cache key used for this query */
@@ -33,6 +45,8 @@ export interface QueryResult<T> {
 export interface ListQueryResult<T> {
   /** The data items */
   data: T[]
+  /** Identity metadata parallel to data (same length and order) */
+  meta: ItemMeta[]
   /** Total count (may differ from data.length with pagination) */
   total: number
   /** Whether any items have local changes */

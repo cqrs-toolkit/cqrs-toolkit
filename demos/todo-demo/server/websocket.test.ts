@@ -163,7 +163,7 @@ describe('WebSocket integration', () => {
 
     expect(msg.type).toBe('connected')
     expect(msg.heartbeatInterval).toBe(30_000)
-    expect(msg.userId).toBe('demo-user')
+    expect(msg.userId).toBe('anonymous')
     expect(msg.expiresAtMs).toBeNull()
   })
 
@@ -261,6 +261,65 @@ describe('WebSocket integration', () => {
     const eventMsg = await waitForMessage<EventMessage>(socket)
     expect(eventMsg.type).toBe('event')
     expect(eventMsg.topics[0]).toMatch(/^Todo:/)
+  })
+
+  // --- Pause/resume ---
+
+  describe('WebSocket pause/resume', () => {
+    it('rejects new connections when paused', async () => {
+      // Pause WS
+      const pauseRes = await app.inject({ method: 'POST', url: '/api/test/ws-pause' })
+      expect(pauseRes.statusCode).toBe(200)
+
+      // Attempt WS connection — should get rejected
+      const socket = createWebSocket()
+      const closed = new Promise<{ code: number }>((resolve) => {
+        socket.on('close', (code) => resolve({ code }))
+        socket.on('error', () => {
+          // expected — connection refused or terminated
+        })
+      })
+
+      const result = await closed
+      // WebSocket close code 1006 = abnormal closure (connection rejected)
+      expect(result.code).toBe(1006)
+
+      // Resume for other tests
+      await app.inject({ method: 'POST', url: '/api/test/ws-resume' })
+    })
+
+    it('terminates existing connections when paused', async () => {
+      const socket = createWebSocket()
+      await waitForMessage(socket) // connected
+
+      const closed = new Promise<void>((resolve) => {
+        socket.on('close', () => resolve())
+      })
+
+      // Pause — should terminate existing connections
+      await app.inject({ method: 'POST', url: '/api/test/ws-pause' })
+      await closed
+
+      // Resume — new connections should work
+      await app.inject({ method: 'POST', url: '/api/test/ws-resume' })
+
+      const newSocket = createWebSocket()
+      const msg = await waitForMessage<ConnectedMessage>(newSocket)
+      expect(msg.type).toBe('connected')
+    })
+
+    it('reset resumes WS', async () => {
+      // Pause WS
+      await app.inject({ method: 'POST', url: '/api/test/ws-pause' })
+
+      // Reset — should resume WS
+      await app.inject({ method: 'POST', url: '/api/test/reset' })
+
+      // New connection should work
+      const socket = createWebSocket()
+      const msg = await waitForMessage<ConnectedMessage>(socket)
+      expect(msg.type).toBe('connected')
+    })
   })
 
   // --- Helpers ---

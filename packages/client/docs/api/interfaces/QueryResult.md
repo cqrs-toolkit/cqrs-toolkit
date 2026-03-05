@@ -6,7 +6,7 @@
 
 # Interface: QueryResult\<T\>
 
-Defined in: packages/client/src/core/query-manager/types.ts:21
+Defined in: packages/client/src/core/query-manager/types.ts:31
 
 Query result with metadata.
 
@@ -22,7 +22,7 @@ Query result with metadata.
 
 > **cacheKey**: `string`
 
-Defined in: packages/client/src/core/query-manager/types.ts:27
+Defined in: packages/client/src/core/query-manager/types.ts:39
 
 Cache key used for this query
 
@@ -32,7 +32,7 @@ Cache key used for this query
 
 > **data**: `T` \| `undefined`
 
-Defined in: packages/client/src/core/query-manager/types.ts:23
+Defined in: packages/client/src/core/query-manager/types.ts:33
 
 The data, or undefined if not found
 
@@ -42,6 +42,16 @@ The data, or undefined if not found
 
 > **hasLocalChanges**: `boolean`
 
-Defined in: packages/client/src/core/query-manager/types.ts:25
+Defined in: packages/client/src/core/query-manager/types.ts:37
 
 Whether the data has local changes pending sync
+
+---
+
+### meta
+
+> **meta**: [`ItemMeta`](ItemMeta.md) \| `undefined`
+
+Defined in: packages/client/src/core/query-manager/types.ts:35
+
+Identity metadata for change detection, undefined when data is undefined

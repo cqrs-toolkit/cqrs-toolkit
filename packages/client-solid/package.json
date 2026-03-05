@@ -1,0 +1,36 @@
+{
+  "name": "@cqrs-toolkit/client-solid",
+  "version": "0.1.0",
+  "description": "SolidJS reactive primitives for @cqrs-toolkit/client",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "compile": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest"
+  },
+  "keywords": [
+    "cqrs",
+    "event-sourcing",
+    "solidjs",
+    "reactive"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@cqrs-toolkit/client": "*"
+  },
+  "peerDependencies": {
+    "solid-js": "^1.6.0"
+  },
+  "devDependencies": {
+    "solid-js": "^1.9.0",
+    "rxjs": "^7.8.1"
+  }
+}

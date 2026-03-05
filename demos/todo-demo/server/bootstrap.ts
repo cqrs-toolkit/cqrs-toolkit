@@ -11,6 +11,7 @@ import type { CommandResponse } from '../shared/types.js'
 import { DemoEventStore } from './event-store.js'
 import { NoteRepository } from './notes/repository.js'
 import { noteRoutes } from './notes/routes.js'
+import { FakeUserStore, sessionRoutes } from './session/routes.js'
 import { TodoRepository } from './todos/repository.js'
 import { todoRoutes } from './todos/routes.js'
 import { websocketPlugin } from './websocket.js'
@@ -26,6 +27,7 @@ export interface AppContext {
   eventStore: DemoEventStore
   todoRepo: TodoRepository
   noteRepo: NoteRepository
+  userStore: FakeUserStore
 }
 
 export function createApp(options?: { logLevel?: string }): AppContext {
@@ -41,6 +43,7 @@ export function createApp(options?: { logLevel?: string }): AppContext {
   const eventStore = new DemoEventStore()
   const todoRepo = new TodoRepository(eventStore)
   const noteRepo = new NoteRepository(eventStore)
+  const userStore = new FakeUserStore()
 
   // --- Request deduplication cache ---
 
@@ -100,6 +103,7 @@ export function createApp(options?: { logLevel?: string }): AppContext {
       }
     })
 
+    api.register(sessionRoutes(userStore), { prefix: '/auth' })
     api.register(todoRoutes(eventStore, todoRepo))
     api.register(noteRoutes(eventStore, noteRepo))
 
@@ -123,14 +127,28 @@ export function createApp(options?: { logLevel?: string }): AppContext {
       eventStore.clear()
       todoRepo.clear()
       noteRepo.clear()
+      userStore.clear()
       responseCache.clear()
+      wsControl.resume()
+      return { status: 'ok' }
+    })
+
+    api.post('/test/ws-pause', async () => {
+      wsControl.pause()
+      return { status: 'ok' }
+    })
+
+    api.post('/test/ws-resume', async () => {
+      wsControl.resume()
       return { status: 'ok' }
     })
   }
 
+  const { plugin: wsPlugin, control: wsControl } = websocketPlugin(eventStore, userStore)
+
   app.register(websocket)
-  app.register(websocketPlugin(eventStore))
+  app.register(wsPlugin)
   app.register(apiRoutes, { prefix: '/api' })
 
-  return { app, eventStore, todoRepo, noteRepo }
+  return { app, eventStore, todoRepo, noteRepo, userStore }
 }

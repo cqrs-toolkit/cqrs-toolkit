@@ -2,13 +2,14 @@
 
 ---
 
-[@cqrs-toolkit/client](../globals.md) / QueryManager
+[@cqrs-toolkit/client](../globals.md) / StableRefQueryManager
 
-# Class: QueryManager
+# Class: StableRefQueryManager
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:42
+Defined in: packages/client/src/core/query-manager/StableRefQueryManager.ts:44
 
-Query manager.
+Decorator around IQueryManager that preserves object references for
+items whose (id, updatedAt) pair has not changed since the last query.
 
 ## Implements
 
@@ -18,19 +19,19 @@ Query manager.
 
 ### Constructor
 
-> **new QueryManager**(`config`): `QueryManager`
+> **new StableRefQueryManager**(`inner`): `StableRefQueryManager`
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:50
+Defined in: packages/client/src/core/query-manager/StableRefQueryManager.ts:52
 
 #### Parameters
 
-##### config
+##### inner
 
-[`QueryManagerConfig`](../interfaces/QueryManagerConfig.md)
+[`IQueryManager`](../interfaces/IQueryManager.md)
 
 #### Returns
 
-`QueryManager`
+`StableRefQueryManager`
 
 ## Methods
 
@@ -38,7 +39,7 @@ Defined in: packages/client/src/core/query-manager/QueryManager.ts:50
 
 > **count**(`collection`): `Promise`\<`number`\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:205
+Defined in: packages/client/src/core/query-manager/StableRefQueryManager.ts:174
 
 Get the count of entities in a collection.
 
@@ -66,9 +67,9 @@ Count
 
 > **destroy**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:284
+Defined in: packages/client/src/core/query-manager/StableRefQueryManager.ts:194
 
-Destroy the query manager.
+Destroy the query manager and release resources.
 
 #### Returns
 
@@ -84,7 +85,7 @@ Destroy the query manager.
 
 > **exists**(`collection`, `id`): `Promise`\<`boolean`\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:195
+Defined in: packages/client/src/core/query-manager/StableRefQueryManager.ts:170
 
 Check if an entity exists.
 
@@ -118,7 +119,7 @@ Whether the entity exists
 
 > **getById**\<`T`\>(`collection`, `id`, `options?`): `Promise`\<[`QueryResult`](../interfaces/QueryResult.md)\<`T`\>\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:64
+Defined in: packages/client/src/core/query-manager/StableRefQueryManager.ts:56
 
 Get a single entity by ID.
 
@@ -164,7 +165,7 @@ Query result
 
 > **getByIds**\<`T`\>(`collection`, `ids`, `options?`): `Promise`\<`Map`\<`string`, [`QueryResult`](../interfaces/QueryResult.md)\<`T`\>\>\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:92
+Defined in: packages/client/src/core/query-manager/StableRefQueryManager.ts:78
 
 Get multiple entities by IDs.
 
@@ -210,11 +211,9 @@ Map of ID to query result
 
 > **hold**(`cacheKey`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:227
+Defined in: packages/client/src/core/query-manager/StableRefQueryManager.ts:182
 
 Place a hold on a cache key.
-While held, the data cannot be evicted.
-Only calls cacheManager.hold() on the 0→1 transition.
 
 #### Parameters
 
@@ -238,7 +237,7 @@ Cache key to hold
 
 > **list**\<`T`\>(`collection`, `options?`): `Promise`\<[`ListQueryResult`](../interfaces/ListQueryResult.md)\<`T`\>\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:125
+Defined in: packages/client/src/core/query-manager/StableRefQueryManager.ts:106
 
 List entities in a collection.
 
@@ -274,29 +273,13 @@ List query result
 
 ---
 
-### onSessionDestroyed()
-
-> **onSessionDestroyed**(): `void`
-
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:257
-
-Handle session destroyed — clear all in-memory holds without calling cacheManager.release().
-CacheManager state is already being wiped separately.
-
-#### Returns
-
-`void`
-
----
-
 ### release()
 
 > **release**(`cacheKey`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:241
+Defined in: packages/client/src/core/query-manager/StableRefQueryManager.ts:186
 
 Release a hold on a cache key.
-Only calls cacheManager.release() on the 1→0 transition.
 
 #### Parameters
 
@@ -320,10 +303,9 @@ Cache key to release
 
 > **releaseAll**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:274
+Defined in: packages/client/src/core/query-manager/StableRefQueryManager.ts:190
 
 Release all active holds.
-One cacheManager.release() per key regardless of local count.
 
 #### Returns
 
@@ -335,36 +317,13 @@ One cacheManager.release() per key regardless of local count.
 
 ---
 
-### releaseForCacheKey()
-
-> **releaseForCacheKey**(`cacheKey`): `void`
-
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:266
-
-Release hold tracking for an evicted cache key.
-Removes the entry from activeHolds without calling cacheManager.release()
-since the cache key has already been evicted from storage.
-
-#### Parameters
-
-##### cacheKey
-
-`string`
-
-#### Returns
-
-`void`
-
----
-
 ### touch()
 
 > **touch**(`collection`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:215
+Defined in: packages/client/src/core/query-manager/StableRefQueryManager.ts:178
 
 Touch the cache key for a collection.
-Extends its lifetime in the cache.
 
 #### Parameters
 
@@ -388,7 +347,7 @@ Collection name
 
 > **watchById**\<`T`\>(`collection`, `id`): `Observable`\<`T` \| `undefined`\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:170
+Defined in: packages/client/src/core/query-manager/StableRefQueryManager.ts:149
 
 Get an observable that emits when a specific entity changes.
 
@@ -428,10 +387,9 @@ Observable of the entity data
 
 > **watchCollection**(`collection`): `Observable`\<`string`[]\>
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:155
+Defined in: packages/client/src/core/query-manager/StableRefQueryManager.ts:145
 
 Get an observable that emits when data in a collection changes.
-Use this for reactive UI updates.
 
 #### Parameters
 
@@ -445,7 +403,7 @@ Collection name
 
 `Observable`\<`string`[]\>
 
-Observable of update notifications
+Observable of updated entity IDs
 
 #### Implementation of
 

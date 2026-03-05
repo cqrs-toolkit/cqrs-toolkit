@@ -4,6 +4,7 @@ import {
   getDashNoteTexts,
   gotoWithWsSubscribed,
   waitForDashNoteCount,
+  waitForWsDisconnected,
   waitForWsReconnection,
 } from '../../e2e-helpers'
 
@@ -13,11 +14,10 @@ test.beforeEach(async ({ request }) => {
   await request.post(`${API}/test/reset`)
 })
 
-test('client self-recovers missed events after WS gap', async ({ page, request, mode }) => {
-  // 1. Open dashboard with WS subscription
-  await gotoWithWsSubscribed(page, url('/', { mode, ws: true }))
+test('recovers missed events after server WS outage', async ({ page, request }) => {
+  // 1. Open dashboard with WS → create note → verify visible
+  await gotoWithWsSubscribed(page, url('/', { mode: 'online-only', ws: true }))
 
-  // 2. Create a note via API — dashboard receives NoteCreated via WS
   const createRes = await request.post(`${API}/notes/commands`, {
     data: { type: 'CreateNote', payload: { title: 'Original', body: '' } },
   })
@@ -26,14 +26,14 @@ test('client self-recovers missed events after WS gap', async ({ page, request, 
   const noteId = createBody.id
   const revAfterCreate = createBody.nextExpectedRevision
 
-  // 3. Verify dashboard shows the note
   await waitForDashNoteCount(page, 1)
   expect(await getDashNoteTexts(page)).toEqual(['Original'])
 
-  // 4. Go offline — WS drops, page misses subsequent events
-  await page.context().setOffline(true)
+  // 2. Kill WS server-side — client misses subsequent events
+  await request.post(`${API}/test/ws-pause`)
+  await waitForWsDisconnected(page)
 
-  // 5. Update note title via API — page does NOT receive this event
+  // 3. Update note title via API — client does NOT receive this event
   const updateRes = await request.post(`${API}/notes/commands`, {
     data: {
       type: 'UpdateNoteTitle',
@@ -44,16 +44,11 @@ test('client self-recovers missed events after WS gap', async ({ page, request, 
   const updateBody = (await updateRes.json()) as CommandSuccessResponse
   const revAfterTitle = updateBody.nextExpectedRevision
 
-  // 6. Set up WS reconnection listener BEFORE going online
-  const reconnected = waitForWsReconnection(page)
+  // 4. Resume WS server-side — client reconnects via 5s timer
+  await request.post(`${API}/test/ws-resume`)
+  await waitForWsReconnection(page)
 
-  // 7. Go online — WS reconnects
-  await page.context().setOffline(false)
-
-  // 8. Wait for WS reconnection (subscribed ack)
-  await reconnected
-
-  // 9. Update note body via API — page receives this via WS
+  // 5. Update note body via API — client receives via WS, detects revision gap
   const bodyRes = await request.post(`${API}/notes/commands`, {
     data: {
       type: 'UpdateNoteBody',
@@ -62,14 +57,79 @@ test('client self-recovers missed events after WS gap', async ({ page, request, 
   })
   expect(bodyRes.ok()).toBe(true)
 
-  // 10. Page detects gap (has revision from create but missed the title update)
-  //     and should fetch the missing event from the server.
-  //     Assert dashboard title is "Recovered" — proves the missed event was applied.
+  // 6. Gap detection triggers fetch of missing events — title should update
   await expect(page.locator('.dash-note-title', { hasText: 'Recovered' })).toBeVisible({
-    timeout: 5000,
+    timeout: 10_000,
   })
 
-  // 11. Create another note via API — verify dashboard still receives WS events
+  // 7. Verify WS still works — create another note
+  const secondRes = await request.post(`${API}/notes/commands`, {
+    data: { type: 'CreateNote', payload: { title: 'After-Gap', body: '' } },
+  })
+  expect(secondRes.ok()).toBe(true)
+
+  await waitForDashNoteCount(page, 2)
+  expect(await getDashNoteTexts(page)).toContain('After-Gap')
+})
+
+test('recovers missed events after client network loss', async ({ page, request, mode }) => {
+  // 1. Open dashboard with WS → create note → verify visible
+  await gotoWithWsSubscribed(page, url('/', { mode, ws: true }))
+
+  const createRes = await request.post(`${API}/notes/commands`, {
+    data: { type: 'CreateNote', payload: { title: 'Original', body: '' } },
+  })
+  expect(createRes.ok()).toBe(true)
+  const createBody = (await createRes.json()) as CommandSuccessResponse
+  const noteId = createBody.id
+  const revAfterCreate = createBody.nextExpectedRevision
+
+  await waitForDashNoteCount(page, 1)
+  expect(await getDashNoteTexts(page)).toEqual(['Original'])
+
+  // 2. Kill WS server-side, then set page offline
+  //    Order matters: ws-pause before setOffline so the server is ready
+  //    to reject before any reconnect attempt triggered by the offline event.
+  await request.post(`${API}/test/ws-pause`)
+  await waitForWsDisconnected(page)
+  await page.context().setOffline(true)
+
+  // 3. Update note title via API — client does NOT receive this event
+  const updateRes = await request.post(`${API}/notes/commands`, {
+    data: {
+      type: 'UpdateNoteTitle',
+      payload: { id: noteId, title: 'Recovered', revision: revAfterCreate },
+    },
+  })
+  expect(updateRes.ok()).toBe(true)
+  const updateBody = (await updateRes.json()) as CommandSuccessResponse
+  const revAfterTitle = updateBody.nextExpectedRevision
+
+  // 4. Resume WS server-side, then restore network
+  //    Order matters: ws-resume before setOffline(false) so the server
+  //    is accepting before the `online` event triggers an immediate reconnect.
+  await request.post(`${API}/test/ws-resume`)
+  await page.context().setOffline(false)
+
+  // Online-only: `online` event → immediate reconnect
+  // Worker modes: `setOffline` doesn't affect worker, falls back to 5s timer
+  await waitForWsReconnection(page)
+
+  // 5. Update note body via API — client receives via WS, detects revision gap
+  const bodyRes = await request.post(`${API}/notes/commands`, {
+    data: {
+      type: 'UpdateNoteBody',
+      payload: { id: noteId, body: 'some body', revision: revAfterTitle },
+    },
+  })
+  expect(bodyRes.ok()).toBe(true)
+
+  // 6. Gap detection triggers fetch of missing events — title should update
+  await expect(page.locator('.dash-note-title', { hasText: 'Recovered' })).toBeVisible({
+    timeout: 10_000,
+  })
+
+  // 7. Verify WS still works — create another note
   const secondRes = await request.post(`${API}/notes/commands`, {
     data: { type: 'CreateNote', payload: { title: 'After-Gap', body: '' } },
   })

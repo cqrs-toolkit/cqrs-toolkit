@@ -6,7 +6,7 @@
 
 # Interface: IQueryManager
 
-Defined in: packages/client/src/core/query-manager/types.ts:48
+Defined in: packages/client/src/core/query-manager/types.ts:62
 
 Query manager interface.
 Provides read-only access to cached data with cache key management.
@@ -17,7 +17,7 @@ Provides read-only access to cached data with cache key management.
 
 > **count**(`collection`): `Promise`\<`number`\>
 
-Defined in: packages/client/src/core/query-manager/types.ts:114
+Defined in: packages/client/src/core/query-manager/types.ts:128
 
 Get the count of entities in a collection.
 
@@ -41,7 +41,7 @@ Count
 
 > **destroy**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/query-manager/types.ts:145
+Defined in: packages/client/src/core/query-manager/types.ts:159
 
 Destroy the query manager and release resources.
 
@@ -55,7 +55,7 @@ Destroy the query manager and release resources.
 
 > **exists**(`collection`, `id`): `Promise`\<`boolean`\>
 
-Defined in: packages/client/src/core/query-manager/types.ts:106
+Defined in: packages/client/src/core/query-manager/types.ts:120
 
 Check if an entity exists.
 
@@ -85,7 +85,7 @@ Whether the entity exists
 
 > **getById**\<`T`\>(`collection`, `id`, `options?`): `Promise`\<[`QueryResult`](QueryResult.md)\<`T`\>\>
 
-Defined in: packages/client/src/core/query-manager/types.ts:57
+Defined in: packages/client/src/core/query-manager/types.ts:71
 
 Get a single entity by ID.
 
@@ -127,7 +127,7 @@ Query result
 
 > **getByIds**\<`T`\>(`collection`, `ids`, `options?`): `Promise`\<`Map`\<`string`, [`QueryResult`](QueryResult.md)\<`T`\>\>\>
 
-Defined in: packages/client/src/core/query-manager/types.ts:67
+Defined in: packages/client/src/core/query-manager/types.ts:81
 
 Get multiple entities by IDs.
 
@@ -169,7 +169,7 @@ Map of ID to query result
 
 > **hold**(`cacheKey`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/query-manager/types.ts:128
+Defined in: packages/client/src/core/query-manager/types.ts:142
 
 Place a hold on a cache key.
 
@@ -191,7 +191,7 @@ Cache key to hold
 
 > **list**\<`T`\>(`collection`, `options?`): `Promise`\<[`ListQueryResult`](ListQueryResult.md)\<`T`\>\>
 
-Defined in: packages/client/src/core/query-manager/types.ts:80
+Defined in: packages/client/src/core/query-manager/types.ts:94
 
 List entities in a collection.
 
@@ -227,7 +227,7 @@ List query result
 
 > **release**(`cacheKey`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/query-manager/types.ts:135
+Defined in: packages/client/src/core/query-manager/types.ts:149
 
 Release a hold on a cache key.
 
@@ -249,7 +249,7 @@ Cache key to release
 
 > **releaseAll**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/query-manager/types.ts:140
+Defined in: packages/client/src/core/query-manager/types.ts:154
 
 Release all active holds.
 
@@ -263,7 +263,7 @@ Release all active holds.
 
 > **touch**(`collection`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/query-manager/types.ts:121
+Defined in: packages/client/src/core/query-manager/types.ts:135
 
 Touch the cache key for a collection.
 
@@ -285,7 +285,7 @@ Collection name
 
 > **watchById**\<`T`\>(`collection`, `id`): `Observable`\<`T` \| `undefined`\>
 
-Defined in: packages/client/src/core/query-manager/types.ts:97
+Defined in: packages/client/src/core/query-manager/types.ts:111
 
 Get an observable that emits when a specific entity changes.
 
@@ -321,7 +321,7 @@ Observable of the entity data
 
 > **watchCollection**(`collection`): `Observable`\<`string`[]\>
 
-Defined in: packages/client/src/core/query-manager/types.ts:88
+Defined in: packages/client/src/core/query-manager/types.ts:102
 
 Get an observable that emits when data in a collection changes.
 

@@ -6,7 +6,7 @@
 
 # Interface: CqrsClientSyncManager
 
-Defined in: packages/client/src/createCqrsClient.ts:61
+Defined in: packages/client/src/createCqrsClient.ts:62
 
 Restricted view of SyncManager exposed to consumers.
 Start/stop are managed internally by the client lifecycle.
@@ -17,7 +17,7 @@ Start/stop are managed internally by the client lifecycle.
 
 > `readonly` **connectivity**: [`IConnectivity`](IConnectivity.md)
 
-Defined in: packages/client/src/createCqrsClient.ts:73
+Defined in: packages/client/src/createCqrsClient.ts:74
 
 Connectivity manager for network status observation.
 
@@ -27,7 +27,7 @@ Connectivity manager for network status observation.
 
 > **getAllStatus**(): [`CollectionSyncStatus`](CollectionSyncStatus.md)[]
 
-Defined in: packages/client/src/createCqrsClient.ts:65
+Defined in: packages/client/src/createCqrsClient.ts:66
 
 Get sync status for all collections.
 
@@ -41,7 +41,7 @@ Get sync status for all collections.
 
 > **getCollectionStatus**(`collection`): [`CollectionSyncStatus`](CollectionSyncStatus.md) \| `undefined`
 
-Defined in: packages/client/src/createCqrsClient.ts:63
+Defined in: packages/client/src/createCqrsClient.ts:64
 
 Get sync status for a specific collection.
 
@@ -61,7 +61,7 @@ Get sync status for a specific collection.
 
 > **setAuthenticated**(`params`): `Promise`\<\{ `resumed`: `boolean`; \}\>
 
-Defined in: packages/client/src/createCqrsClient.ts:69
+Defined in: packages/client/src/createCqrsClient.ts:70
 
 Signal that the user has been authenticated.
 
@@ -83,7 +83,7 @@ Signal that the user has been authenticated.
 
 > **setUnauthenticated**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/createCqrsClient.ts:71
+Defined in: packages/client/src/createCqrsClient.ts:72
 
 Signal that the user has logged out.
 
@@ -97,7 +97,7 @@ Signal that the user has logged out.
 
 > **syncCollection**(`collection`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/createCqrsClient.ts:67
+Defined in: packages/client/src/createCqrsClient.ts:68
 
 Force-sync a specific collection from the server.
 

@@ -1,5 +1,8 @@
 import { expect, test, url } from '../../e2e-fixtures'
 import { addTodo, waitForTodoCount } from '../../e2e-helpers'
+import { testNavigator } from '../../e2e-nav'
+
+const { Dashboard, Todos } = testNavigator
 
 test.beforeEach(async ({ request }) => {
   await request.post('http://localhost:3001/api/test/reset')
@@ -20,8 +23,8 @@ test('editing a todo does not double-submit the update command', async ({ page, 
   await expect(page.locator('.todo-content').first()).toHaveText('Updated text')
 
   // Navigate to command inspector via SPA links (preserves client state)
-  await page.locator('a', { hasText: 'Back' }).click()
-  await page.locator('a', { hasText: 'Command Queue Inspector' }).click()
+  await Todos.goToDashboard(page)
+  await Dashboard.goToCommands(page)
 
   // Verify exactly 2 commands exist in total
   await expect(page.locator('.command-item')).toHaveCount(2)

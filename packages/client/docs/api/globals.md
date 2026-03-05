@@ -36,6 +36,7 @@ Offline-capable CQRS/event-sourcing client library.
 - [SessionManager](classes/SessionManager.md)
 - [SharedWorkerAdapter](classes/SharedWorkerAdapter.md)
 - [SQLiteStorage](classes/SQLiteStorage.md)
+- [StableRefQueryManager](classes/StableRefQueryManager.md)
 - [SyncManager](classes/SyncManager.md)
 - [TabLockError](classes/TabLockError.md)
 
@@ -86,6 +87,7 @@ Offline-capable CQRS/event-sourcing client library.
 - [IQueryManager](interfaces/IQueryManager.md)
 - [ISqliteDb](interfaces/ISqliteDb.md)
 - [IStorage](interfaces/IStorage.md)
+- [ItemMeta](interfaces/ItemMeta.md)
 - [IWorkerAdapter](interfaces/IWorkerAdapter.md)
 - [LibraryEvent](interfaces/LibraryEvent.md)
 - [LibraryEventPayloads](interfaces/LibraryEventPayloads.md)
