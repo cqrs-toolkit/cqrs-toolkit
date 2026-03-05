@@ -55,6 +55,10 @@ export type LibraryEventType =
   | 'readmodel:updated'
   | 'error:storage'
   | 'error:network'
+  | 'ws:connecting'
+  | 'ws:connected'
+  | 'ws:subscribed'
+  | 'ws:disconnected'
 
 /**
  * Library event payload types.
@@ -77,6 +81,10 @@ export interface LibraryEventPayloads {
   'readmodel:updated': { collection: string; ids: string[] }
   'error:storage': { message: string; code?: string }
   'error:network': { message: string; code?: string }
+  'ws:connecting': {}
+  'ws:connected': {}
+  'ws:subscribed': { topics: readonly string[] }
+  'ws:disconnected': { topics: readonly string[] }
 }
 
 /**
@@ -87,6 +95,17 @@ export interface LibraryEvent<T extends LibraryEventType = LibraryEventType> {
   payload: LibraryEventPayloads[T]
   timestamp: number
 }
+
+/**
+ * Event types that exist purely for debug observability.
+ * Filtered from CqrsClient.events$ unless `debug: true` is set in the config.
+ */
+export const DEBUG_EVENT_TYPES: ReadonlySet<LibraryEventType> = new Set([
+  'ws:connecting',
+  'ws:connected',
+  'ws:subscribed',
+  'ws:disconnected',
+])
 
 /**
  * Normalize event persistence - missing field means Permanent.

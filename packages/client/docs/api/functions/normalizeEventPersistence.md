@@ -8,7 +8,7 @@
 
 > **normalizeEventPersistence**(`event`): [`EventPersistence`](../type-aliases/EventPersistence.md)
 
-Defined in: packages/client/src/types/events.ts:97
+Defined in: packages/client/src/types/events.ts:116
 
 Normalize event persistence - missing field means Permanent.
 Accepts the ddd-es persistence values ('Permanent' | 'Stateful' | 'Ephemeral') in addition

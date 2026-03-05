@@ -124,35 +124,6 @@ export interface WorkerInstanceMessage {
 }
 
 /**
- * Tab lock request (for single-tab modes).
- */
-export interface TabLockRequest extends BaseMessage {
-  type: 'tab-lock'
-  /** Tab/window identifier */
-  tabId: string
-}
-
-/**
- * Tab lock response.
- */
-export interface TabLockResponse extends BaseMessage {
-  type: 'tab-lock-response'
-  /** Whether lock was acquired */
-  acquired: boolean
-  /** Current lock holder if not acquired */
-  currentHolder?: string
-}
-
-/**
- * Tab lock release message.
- */
-export interface TabLockRelease {
-  type: 'tab-lock-release'
-  /** Tab identifier releasing the lock */
-  tabId: string
-}
-
-/**
  * All message types union.
  */
 export type WorkerMessage =
@@ -166,9 +137,6 @@ export type WorkerMessage =
   | RestoreHoldsRequest
   | RestoreHoldsResponse
   | WorkerInstanceMessage
-  | TabLockRequest
-  | TabLockResponse
-  | TabLockRelease
 
 /**
  * Message type guards.
@@ -234,24 +202,6 @@ export function isRestoreHoldsRequest(msg: unknown): msg is RestoreHoldsRequest 
     msg !== null &&
     (msg as Record<string, unknown>).type === 'restore-holds' &&
     'cacheKeys' in (msg as Record<string, unknown>)
-  )
-}
-
-export function isTabLockRequest(msg: unknown): msg is TabLockRequest {
-  return (
-    typeof msg === 'object' &&
-    msg !== null &&
-    (msg as Record<string, unknown>).type === 'tab-lock' &&
-    'tabId' in (msg as Record<string, unknown>)
-  )
-}
-
-export function isTabLockRelease(msg: unknown): msg is TabLockRelease {
-  return (
-    typeof msg === 'object' &&
-    msg !== null &&
-    (msg as Record<string, unknown>).type === 'tab-lock-release' &&
-    'tabId' in (msg as Record<string, unknown>)
   )
 }
 

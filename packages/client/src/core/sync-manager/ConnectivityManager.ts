@@ -16,6 +16,11 @@ import {
 import type { EventBus } from '../events/EventBus.js'
 
 /**
+ * WebSocket transport connection state.
+ */
+export type WsConnectionState = 'disconnected' | 'connecting' | 'connected'
+
+/**
  * Connectivity state.
  */
 export interface ConnectivityState {
@@ -25,6 +30,10 @@ export interface ConnectivityState {
   serverReachable: 'yes' | 'no' | 'unknown'
   /** Last successful API contact timestamp */
   lastContact?: number
+  /** WebSocket transport connection state */
+  wsConnection: WsConnectionState
+  /** Currently subscribed WebSocket topics */
+  wsTopics: readonly string[]
 }
 
 /**
@@ -67,6 +76,8 @@ export class ConnectivityManager implements IConnectivity {
     network:
       typeof navigator !== 'undefined' ? (navigator.onLine ? 'online' : 'offline') : 'unknown',
     serverReachable: 'unknown',
+    wsConnection: 'disconnected',
+    wsTopics: [],
   })
 
   private checkTimer: ReturnType<typeof setInterval> | undefined
@@ -188,6 +199,40 @@ export class ConnectivityManager implements IConnectivity {
    */
   reportFailure(): void {
     this.updateState({ serverReachable: 'no' })
+  }
+
+  /**
+   * Report WebSocket connection state transition.
+   * Emits the corresponding ws:* debug event when the state changes.
+   * On disconnect, clears subscribed topics.
+   */
+  reportWsConnection(wsConnection: WsConnectionState): void {
+    const prev = this.state$.getValue()
+    if (prev.wsConnection === wsConnection) return
+
+    if (wsConnection === 'disconnected') {
+      const lostTopics = prev.wsTopics
+      this.state$.next({ ...prev, wsConnection, wsTopics: [] })
+      this.eventBus.emit('ws:disconnected', { topics: lostTopics })
+    } else {
+      this.state$.next({ ...prev, wsConnection })
+      if (wsConnection === 'connecting') {
+        this.eventBus.emit('ws:connecting', {})
+      } else {
+        this.eventBus.emit('ws:connected', {})
+      }
+    }
+  }
+
+  /**
+   * Report WebSocket topics confirmed by the server.
+   * Merges with existing topics and emits ws:subscribed.
+   */
+  reportWsSubscribed(topics: readonly string[]): void {
+    const prev = this.state$.getValue()
+    const merged = Array.from(new Set([...prev.wsTopics, ...topics]))
+    this.state$.next({ ...prev, wsTopics: merged })
+    this.eventBus.emit('ws:subscribed', { topics })
   }
 
   /**

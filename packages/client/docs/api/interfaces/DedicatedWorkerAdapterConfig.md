@@ -6,7 +6,7 @@
 
 # Interface: DedicatedWorkerAdapterConfig
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:29
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:32
 
 Configuration for DedicatedWorkerAdapter.
 
@@ -16,7 +16,7 @@ Configuration for DedicatedWorkerAdapter.
 
 > `optional` **requestTimeout**: `number`
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:33
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:36
 
 Request timeout in milliseconds (default: 30000)
 
@@ -26,6 +26,6 @@ Request timeout in milliseconds (default: 30000)
 
 > **workerUrl**: `string`
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:31
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:34
 
 URL to the consumer's Dedicated Worker script

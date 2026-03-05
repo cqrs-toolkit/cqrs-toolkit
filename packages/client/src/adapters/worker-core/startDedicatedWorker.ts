@@ -1,5 +1,5 @@
 /**
- * Entry point function for a Dedicated Worker (Mode C).
+ * Entry point function for a Dedicated Worker (Mode B).
  *
  * The consumer writes a small worker file that imports their shared config
  * and calls this function:
@@ -26,16 +26,25 @@ logProvider.setLogger(createConsoleLogger({ level: 'warn' }))
 /**
  * Bootstrap a Dedicated Worker with CQRS orchestration.
  *
- * Creates the message handler and orchestrator, sets up message handling,
- * and signals readiness to the main thread. The main thread's adapter
- * calls `orchestrator.initialize` to trigger component creation.
+ * Creates the message handler and orchestrator, registers lifecycle RPC
+ * methods, sets up message handling, and signals readiness to the main
+ * thread. The main thread's adapter calls `orchestrator.initialize` to
+ * trigger component creation (includes OPFS probe for Mode B).
  *
  * @param config - Shared CQRS config (same object the main thread uses)
  */
 export function startDedicatedWorker(config: CqrsConfig): void {
   const resolved = resolveConfig(config)
   const messageHandler = new WorkerMessageHandler()
-  new WorkerOrchestrator(messageHandler, resolved)
+  const orchestrator = new WorkerOrchestrator(messageHandler, resolved)
+
+  // Register Mode B lifecycle methods
+  messageHandler.registerMethod('orchestrator.initialize', async () => {
+    await orchestrator.initialize() // No external DB — probes OPFS, creates local
+  })
+  messageHandler.registerMethod('orchestrator.close', async () => {
+    await orchestrator.close()
+  })
 
   const self = globalThis as unknown as DedicatedWorkerGlobalScope
 

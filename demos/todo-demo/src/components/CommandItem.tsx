@@ -24,7 +24,9 @@ export default function CommandItem(props: CommandItemProps) {
   const cmd = () => props.command
 
   return (
-    <div class="rounded border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 overflow-hidden">
+    <div
+      class={`command-item command-${cmd().status} rounded border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 overflow-hidden`}
+    >
       {/* Collapsed row */}
       <button
         class="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-neutral-50 dark:hover:bg-neutral-750 cursor-pointer text-sm"
@@ -35,7 +37,7 @@ export default function CommandItem(props: CommandItemProps) {
         >
           {cmd().status}
         </span>
-        <span class="font-medium truncate">{cmd().type}</span>
+        <span class="command-type font-medium truncate">{cmd().type}</span>
         <span class="text-neutral-400 font-mono text-xs">{cmd().commandId.slice(0, 8)}</span>
         <span class="ml-auto text-neutral-400 text-xs whitespace-nowrap">
           {formatTimestamp(cmd().createdAt)}

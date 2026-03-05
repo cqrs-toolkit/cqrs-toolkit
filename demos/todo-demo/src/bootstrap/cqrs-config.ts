@@ -148,4 +148,5 @@ export const cqrsConfig: CqrsConfig = {
   processors: [...todoProcessors, ...noteProcessors],
   commandSender,
   retainTerminal: true,
+  debug: true,
 }

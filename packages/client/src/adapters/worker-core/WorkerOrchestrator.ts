@@ -3,8 +3,12 @@
  *
  * Receives resolved config at construction time (the consumer's worker entry
  * point imports config and passes it to startDedicatedWorker/startSharedWorker).
- * Registers an `orchestrator.initialize` RPC method (no args) that the main
- * thread calls to trigger initialization and wait for readiness.
+ *
+ * Lifecycle methods (`initialize`, `close`) are registered externally by the
+ * startup functions (`startDedicatedWorker`, `startSharedWorker`) since each
+ * mode has a different initialization flow:
+ * - Mode B: orchestrator probes OPFS and creates a local database
+ * - Mode C: startSharedWorker manages RemoteSqliteDb and passes it in
  */
 
 import { logProvider } from '@meticoeus/ddd-es'
@@ -38,20 +42,17 @@ import { registerCacheManagerMethods } from './registerCacheManagerMethods.js'
 import { registerCommandQueueMethods } from './registerCommandQueueMethods.js'
 import { registerQueryManagerMethods } from './registerQueryManagerMethods.js'
 import { registerSyncManagerMethods } from './registerSyncManagerMethods.js'
-import { RemoteSqliteDb } from './sqlite-worker/RemoteSqliteDb.js'
 
 /**
  * Worker orchestrator manages the full lifecycle of CQRS components inside a worker.
  *
  * Config is provided at construction time (from the consumer's worker entry point).
- * The main thread triggers initialization via the `orchestrator.initialize` RPC,
- * optionally passing a sqlite worker URL as the first argument (Mode B).
+ * Lifecycle methods are registered externally by the startup functions.
  */
 export class WorkerOrchestrator {
   private readonly messageHandler: WorkerMessageHandler
   private readonly config: ResolvedConfig
 
-  private childSqliteWorker: Worker | undefined
   private storage: IStorage | undefined
   private eventBus: EventBus | undefined
   private sessionManager: SessionManager | undefined
@@ -67,21 +68,15 @@ export class WorkerOrchestrator {
   constructor(messageHandler: WorkerMessageHandler, config: ResolvedConfig) {
     this.messageHandler = messageHandler
     this.config = config
-    this.registerLifecycleMethods()
   }
 
-  private registerLifecycleMethods(): void {
-    this.messageHandler.registerMethod('orchestrator.initialize', async (args) => {
-      const sqliteWorkerUrl = args[0] as string | undefined
-      await this.initialize(sqliteWorkerUrl)
-    })
-
-    this.messageHandler.registerMethod('orchestrator.close', async () => {
-      await this.close()
-    })
-  }
-
-  private async initialize(sqliteWorkerUrl?: string): Promise<void> {
+  /**
+   * Initialize all CQRS components.
+   *
+   * @param externalDb - Pre-configured ISqliteDb (Mode C: RemoteSqliteDb managed
+   *   by startSharedWorker). When omitted, probes OPFS and creates a local db (Mode B).
+   */
+  async initialize(externalDb?: ISqliteDb): Promise<void> {
     const config = this.config
 
     // 1. Run worker setup scripts
@@ -96,27 +91,11 @@ export class WorkerOrchestrator {
     const vfs = config.storage.vfs ?? 'opfs'
     let db: ISqliteDb
 
-    // Diagnostic logging for worker spawn debugging
-    console.log('[WorkerOrchestrator] initialize called', {
-      sqliteWorkerUrl,
-      typeofWorker: typeof Worker,
-      hasSelf: typeof self,
-      selfConstructorName: (globalThis as Record<string, unknown>).constructor
-        ?.toString?.()
-        .slice(0, 80),
-    })
-
-    if (sqliteWorkerUrl) {
-      // Mode B (SharedWorker): spawn child worker for SQLite I/O
-      this.childSqliteWorker = new Worker(sqliteWorkerUrl, {
-        type: 'module',
-        name: 'cqrs-sqlite',
-      })
-      const remoteDb = new RemoteSqliteDb(this.childSqliteWorker)
-      await remoteDb.initialize({ dbName, vfs })
-      db = remoteDb
+    if (externalDb) {
+      // Mode C (SharedWorker): RemoteSqliteDb managed by startSharedWorker
+      db = externalDb
     } else {
-      // Mode C (DedicatedWorker): probe OPFS, create local db
+      // Mode B (DedicatedWorker): probe OPFS, create local db
       const probeResult = await probeOpfs()
       if (!probeResult.ok) {
         throw probeResult.error
@@ -237,7 +216,10 @@ export class WorkerOrchestrator {
     await syncManager.start()
   }
 
-  private async close(): Promise<void> {
+  /**
+   * Close all CQRS components and release resources.
+   */
+  async close(): Promise<void> {
     this.evictionSub?.unsubscribe()
     this.eventCache?.destroy()
     await this.syncManager?.destroy()
@@ -246,7 +228,6 @@ export class WorkerOrchestrator {
     this.eventBroadcastSub?.unsubscribe()
     this.eventBus?.complete()
     await this.storage?.close()
-    this.childSqliteWorker?.terminate()
   }
 }
 

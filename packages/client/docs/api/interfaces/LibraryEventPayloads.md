@@ -6,7 +6,7 @@
 
 # Interface: LibraryEventPayloads
 
-Defined in: packages/client/src/types/events.ts:62
+Defined in: packages/client/src/types/events.ts:66
 
 Library event payload types.
 
@@ -16,7 +16,7 @@ Library event payload types.
 
 > **cache:evicted**: `object`
 
-Defined in: packages/client/src/types/events.ts:69
+Defined in: packages/client/src/types/events.ts:73
 
 #### cacheKey
 
@@ -32,7 +32,7 @@ Defined in: packages/client/src/types/events.ts:69
 
 > **cache:session-reset**: `object`
 
-Defined in: packages/client/src/types/events.ts:71
+Defined in: packages/client/src/types/events.ts:75
 
 #### newUserId
 
@@ -48,7 +48,7 @@ Defined in: packages/client/src/types/events.ts:71
 
 > **cache:too-many-windows**: `object`
 
-Defined in: packages/client/src/types/events.ts:70
+Defined in: packages/client/src/types/events.ts:74
 
 #### maxWindows
 
@@ -64,7 +64,7 @@ Defined in: packages/client/src/types/events.ts:70
 
 > **command:completed**: `object`
 
-Defined in: packages/client/src/types/events.ts:75
+Defined in: packages/client/src/types/events.ts:79
 
 #### commandId
 
@@ -80,7 +80,7 @@ Defined in: packages/client/src/types/events.ts:75
 
 > **command:enqueued**: `object`
 
-Defined in: packages/client/src/types/events.ts:73
+Defined in: packages/client/src/types/events.ts:77
 
 #### commandId
 
@@ -96,7 +96,7 @@ Defined in: packages/client/src/types/events.ts:73
 
 > **command:failed**: `object`
 
-Defined in: packages/client/src/types/events.ts:76
+Defined in: packages/client/src/types/events.ts:80
 
 #### commandId
 
@@ -116,7 +116,7 @@ Defined in: packages/client/src/types/events.ts:76
 
 > **command:status-changed**: `object`
 
-Defined in: packages/client/src/types/events.ts:74
+Defined in: packages/client/src/types/events.ts:78
 
 #### commandId
 
@@ -136,7 +136,7 @@ Defined in: packages/client/src/types/events.ts:74
 
 > **connectivity:changed**: `object`
 
-Defined in: packages/client/src/types/events.ts:65
+Defined in: packages/client/src/types/events.ts:69
 
 #### online
 
@@ -148,7 +148,7 @@ Defined in: packages/client/src/types/events.ts:65
 
 > **error:network**: `object`
 
-Defined in: packages/client/src/types/events.ts:79
+Defined in: packages/client/src/types/events.ts:83
 
 #### code?
 
@@ -164,7 +164,7 @@ Defined in: packages/client/src/types/events.ts:79
 
 > **error:storage**: `object`
 
-Defined in: packages/client/src/types/events.ts:78
+Defined in: packages/client/src/types/events.ts:82
 
 #### code?
 
@@ -180,7 +180,7 @@ Defined in: packages/client/src/types/events.ts:78
 
 > **readmodel:updated**: `object`
 
-Defined in: packages/client/src/types/events.ts:77
+Defined in: packages/client/src/types/events.ts:81
 
 #### collection
 
@@ -196,7 +196,7 @@ Defined in: packages/client/src/types/events.ts:77
 
 > **session:changed**: `object`
 
-Defined in: packages/client/src/types/events.ts:63
+Defined in: packages/client/src/types/events.ts:67
 
 #### isNew
 
@@ -212,7 +212,7 @@ Defined in: packages/client/src/types/events.ts:63
 
 > **session:destroyed**: `object`
 
-Defined in: packages/client/src/types/events.ts:64
+Defined in: packages/client/src/types/events.ts:68
 
 #### reason
 
@@ -224,7 +224,7 @@ Defined in: packages/client/src/types/events.ts:64
 
 > **sync:completed**: `object`
 
-Defined in: packages/client/src/types/events.ts:67
+Defined in: packages/client/src/types/events.ts:71
 
 #### collection
 
@@ -240,7 +240,7 @@ Defined in: packages/client/src/types/events.ts:67
 
 > **sync:failed**: `object`
 
-Defined in: packages/client/src/types/events.ts:68
+Defined in: packages/client/src/types/events.ts:72
 
 #### collection
 
@@ -256,7 +256,7 @@ Defined in: packages/client/src/types/events.ts:68
 
 > **sync:seed-completed**: `object`
 
-Defined in: packages/client/src/types/events.ts:72
+Defined in: packages/client/src/types/events.ts:76
 
 #### cacheKey
 
@@ -276,8 +276,48 @@ Defined in: packages/client/src/types/events.ts:72
 
 > **sync:started**: `object`
 
-Defined in: packages/client/src/types/events.ts:66
+Defined in: packages/client/src/types/events.ts:70
 
 #### collection
 
 > **collection**: `string`
+
+---
+
+### ws:connected
+
+> **ws:connected**: `object`
+
+Defined in: packages/client/src/types/events.ts:85
+
+---
+
+### ws:connecting
+
+> **ws:connecting**: `object`
+
+Defined in: packages/client/src/types/events.ts:84
+
+---
+
+### ws:disconnected
+
+> **ws:disconnected**: `object`
+
+Defined in: packages/client/src/types/events.ts:87
+
+#### topics
+
+> **topics**: readonly `string`[]
+
+---
+
+### ws:subscribed
+
+> **ws:subscribed**: `object`
+
+Defined in: packages/client/src/types/events.ts:86
+
+#### topics
+
+> **topics**: readonly `string`[]

@@ -6,7 +6,7 @@
 
 # Type Alias: LibraryEventType
 
-> **LibraryEventType** = `"session:changed"` \| `"session:destroyed"` \| `"connectivity:changed"` \| `"sync:started"` \| `"sync:completed"` \| `"sync:failed"` \| `"cache:evicted"` \| `"cache:too-many-windows"` \| `"cache:session-reset"` \| `"sync:seed-completed"` \| `"command:enqueued"` \| `"command:status-changed"` \| `"command:completed"` \| `"command:failed"` \| `"readmodel:updated"` \| `"error:storage"` \| `"error:network"`
+> **LibraryEventType** = `"session:changed"` \| `"session:destroyed"` \| `"connectivity:changed"` \| `"sync:started"` \| `"sync:completed"` \| `"sync:failed"` \| `"cache:evicted"` \| `"cache:too-many-windows"` \| `"cache:session-reset"` \| `"sync:seed-completed"` \| `"command:enqueued"` \| `"command:status-changed"` \| `"command:completed"` \| `"command:failed"` \| `"readmodel:updated"` \| `"error:storage"` \| `"error:network"` \| `"ws:connecting"` \| `"ws:connected"` \| `"ws:subscribed"` \| `"ws:disconnected"`
 
 Defined in: packages/client/src/types/events.ts:40
 

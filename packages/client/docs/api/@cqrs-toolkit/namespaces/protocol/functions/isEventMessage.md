@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / isEventMessage
 
@@ -8,7 +8,7 @@
 
 > **isEventMessage**(`msg`): `msg is EventMessage`
 
-Defined in: packages/client/src/protocol/messages.ts:195
+Defined in: packages/client/src/protocol/messages.ts:163
 
 ## Parameters
 

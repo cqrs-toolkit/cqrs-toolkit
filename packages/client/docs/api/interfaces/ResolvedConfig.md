@@ -6,7 +6,7 @@
 
 # Interface: ResolvedConfig\<TCommand, TEvent\>
 
-Defined in: packages/client/src/types/config.ts:319
+Defined in: packages/client/src/types/config.ts:318
 
 Resolved shared configuration with all defaults applied.
 
@@ -44,7 +44,7 @@ Cache configuration.
 
 > **collections**: [`Collection`](Collection.md)[]
 
-Defined in: packages/client/src/types/config.ts:328
+Defined in: packages/client/src/types/config.ts:327
 
 ---
 
@@ -52,7 +52,7 @@ Defined in: packages/client/src/types/config.ts:328
 
 > `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)
 
-Defined in: packages/client/src/types/config.ts:326
+Defined in: packages/client/src/types/config.ts:325
 
 ---
 
@@ -74,7 +74,7 @@ Enable debug logging.
 
 > `optional` **domainExecutor**: [`IDomainExecutor`](IDomainExecutor.md)\<`TCommand`, `TEvent`\>
 
-Defined in: packages/client/src/types/config.ts:325
+Defined in: packages/client/src/types/config.ts:324
 
 ---
 
@@ -96,7 +96,7 @@ Network configuration.
 
 > **processors**: [`ProcessorRegistration`](ProcessorRegistration.md)\<`unknown`, `Record`\<`string`, `unknown`\>\>[]
 
-Defined in: packages/client/src/types/config.ts:329
+Defined in: packages/client/src/types/config.ts:328
 
 ---
 
@@ -146,4 +146,4 @@ Storage configuration (ignored for online-only mode).
 
 > `optional` **workerSetup**: `string`[]
 
-Defined in: packages/client/src/types/config.ts:327
+Defined in: packages/client/src/types/config.ts:326

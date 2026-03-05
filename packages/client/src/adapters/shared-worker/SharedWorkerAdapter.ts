@@ -1,10 +1,18 @@
 /**
- * SharedWorker adapter (Mode B) - Window-side proxy.
+ * SharedWorker adapter (Mode C) - Window-side proxy.
  *
- * Connects to a consumer-provided SharedWorker that owns all CQRS components.
- * The main thread gets proxy objects for CommandQueue, QueryManager,
- * CacheManager, and SyncManager. Handles window registration, heartbeats,
- * and hold restoration after worker restarts.
+ * Each tab:
+ * 1. Spawns a per-tab DedicatedWorker for SQLite I/O
+ * 2. Probes OPFS via that worker
+ * 3. Connects to the SharedWorker (which owns the CQRS execution stack)
+ * 4. Transfers a MessagePort bridging SharedWorker ↔ SQLite worker
+ * 5. Competes for active-tab status via Web Locks
+ * 6. Waits for the orchestrator to be ready
+ * 7. Creates proxy objects for main-thread consumers
+ *
+ * Tab changeover is transparent: the SharedWorker switches its RemoteSqliteDb
+ * target when a new tab wins the Web Lock. WebSocket stays connected, command
+ * queue keeps running, in-flight operations don't restart.
  */
 
 import { logProvider } from '@meticoeus/ddd-es'
@@ -15,6 +23,7 @@ import type { IQueryManager } from '../../core/query-manager/types.js'
 import type { CqrsClientSyncManager } from '../../createCqrsClient.js'
 import { WorkerMessageChannel } from '../../protocol/MessageChannel.js'
 import type { EventMessage } from '../../protocol/messages.js'
+import { serialize } from '../../protocol/serialization.js'
 import type { LibraryEvent } from '../../types/events.js'
 import { assert } from '../../utils/assert.js'
 import { generateId } from '../../utils/uuid.js'
@@ -23,6 +32,7 @@ import { CacheManagerProxy } from '../proxy/CacheManagerProxy.js'
 import { CommandQueueProxy } from '../proxy/CommandQueueProxy.js'
 import { QueryManagerProxy } from '../proxy/QueryManagerProxy.js'
 import { SyncManagerProxy } from '../proxy/SyncManagerProxy.js'
+import { OpfsUnavailableException } from '../worker-core/probeOpfs.js'
 
 /**
  * Configuration for SharedWorkerAdapter.
@@ -30,8 +40,8 @@ import { SyncManagerProxy } from '../proxy/SyncManagerProxy.js'
 export interface SharedWorkerAdapterConfig {
   /** URL to the consumer's SharedWorker script */
   workerUrl: string
-  /** URL to the consumer's SQLite worker script (passed to worker via RPC) */
-  sqliteWorkerUrl?: string
+  /** Per-tab SQLite DedicatedWorker URL for Mode C */
+  sqliteWorkerUrl: string
   /** Request timeout in milliseconds (default: 30000) */
   requestTimeout?: number
   /** Heartbeat interval in milliseconds (default: 10000) */
@@ -41,10 +51,18 @@ export interface SharedWorkerAdapterConfig {
 const DEFAULT_HEARTBEAT_INTERVAL = 10000
 
 /**
+ * Web Locks lock name for Mode C active-tab election.
+ */
+const ACTIVE_TAB_LOCK_NAME = 'cqrs-client-active-tab'
+
+/**
  * SharedWorker adapter for multi-tab offline support.
  *
  * This adapter:
+ * - Spawns a per-tab DedicatedWorker for SQLite I/O
  * - Connects to a SharedWorker that owns all CQRS components
+ * - Bridges the SQLite worker to the SharedWorker via MessageChannel
+ * - Competes for active-tab status via Web Locks
  * - Provides proxy objects for main-thread consumers
  * - Handles window registration and heartbeats
  * - Restores holds after worker restarts
@@ -63,10 +81,12 @@ export class SharedWorkerAdapter implements IWorkerAdapter {
   private _syncManager: SyncManagerProxy | undefined
   private _events$: Observable<LibraryEvent> | undefined
 
-  private worker: SharedWorker | undefined
+  private sharedWorker: SharedWorker | undefined
+  private sqliteWorker: Worker | undefined
   private channel: WorkerMessageChannel | undefined
   private heartbeatSubscription: Subscription | undefined
   private currentWorkerInstanceId: string | undefined
+  private beforeUnloadHandler: (() => void) | undefined
 
   /** Cache keys held by this window (for restoration after worker restart) */
   private readonly localHolds = new Set<string>()
@@ -107,6 +127,8 @@ export class SharedWorkerAdapter implements IWorkerAdapter {
 
   /**
    * Initialize the adapter.
+   *
+   * @throws OpfsUnavailableException if OPFS probe fails in the SQLite worker
    */
   async initialize(): Promise<void> {
     assert(this._status === 'uninitialized', `Cannot initialize adapter in status: ${this._status}`)
@@ -114,20 +136,30 @@ export class SharedWorkerAdapter implements IWorkerAdapter {
     this._status = 'initializing'
 
     try {
-      // Create SharedWorker
-      this.worker = new SharedWorker(this.config.workerUrl, {
+      // 1. Spawn per-tab DedicatedWorker for SQLite
+      this.sqliteWorker = new Worker(this.config.sqliteWorkerUrl, {
+        type: 'module',
+        name: 'cqrs-sqlite',
+      })
+
+      // 2. Probe OPFS via the SQLite worker
+      const probeOk = await probeSqliteWorker(this.sqliteWorker)
+      if (!probeOk) {
+        throw new OpfsUnavailableException()
+      }
+
+      // 3. Connect to SharedWorker
+      this.sharedWorker = new SharedWorker(this.config.workerUrl, {
         type: 'module',
         name: 'cqrs-client',
       })
 
-      // Create message channel
-      this.channel = new WorkerMessageChannel(this.worker.port, {
+      // 4. Create message channel on SharedWorker port
+      this.channel = new WorkerMessageChannel(this.sharedWorker.port, {
         requestTimeout: this.config.requestTimeout,
       })
-
-      // Connect to worker
-      this.channel.connect(this.worker.port)
-      this.worker.port.start()
+      this.channel.connect(this.sharedWorker.port)
+      this.sharedWorker.port.start()
 
       // Build shared broadcast observable for proxies
       const broadcastEvents$ = this.channel.libraryEvents$.pipe(share(), takeUntil(this.destroy$))
@@ -148,27 +180,61 @@ export class SharedWorkerAdapter implements IWorkerAdapter {
         this.handleWorkerInstanceChange(instanceId)
       })
 
-      // Register this window
+      // 5. Register this window
       const registration = await this.channel.register(this.windowId)
       if (!registration.success) {
         throw new Error(`Failed to register window: ${registration.error}`)
       }
-
       this.currentWorkerInstanceId = registration.workerInstanceId
 
       // Start heartbeat
       this.startHeartbeat()
 
-      // Trigger worker-side orchestrator initialization (pass sqlite worker URL from main thread)
-      await this.channel.request('orchestrator.initialize', [this.config.sqliteWorkerUrl])
+      // 6. Create MessageChannel bridging SharedWorker ↔ SQLite worker
+      const bridge = new MessageChannel()
 
-      // Create proxy objects
+      // Transfer portA to SharedWorker with coordinator:worker-port message
+      this.sharedWorker.port.postMessage(
+        serialize({ type: 'coordinator:worker-port', windowId: this.windowId }),
+        [bridge.port1],
+      )
+
+      // Transfer portB to SQLite worker with set-routing-port message
+      this.sqliteWorker.postMessage({ type: 'set-routing-port' }, [bridge.port2])
+
+      // 6b. Register pagehide handler for fast tab-death notification.
+      // pagehide fires reliably for reload, close, and hard navigation on desktop.
+      // Terminating the SQLite worker explicitly triggers faster OPFS handle release.
+      this.beforeUnloadHandler = () => {
+        this.sharedWorker?.port.postMessage(
+          serialize({ type: 'coordinator:tab-closing', windowId: this.windowId }),
+        )
+        this.sqliteWorker?.terminate()
+      }
+      window.addEventListener('pagehide', this.beforeUnloadHandler)
+
+      // 7. Acquire Web Lock for active tab election
+      // Fire-and-forget: the lock callback holds indefinitely. When this tab
+      // becomes active, it notifies the SharedWorker. The lock auto-releases
+      // when the tab unloads.
+      navigator.locks.request(ACTIVE_TAB_LOCK_NAME, () => {
+        this.sharedWorker?.port.postMessage(
+          serialize({ type: 'coordinator:set-active', windowId: this.windowId }),
+        )
+        // Hold the lock until page unloads
+        return new Promise(() => {})
+      })
+
+      // 8. Wait for orchestrator ready
+      await this.channel.request('orchestrator.initialize')
+
+      // 9. Create proxy objects
       this._commandQueue = new CommandQueueProxy(this.channel, broadcastEvents$)
       this._queryManager = new QueryManagerProxy(this.channel, broadcastEvents$)
       this._cacheManager = new CacheManagerProxy(this.channel)
       this._syncManager = new SyncManagerProxy(this.channel, broadcastEvents$)
 
-      // Sync connectivity state from worker
+      // 10. Sync connectivity state from worker
       await this._syncManager.syncState()
 
       this._status = 'ready'
@@ -186,13 +252,26 @@ export class SharedWorkerAdapter implements IWorkerAdapter {
       return
     }
 
+    // Remove pagehide handler (close() handles cleanup explicitly)
+    if (this.beforeUnloadHandler) {
+      window.removeEventListener('pagehide', this.beforeUnloadHandler)
+      this.beforeUnloadHandler = undefined
+    }
+
     // Stop heartbeat
     if (this.heartbeatSubscription) {
       this.heartbeatSubscription.unsubscribe()
       this.heartbeatSubscription = undefined
     }
 
-    // Unregister window
+    // Notify SharedWorker this tab is closing
+    if (this.sharedWorker) {
+      this.sharedWorker.port.postMessage(
+        serialize({ type: 'coordinator:tab-closing', windowId: this.windowId }),
+      )
+    }
+
+    // Unregister window and destroy channel
     if (this.channel) {
       this.channel.unregister(this.windowId)
       this.channel.destroy()
@@ -207,12 +286,19 @@ export class SharedWorkerAdapter implements IWorkerAdapter {
     this.destroy$.next()
     this.destroy$.complete()
 
-    // Close worker connection
-    if (this.worker) {
-      this.worker.port.close()
-      this.worker = undefined
+    // Close SharedWorker connection
+    if (this.sharedWorker) {
+      this.sharedWorker.port.close()
+      this.sharedWorker = undefined
     }
 
+    // Terminate per-tab SQLite worker
+    if (this.sqliteWorker) {
+      this.sqliteWorker.terminate()
+      this.sqliteWorker = undefined
+    }
+
+    // Web Lock auto-releases when the page unloads
     this._status = 'closed'
   }
 
@@ -265,4 +351,26 @@ export class SharedWorkerAdapter implements IWorkerAdapter {
       logProvider.log.error({ err: error }, 'Failed to restore holds after worker restart')
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// OPFS probe via SQLite worker
+// ---------------------------------------------------------------------------
+
+/**
+ * Send a probe message to the SQLite worker and wait for the result.
+ *
+ * @returns `true` if OPFS is available, `false` otherwise
+ */
+function probeSqliteWorker(worker: Worker): Promise<boolean> {
+  return new Promise((resolve) => {
+    const handler = (event: MessageEvent<{ type: string; success: boolean }>) => {
+      if (event.data.type === 'probe-result') {
+        worker.removeEventListener('message', handler)
+        resolve(event.data.success)
+      }
+    }
+    worker.addEventListener('message', handler)
+    worker.postMessage({ type: 'probe' })
+  })
 }

@@ -17,13 +17,18 @@ export default function DashboardPage() {
   const [todosSync, setTodosSync] = createSignal<CollectionSyncStatus>()
   const [notesSync, setNotesSync] = createSignal<CollectionSyncStatus>()
 
+  let todosCacheKey: string | undefined
+  let notesCacheKey: string | undefined
+
   async function fetchTodos(): Promise<void> {
-    const result = await client.queryManager.list<Todo>('todos')
+    const result = await client.queryManager.list<Todo>('todos', { hold: true })
+    todosCacheKey = result.cacheKey
     setTodos(result.data)
   }
 
   async function fetchNotes(): Promise<void> {
-    const result = await client.queryManager.list<Note>('notes')
+    const result = await client.queryManager.list<Note>('notes', { hold: true })
+    notesCacheKey = result.cacheKey
     setNotes(result.data)
   }
 
@@ -109,6 +114,8 @@ export default function DashboardPage() {
       todoSub.unsubscribe()
       noteSub.unsubscribe()
       syncSub.unsubscribe()
+      if (todosCacheKey) client.queryManager.release(todosCacheKey)
+      if (notesCacheKey) client.queryManager.release(notesCacheKey)
     })
   })
 

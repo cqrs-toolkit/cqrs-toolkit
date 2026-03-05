@@ -542,6 +542,7 @@ export class SyncManager {
 
     try {
       this.wsConnection = new WebSocket(this.networkConfig.wsUrl)
+      this.connectivity.reportWsConnection('connecting')
 
       this.wsConnection.onopen = () => {
         logProvider.log.debug('WebSocket connected')
@@ -556,6 +557,7 @@ export class SyncManager {
           switch (message.type) {
             case 'connected':
               logProvider.log.debug('WebSocket server ack')
+              this.connectivity.reportWsConnection('connected')
               this.sendSubscriptions()
               break
             case 'event':
@@ -565,11 +567,11 @@ export class SyncManager {
               this.connectivity.reportContact()
               break
             case 'subscribed':
+              logProvider.log.debug({ topics: message.topics }, 'Subscription confirmed')
+              this.connectivity.reportWsSubscribed(message.topics)
+              break
             case 'unsubscribed':
-              logProvider.log.debug(
-                { type: message.type, topics: message.topics },
-                'Subscription update',
-              )
+              logProvider.log.debug({ topics: message.topics }, 'Subscription removed')
               break
             case 'subscription_denied':
             case 'subscription_revoked':
@@ -587,6 +589,7 @@ export class SyncManager {
       this.wsConnection.onclose = () => {
         logProvider.log.debug('WebSocket disconnected')
         this.wsConnection = undefined
+        this.connectivity.reportWsConnection('disconnected')
         // Reconnect if still online
         if (this.connectivity.isOnline()) {
           setTimeout(() => this.connectWebSocket(), 5000)
@@ -630,6 +633,7 @@ export class SyncManager {
       this.wsConnection.onmessage = null
       this.wsConnection.close()
       this.wsConnection = undefined
+      this.connectivity.reportWsConnection('disconnected')
     }
   }
 

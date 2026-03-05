@@ -6,7 +6,7 @@
 
 # Interface: SharedWorkerAdapterConfig
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:30
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:40
 
 Configuration for SharedWorkerAdapter.
 
@@ -16,7 +16,7 @@ Configuration for SharedWorkerAdapter.
 
 > `optional` **heartbeatInterval**: `number`
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:38
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:48
 
 Heartbeat interval in milliseconds (default: 10000)
 
@@ -26,19 +26,19 @@ Heartbeat interval in milliseconds (default: 10000)
 
 > `optional` **requestTimeout**: `number`
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:36
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:46
 
 Request timeout in milliseconds (default: 30000)
 
 ---
 
-### sqliteWorkerUrl?
+### sqliteWorkerUrl
 
-> `optional` **sqliteWorkerUrl**: `string`
+> **sqliteWorkerUrl**: `string`
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:34
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:44
 
-URL to the consumer's SQLite worker script (passed to worker via RPC)
+Per-tab SQLite DedicatedWorker URL for Mode C
 
 ---
 
@@ -46,6 +46,6 @@ URL to the consumer's SQLite worker script (passed to worker via RPC)
 
 > **workerUrl**: `string`
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:32
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:42
 
 URL to the consumer's SharedWorker script

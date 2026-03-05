@@ -98,6 +98,7 @@ export type {
   ConnectivityState,
   IConnectivity,
   SyncManagerConfig,
+  WsConnectionState,
 } from './core/sync-manager/index.js'
 
 // Adapters

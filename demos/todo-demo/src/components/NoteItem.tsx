@@ -7,22 +7,29 @@ interface NoteItemProps {
   onError: (message: string | undefined) => void
 }
 
+type EditState = 'viewing' | 'editing' | 'saving'
+
 export default function NoteItem(props: NoteItemProps) {
   const { commandQueue } = useClient()
-  const [editing, setEditing] = createSignal(false)
+  const [editState, setEditState] = createSignal<EditState>('viewing')
   const [editTitle, setEditTitle] = createSignal('')
   const [editBody, setEditBody] = createSignal('')
+  let editTitleRef: HTMLInputElement | undefined
+  let liRef: HTMLLIElement | undefined
 
   function startEdit() {
     setEditTitle(props.note.title)
     setEditBody(props.note.body)
-    setEditing(true)
+    setEditState('editing')
+    editTitleRef?.focus()
   }
 
   async function handleSave() {
+    if (editState() !== 'editing') return
+
     const trimmedTitle = editTitle().trim()
     if (trimmedTitle.length === 0) {
-      setEditing(false)
+      setEditState('viewing')
       return
     }
 
@@ -30,10 +37,11 @@ export default function NoteItem(props: NoteItemProps) {
     const bodyChanged = editBody() !== props.note.body
 
     if (!titleChanged && !bodyChanged) {
-      setEditing(false)
+      setEditState('viewing')
       return
     }
 
+    setEditState('saving')
     props.onError(undefined)
 
     if (titleChanged) {
@@ -42,6 +50,7 @@ export default function NoteItem(props: NoteItemProps) {
         payload: { id: props.note.id, title: trimmedTitle, revision: props.note.latestRevision },
       })
       if (!result.ok) {
+        setEditState('editing')
         props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
         return
       }
@@ -53,19 +62,51 @@ export default function NoteItem(props: NoteItemProps) {
         payload: { id: props.note.id, body: editBody(), revision: props.note.latestRevision },
       })
       if (!result.ok) {
+        setEditState('editing')
         props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
         return
       }
     }
 
-    setEditing(false)
+    setEditState('viewing')
+  }
+
+  function cancelEdit() {
+    setEditState('viewing')
+  }
+
+  function handleFocusOut(e: FocusEvent) {
+    if (editState() !== 'editing') return
+    const target = e.target as Element | null
+    if (
+      !(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) ||
+      !target.classList.contains('edit-input')
+    ) {
+      return
+    }
+    const related = e.relatedTarget as Node | null
+    if (related instanceof Node && (e.currentTarget as Node).contains(related)) return
+    handleSave()
   }
 
   function handleKeyDown(e: KeyboardEvent) {
     if (e.key === 'Enter' && !(e.target instanceof HTMLTextAreaElement)) {
       handleSave()
-    } else if (e.key === 'Escape') {
-      setEditing(false)
+    } else if (e.key === 'Escape' && editState() === 'editing') {
+      cancelEdit()
+    } else if (
+      (e.key === 'ArrowUp' || e.key === 'ArrowDown') &&
+      editState() === 'editing' &&
+      !(e.target instanceof HTMLTextAreaElement)
+    ) {
+      e.preventDefault()
+      handleSave()
+      liRef?.dispatchEvent(
+        new CustomEvent('navedit', {
+          bubbles: true,
+          detail: { direction: e.key === 'ArrowUp' ? 'up' : 'down' },
+        }),
+      )
     }
   }
 
@@ -82,11 +123,16 @@ export default function NoteItem(props: NoteItemProps) {
 
   return (
     <li
+      ref={(el: HTMLLIElement) => {
+        liRef = el
+        el.addEventListener('requestedit', () => startEdit())
+      }}
       id={`note-${props.note.id}`}
       class="note-item p-3 rounded border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800"
+      onFocusOut={handleFocusOut}
     >
       <Show
-        when={editing()}
+        when={editState() !== 'viewing'}
         fallback={
           <>
             <div class="flex items-center gap-2">
@@ -122,13 +168,33 @@ export default function NoteItem(props: NoteItemProps) {
         <div class="space-y-2" onKeyDown={handleKeyDown}>
           <div class="flex items-center gap-2">
             <input
-              class="flex-1 px-1 py-0.5 rounded border border-indigo-500 dark:bg-neutral-800 text-base focus:outline-none font-medium"
+              ref={editTitleRef}
+              class="edit-input flex-1 px-1 py-0.5 rounded border border-indigo-500 dark:bg-neutral-800 text-base focus:outline-none font-medium"
               type="text"
               value={editTitle()}
               onInput={(e) => setEditTitle(e.currentTarget.value)}
-              autofocus
+              disabled={editState() === 'saving'}
             />
             <div class="flex gap-1">
+              <button
+                class="cancel-edit p-1 rounded bg-neutral-500 text-white hover:bg-neutral-600 cursor-pointer"
+                onClick={cancelEdit}
+                title="Cancel editing"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                </svg>
+              </button>
               <button
                 class="px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700 text-sm cursor-pointer"
                 onClick={handleDelete}
@@ -138,10 +204,10 @@ export default function NoteItem(props: NoteItemProps) {
             </div>
           </div>
           <textarea
-            class="w-full px-1 py-0.5 rounded border border-indigo-500 dark:bg-neutral-800 text-sm focus:outline-none"
+            class="edit-input w-full px-1 py-0.5 rounded border border-indigo-500 dark:bg-neutral-800 text-sm focus:outline-none"
             value={editBody()}
             onInput={(e) => setEditBody(e.currentTarget.value)}
-            onBlur={handleSave}
+            disabled={editState() === 'saving'}
             rows={3}
           />
         </div>

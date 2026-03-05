@@ -6,7 +6,7 @@
 
 # Class: ConnectivityManager
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:61
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:70
 
 Connectivity manager.
 Tracks browser online status and API reachability.
@@ -21,7 +21,7 @@ Tracks browser online status and API reachability.
 
 > **new ConnectivityManager**(`config`): `ConnectivityManager`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:75
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:86
 
 #### Parameters
 
@@ -41,7 +41,7 @@ Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:75
 
 > **get** **online$**(): `Observable`\<`boolean`\>
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:98
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:109
 
 Observable of online status (browser + API reachable).
 
@@ -63,7 +63,7 @@ Observable of online status (browser + API reachable).
 
 > **get** **state**(): `Observable`\<[`ConnectivityState`](../interfaces/ConnectivityState.md)\>
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:91
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:102
 
 Observable of connectivity state changes.
 
@@ -83,7 +83,7 @@ Observable of connectivity state changes.
 
 > **destroy**(): `void`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:237
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:282
 
 Clean up resources.
 
@@ -97,7 +97,7 @@ Clean up resources.
 
 > **getState**(): [`ConnectivityState`](../interfaces/ConnectivityState.md)
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:84
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:95
 
 Get the current connectivity state.
 
@@ -115,7 +115,7 @@ Get the current connectivity state.
 
 > **isOnline**(): `boolean`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:108
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:119
 
 Check if we're effectively online.
 
@@ -133,7 +133,7 @@ Check if we're effectively online.
 
 > **reportContact**(): `void`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:177
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:188
 
 Report successful API contact.
 Called by other components when API calls succeed.
@@ -148,10 +148,53 @@ Called by other components when API calls succeed.
 
 > **reportFailure**(): `void`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:189
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:200
 
 Report API failure.
 Called by other components when API calls fail due to network.
+
+#### Returns
+
+`void`
+
+---
+
+### reportWsConnection()
+
+> **reportWsConnection**(`wsConnection`): `void`
+
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:209
+
+Report WebSocket connection state transition.
+Emits the corresponding ws:\* debug event when the state changes.
+On disconnect, clears subscribed topics.
+
+#### Parameters
+
+##### wsConnection
+
+[`WsConnectionState`](../type-aliases/WsConnectionState.md)
+
+#### Returns
+
+`void`
+
+---
+
+### reportWsSubscribed()
+
+> **reportWsSubscribed**(`topics`): `void`
+
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:231
+
+Report WebSocket topics confirmed by the server.
+Merges with existing topics and emits ws:subscribed.
+
+#### Parameters
+
+##### topics
+
+readonly `string`[]
 
 #### Returns
 
@@ -163,7 +206,7 @@ Called by other components when API calls fail due to network.
 
 > **start**(): `void`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:116
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:127
 
 Start monitoring connectivity.
 
@@ -177,7 +220,7 @@ Start monitoring connectivity.
 
 > **stop**(): `void`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:162
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:173
 
 Stop monitoring connectivity.
 

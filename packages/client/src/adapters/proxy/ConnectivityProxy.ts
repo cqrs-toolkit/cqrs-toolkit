@@ -24,19 +24,39 @@ export class ConnectivityProxy implements IConnectivity {
     this.state$ = new BehaviorSubject<ConnectivityState>({
       network: 'unknown',
       serverReachable: 'unknown',
+      wsConnection: 'disconnected',
+      wsTopics: [],
     })
 
-    // Track connectivity:changed broadcasts to update local state
+    // Track broadcast events to update local state
     events$.subscribe((event) => {
-      if (event.eventName === 'connectivity:changed') {
-        const payload = event.payload as { online: boolean }
-        const current = this.state$.getValue()
-        this.state$.next({
-          ...current,
-          network: payload.online ? 'online' : 'offline',
-          serverReachable: payload.online ? 'yes' : 'no',
-          lastContact: payload.online ? Date.now() : current.lastContact,
-        })
+      const current = this.state$.getValue()
+      switch (event.eventName) {
+        case 'connectivity:changed': {
+          const payload = event.payload as { online: boolean }
+          this.state$.next({
+            ...current,
+            network: payload.online ? 'online' : 'offline',
+            serverReachable: payload.online ? 'yes' : 'no',
+            lastContact: payload.online ? Date.now() : current.lastContact,
+          })
+          break
+        }
+        case 'ws:connecting':
+          this.state$.next({ ...current, wsConnection: 'connecting' })
+          break
+        case 'ws:connected':
+          this.state$.next({ ...current, wsConnection: 'connected' })
+          break
+        case 'ws:subscribed': {
+          const payload = event.payload as { topics: readonly string[] }
+          const merged = Array.from(new Set([...current.wsTopics, ...payload.topics]))
+          this.state$.next({ ...current, wsTopics: merged })
+          break
+        }
+        case 'ws:disconnected':
+          this.state$.next({ ...current, wsConnection: 'disconnected', wsTopics: [] })
+          break
       }
     })
   }

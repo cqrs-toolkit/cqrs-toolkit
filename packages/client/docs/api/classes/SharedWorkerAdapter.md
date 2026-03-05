@@ -6,13 +6,16 @@
 
 # Class: SharedWorkerAdapter
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:52
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:70
 
 SharedWorker adapter for multi-tab offline support.
 
 This adapter:
 
+- Spawns a per-tab DedicatedWorker for SQLite I/O
 - Connects to a SharedWorker that owns all CQRS components
+- Bridges the SQLite worker to the SharedWorker via MessageChannel
+- Competes for active-tab status via Web Locks
 - Provides proxy objects for main-thread consumers
 - Handles window registration and heartbeats
 - Restores holds after worker restarts
@@ -27,7 +30,7 @@ This adapter:
 
 > **new SharedWorkerAdapter**(`config`): `SharedWorkerAdapter`
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:74
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:94
 
 #### Parameters
 
@@ -45,7 +48,7 @@ Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:74
 
 > `readonly` **mode**: `"shared-worker"`
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:53
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:71
 
 #### Implementation of
 
@@ -59,7 +62,7 @@ Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:53
 
 > **get** **cacheManager**(): [`ICacheManager`](../interfaces/ICacheManager.md)
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:98
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:118
 
 ##### Returns
 
@@ -77,7 +80,7 @@ Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:98
 
 > **get** **commandQueue**(): [`ICommandQueue`](../interfaces/ICommandQueue.md)
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:88
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:108
 
 ##### Returns
 
@@ -95,7 +98,7 @@ Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:88
 
 > **get** **events$**(): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:83
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:103
 
 Observable of library events.
 
@@ -117,7 +120,7 @@ Observable of library events.
 
 > **get** **queryManager**(): [`IQueryManager`](../interfaces/IQueryManager.md)
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:93
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:113
 
 ##### Returns
 
@@ -135,7 +138,7 @@ Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:93
 
 > **get** **status**(): [`AdapterStatus`](../type-aliases/AdapterStatus.md)
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:79
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:99
 
 Current adapter status.
 
@@ -157,7 +160,7 @@ Current adapter status.
 
 > **get** **syncManager**(): [`CqrsClientSyncManager`](../interfaces/CqrsClientSyncManager.md)
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:103
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:123
 
 ##### Returns
 
@@ -173,7 +176,7 @@ Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:10
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:184
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:250
 
 Close the adapter and release resources.
 
@@ -191,13 +194,17 @@ Close the adapter and release resources.
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:111
+Defined in: packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:133
 
 Initialize the adapter.
 
 #### Returns
 
 `Promise`\<`void`\>
+
+#### Throws
+
+OpfsUnavailableException if OPFS probe fails in the SQLite worker
 
 #### Implementation of
 

@@ -8,7 +8,7 @@
 
 > **createCqrsClient**(`config`): `Promise`\<[`CqrsClient`](../classes/CqrsClient.md)\>
 
-Defined in: packages/client/src/createCqrsClient.ts:174
+Defined in: packages/client/src/createCqrsClient.ts:180
 
 Create a new CQRS Client instance.
 

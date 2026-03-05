@@ -173,16 +173,15 @@ Retry configuration for commands.
 
 > `optional` **sqliteWorkerUrl**: `string`
 
-Defined in: packages/client/src/types/config.ts:287
+Defined in: packages/client/src/types/config.ts:286
 
-URL to the consumer's SQLite worker script.
-Required for shared-worker mode — the SharedWorker spawns a child
-DedicatedWorker at this URL for SQLite I/O (OPFS requires a
-DedicatedWorker context).
+Per-tab SQLite DedicatedWorker URL for Mode C.
+Each tab spawns a DedicatedWorker at this URL for SQLite I/O
+(OPFS `createSyncAccessHandle` requires a DedicatedWorker context).
 
-Must be resolved on the main thread where the bundler can process
-asset URL imports (e.g., Vite's `?worker&url` suffix).
-Passed to the SharedWorker via RPC during initialization.
+Required for shared-worker mode. Must be resolved on the main thread
+where the bundler can process asset URL imports (e.g., Vite's
+`?worker&url` suffix).
 
 ---
 
@@ -222,6 +221,6 @@ before storage initialization.
 
 Defined in: packages/client/src/types/config.ts:275
 
-Worker script URL (for modes B and C).
+SharedWorker script URL (Mode C) or DedicatedWorker script URL (Mode B).
 Points to the consumer's worker entry point that calls
 startDedicatedWorker() or startSharedWorker().

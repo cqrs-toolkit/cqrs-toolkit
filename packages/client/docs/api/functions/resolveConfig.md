@@ -8,7 +8,7 @@
 
 > **resolveConfig**\<`TCommand`, `TEvent`\>(`config`): [`ResolvedConfig`](../interfaces/ResolvedConfig.md)\<`TCommand`, `TEvent`\>
 
-Defined in: packages/client/src/types/config.ts:335
+Defined in: packages/client/src/types/config.ts:334
 
 Resolve shared configuration with defaults.
 

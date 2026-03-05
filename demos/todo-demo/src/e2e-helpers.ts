@@ -68,41 +68,22 @@ export async function waitForDashNoteAbsent(page: Page, title: string): Promise<
 }
 
 /**
- * Navigate to `url` and wait for the WebSocket `subscribed` ack from the server.
+ * Navigate to `url` and wait for the WebSocket `subscribed` state.
  *
- * Attaches a WebSocket frame listener **before** navigation so the subscription
- * handshake is captured even if it completes before `page.goto()` resolves.
+ * Works in all execution modes — waits for the `.ws-subscribed` CSS class
+ * on the mode badge, which is set when the client receives a ws:subscribed event.
  */
 export async function gotoWithWsSubscribed(page: Page, url: string): Promise<void> {
-  const subscribedPromise = new Promise<void>((resolve) => {
-    page.on('websocket', (ws) => {
-      ws.on('framereceived', (frame) => {
-        if (typeof frame.payload === 'string' && frame.payload.includes('"subscribed"')) {
-          resolve()
-        }
-      })
-    })
-  })
-
   await page.goto(url)
-  await subscribedPromise
+  await expect(page.locator('.ws-subscribed')).toBeAttached()
 }
 
 /**
- * Wait for a **new** WebSocket connection to receive the `subscribed` ack.
+ * Wait for a WebSocket reconnection to complete (subscribed state).
  *
- * Must be called **before** the action that triggers reconnection (e.g.,
- * `page.context().setOffline(false)`) so the listener is in place when the
- * browser opens the new WebSocket.
+ * Works in all execution modes — waits for the `.ws-subscribed` CSS class
+ * to reappear after a disconnection.
  */
-export function waitForWsReconnection(page: Page): Promise<void> {
-  return new Promise<void>((resolve) => {
-    page.on('websocket', (ws) => {
-      ws.on('framereceived', (frame) => {
-        if (typeof frame.payload === 'string' && frame.payload.includes('"subscribed"')) {
-          resolve()
-        }
-      })
-    })
-  })
+export async function waitForWsReconnection(page: Page): Promise<void> {
+  await expect(page.locator('.ws-subscribed')).toBeAttached()
 }

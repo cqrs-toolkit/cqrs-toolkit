@@ -8,13 +8,14 @@
 
 > **startDedicatedWorker**(`config`): `void`
 
-Defined in: packages/client/src/adapters/worker-core/startDedicatedWorker.ts:35
+Defined in: packages/client/src/adapters/worker-core/startDedicatedWorker.ts:36
 
 Bootstrap a Dedicated Worker with CQRS orchestration.
 
-Creates the message handler and orchestrator, sets up message handling,
-and signals readiness to the main thread. The main thread's adapter
-calls `orchestrator.initialize` to trigger component creation.
+Creates the message handler and orchestrator, registers lifecycle RPC
+methods, sets up message handling, and signals readiness to the main
+thread. The main thread's adapter calls `orchestrator.initialize` to
+trigger component creation (includes OPFS probe for Mode B).
 
 ## Parameters
 

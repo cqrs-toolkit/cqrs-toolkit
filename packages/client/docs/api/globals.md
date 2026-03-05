@@ -146,12 +146,14 @@ Offline-capable CQRS/event-sourcing client library.
 - [UpdateOperation](type-aliases/UpdateOperation.md)
 - [ValidationResult](type-aliases/ValidationResult.md)
 - [VfsType](type-aliases/VfsType.md)
+- [WsConnectionState](type-aliases/WsConnectionState.md)
 
 ## Variables
 
 - [ALL_TABLES](variables/ALL_TABLES.md)
 - [CACHE_KEY_NAMESPACE](variables/CACHE_KEY_NAMESPACE.md)
 - [CACHE_KEY_NS](variables/CACHE_KEY_NS.md)
+- [DEBUG_EVENT_TYPES](variables/DEBUG_EVENT_TYPES.md)
 - [DEFAULT_CONFIG](variables/DEFAULT_CONFIG.md)
 - [DEFAULT_RETRY_CONFIG](variables/DEFAULT_RETRY_CONFIG.md)
 - [MIGRATIONS](variables/MIGRATIONS.md)

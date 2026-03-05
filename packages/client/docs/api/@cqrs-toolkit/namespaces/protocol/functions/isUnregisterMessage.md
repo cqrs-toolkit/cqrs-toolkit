@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / isUnregisterMessage
 
@@ -8,7 +8,7 @@
 
 > **isUnregisterMessage**(`msg`): `msg is UnregisterWindowMessage`
 
-Defined in: packages/client/src/protocol/messages.ts:222
+Defined in: packages/client/src/protocol/messages.ts:190
 
 ## Parameters
 

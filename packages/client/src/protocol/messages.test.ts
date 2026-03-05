@@ -10,8 +10,6 @@ import {
   isRequestMessage,
   isResponseMessage,
   isRestoreHoldsRequest,
-  isTabLockRelease,
-  isTabLockRequest,
   isUnregisterMessage,
   isWorkerInstanceMessage,
 } from './messages.js'
@@ -130,27 +128,6 @@ describe('message type guards', () => {
 
     it('returns false for missing cacheKeys', () => {
       expect(isRestoreHoldsRequest({ type: 'restore-holds', windowId: '123' })).toBe(false)
-    })
-  })
-
-  describe('isTabLockRequest', () => {
-    it('returns true for valid tab lock request', () => {
-      const msg = {
-        type: 'tab-lock',
-        requestId: '123',
-        tabId: 'tab-456',
-      }
-      expect(isTabLockRequest(msg)).toBe(true)
-    })
-  })
-
-  describe('isTabLockRelease', () => {
-    it('returns true for valid tab lock release', () => {
-      const msg = {
-        type: 'tab-lock-release',
-        tabId: 'tab-123',
-      }
-      expect(isTabLockRelease(msg)).toBe(true)
     })
   })
 

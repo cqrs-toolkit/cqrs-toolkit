@@ -13,10 +13,14 @@ interface TodoItemProps {
   onError: (message: string | undefined) => void
 }
 
+type EditState = 'viewing' | 'editing' | 'saving'
+
 export default function TodoItem(props: TodoItemProps) {
   const { commandQueue } = useClient()
-  const [editing, setEditing] = createSignal(false)
+  const [editState, setEditState] = createSignal<EditState>('viewing')
   const [editText, setEditText] = createSignal('')
+  let editInputRef: HTMLInputElement | undefined
+  let liRef: HTMLLIElement | undefined
 
   function nextStatus(current: TodoStatus): TodoStatus {
     switch (current) {
@@ -46,33 +50,60 @@ export default function TodoItem(props: TodoItemProps) {
 
   function startEdit() {
     setEditText(props.todo.content)
-    setEditing(true)
+    setEditState('editing')
+    editInputRef?.focus()
   }
 
   async function handleSave() {
+    if (editState() !== 'editing') return
+
     const text = editText().trim()
     if (text.length === 0 || text === props.todo.content) {
-      setEditing(false)
+      setEditState('viewing')
       return
     }
 
+    setEditState('saving')
     props.onError(undefined)
     const result = await commandQueue.enqueueAndWait({
       type: 'UpdateTodoContent',
       payload: { id: props.todo.id, content: text, revision: props.todo.latestRevision },
     })
     if (result.ok) {
-      setEditing(false)
+      setEditState('viewing')
     } else {
+      setEditState('editing')
       props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
     }
+  }
+
+  function cancelEdit() {
+    setEditState('viewing')
+  }
+
+  function handleFocusOut(e: FocusEvent) {
+    if (editState() !== 'editing') return
+    const target = e.target as Element | null
+    if (!(target instanceof HTMLInputElement && target.classList.contains('edit-input'))) return
+    const related = e.relatedTarget as Node | null
+    if (related instanceof Node && (e.currentTarget as Node).contains(related)) return
+    handleSave()
   }
 
   function handleEditKeyDown(e: KeyboardEvent) {
     if (e.key === 'Enter') {
       handleSave()
-    } else if (e.key === 'Escape') {
-      setEditing(false)
+    } else if (e.key === 'Escape' && editState() === 'editing') {
+      cancelEdit()
+    } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && editState() === 'editing') {
+      e.preventDefault()
+      handleSave()
+      liRef?.dispatchEvent(
+        new CustomEvent('navedit', {
+          bubbles: true,
+          detail: { direction: e.key === 'ArrowUp' ? 'up' : 'down' },
+        }),
+      )
     }
   }
 
@@ -89,8 +120,13 @@ export default function TodoItem(props: TodoItemProps) {
 
   return (
     <li
+      ref={(el: HTMLLIElement) => {
+        liRef = el
+        el.addEventListener('requestedit', () => startEdit())
+      }}
       id={`todo-${props.todo.id}`}
       class={`todo-item ${STATUS_CLASS[props.todo.status]} flex items-center gap-2 p-2 rounded border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800`}
+      onFocusOut={handleFocusOut}
     >
       <input
         type="checkbox"
@@ -100,7 +136,7 @@ export default function TodoItem(props: TodoItemProps) {
       />
 
       <Show
-        when={editing()}
+        when={editState() !== 'viewing'}
         fallback={
           <span
             class={`todo-content flex-1 ${props.todo.status === 'completed' ? 'line-through text-neutral-400' : ''}`}
@@ -111,23 +147,44 @@ export default function TodoItem(props: TodoItemProps) {
         }
       >
         <input
+          ref={editInputRef}
           class="edit-input flex-1 px-1 py-0.5 rounded border border-indigo-500 dark:bg-neutral-800 text-base focus:outline-none"
           type="text"
           value={editText()}
           onInput={(e) => setEditText(e.currentTarget.value)}
           onKeyDown={handleEditKeyDown}
-          onBlur={handleSave}
-          autofocus
+          disabled={editState() === 'saving'}
         />
       </Show>
 
       <div class="flex gap-1">
-        <Show when={!editing()}>
+        <Show when={editState() === 'viewing'}>
           <button
             class="px-3 py-1 rounded bg-neutral-500 text-white hover:bg-neutral-600 text-sm cursor-pointer"
             onClick={startEdit}
           >
             Edit
+          </button>
+        </Show>
+        <Show when={editState() !== 'viewing'}>
+          <button
+            class="cancel-edit p-1 rounded bg-neutral-500 text-white hover:bg-neutral-600 cursor-pointer"
+            onClick={cancelEdit}
+            title="Cancel editing"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+            </svg>
           </button>
         </Show>
         <button

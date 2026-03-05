@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / isRestoreHoldsRequest
 
@@ -8,7 +8,7 @@
 
 > **isRestoreHoldsRequest**(`msg`): `msg is RestoreHoldsRequest`
 
-Defined in: packages/client/src/protocol/messages.ts:231
+Defined in: packages/client/src/protocol/messages.ts:199
 
 ## Parameters
 

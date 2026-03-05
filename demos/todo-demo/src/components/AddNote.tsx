@@ -3,12 +3,15 @@ import { useClient } from '../bootstrap/cqrs-context'
 
 interface AddNoteProps {
   onError: (message: string | undefined) => void
+  formRef?: (el: HTMLFormElement) => void
 }
 
 export default function AddNote(props: AddNoteProps) {
   const { commandQueue } = useClient()
   const [title, setTitle] = createSignal('')
   const [body, setBody] = createSignal('')
+  let formEl: HTMLFormElement | undefined
+  let titleInputRef: HTMLInputElement | undefined
 
   async function handleSubmit(e: SubmitEvent) {
     e.preventDefault()
@@ -30,14 +33,33 @@ export default function AddNote(props: AddNoteProps) {
     }
   }
 
+  function handleTitleKeyDown(e: KeyboardEvent) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      formEl?.dispatchEvent(
+        new CustomEvent('navedit', { bubbles: true, detail: { direction: 'down' } }),
+      )
+    }
+  }
+
   return (
-    <form onSubmit={handleSubmit} class="mb-6">
+    <form
+      ref={(el: HTMLFormElement) => {
+        formEl = el
+        el.addEventListener('requestedit', () => titleInputRef?.focus())
+        props.formRef?.(el)
+      }}
+      onSubmit={handleSubmit}
+      class="mb-6"
+    >
       <div class="flex gap-2">
         <input
+          ref={titleInputRef}
           type="text"
           placeholder="Note title"
           value={title()}
           onInput={(e) => setTitle(e.currentTarget.value)}
+          onKeyDown={handleTitleKeyDown}
           class="flex-1 px-3 py-2 rounded border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-800 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
         <button

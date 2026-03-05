@@ -67,6 +67,7 @@ test('propagates status change', async ({ page, browser, mode }) => {
     const checkbox = page.locator('.todo-item').first().locator('input[type="checkbox"]')
     // pending → in_progress
     await checkbox.click()
+    await expect(page.locator('.todo-item.in-progress')).toBeVisible()
     // in_progress → completed
     await checkbox.click()
 

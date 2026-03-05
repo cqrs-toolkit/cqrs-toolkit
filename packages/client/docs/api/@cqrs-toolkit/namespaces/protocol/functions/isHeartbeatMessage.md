@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / isHeartbeatMessage
 
@@ -8,7 +8,7 @@
 
 > **isHeartbeatMessage**(`msg`): `msg is HeartbeatMessage`
 
-Defined in: packages/client/src/protocol/messages.ts:213
+Defined in: packages/client/src/protocol/messages.ts:181
 
 ## Parameters
 

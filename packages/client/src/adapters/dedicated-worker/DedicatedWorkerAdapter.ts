@@ -1,9 +1,13 @@
 /**
- * Dedicated Worker adapter (Mode C) - Window-side proxy.
+ * Dedicated Worker adapter (Mode B) - Window-side proxy.
  *
  * Connects to a consumer-provided Dedicated Worker that owns all CQRS
  * components. The main thread gets proxy objects for CommandQueue,
  * QueryManager, CacheManager, and SyncManager.
+ *
+ * Tab lock is enforced via the Web Locks API on the main thread (spec §0.1.5):
+ * the lock is acquired BEFORE spawning the worker, preventing multi-tab races.
+ * Web Locks auto-release on page unload — no beforeunload handler needed.
  */
 
 import { Observable, Subject, map, share, takeUntil } from 'rxjs'
@@ -15,7 +19,6 @@ import { RpcError, WorkerMessageChannel } from '../../protocol/MessageChannel.js
 import type { EventMessage } from '../../protocol/messages.js'
 import type { LibraryEvent } from '../../types/events.js'
 import { assert } from '../../utils/assert.js'
-import { generateId } from '../../utils/uuid.js'
 import type { AdapterStatus, IWorkerAdapter } from '../base/IAdapter.js'
 import { CacheManagerProxy } from '../proxy/CacheManagerProxy.js'
 import { CommandQueueProxy } from '../proxy/CommandQueueProxy.js'
@@ -44,18 +47,22 @@ export class TabLockError extends Error {
 }
 
 /**
+ * Web Locks lock name for Mode B single-tab enforcement.
+ */
+const TAB_LOCK_NAME = 'cqrs-client-dedicated-tab'
+
+/**
  * Dedicated Worker adapter for single-tab offline support.
  *
  * This adapter:
+ * - Acquires a Web Lock to enforce single-tab operation
  * - Connects to a Dedicated Worker that owns all CQRS components
- * - Enforces single-tab operation via tab lock
  * - Provides proxy objects for main-thread consumers
  */
 export class DedicatedWorkerAdapter implements IWorkerAdapter {
   readonly mode = 'dedicated-worker' as const
 
   private readonly config: DedicatedWorkerAdapterConfig
-  private readonly tabId: string
   private readonly destroy$ = new Subject<void>()
 
   private _status: AdapterStatus = 'uninitialized'
@@ -67,11 +74,9 @@ export class DedicatedWorkerAdapter implements IWorkerAdapter {
 
   private worker: Worker | undefined
   private channel: WorkerMessageChannel | undefined
-  private beforeUnloadHandler: (() => void) | undefined
 
   constructor(config: DedicatedWorkerAdapterConfig) {
     this.config = config
-    this.tabId = generateId()
   }
 
   get status(): AdapterStatus {
@@ -106,6 +111,8 @@ export class DedicatedWorkerAdapter implements IWorkerAdapter {
   /**
    * Initialize the adapter.
    *
+   * Acquires a Web Lock for single-tab enforcement before spawning the worker.
+   *
    * @throws TabLockError if another tab already has the lock
    */
   async initialize(): Promise<void> {
@@ -114,7 +121,15 @@ export class DedicatedWorkerAdapter implements IWorkerAdapter {
     this._status = 'initializing'
 
     try {
-      // Create Dedicated Worker
+      // 1. Acquire tab lock via Web Locks on main thread (spec §0.1.5)
+      const lockAcquired = await acquireTabLock()
+      if (!lockAcquired) {
+        throw new TabLockError(
+          'This app is already open in another tab. Only one tab may be open at a time.',
+        )
+      }
+
+      // 2. Spawn worker (after lock acquired)
       this.worker = new Worker(this.config.workerUrl, {
         type: 'module',
         name: 'cqrs-client',
@@ -142,14 +157,6 @@ export class DedicatedWorkerAdapter implements IWorkerAdapter {
         ),
       )
 
-      // Request tab lock
-      const lockResponse = await this.channel.requestTabLock(this.tabId)
-      if (!lockResponse.acquired) {
-        throw new TabLockError(
-          'This app is already open in another tab. Only one tab may be open at a time.',
-        )
-      }
-
       // Trigger worker-side orchestrator initialization (includes OPFS probe)
       try {
         await this.channel.request('orchestrator.initialize')
@@ -168,9 +175,6 @@ export class DedicatedWorkerAdapter implements IWorkerAdapter {
 
       // Sync connectivity state from worker
       await this._syncManager.syncState()
-
-      // Set up beforeunload to release lock
-      this.setupBeforeUnload()
 
       this._status = 'ready'
     } catch (error) {
@@ -194,9 +198,6 @@ export class DedicatedWorkerAdapter implements IWorkerAdapter {
       return
     }
 
-    // Remove beforeunload listener
-    this.removeBeforeUnload()
-
     // Tell worker to close orchestrator
     if (this.channel) {
       try {
@@ -204,7 +205,6 @@ export class DedicatedWorkerAdapter implements IWorkerAdapter {
       } catch {
         // Worker may already be dead
       }
-      this.channel.releaseTabLock(this.tabId)
       this.channel.destroy()
       this.channel = undefined
     }
@@ -223,24 +223,46 @@ export class DedicatedWorkerAdapter implements IWorkerAdapter {
       this.worker = undefined
     }
 
+    // Web Lock auto-releases when the page unloads or tab closes
     this._status = 'closed'
   }
+}
 
-  private setupBeforeUnload(): void {
-    if (typeof window !== 'undefined') {
-      this.beforeUnloadHandler = () => {
-        if (this.channel) {
-          this.channel.releaseTabLock(this.tabId)
-        }
-      }
-      window.addEventListener('beforeunload', this.beforeUnloadHandler)
-    }
-  }
+// ---------------------------------------------------------------------------
+// Web Locks tab lock (spec §0.1.5)
+// ---------------------------------------------------------------------------
 
-  private removeBeforeUnload(): void {
-    if (this.beforeUnloadHandler && typeof window !== 'undefined') {
-      window.removeEventListener('beforeunload', this.beforeUnloadHandler)
-      this.beforeUnloadHandler = undefined
+/**
+ * Attempt to acquire the Mode B tab lock using Web Locks API.
+ *
+ * Uses `ifAvailable: true` for a non-blocking probe: if another tab already
+ * holds the lock, returns false immediately. If acquired, the lock is held
+ * via an unresolved promise until the page unloads.
+ *
+ * The callback communicates success via a separate deferred promise so that
+ * the caller receives `true` immediately while the lock-holding promise
+ * (which never resolves) keeps the lock alive in the background.
+ *
+ * @returns `true` if the lock was acquired, `false` if another tab holds it
+ */
+async function acquireTabLock(): Promise<boolean> {
+  let resolveAcquired: (value: boolean) => void
+  const acquired = new Promise<boolean>((resolve) => {
+    resolveAcquired = resolve
+  })
+
+  // Don't await — the callback's never-resolving promise keeps the lock held
+  navigator.locks.request(TAB_LOCK_NAME, { ifAvailable: true }, (lock) => {
+    if (!lock) {
+      // Another tab holds the lock
+      resolveAcquired(false)
+      return
     }
-  }
+    // Signal success to the caller
+    resolveAcquired(true)
+    // Hold the lock indefinitely — released when page unloads
+    return new Promise<void>(() => {})
+  })
+
+  return acquired
 }

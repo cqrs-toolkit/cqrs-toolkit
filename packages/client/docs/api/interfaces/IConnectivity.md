@@ -6,7 +6,7 @@
 
 # Interface: IConnectivity
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:46
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:55
 
 Consumer-facing connectivity interface.
 Both the real ConnectivityManager (online-only / worker-internal) and
@@ -18,7 +18,7 @@ ConnectivityProxy (main-thread in worker modes) implement this.
 
 > `readonly` **online$**: `Observable`\<`boolean`\>
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:52
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:61
 
 Observable of online status (browser + API reachable).
 
@@ -28,7 +28,7 @@ Observable of online status (browser + API reachable).
 
 > `readonly` **state**: `Observable`\<[`ConnectivityState`](ConnectivityState.md)\>
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:50
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:59
 
 Observable of connectivity state changes.
 
@@ -38,7 +38,7 @@ Observable of connectivity state changes.
 
 > **getState**(): [`ConnectivityState`](ConnectivityState.md)
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:48
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:57
 
 Get the current connectivity state.
 
@@ -52,7 +52,7 @@ Get the current connectivity state.
 
 > **isOnline**(): `boolean`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:54
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:63
 
 Check if we're effectively online.
 

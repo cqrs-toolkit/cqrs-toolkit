@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / isRequestMessage
 
@@ -8,7 +8,7 @@
 
 > **isRequestMessage**(`msg`): `msg is RequestMessage`
 
-Defined in: packages/client/src/protocol/messages.ts:176
+Defined in: packages/client/src/protocol/messages.ts:144
 
 Message type guards.
 

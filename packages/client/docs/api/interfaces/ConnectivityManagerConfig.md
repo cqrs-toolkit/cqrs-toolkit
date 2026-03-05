@@ -6,7 +6,7 @@
 
 # Interface: ConnectivityManagerConfig
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:33
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:42
 
 Connectivity manager configuration.
 
@@ -16,7 +16,7 @@ Connectivity manager configuration.
 
 > `optional` **checkInterval**: `number`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:36
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:45
 
 Interval to check API connectivity (ms)
 
@@ -26,7 +26,7 @@ Interval to check API connectivity (ms)
 
 > **eventBus**: [`EventBus`](../classes/EventBus.md)
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:34
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:43
 
 ---
 
@@ -34,6 +34,6 @@ Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:34
 
 > `optional` **healthCheckUrl**: `string`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:38
+Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:47
 
 API health check URL

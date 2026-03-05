@@ -8,7 +8,7 @@
 
 > `const` **DEFAULT_CONFIG**: `object`
 
-Defined in: packages/client/src/types/config.ts:293
+Defined in: packages/client/src/types/config.ts:292
 
 Default configuration values.
 

@@ -25,9 +25,6 @@
 - [ResponseMessage](interfaces/ResponseMessage.md)
 - [RestoreHoldsRequest](interfaces/RestoreHoldsRequest.md)
 - [RestoreHoldsResponse](interfaces/RestoreHoldsResponse.md)
-- [TabLockRelease](interfaces/TabLockRelease.md)
-- [TabLockRequest](interfaces/TabLockRequest.md)
-- [TabLockResponse](interfaces/TabLockResponse.md)
 - [UnregisterWindowMessage](interfaces/UnregisterWindowMessage.md)
 - [WorkerInstanceMessage](interfaces/WorkerInstanceMessage.md)
 
@@ -44,8 +41,6 @@
 - [isRequestMessage](functions/isRequestMessage.md)
 - [isResponseMessage](functions/isResponseMessage.md)
 - [isRestoreHoldsRequest](functions/isRestoreHoldsRequest.md)
-- [isTabLockRelease](functions/isTabLockRelease.md)
-- [isTabLockRequest](functions/isTabLockRequest.md)
 - [isUnregisterMessage](functions/isUnregisterMessage.md)
 - [isWorkerInstanceMessage](functions/isWorkerInstanceMessage.md)
 - [prepareForTransfer](functions/prepareForTransfer.md)

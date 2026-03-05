@@ -14,7 +14,7 @@
  */
 
 import { logProvider } from '@meticoeus/ddd-es'
-import type { Observable } from 'rxjs'
+import { type Observable, filter } from 'rxjs'
 import type {
   AdapterStatus,
   IAdapter,
@@ -30,7 +30,7 @@ import type { ICacheManager } from './core/cache-manager/types.js'
 import type { IAnticipatedEventHandler } from './core/command-queue/CommandQueue.js'
 import { CommandQueue } from './core/command-queue/CommandQueue.js'
 import type { ICommandQueue } from './core/command-queue/types.js'
-import { detectMode } from './core/detectMode.js'
+import { detectMode, readModeCache, writeModeCache } from './core/detectMode.js'
 import { EventCache } from './core/event-cache/EventCache.js'
 import { EventProcessorRegistry } from './core/event-processor/EventProcessorRegistry.js'
 import type { ParsedEvent } from './core/event-processor/EventProcessorRunner.js'
@@ -51,6 +51,7 @@ import type {
 } from './types/config.js'
 import { resolveConfig } from './types/config.js'
 import type { EventPersistence, LibraryEvent } from './types/events.js'
+import { DEBUG_EVENT_TYPES } from './types/events.js'
 import { assert } from './utils/assert.js'
 
 /**
@@ -91,6 +92,7 @@ export class CqrsClient {
 
   private readonly adapter: IAdapter
   private readonly closeResources: () => Promise<void>
+  private readonly _events$: Observable<LibraryEvent>
 
   constructor(
     adapter: IAdapter,
@@ -100,6 +102,7 @@ export class CqrsClient {
     syncManager: CqrsClientSyncManager,
     closeResources: () => Promise<void>,
     mode: ExecutionMode,
+    debug: boolean,
   ) {
     this.adapter = adapter
     this.cacheManager = cacheManager
@@ -108,11 +111,14 @@ export class CqrsClient {
     this.syncManager = syncManager
     this.closeResources = closeResources
     this.mode = mode
+    this._events$ = debug
+      ? this.adapter.events$
+      : this.adapter.events$.pipe(filter((e) => !DEBUG_EVENT_TYPES.has(e.type)))
   }
 
   /** Observable of all library events. */
   get events$(): Observable<LibraryEvent> {
-    return this.adapter.events$
+    return this._events$
   }
 
   /** Current adapter status. */
@@ -188,7 +194,7 @@ export async function createCqrsClient(config: CqrsClientConfig): Promise<CqrsCl
     if (adapter.mode === 'online-only') {
       return createOnlineOnlyClient(adapter, resolved, mode)
     }
-    return createWorkerClient(adapter, mode)
+    return createWorkerClient(adapter, mode, resolved.debug)
   } catch (error) {
     await adapter.close()
     throw error
@@ -319,6 +325,7 @@ async function createOnlineOnlyClient(
     syncManagerFacade,
     closeResources,
     mode,
+    resolved.debug,
   )
 }
 
@@ -326,7 +333,11 @@ async function createOnlineOnlyClient(
  * Worker path: wrap the adapter's proxy objects.
  * All components live in the worker — this side is thin.
  */
-function createWorkerClient(adapter: IWorkerAdapter, mode: ExecutionMode): CqrsClient {
+function createWorkerClient(
+  adapter: IWorkerAdapter,
+  mode: ExecutionMode,
+  debug: boolean,
+): CqrsClient {
   const { commandQueue, queryManager, cacheManager, syncManager } = adapter
 
   // Resource cleanup for worker mode — proxies that have local state
@@ -344,14 +355,17 @@ function createWorkerClient(adapter: IWorkerAdapter, mode: ExecutionMode): CqrsC
     syncManager,
     closeResources,
     mode,
+    debug,
   )
 }
 
 /**
  * Create, initialize, and return an adapter with the achieved execution mode.
  *
- * For `'auto'` mode: if the worker adapter fails due to OPFS unavailability,
- * falls back to online-only transparently. For explicit modes: propagates all errors.
+ * For `'auto'` mode: reads mode cache first (§0.1.7), falls back to Stage 1
+ * detection on miss, then writes cache after successful Stage 2 (adapter init).
+ * If the worker adapter fails due to OPFS unavailability, falls back to
+ * online-only transparently. For explicit modes: propagates all errors.
  */
 async function initializeAdapter(
   requestedMode: ExecutionModeConfig,
@@ -359,11 +373,25 @@ async function initializeAdapter(
   sqliteWorkerUrl: string | undefined,
   config: ResolvedConfig,
 ): Promise<{ adapter: IAdapter; mode: ExecutionMode }> {
-  const mode = resolveMode(requestedMode)
+  let mode: ExecutionMode
+
+  if (requestedMode === 'auto') {
+    const cached = readModeCache()
+    mode = cached ?? detectMode()
+  } else {
+    mode = requestedMode
+  }
+
   const adapter = createAdapterForMode(mode, workerUrl, sqliteWorkerUrl, config)
 
   try {
     await adapter.initialize()
+
+    // Write mode cache after successful Stage 2 (auto mode only)
+    if (requestedMode === 'auto' && mode !== 'online-only') {
+      writeModeCache(mode)
+    }
+
     return { adapter, mode }
   } catch (error) {
     // Only fall back for auto mode when a worker mode failed due to OPFS
@@ -375,16 +403,6 @@ async function initializeAdapter(
     }
     throw error
   }
-}
-
-/**
- * Resolve 'auto' mode to a concrete execution mode.
- */
-function resolveMode(mode: ExecutionModeConfig): ExecutionMode {
-  if (mode === 'auto') {
-    return detectMode()
-  }
-  return mode
 }
 
 /**
@@ -401,6 +419,7 @@ function createAdapterForMode(
       return new OnlineOnlyAdapter(config)
     case 'shared-worker':
       assert(workerUrl, 'workerUrl is required for shared-worker mode')
+      assert(sqliteWorkerUrl, 'sqliteWorkerUrl is required for shared-worker mode')
       return new SharedWorkerAdapter({
         workerUrl,
         sqliteWorkerUrl,

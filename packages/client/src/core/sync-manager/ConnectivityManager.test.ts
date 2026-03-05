@@ -26,6 +26,8 @@ describe('ConnectivityManager', () => {
       expect(state.network).toBe('online') // jsdom default
       expect(state.serverReachable).toBe('unknown')
       expect(state.lastContact).toBeUndefined()
+      expect(state.wsConnection).toBe('disconnected')
+      expect(state.wsTopics).toEqual([])
     })
 
     it('reports not online initially (server reachability unknown)', () => {

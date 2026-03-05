@@ -1,8 +1,14 @@
 /**
- * Remote SQLite database — proxies exec() calls to a child DedicatedWorker.
+ * Remote SQLite database — proxies exec() calls to a tab's DedicatedWorker
+ * via a MessagePort.
  *
- * Used by Mode B (SharedWorker) where SQLite WASM runs in a child
+ * Used by Mode C (SharedWorker) where SQLite WASM runs in each tab's
  * DedicatedWorker because SharedWorkerGlobalScope lacks OPFS sync access.
+ * The SharedWorker routes SQLite operations to the active tab's worker.
+ *
+ * Supports hot-swapping the target port when the active tab changes via
+ * `switchTarget()`. In-flight requests are rejected on switch — upper
+ * layers (storage retries) handle re-issuing.
  */
 
 import type { ISqliteDb } from '../../../storage/ISqliteDb.js'
@@ -10,30 +16,25 @@ import type { VfsType } from '../../../storage/LocalSqliteDb.js'
 import type { SqliteRequest, SqliteResponse } from './protocol.js'
 
 /**
- * Timeout for individual requests to the child worker (30 seconds).
+ * Timeout for individual requests to the tab's worker (30 seconds).
  */
 const REQUEST_TIMEOUT_MS = 30000
 
 /**
- * ISqliteDb implementation that forwards all operations to a child
- * DedicatedWorker via postMessage.
+ * ISqliteDb implementation that forwards all operations to a tab's
+ * DedicatedWorker via a MessagePort.
  */
 export class RemoteSqliteDb implements ISqliteDb {
-  private readonly worker: Worker
+  private port: MessagePort
   private readonly pending = new Map<string, PendingRequest>()
 
-  constructor(worker: Worker) {
-    this.worker = worker
-    this.worker.onmessage = (event: MessageEvent<SqliteResponse>) => {
-      this.handleResponse(event.data)
-    }
-    this.worker.onerror = (event: ErrorEvent) => {
-      this.rejectAll(`Child sqlite worker error: ${event.message}`)
-    }
+  constructor(port: MessagePort) {
+    this.port = port
+    this.attachPort(port)
   }
 
   /**
-   * Initialize the child worker's SQLite database.
+   * Initialize the remote worker's SQLite database.
    * Must be called before any exec() calls.
    */
   async initialize(config: { dbName: string; vfs: VfsType }): Promise<void> {
@@ -61,16 +62,37 @@ export class RemoteSqliteDb implements ISqliteDb {
   }
 
   async close(): Promise<void> {
-    try {
-      await this.send({ type: 'sqlite:close', requestId: this.nextId() })
-    } finally {
-      this.worker.terminate()
-    }
+    await this.send({ type: 'sqlite:close', requestId: this.nextId() })
+  }
+
+  /**
+   * Switch to a new target port (active tab changed).
+   *
+   * Rejects all pending requests — they'll be retried by upper layers.
+   * Detaches from the old port and attaches to the new one.
+   * Caller is responsible for calling `initialize()` on the new target afterward.
+   */
+  switchTarget(newPort: MessagePort): void {
+    this.rejectAll('Active tab changed — switching SQLite target')
+    this.detachPort()
+    this.port = newPort
+    this.attachPort(newPort)
   }
 
   // ---------------------------------------------------------------------------
   // Internal
   // ---------------------------------------------------------------------------
+
+  private attachPort(port: MessagePort): void {
+    port.onmessage = (event: MessageEvent<SqliteResponse>) => {
+      this.handleResponse(event.data)
+    }
+    port.start()
+  }
+
+  private detachPort(): void {
+    this.port.onmessage = null
+  }
 
   private send(request: SqliteRequest): Promise<unknown> {
     return new Promise((resolve, reject) => {
@@ -80,7 +102,7 @@ export class RemoteSqliteDb implements ISqliteDb {
       }, REQUEST_TIMEOUT_MS)
 
       this.pending.set(request.requestId, { resolve, reject, timer })
-      this.worker.postMessage(request)
+      this.port.postMessage(request)
     })
   }
 

@@ -12,8 +12,8 @@ import type { IDomainExecutor } from './domain.js'
  */
 export type ExecutionMode =
   | 'online-only' // Mode A: In-memory, no persistence
-  | 'shared-worker' // Mode B: Multi-tab with SharedWorker
-  | 'dedicated-worker' // Mode C: Single-tab with Dedicated Worker
+  | 'shared-worker' // Mode C: Multi-tab with SharedWorker orchestrator
+  | 'dedicated-worker' // Mode B: Single-tab with Dedicated Worker
 
 /**
  * Execution mode for client configuration.
@@ -268,21 +268,20 @@ export interface CqrsClientConfig<TCommand = unknown, TEvent = unknown> extends 
   mode?: ExecutionModeConfig
 
   /**
-   * Worker script URL (for modes B and C).
+   * SharedWorker script URL (Mode C) or DedicatedWorker script URL (Mode B).
    * Points to the consumer's worker entry point that calls
    * startDedicatedWorker() or startSharedWorker().
    */
   workerUrl?: string
 
   /**
-   * URL to the consumer's SQLite worker script.
-   * Required for shared-worker mode — the SharedWorker spawns a child
-   * DedicatedWorker at this URL for SQLite I/O (OPFS requires a
-   * DedicatedWorker context).
+   * Per-tab SQLite DedicatedWorker URL for Mode C.
+   * Each tab spawns a DedicatedWorker at this URL for SQLite I/O
+   * (OPFS `createSyncAccessHandle` requires a DedicatedWorker context).
    *
-   * Must be resolved on the main thread where the bundler can process
-   * asset URL imports (e.g., Vite's `?worker&url` suffix).
-   * Passed to the SharedWorker via RPC during initialization.
+   * Required for shared-worker mode. Must be resolved on the main thread
+   * where the bundler can process asset URL imports (e.g., Vite's
+   * `?worker&url` suffix).
    */
   sqliteWorkerUrl?: string
 }

@@ -12,7 +12,7 @@ export type {
   LibraryEventType,
 } from './events.js'
 
-export { hydrateSerializedEvent, normalizeEventPersistence } from './events.js'
+export { DEBUG_EVENT_TYPES, hydrateSerializedEvent, normalizeEventPersistence } from './events.js'
 
 // Validation
 export type { ValidationError, ValidationResult } from './validation.js'

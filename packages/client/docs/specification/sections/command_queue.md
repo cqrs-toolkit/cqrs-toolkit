@@ -327,83 +327,173 @@ The Command Queue natively supports commands that include file uploads.
 
 Files attached to commands are stored **separately from the command record**:
 
-- The command record in SQLite stores:
-  - `fileHandles: FileHandle[]` — references to stored files
-  - File metadata (name, size, MIME type, checksum)
-
+- The command record in SQLite stores a `fileRefs: FileRef[]` — metadata and OPFS path references for each attached file.
 - The actual file bytes are stored in:
-  - **OPFS** (when available) — preferred for offline modes
-  - **In-memory** (online-only mode) — files held as `Blob` or `ArrayBuffer`
+  - **OPFS** (Mode B and C) — written by the window context using the async OPFS API before the command is enqueued. Files persist across page reloads and browser restarts.
+  - **In-memory** (Mode A / online-only) — files are held as `Blob` references in the command payload. Not persisted. Lost on reload, which is acceptable since Mode A makes no persistence guarantees.
 
-This separation ensures:
+This separation ensures SQLite remains fast (no large blobs in the database), and that files can be cleaned up independently of command records.
 
-- SQLite remains fast (no large blobs in the database)
-- Files survive page reloads in offline modes
-- Files can be cleaned up independently of command records
-
-### 3.14.2 FileHandle schema
+### 3.14.2 FileRef schema
 
 ```ts
-interface FileHandle {
-  id: string // Unique file identifier
+interface FileRef {
+  id: string // Unique file identifier (e.g. uuid)
   commandId: string // Owning command
   filename: string // Original filename
   mimeType: string // MIME type
-  sizeBytes: number // File size
-  checksum?: string // Optional integrity check (e.g., SHA-256)
-  storagePath: string // OPFS path or in-memory key
-  storageType: 'opfs' | 'memory'
-  createdAt: number
+  sizeBytes: number // File size in bytes
+  checksum?: string // Optional integrity check (e.g. SHA-256 hex)
+  storagePath: string // OPFS path — e.g. /cqrs-client/uploads/{commandId}/{fileId}
+  createdAt: number // Unix timestamp ms
 }
 ```
 
-### 3.14.3 OPFS file storage
+`FileRef` is only persisted in SQLite in Mode B/C.
+In Mode A, file references are held in memory alongside the command and carry no `storagePath`.
 
-When OPFS is available (offline modes):
+### 3.14.3 OPFS file storage (Mode B and C)
 
-- Files are written to OPFS under a dedicated directory (e.g., `/cqrs-client/uploads/`)
-- File path: `/{commandId}/{fileId}` or similar structure
-- Files persist across page reloads and browser restarts
-- On command success: files may be deleted or retained based on configuration
-- On command failure/cancellation: files are deleted
-- On session reset: all files are deleted
+The window context is responsible for writing files to OPFS **before** enqueuing the command.
+The async OPFS API (`navigator.storage.getDirectory()`, `getFileHandle()`, `createWritable()`) is available on the main thread and is used for this write.
 
-### 3.14.4 In-memory file storage
+Path scheme: `/cqrs-client/uploads/{commandId}/{fileId}`
 
-When OPFS is not available (online-only mode):
+The worker never writes to the uploads directory.
+It reads files from OPFS by path (using `getFileHandle()` from `navigator.storage.getDirectory()`) when executing or retrying the upload command.
 
-- Files are held in memory as `Blob` or `ArrayBuffer`
-- A `Map<string, Blob>` or similar structure maintains file references
-- Files are lost on page reload (acceptable for online-only mode)
-- Memory pressure may require limiting total file size
+**Lifecycle:**
 
-### 3.14.5 File lifecycle
+1. Window writes file bytes to OPFS path, obtains the path string.
+2. Window enqueues command with `fileRefs` referencing the OPFS path.
+3. If command enqueue fails after the file has been written, the file is orphaned — see §3.14.5 (orphan cleanup).
+4. Worker reads file from OPFS path when executing the upload.
+5. **Files are deleted when their owning command is deleted.** Command deletion is the single cleanup trigger, regardless of the reason for deletion (success, failure, cancellation, session reset, or debug mode expiry). There are no separate per-outcome cleanup rules.
 
-1. **Attachment**: When a command with files is enqueued:
-   - Files are immediately written to OPFS (or memory)
-   - FileHandles are created and stored with the command
-   - Command payload references files by handle ID
+### 3.14.4 In-memory file storage (Mode A)
 
-2. **Upload**: When the command is sent:
-   - Files are read from storage and included in the request
-   - Upload progress may be tracked per-file
+In online-only mode, files are held as `Blob` references directly in the in-memory command record.
+No OPFS write occurs.
+Files are lost on page reload, which is acceptable — Mode A makes no persistence guarantees and upload commands are expected to complete within the session.
 
-3. **Completion**: When the command succeeds:
-   - Files may be deleted immediately, or
-   - Retained temporarily for retry scenarios, then cleaned up
+There is no `storagePath` in Mode A file references.
+The command payload carries the blob directly.
 
-4. **Failure/Cancellation**:
-   - Files are deleted when the command is resolved
+### 3.14.5 Orphan cleanup
 
-5. **Session reset**:
-   - All files are deleted along with command data
+An orphaned file is a file present in `/cqrs-client/uploads/` with no corresponding command record in SQLite.
+Orphans can occur if:
 
-### 3.14.6 Fallback behavior
+- The window wrote a file to OPFS but the subsequent command enqueue failed.
+- A crash occurred between the file write and the SQLite commit.
 
-If OPFS write fails (quota exceeded, permission denied):
+On library startup (Mode B/C), the library must scan `/cqrs-client/uploads/` and delete any files whose `commandId` path segment does not correspond to an existing command record in SQLite.
+This scan is performed by the worker after SQLite is initialized.
 
-- Attempt to fall back to in-memory storage
-- If memory storage also fails, reject the command enqueue
-- Emit appropriate error event
+### 3.14.6 Upload strategies
+
+File upload execution is delegated to a consumer-configured upload strategy.
+The library provides two first-party strategies:
+
+**Direct API upload**
+
+The library POSTs the file directly to a consumer-configured endpoint.
+
+```ts
+interface DirectUploadStrategy {
+  type: 'direct'
+  url: string | ((command: Command) => string)
+  headers?: Record<string, string> | ((command: Command) => Record<string, string>)
+}
+```
+
+**S3 presigned upload**
+
+The library fetches a presigned URL or presigned form fields from a consumer-configured endpoint, then uploads the file directly to S3 (or compatible storage).
+
+```ts
+interface S3PresignedUploadStrategy {
+  type: 's3-presigned'
+  presignEndpoint: string | ((command: Command) => string)
+  // Library fetches presign response, then POSTs directly to S3
+}
+```
+
+The active strategy is provided at library initialization and applies to all file upload commands.
+The library passes the file — either read from OPFS by path or from the in-memory blob — to the strategy implementation. The strategy is not aware of how the file was stored.
+
+### 3.14.7 OPFS write failure
+
+If the OPFS write fails when the window attempts to stage a file (quota exceeded, permission error, or any other reason):
+
+- The command enqueue is rejected with an appropriate error.
+- No partial state is written — if the file write fails, the command is never submitted to the worker.
+- The library emits a storage error event the host application can handle (e.g. to inform the user).
+
+There is no per-file fallback from OPFS to in-memory in worker modes.
+The storage backend is determined at startup by mode selection.
+Silent per-file fallback would produce inconsistent state across the command queue and is not supported.
 
 ---
+
+### 3.14.8 File persistence guarantees
+
+The library supports two levels of file persistence guarantee.
+The weak guarantee is the current implementation target.
+The strong guarantee is deferred pending server protocol definition.
+
+---
+
+#### Weak guarantee (current implementation)
+
+**File lifetime matches command lifetime exactly.**
+
+A file exists in OPFS for as long as its owning command exists in SQLite.
+The file is deleted when the command is deleted, for any reason.
+The library makes no attempt to associate the local file with the resulting server asset or read model record.
+
+This guarantee is unconditional — it requires no server contract and no event correlation.
+In debug mode, where commands are retained after success rather than immediately deleted, files are retained for the same duration automatically.
+
+The UI may display the local OPFS file as a preview while the command is pending (the file is guaranteed to exist for the lifetime of the command). Once the command is deleted and the server URL is available in the read model, the UI transitions to the server URL. There is no library-managed handoff between the two — the transition is a natural consequence of command deletion and read model hydration.
+
+---
+
+#### Strong guarantee (deferred — requires server protocol)
+
+**Local file is served from OPFS as the canonical source for the read model record, for as long as it exists locally, without requiring a re-download.**
+
+This eliminates the need for the user to re-download a file they just uploaded, even after the command has been processed and the read model has been hydrated with the server asset. This is particularly valuable for users on slow or intermittent connections who should never pay the cost of downloading content they just uploaded.
+
+This association is non-trivial under the S3 presigned upload model, where the upload path is:
+
+```
+Client upload → S3 → S3 event → Server processing → Server event → Client event → Read model
+```
+
+The `commandId` must be propagated through this entire chain to allow the library to close the loop.
+This is achievable because the monorepo server utilities own the server contract — `commandId` propagation through confirmation events is a library protocol requirement that server utilities will fulfill automatically. Consumers do not need to implement this manually.
+
+**Required server protocol (to be defined):**
+
+- The presign request must carry the `commandId`.
+- The server must persist the `commandId` alongside the asset record.
+- The confirmation event delivered to the client must include the original `commandId`.
+- The library matches the incoming event to the pending command by `commandId` and establishes the association between the OPFS file and the resulting asset ID in the read model.
+
+**Read model integration under strong guarantee:**
+
+Once the association is established, the library annotates the read model record for the asset with a local file reference.
+When the read model is queried, the library resolves asset URLs with the following priority:
+
+1. Local OPFS file (if the originating command still exists and the file is present)
+2. Server URL (CDN or direct)
+
+This resolution is transparent to the UI — the query interface returns a resolved URL regardless of source.
+The local file serves as an instant-load cache that degrades gracefully to the server URL as the command is eventually cleaned up.
+
+**Implementation note:**
+
+The strong guarantee will be designed and implemented once the server protocol for `commandId` propagation is finalized.
+The weak guarantee implementation must not preclude upgrading to the strong guarantee.
+Specifically, the `FileRef` schema, OPFS path scheme, and command lifecycle hooks should be designed with the upgrade path in mind — the strong guarantee adds association and read model annotation on top of the existing file lifecycle, it does not replace it.

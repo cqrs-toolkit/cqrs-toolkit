@@ -17,6 +17,7 @@
     "build": "tsc --build tsconfig.build.json && npm run compile --workspaces --if-present",
     "test": "vitest --project unit-*",
     "test:run": "vitest --project unit-* --run",
+    "dev": "npm run dev -w @cqrs-toolkit/todo-demo",
     "docs": "npm run docs --workspaces --if-present",
     "format:all": "prettier --write packages demos",
     "test:e2e": "npx playwright test --config demos/todo-demo/playwright.config.ts",

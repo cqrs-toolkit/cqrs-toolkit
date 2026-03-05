@@ -8,14 +8,12 @@
 
 > **startSharedWorker**(`config`): `void`
 
-Defined in: packages/client/src/adapters/worker-core/startSharedWorker.ts:46
+Defined in: packages/client/src/adapters/worker-core/startSharedWorker.ts:106
 
 Bootstrap a SharedWorker with CQRS orchestration.
 
-Creates the message handler and orchestrator, sets up connection handling,
-and starts liveness checks for dead windows. The main thread's adapter
-calls `orchestrator.initialize` to trigger component creation, passing
-the sqlite worker URL as an RPC argument.
+Creates the message handler, orchestrator, and coordinator logic for
+managing per-tab SQLite workers and active tab routing.
 
 ## Parameters
 

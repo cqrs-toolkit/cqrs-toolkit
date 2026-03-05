@@ -34,7 +34,7 @@ Defined in: packages/client/src/core/sync-manager/SyncManager.ts:96
 
 > **clearKnownRevisions**(`streamIds`): `void`
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:854
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:858
 
 Clear known revisions for specific streams.
 Used when a cache key is evicted and the associated stream state is no longer valid.
@@ -118,7 +118,7 @@ Get connectivity manager.
 
 > **processResponseEvents**(`events`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:866
+Defined in: packages/client/src/core/sync-manager/SyncManager.ts:870
 
 Process command response events.
 Events are processed immediately for fast UI feedback. If a gap is detected

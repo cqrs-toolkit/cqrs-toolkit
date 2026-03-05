@@ -10,6 +10,7 @@ pids
 
 # Coverage directory
 coverage
+/demos/todo-demo/test-results/
 
 # Dependency directories
 node_modules

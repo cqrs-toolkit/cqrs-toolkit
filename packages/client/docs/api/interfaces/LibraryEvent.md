@@ -6,7 +6,7 @@
 
 # Interface: LibraryEvent\<T\>
 
-Defined in: packages/client/src/types/events.ts:85
+Defined in: packages/client/src/types/events.ts:93
 
 Typed library event.
 
@@ -22,7 +22,7 @@ Typed library event.
 
 > **payload**: [`LibraryEventPayloads`](LibraryEventPayloads.md)\[`T`\]
 
-Defined in: packages/client/src/types/events.ts:87
+Defined in: packages/client/src/types/events.ts:95
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: packages/client/src/types/events.ts:87
 
 > **timestamp**: `number`
 
-Defined in: packages/client/src/types/events.ts:88
+Defined in: packages/client/src/types/events.ts:96
 
 ---
 
@@ -38,4 +38,4 @@ Defined in: packages/client/src/types/events.ts:88
 
 > **type**: `T`
 
-Defined in: packages/client/src/types/events.ts:86
+Defined in: packages/client/src/types/events.ts:94

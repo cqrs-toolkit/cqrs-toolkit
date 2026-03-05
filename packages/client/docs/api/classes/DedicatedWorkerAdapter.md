@@ -6,14 +6,14 @@
 
 # Class: DedicatedWorkerAdapter
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:54
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:62
 
 Dedicated Worker adapter for single-tab offline support.
 
 This adapter:
 
+- Acquires a Web Lock to enforce single-tab operation
 - Connects to a Dedicated Worker that owns all CQRS components
-- Enforces single-tab operation via tab lock
 - Provides proxy objects for main-thread consumers
 
 ## Implements
@@ -26,7 +26,7 @@ This adapter:
 
 > **new DedicatedWorkerAdapter**(`config`): `DedicatedWorkerAdapter`
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:72
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:78
 
 #### Parameters
 
@@ -44,7 +44,7 @@ Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter
 
 > `readonly` **mode**: `"dedicated-worker"`
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:55
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:63
 
 #### Implementation of
 
@@ -58,7 +58,7 @@ Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter
 
 > **get** **cacheManager**(): [`ICacheManager`](../interfaces/ICacheManager.md)
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:96
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:101
 
 ##### Returns
 
@@ -76,7 +76,7 @@ Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter
 
 > **get** **commandQueue**(): [`ICommandQueue`](../interfaces/ICommandQueue.md)
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:86
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:91
 
 ##### Returns
 
@@ -94,7 +94,7 @@ Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter
 
 > **get** **events$**(): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:81
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:86
 
 Observable of library events.
 
@@ -116,7 +116,7 @@ Observable of library events.
 
 > **get** **queryManager**(): [`IQueryManager`](../interfaces/IQueryManager.md)
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:91
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:96
 
 ##### Returns
 
@@ -134,7 +134,7 @@ Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter
 
 > **get** **status**(): [`AdapterStatus`](../type-aliases/AdapterStatus.md)
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:77
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:82
 
 Current adapter status.
 
@@ -156,7 +156,7 @@ Current adapter status.
 
 > **get** **syncManager**(): [`CqrsClientSyncManager`](../interfaces/CqrsClientSyncManager.md)
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:101
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:106
 
 ##### Returns
 
@@ -172,7 +172,7 @@ Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:192
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:196
 
 Close the adapter and release resources.
 
@@ -190,9 +190,11 @@ Close the adapter and release resources.
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:111
+Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:118
 
 Initialize the adapter.
+
+Acquires a Web Lock for single-tab enforcement before spawning the worker.
 
 #### Returns
 

@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / isResponseMessage
 
@@ -8,7 +8,7 @@
 
 > **isResponseMessage**(`msg`): `msg is ResponseMessage`
 
-Defined in: packages/client/src/protocol/messages.ts:186
+Defined in: packages/client/src/protocol/messages.ts:154
 
 ## Parameters
 

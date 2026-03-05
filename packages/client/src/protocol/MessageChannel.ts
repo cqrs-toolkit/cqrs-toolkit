@@ -34,9 +34,6 @@ import type {
   ResponseMessage,
   RestoreHoldsRequest,
   RestoreHoldsResponse,
-  TabLockRelease,
-  TabLockRequest,
-  TabLockResponse,
   UnregisterWindowMessage,
   WorkerInstanceMessage,
   WorkerMessage,
@@ -258,50 +255,6 @@ export class WorkerMessageChannel {
   }
 
   /**
-   * Request tab lock (single-tab modes).
-   *
-   * @param tabId - Tab identifier
-   * @returns Lock response
-   */
-  async requestTabLock(tabId: string): Promise<TabLockResponse> {
-    const requestId = generateId()
-
-    const request: TabLockRequest = {
-      type: 'tab-lock',
-      requestId,
-      tabId,
-    }
-
-    const responsePromise = firstValueFrom(
-      this.messages$.pipe(
-        filter(
-          (msg): msg is TabLockResponse =>
-            msg.type === 'tab-lock-response' && msg.requestId === requestId,
-        ),
-        take(1),
-        timeout(this.config.requestTimeout),
-      ),
-    )
-
-    this.send(request)
-
-    return responsePromise
-  }
-
-  /**
-   * Release tab lock.
-   *
-   * @param tabId - Tab identifier
-   */
-  releaseTabLock(tabId: string): void {
-    const message: TabLockRelease = {
-      type: 'tab-lock-release',
-      tabId,
-    }
-    this.send(message)
-  }
-
-  /**
    * Get observable of library events.
    */
   get libraryEvents$(): Observable<EventMessage> {
@@ -350,6 +303,10 @@ export class WorkerMessageHandler {
     | ((data: RestoreHoldsRequest) => Promise<{ restoredKeys: string[]; failedKeys: string[] }>)
     | undefined
 
+  private rawMessageHook:
+    | ((event: MessageEvent, port: MessagePort | undefined) => boolean)
+    | undefined
+
   private methodHandlers = new Map<
     string,
     (args: unknown[], context: RequestContext) => Promise<unknown>
@@ -371,6 +328,17 @@ export class WorkerMessageHandler {
   }
 
   /**
+   * Set a hook that intercepts raw MessageEvents before standard handling.
+   *
+   * Used by startSharedWorker to intercept coordinator protocol messages
+   * (which include `event.ports` Transferables) before standard deserialization.
+   * The hook returns `true` if it handled the message (suppressing normal handling).
+   */
+  setRawMessageHook(hook: (event: MessageEvent, port: MessagePort | undefined) => boolean): void {
+    this.rawMessageHook = hook
+  }
+
+  /**
    * Handle a new connection (SharedWorker).
    *
    * @param port - MessagePort from the connect event
@@ -379,6 +347,7 @@ export class WorkerMessageHandler {
     this.connectedPorts.add(port)
 
     port.onmessage = (event) => {
+      if (this.rawMessageHook?.(event, port)) return
       this.handleMessage(event.data, port)
     }
 
@@ -554,10 +523,6 @@ export class WorkerMessageHandler {
       this.handleUnregister(data)
     } else if (data.type === 'restore-holds') {
       this.handleRestoreHolds(data, port)
-    } else if (data.type === 'tab-lock') {
-      this.handleTabLock(data, port)
-    } else if (data.type === 'tab-lock-release') {
-      this.handleTabLockRelease(data)
     } else if ('method' in data && 'args' in data) {
       this.handleRequest(data as RequestMessage, port)
     }
@@ -621,35 +586,6 @@ export class WorkerMessageHandler {
       this.sendToPort(port, response)
     } else {
       this.sendResponse(response)
-    }
-  }
-
-  private tabLockHolder: string | undefined
-
-  private handleTabLock(data: TabLockRequest, port: MessagePort | undefined): void {
-    const acquired = !this.tabLockHolder || this.tabLockHolder === data.tabId
-
-    if (acquired) {
-      this.tabLockHolder = data.tabId
-    }
-
-    const response: TabLockResponse = {
-      type: 'tab-lock-response',
-      requestId: data.requestId,
-      acquired,
-      currentHolder: acquired ? undefined : this.tabLockHolder,
-    }
-
-    if (port) {
-      this.sendToPort(port, response)
-    } else {
-      this.sendResponse(response)
-    }
-  }
-
-  private handleTabLockRelease(data: TabLockRelease): void {
-    if (this.tabLockHolder === data.tabId) {
-      this.tabLockHolder = undefined
     }
   }
 
