@@ -516,6 +516,12 @@ export class SQLiteStorage implements IStorage {
     await this.exec('DELETE FROM read_models WHERE collection = ?', [collection])
   }
 
+  async getReadModelCount(): Promise<number> {
+    this.assertInitialized()
+    const rows = await this.query<{ count: number }>('SELECT COUNT(*) as count FROM read_models')
+    return rows[0]?.count ?? 0
+  }
+
   // Private helpers
 
   private async createSchema(): Promise<void> {

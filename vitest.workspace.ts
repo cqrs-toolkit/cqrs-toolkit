@@ -4,5 +4,6 @@ export default defineWorkspace([
   'packages/realtime/vite.config.ts',
   'packages/client/vite.config.ts',
   'packages/client-solid/vite.config.ts',
+  'packages/devtools/vite.config.ts',
   'demos/todo-demo/vite.server.config.ts',
 ])

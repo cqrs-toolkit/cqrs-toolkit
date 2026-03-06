@@ -49,6 +49,16 @@ Do not use ad-hoc commands like `npx tsc` — they will fail or produce incorrec
 This formats only git-changed files — it removes unused imports, enforces consistent style, and catches issues like stale references.
 Do not use `npm run format:all`.
 
+## Task Completion Checklist
+
+Before marking any task complete, run these steps in order:
+
+1. `npm run format` — after all edits
+2. `npm run build` — fix any type errors before continuing; never use `as`, `!`, or `any` to silence them
+3. `npm run test:run` — or targeted test if scope is clear
+
+Do not skip steps. Do not substitute ad-hoc commands.
+
 ## Package Boundaries
 
 Do not add, remove, or modify `exports` or `imports` fields in any `package.json` without explicit instruction.

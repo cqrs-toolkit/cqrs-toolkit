@@ -12,7 +12,7 @@ export type {
   LibraryEventType,
 } from './events.js'
 
-export { DEBUG_EVENT_TYPES, hydrateSerializedEvent, normalizeEventPersistence } from './events.js'
+export { hydrateSerializedEvent, normalizeEventPersistence } from './events.js'
 
 // Validation
 export type { ValidationError, ValidationResult } from './validation.js'
@@ -93,6 +93,9 @@ export { DEFAULT_CONFIG, resolveConfig } from './config.js'
 
 // Re-export ICommandSender from config's dependency for convenience
 export type { ICommandSender } from '../core/command-queue/types.js'
+
+// Debug
+export type { CqrsDebugAPI, CqrsDevToolsHook } from './debug.js'
 
 // Re-export ddd-es event types for consumer convenience
 export type { IPersistedEvent, ISerializedEvent } from '@meticoeus/ddd-es'

@@ -8,9 +8,24 @@ export default function App(props: RouteSectionProps) {
   const [wsConnection, setWsConnection] = createSignal('disconnected')
   const [wsTopics, setWsTopics] = createSignal<readonly string[]>([])
 
-  const sub = client.syncManager.connectivity.state.subscribe((state) => {
-    setWsConnection(state.wsConnection)
-    setWsTopics(state.wsTopics)
+  const sub = client.events$.subscribe((event) => {
+    switch (event.type) {
+      case 'ws:connecting':
+        setWsConnection('connecting')
+        break
+      case 'ws:connected':
+        setWsConnection('connected')
+        break
+      case 'ws:disconnected':
+        setWsConnection('disconnected')
+        setWsTopics([])
+        break
+      case 'ws:subscribed': {
+        const payload = event.payload as { topics: readonly string[] }
+        setWsTopics((prev) => Array.from(new Set([...prev, ...payload.topics])))
+        break
+      }
+    }
   })
   onCleanup(() => sub.unsubscribe())
 

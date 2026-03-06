@@ -14,6 +14,13 @@ export class EventBus {
   private readonly subject = new Subject<LibraryEvent>()
 
   /**
+   * Whether debug events are enabled.
+   * Mutable so the worker can enable debug after startup via RPC.
+   * When false, `emitDebug()` is a no-op.
+   */
+  debug = false
+
+  /**
    * Observable of all library events.
    */
   readonly events$: Observable<LibraryEvent>
@@ -34,6 +41,25 @@ export class EventBus {
       type,
       payload,
       timestamp: Date.now(),
+    }
+    this.subject.next(event)
+  }
+
+  /**
+   * Emit a debug-only library event.
+   * No-op when `this.debug` is false. When enabled, emits with `debug: true`
+   * on the envelope so consumers can distinguish debug events.
+   *
+   * @param type - Event type
+   * @param payload - Event payload
+   */
+  emitDebug<T extends LibraryEventType>(type: T, payload: LibraryEventPayloads[T]): void {
+    if (!this.debug) return
+    const event: LibraryEvent<T> = {
+      type,
+      payload,
+      timestamp: Date.now(),
+      debug: true,
     }
     this.subject.next(event)
   }

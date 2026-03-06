@@ -24,8 +24,6 @@ export class ConnectivityProxy implements IConnectivity {
     this.state$ = new BehaviorSubject<ConnectivityState>({
       network: 'unknown',
       serverReachable: 'unknown',
-      wsConnection: 'disconnected',
-      wsTopics: [],
     })
 
     // Track broadcast events to update local state
@@ -42,21 +40,6 @@ export class ConnectivityProxy implements IConnectivity {
           })
           break
         }
-        case 'ws:connecting':
-          this.state$.next({ ...current, wsConnection: 'connecting' })
-          break
-        case 'ws:connected':
-          this.state$.next({ ...current, wsConnection: 'connected' })
-          break
-        case 'ws:subscribed': {
-          const payload = event.payload as { topics: readonly string[] }
-          const merged = Array.from(new Set([...current.wsTopics, ...payload.topics]))
-          this.state$.next({ ...current, wsTopics: merged })
-          break
-        }
-        case 'ws:disconnected':
-          this.state$.next({ ...current, wsConnection: 'disconnected', wsTopics: [] })
-          break
       }
     })
   }

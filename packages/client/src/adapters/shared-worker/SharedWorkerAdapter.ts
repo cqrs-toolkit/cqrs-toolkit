@@ -75,6 +75,7 @@ export class SharedWorkerAdapter implements IWorkerAdapter {
   private readonly destroy$ = new Subject<void>()
 
   private _status: AdapterStatus = 'uninitialized'
+  private _isActive = false
   private _commandQueue: CommandQueueProxy | undefined
   private _queryManager: QueryManagerProxy | undefined
   private _cacheManager: CacheManagerProxy | undefined
@@ -125,6 +126,15 @@ export class SharedWorkerAdapter implements IWorkerAdapter {
     return this._syncManager
   }
 
+  get role(): 'leader' | 'standby' {
+    return this._isActive ? 'leader' : 'standby'
+  }
+
+  async enableDebug(): Promise<void> {
+    assert(this.channel, 'Adapter not initialized')
+    await this.channel.request('debug.enable')
+  }
+
   /**
    * Initialize the adapter.
    *
@@ -171,6 +181,7 @@ export class SharedWorkerAdapter implements IWorkerAdapter {
             type: event.eventName as LibraryEvent['type'],
             payload: event.payload as LibraryEvent['payload'],
             timestamp: Date.now(),
+            debug: event.debug,
           }),
         ),
       )
@@ -218,6 +229,7 @@ export class SharedWorkerAdapter implements IWorkerAdapter {
       // becomes active, it notifies the SharedWorker. The lock auto-releases
       // when the tab unloads.
       navigator.locks.request(ACTIVE_TAB_LOCK_NAME, () => {
+        this._isActive = true
         this.sharedWorker?.port.postMessage(
           serialize({ type: 'coordinator:set-active', windowId: this.windowId }),
         )

@@ -14,7 +14,7 @@
  */
 
 import { Err, Ok, logProvider } from '@meticoeus/ddd-es'
-import { type Observable, filter } from 'rxjs'
+import type { Observable } from 'rxjs'
 import type {
   AdapterStatus,
   IAdapter,
@@ -59,9 +59,16 @@ import type {
   ResolvedConfig,
 } from './types/config.js'
 import { resolveConfig } from './types/config.js'
+import type { CqrsDevToolsHook } from './types/debug.js'
 import type { EventPersistence, LibraryEvent } from './types/events.js'
-import { DEBUG_EVENT_TYPES } from './types/events.js'
 import { assert } from './utils/assert.js'
+
+/**
+ * Window type augmentation for devtools hook detection.
+ */
+interface WindowWithDevtools extends Window {
+  __CQRS_TOOLKIT_DEVTOOLS__?: CqrsDevToolsHook
+}
 
 /**
  * Restricted view of SyncManager exposed to consumers.
@@ -101,7 +108,6 @@ export class CqrsClient {
 
   private readonly adapter: IAdapter
   private readonly closeResources: () => Promise<void>
-  private readonly _events$: Observable<LibraryEvent>
 
   constructor(
     adapter: IAdapter,
@@ -111,7 +117,6 @@ export class CqrsClient {
     syncManager: CqrsClientSyncManager,
     closeResources: () => Promise<void>,
     mode: ExecutionMode,
-    debug: boolean,
   ) {
     this.adapter = adapter
     this.cacheManager = cacheManager
@@ -120,9 +125,6 @@ export class CqrsClient {
     this.syncManager = syncManager
     this.closeResources = closeResources
     this.mode = mode
-    this._events$ = debug
-      ? this.adapter.events$
-      : this.adapter.events$.pipe(filter((e) => !DEBUG_EVENT_TYPES.has(e.type)))
   }
 
   /**
@@ -241,7 +243,7 @@ export class CqrsClient {
 
   /** Observable of all library events. */
   get events$(): Observable<LibraryEvent> {
-    return this._events$
+    return this.adapter.events$
   }
 
   /** Current adapter status. */
@@ -313,15 +315,36 @@ export async function createCqrsClient(config: CqrsClientConfig): Promise<CqrsCl
   )
 
   // Two paths based on adapter type
+  let client: CqrsClient
   try {
     if (adapter.mode === 'online-only') {
-      return createOnlineOnlyClient(adapter, resolved, mode)
+      client = await createOnlineOnlyClient(adapter, resolved, mode)
+    } else {
+      client = await createWorkerClient(adapter, mode, resolved.debug)
     }
-    return createWorkerClient(adapter, mode, resolved.debug)
   } catch (error) {
     await adapter.close()
     throw error
   }
+
+  // Register debug API on window hook if available
+  if (resolved.debug && typeof window !== 'undefined') {
+    const hook = (window as WindowWithDevtools).__CQRS_TOOLKIT_DEVTOOLS__
+    if (hook) {
+      hook.registerClient({
+        events$: client.events$,
+        commandQueue: client.commandQueue,
+        queryManager: client.queryManager,
+        cacheManager: client.cacheManager,
+        syncManager: client.syncManager,
+        storage: adapter.mode === 'online-only' ? adapter.storage : undefined,
+        config: resolved,
+        role: adapter.role ?? 'leader',
+      })
+    }
+  }
+
+  return client
 }
 
 /**
@@ -450,21 +473,28 @@ async function createOnlineOnlyClient(
     syncManagerFacade,
     closeResources,
     mode,
-    resolved.debug,
   )
 }
 
 /**
  * Worker path: wrap the adapter's proxy objects.
  * All components live in the worker — this side is thin.
+ *
+ * If debug is enabled, sends a `debug.enable` RPC to the worker so it
+ * starts emitting debug events. This is one-way and idempotent.
  */
-function createWorkerClient(
+async function createWorkerClient(
   adapter: IWorkerAdapter,
   mode: ExecutionMode,
   debug: boolean,
-): CqrsClient {
+): Promise<CqrsClient> {
   const { commandQueue, cacheManager, syncManager } = adapter
   const stableQueryManager = new StableRefQueryManager(adapter.queryManager)
+
+  // Enable debug in worker if requested
+  if (debug) {
+    await adapter.enableDebug()
+  }
 
   // Resource cleanup for worker mode — proxies that have local state
   const closeResources = async (): Promise<void> => {
@@ -483,7 +513,6 @@ function createWorkerClient(
     syncManager,
     closeResources,
     mode,
-    debug,
   )
 }
 

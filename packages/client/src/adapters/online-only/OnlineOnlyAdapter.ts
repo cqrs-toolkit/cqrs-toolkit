@@ -20,14 +20,16 @@ import type { AdapterStatus, IOnlineOnlyAdapter } from '../base/IAdapter.js'
  */
 export class OnlineOnlyAdapter implements IOnlineOnlyAdapter {
   readonly mode = 'online-only' as const
+  readonly role = 'leader' as const
   readonly eventBus: EventBus
 
   private _status: AdapterStatus = 'uninitialized'
   private _storage: IStorage | undefined
   private _sessionManager: SessionManager | undefined
 
-  constructor(_config: ResolvedConfig) {
+  constructor(config: ResolvedConfig) {
     this.eventBus = new EventBus()
+    this.eventBus.debug = config.debug
   }
 
   get status(): AdapterStatus {

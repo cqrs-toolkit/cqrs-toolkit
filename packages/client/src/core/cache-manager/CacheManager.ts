@@ -134,6 +134,13 @@ export class CacheManager implements ICacheManager {
       await this.hold(key)
     }
 
+    this.eventBus.emitDebug('cache:key-acquired', {
+      key,
+      collection,
+      params,
+      evictionPolicy: record.evictionPolicy,
+    })
+
     return key
   }
 

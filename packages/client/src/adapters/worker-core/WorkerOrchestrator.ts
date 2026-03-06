@@ -40,6 +40,7 @@ import type {
 import { probeOpfs } from './probeOpfs.js'
 import { registerCacheManagerMethods } from './registerCacheManagerMethods.js'
 import { registerCommandQueueMethods } from './registerCommandQueueMethods.js'
+import { registerDebugMethods } from './registerDebugMethods.js'
 import { registerQueryManagerMethods } from './registerQueryManagerMethods.js'
 import { registerSyncManagerMethods } from './registerSyncManagerMethods.js'
 
@@ -111,7 +112,7 @@ export class WorkerOrchestrator {
     const eventBus = new EventBus()
     this.eventBus = eventBus
     this.eventBroadcastSub = eventBus.events$.subscribe((event) => {
-      this.messageHandler.broadcastEvent(event.type, event.payload)
+      this.messageHandler.broadcastEvent(event.type, event.payload, event.debug)
     })
 
     // 4. Create SessionManager
@@ -211,6 +212,22 @@ export class WorkerOrchestrator {
     registerQueryManagerMethods(this.messageHandler, queryManager)
     registerCacheManagerMethods(this.messageHandler, cacheManager)
     registerSyncManagerMethods(this.messageHandler, syncManager, sessionManager)
+
+    // 15b. Register debug.enable RPC — enables debug events and lazily registers
+    // debug snapshot methods on first call.
+    let debugRegistered = false
+    this.messageHandler.registerMethod('debug.enable', async () => {
+      eventBus.debug = true
+      if (!debugRegistered) {
+        debugRegistered = true
+        registerDebugMethods(this.messageHandler, {
+          commandQueue,
+          cacheManager,
+          syncManager,
+          storage,
+        })
+      }
+    })
 
     // 15. Start sync
     await syncManager.start()

@@ -41,6 +41,13 @@ interface IAdapterBase {
   readonly events$: Observable<LibraryEvent>
 
   /**
+   * Role of this client instance.
+   * 'leader' = active writer (online-only, dedicated-worker, or active shared-worker tab).
+   * 'standby' = shared-worker tab waiting for active-tab lock.
+   */
+  readonly role?: 'leader' | 'standby'
+
+  /**
    * Initialize the adapter.
    */
   initialize(): Promise<void>
@@ -73,6 +80,13 @@ export interface IWorkerAdapter extends IAdapterBase {
   readonly queryManager: IQueryManager
   readonly cacheManager: ICacheManager
   readonly syncManager: CqrsClientSyncManager
+
+  /**
+   * Enable debug mode in the worker.
+   * Sends a `debug.enable` RPC so the worker starts emitting debug events.
+   * One-way and idempotent — no disable path.
+   */
+  enableDebug(): Promise<void>
 }
 
 /**

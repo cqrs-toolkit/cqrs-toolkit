@@ -50,6 +50,8 @@ export interface EventMessage {
   eventName: string
   /** Event payload */
   payload: unknown
+  /** Whether this is a debug-only event */
+  debug?: boolean
 }
 
 /**

@@ -59,6 +59,16 @@ export type LibraryEventType =
   | 'ws:connected'
   | 'ws:subscribed'
   | 'ws:disconnected'
+  | 'sync:ws-event-received'
+  | 'sync:ws-event-processed'
+  | 'sync:gap-detected'
+  | 'sync:gap-repair-started'
+  | 'sync:gap-repair-completed'
+  | 'cache:key-acquired'
+  | 'sync:refetch-scheduled'
+  | 'sync:refetch-executed'
+  | 'command:sent'
+  | 'command:response'
 
 /**
  * Library event payload types.
@@ -85,6 +95,27 @@ export interface LibraryEventPayloads {
   'ws:connected': {}
   'ws:subscribed': { topics: readonly string[] }
   'ws:disconnected': { topics: readonly string[] }
+  'sync:ws-event-received': { event: IPersistedEvent }
+  'sync:ws-event-processed': { event: IPersistedEvent; updatedIds: string[]; invalidated: boolean }
+  'sync:gap-detected': { streamId: string; expected: bigint; received: bigint }
+  'sync:gap-repair-started': { streamId: string; fromRevision: bigint }
+  'sync:gap-repair-completed': { streamId: string; eventCount: number }
+  'cache:key-acquired': {
+    key: string
+    collection: string
+    params?: Record<string, unknown>
+    evictionPolicy: string
+  }
+  'sync:refetch-scheduled': { collection: string; debounceMs: number }
+  'sync:refetch-executed': { collection: string; recordCount: number }
+  'command:sent': {
+    commandId: string
+    correlationId: string
+    service: string
+    type: string
+    payload: unknown
+  }
+  'command:response': { commandId: string; correlationId: string; response: unknown }
 }
 
 /**
@@ -94,18 +125,9 @@ export interface LibraryEvent<T extends LibraryEventType = LibraryEventType> {
   type: T
   payload: LibraryEventPayloads[T]
   timestamp: number
+  /** Whether this event is a debug-only event (emitted via `emitDebug()`). */
+  debug?: boolean
 }
-
-/**
- * Event types that exist purely for debug observability.
- * Filtered from CqrsClient.events$ unless `debug: true` is set in the config.
- */
-export const DEBUG_EVENT_TYPES: ReadonlySet<LibraryEventType> = new Set([
-  'ws:connecting',
-  'ws:connected',
-  'ws:subscribed',
-  'ws:disconnected',
-])
 
 /**
  * Normalize event persistence - missing field means Permanent.

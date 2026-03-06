@@ -343,4 +343,8 @@ export class InMemoryStorage implements IStorage {
       }
     }
   }
+
+  async getReadModelCount(): Promise<number> {
+    return this.readModels.size
+  }
 }

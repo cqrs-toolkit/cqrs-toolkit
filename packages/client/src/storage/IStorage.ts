@@ -307,6 +307,11 @@ export interface IStorage {
    */
   deleteReadModelsByCollection(collection: string): Promise<void>
 
+  /**
+   * Get the total count of read model records.
+   */
+  getReadModelCount(): Promise<number>
+
   // Transaction support (optional)
   /**
    * Begin a transaction.

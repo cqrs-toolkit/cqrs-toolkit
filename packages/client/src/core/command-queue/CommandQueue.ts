@@ -384,8 +384,25 @@ export class CommandQueue implements ICommandQueue {
       lastAttemptAt: Date.now(),
     })
 
+    // Generate correlation ID per send attempt (links retries)
+    const correlationId = generateId()
+
+    this.eventBus.emitDebug('command:sent', {
+      commandId: current.commandId,
+      correlationId,
+      service: current.service,
+      type: current.type,
+      payload: current.payload,
+    })
+
     try {
       const response = await this.commandSender.send(updatedCommand)
+
+      this.eventBus.emitDebug('command:response', {
+        commandId: current.commandId,
+        correlationId,
+        response,
+      })
 
       // Process response events before marking succeeded so the read model
       // is current when waitForCompletion resolves.

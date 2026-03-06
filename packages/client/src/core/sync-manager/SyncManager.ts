@@ -384,8 +384,14 @@ export class SyncManager {
 
   /**
    * Seed a collection from the server.
+   *
+   * @param collection - Collection configuration
+   * @param reason - Why this seed is happening ('initial' for first sync, 'refetch' for invalidation)
    */
-  private async seedCollection(collection: Collection): Promise<void> {
+  private async seedCollection(
+    collection: Collection,
+    reason: 'initial' | 'refetch' = 'initial',
+  ): Promise<void> {
     if (!collection.fetchSeedRecords && !collection.fetchSeedEvents) return
 
     const status = this.collectionStatus.get(collection.name)
@@ -398,11 +404,12 @@ export class SyncManager {
       const cacheKey = await this.cacheManager.acquire(collection.name)
       const ctx = await this.buildFetchContext()
       const pageSize = collection.seedPageSize ?? 100
+      let recordCount = 0
 
       if (collection.fetchSeedRecords) {
-        await this.seedWithRecords(collection, ctx, cacheKey, pageSize)
+        recordCount = await this.seedWithRecords(collection, ctx, cacheKey, pageSize)
       } else if (collection.fetchSeedEvents) {
-        await this.seedWithEvents(collection, ctx, cacheKey, pageSize)
+        recordCount = await this.seedWithEvents(collection, ctx, cacheKey, pageSize)
       }
 
       this.updateCollectionStatus(collection.name, {
@@ -412,6 +419,13 @@ export class SyncManager {
 
       logProvider.log.debug({ collection: collection.name }, 'Collection sync completed')
       this.eventBus.emit('sync:completed', { collection: collection.name, eventCount: 0 })
+
+      if (reason === 'refetch') {
+        this.eventBus.emitDebug('sync:refetch-executed', {
+          collection: collection.name,
+          recordCount,
+        })
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logProvider.log.error({ collection: collection.name, err: error }, 'Collection sync failed')
@@ -426,13 +440,15 @@ export class SyncManager {
 
   /**
    * Seed a collection using pre-computed read model records.
+   *
+   * @returns Total number of records seeded
    */
   private async seedWithRecords(
     collection: Collection,
     ctx: FetchContext,
     cacheKey: string,
     pageSize: number,
-  ): Promise<void> {
+  ): Promise<number> {
     let cursor: string | null = null
     let totalRecords = 0
 
@@ -456,17 +472,21 @@ export class SyncManager {
       cacheKey,
       recordCount: totalRecords,
     })
+
+    return totalRecords
   }
 
   /**
    * Seed a collection using events processed through event processors.
+   *
+   * @returns Total number of events seeded
    */
   private async seedWithEvents(
     collection: Collection,
     ctx: FetchContext,
     cacheKey: string,
     pageSize: number,
-  ): Promise<void> {
+  ): Promise<number> {
     let cursor: string | null = null
     let eventCount = 0
 
@@ -507,6 +527,8 @@ export class SyncManager {
       cacheKey,
       recordCount: eventCount,
     })
+
+    return eventCount
   }
 
   /**
@@ -681,6 +703,8 @@ export class SyncManager {
     const [primaryCollection] = matchingCollections
     if (!primaryCollection) return
 
+    this.eventBus.emitDebug('sync:ws-event-received', { event })
+
     const cacheKey = await this.cacheManager.acquire(primaryCollection.name)
 
     const cached = await this.eventCache.cacheServerEvent(event, { cacheKey })
@@ -692,6 +716,12 @@ export class SyncManager {
     if (persistence === 'Stateful') {
       const parsed = this.toParsedEvent(event, cacheKey)
       const result = await this.eventProcessor.processEvent(parsed)
+
+      this.eventBus.emitDebug('sync:ws-event-processed', {
+        event,
+        updatedIds: result.updatedIds,
+        invalidated: result.invalidated,
+      })
 
       if (result.invalidated) {
         for (const collection of matchingCollections) {
@@ -712,6 +742,12 @@ export class SyncManager {
     const expectedRevision = (this.knownRevisions.get(event.streamId) ?? -1n) + 1n
 
     if (event.revision !== expectedRevision) {
+      this.eventBus.emitDebug('sync:gap-detected', {
+        streamId: event.streamId,
+        expected: expectedRevision,
+        received: event.revision,
+      })
+
       // Gap or out-of-order — event is already in GapBuffer from caching, trigger repair
       if (!this.repairing.has(event.streamId)) {
         await this.repairStreamGap(event.streamId, primaryCollection.name, cacheKey)
@@ -722,6 +758,12 @@ export class SyncManager {
     // Happy path — expected revision, process immediately
     const parsed = this.toParsedEvent(event, cacheKey)
     const result = await this.eventProcessor.processEvent(parsed)
+
+    this.eventBus.emitDebug('sync:ws-event-processed', {
+      event,
+      updatedIds: result.updatedIds,
+      invalidated: result.invalidated,
+    })
 
     // Advance known revision
     this.knownRevisions.set(event.streamId, event.revision)
@@ -752,17 +794,32 @@ export class SyncManager {
     cacheKey: string,
   ): Promise<void> {
     this.repairing.add(streamId)
+
+    const gaps = this.eventCache.getStreamGaps(streamId)
+    const firstGap = gaps[0]
+    const fromRevision = firstGap?.fromPosition ?? -1n
+
+    this.eventBus.emitDebug('sync:gap-repair-started', { streamId, fromRevision })
+
     try {
       const collection = this.collections.find((c) => c.name === collectionName)
       if (!collection?.fetchStreamEvents) {
         // No fetch method — process buffered events as-is (lossy but unblocked)
         await this.processBufferedEventsForStream(streamId, cacheKey)
+        this.eventBus.emitDebug('sync:gap-repair-completed', {
+          streamId,
+          eventCount: 0,
+        })
         return
       }
 
-      const gaps = this.eventCache.getStreamGaps(streamId)
-      const firstGap = gaps[0]
-      if (!firstGap) return
+      if (!firstGap) {
+        this.eventBus.emitDebug('sync:gap-repair-completed', {
+          streamId,
+          eventCount: 0,
+        })
+        return
+      }
 
       // Fetch events after the last known good revision (exclusive)
       const ctx = await this.buildFetchContext()
@@ -776,6 +833,11 @@ export class SyncManager {
 
       // Process all buffered events for this stream in revision order
       await this.processBufferedEventsForStream(streamId, cacheKey)
+
+      this.eventBus.emitDebug('sync:gap-repair-completed', {
+        streamId,
+        eventCount: events.length,
+      })
     } catch (error) {
       logProvider.log.error({ streamId, err: error }, 'Gap repair failed')
       // Events stay buffered — next WS event for this stream will retry
@@ -841,11 +903,19 @@ export class SyncManager {
     const existing = this.pendingRefetches.get(collectionName)
     if (existing !== undefined) clearTimeout(existing)
 
+    this.eventBus.emitDebug('sync:refetch-scheduled', {
+      collection: collectionName,
+      debounceMs: SyncManager.INVALIDATION_REFETCH_DELAY_MS,
+    })
+
     const timer = setTimeout(() => {
       this.pendingRefetches.delete(collectionName)
-      this.syncCollection(collectionName).catch((err) => {
-        logProvider.log.error({ err, collection: collectionName }, 'Invalidation refetch failed')
-      })
+      const config = this.collections.find((c) => c.name === collectionName)
+      if (config) {
+        this.seedCollection(config, 'refetch').catch((err) => {
+          logProvider.log.error({ err, collection: collectionName }, 'Invalidation refetch failed')
+        })
+      }
     }, SyncManager.INVALIDATION_REFETCH_DELAY_MS)
 
     this.pendingRefetches.set(collectionName, timer)

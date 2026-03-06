@@ -14,8 +14,6 @@ import TodosPage from './pages/TodosPage'
 logProvider.setLogger(pino({ level: 'debug', browser: { asObject: false } }))
 
 const client = await initializeClient()
-const session = await fetchSession()
-await client.syncManager.setAuthenticated({ userId: session.userId })
 
 const root = document.getElementById('root')
 if (!root) throw new Error('Missing #root element')
@@ -33,6 +31,10 @@ render(
   ),
   root,
 )
+
+// Authenticate and start sync AFTER UI is mounted and subscribed.
+const session = await fetchSession()
+await client.syncManager.setAuthenticated({ userId: session.userId })
 
 // ── Helpers ──
 

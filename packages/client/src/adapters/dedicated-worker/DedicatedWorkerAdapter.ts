@@ -61,6 +61,7 @@ const TAB_LOCK_NAME = 'cqrs-client-dedicated-tab'
  */
 export class DedicatedWorkerAdapter implements IWorkerAdapter {
   readonly mode = 'dedicated-worker' as const
+  readonly role = 'leader' as const
 
   private readonly config: DedicatedWorkerAdapterConfig
   private readonly destroy$ = new Subject<void>()
@@ -108,6 +109,11 @@ export class DedicatedWorkerAdapter implements IWorkerAdapter {
     return this._syncManager
   }
 
+  async enableDebug(): Promise<void> {
+    assert(this.channel, 'Adapter not initialized')
+    await this.channel.request('debug.enable')
+  }
+
   /**
    * Initialize the adapter.
    *
@@ -153,6 +159,7 @@ export class DedicatedWorkerAdapter implements IWorkerAdapter {
             type: event.eventName as LibraryEvent['type'],
             payload: event.payload as LibraryEvent['payload'],
             timestamp: Date.now(),
+            debug: event.debug,
           }),
         ),
       )

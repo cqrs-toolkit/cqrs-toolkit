@@ -398,12 +398,14 @@ export class WorkerMessageHandler {
    *
    * @param eventName - Event name
    * @param payload - Event payload
+   * @param debug - Whether this is a debug-only event
    */
-  broadcastEvent(eventName: string, payload: unknown): void {
+  broadcastEvent(eventName: string, payload: unknown, debug?: boolean): void {
     const message: EventMessage = {
       type: 'event',
       eventName,
       payload,
+      debug,
     }
 
     if (this.isDedicatedWorker) {

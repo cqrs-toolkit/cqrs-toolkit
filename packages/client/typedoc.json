@@ -3,5 +3,6 @@
   "entryPoints": ["src/index.ts"],
   "tsconfig": "tsconfig.build.json",
   "out": "docs/api",
-  "cleanOutputDir": true
+  "cleanOutputDir": true,
+  "gitRevision": "master"
 }
