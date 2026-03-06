@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / ISerializedEvent
 
@@ -8,7 +8,7 @@
 
 > **ISerializedEvent**\<`Type`, `Data`, `Metadata`\> = `IEvent`\<`Type`, `Data`, `Metadata`\> & `object`
 
-Defined in: node\_modules/@meticoeus/ddd-es/dist/src/types.d.ts:125
+Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:125
 
 ## Type Declaration
 
@@ -42,12 +42,12 @@ Int64 encoded as a string for JSON compatibility
 
 ### Type
 
-`Type` *extends* `string` = `string`
+`Type` _extends_ `string` = `string`
 
 ### Data
 
-`Data` *extends* `DataType` = `DataType`
+`Data` _extends_ `DataType` = `DataType`
 
 ### Metadata
 
-`Metadata` *extends* `EventMetadata` = `EventMetadata`
+`Metadata` _extends_ `EventMetadata` = `EventMetadata`

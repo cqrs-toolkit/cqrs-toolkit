@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / IPersistedEvent
 
@@ -8,7 +8,7 @@
 
 > **IPersistedEvent**\<`Type`, `Data`, `Metadata`\> = `IEvent`\<`Type`, `Data`, `Metadata`\> & `object`
 
-Defined in: node\_modules/@meticoeus/ddd-es/dist/src/types.d.ts:109
+Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:109
 
 ## Type Declaration
 
@@ -38,12 +38,12 @@ ISO 8601 timestamp of when the event was created in the event store
 
 ### Type
 
-`Type` *extends* `string` = `string`
+`Type` _extends_ `string` = `string`
 
 ### Data
 
-`Data` *extends* `DataType` = `DataType`
+`Data` _extends_ `DataType` = `DataType`
 
 ### Metadata
 
-`Metadata` *extends* `EventMetadata` = `EventMetadata`
+`Metadata` _extends_ `EventMetadata` = `EventMetadata`
