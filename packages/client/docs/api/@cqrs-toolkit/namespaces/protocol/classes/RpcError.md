@@ -6,7 +6,7 @@
 
 # Class: RpcError
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:18](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/MessageChannel.ts#L18)
+Defined in: [packages/client/src/protocol/MessageChannel.ts:18](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L18)
 
 Error thrown when an RPC request to the worker fails.
 
@@ -23,7 +23,7 @@ adapter layer can reconstruct typed exceptions (e.g., OpfsUnavailableException).
 
 > **new RpcError**(`message`, `errorCode?`): `RpcError`
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:21](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/MessageChannel.ts#L21)
+Defined in: [packages/client/src/protocol/MessageChannel.ts:21](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L21)
 
 #### Parameters
 
@@ -61,7 +61,7 @@ Defined in: node_modules/typescript/lib/lib.es2022.error.d.ts:26
 
 > `readonly` **errorCode**: `string` \| `undefined`
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:19](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/MessageChannel.ts#L19)
+Defined in: [packages/client/src/protocol/MessageChannel.ts:19](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L19)
 
 ---
 

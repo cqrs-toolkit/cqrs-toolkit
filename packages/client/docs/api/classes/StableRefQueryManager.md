@@ -6,7 +6,7 @@
 
 # Class: StableRefQueryManager
 
-Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:44](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/query-manager/StableRefQueryManager.ts#L44)
+Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:44](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/StableRefQueryManager.ts#L44)
 
 Decorator around IQueryManager that preserves object references for
 items whose (id, updatedAt) pair has not changed since the last query.
@@ -21,7 +21,7 @@ items whose (id, updatedAt) pair has not changed since the last query.
 
 > **new StableRefQueryManager**(`inner`): `StableRefQueryManager`
 
-Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:52](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/query-manager/StableRefQueryManager.ts#L52)
+Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:52](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/StableRefQueryManager.ts#L52)
 
 #### Parameters
 
@@ -39,7 +39,7 @@ Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:52]
 
 > **count**(`collection`): `Promise`\<`number`\>
 
-Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:174](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/query-manager/StableRefQueryManager.ts#L174)
+Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:174](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/StableRefQueryManager.ts#L174)
 
 Get the count of entities in a collection.
 
@@ -67,7 +67,7 @@ Count
 
 > **destroy**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:194](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/query-manager/StableRefQueryManager.ts#L194)
+Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:194](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/StableRefQueryManager.ts#L194)
 
 Destroy the query manager and release resources.
 
@@ -85,7 +85,7 @@ Destroy the query manager and release resources.
 
 > **exists**(`collection`, `id`): `Promise`\<`boolean`\>
 
-Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:170](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/query-manager/StableRefQueryManager.ts#L170)
+Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:170](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/StableRefQueryManager.ts#L170)
 
 Check if an entity exists.
 
@@ -119,7 +119,7 @@ Whether the entity exists
 
 > **getById**\<`T`\>(`collection`, `id`, `options?`): `Promise`\<[`QueryResult`](../interfaces/QueryResult.md)\<`T`\>\>
 
-Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:56](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/query-manager/StableRefQueryManager.ts#L56)
+Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:56](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/StableRefQueryManager.ts#L56)
 
 Get a single entity by ID.
 
@@ -165,7 +165,7 @@ Query result
 
 > **getByIds**\<`T`\>(`collection`, `ids`, `options?`): `Promise`\<`Map`\<`string`, [`QueryResult`](../interfaces/QueryResult.md)\<`T`\>\>\>
 
-Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:78](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/query-manager/StableRefQueryManager.ts#L78)
+Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:78](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/StableRefQueryManager.ts#L78)
 
 Get multiple entities by IDs.
 
@@ -211,7 +211,7 @@ Map of ID to query result
 
 > **hold**(`cacheKey`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:182](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/query-manager/StableRefQueryManager.ts#L182)
+Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:182](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/StableRefQueryManager.ts#L182)
 
 Place a hold on a cache key.
 
@@ -237,7 +237,7 @@ Cache key to hold
 
 > **list**\<`T`\>(`collection`, `options?`): `Promise`\<[`ListQueryResult`](../interfaces/ListQueryResult.md)\<`T`\>\>
 
-Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:106](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/query-manager/StableRefQueryManager.ts#L106)
+Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:106](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/StableRefQueryManager.ts#L106)
 
 List entities in a collection.
 
@@ -277,7 +277,7 @@ List query result
 
 > **release**(`cacheKey`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:186](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/query-manager/StableRefQueryManager.ts#L186)
+Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:186](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/StableRefQueryManager.ts#L186)
 
 Release a hold on a cache key.
 
@@ -303,7 +303,7 @@ Cache key to release
 
 > **releaseAll**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:190](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/query-manager/StableRefQueryManager.ts#L190)
+Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:190](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/StableRefQueryManager.ts#L190)
 
 Release all active holds.
 
@@ -321,7 +321,7 @@ Release all active holds.
 
 > **touch**(`collection`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:178](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/query-manager/StableRefQueryManager.ts#L178)
+Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:178](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/StableRefQueryManager.ts#L178)
 
 Touch the cache key for a collection.
 
@@ -347,7 +347,7 @@ Collection name
 
 > **watchById**\<`T`\>(`collection`, `id`): `Observable`\<`T` \| `undefined`\>
 
-Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:149](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/query-manager/StableRefQueryManager.ts#L149)
+Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:149](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/StableRefQueryManager.ts#L149)
 
 Get an observable that emits when a specific entity changes.
 
@@ -387,7 +387,7 @@ Observable of the entity data
 
 > **watchCollection**(`collection`): `Observable`\<`string`[]\>
 
-Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:145](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/query-manager/StableRefQueryManager.ts#L145)
+Defined in: [packages/client/src/core/query-manager/StableRefQueryManager.ts:145](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/StableRefQueryManager.ts#L145)
 
 Get an observable that emits when data in a collection changes.
 

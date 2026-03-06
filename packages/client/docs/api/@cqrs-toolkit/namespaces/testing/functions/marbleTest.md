@@ -8,7 +8,7 @@
 
 > **marbleTest**(`fn`): () => `void`
 
-Defined in: [packages/client/src/testing/marbleTest.ts:24](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/testing/marbleTest.ts#L24)
+Defined in: [packages/client/src/testing/marbleTest.ts:24](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/testing/marbleTest.ts#L24)
 
 Create a marble test function.
 Uses node:assert's deepStrictEqual for comparison.

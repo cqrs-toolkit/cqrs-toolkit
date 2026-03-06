@@ -8,7 +8,7 @@
 
 > **deserialize**\<`T`\>(`value`): `T`
 
-Defined in: [packages/client/src/protocol/serialization.ts:124](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/serialization.ts#L124)
+Defined in: [packages/client/src/protocol/serialization.ts:124](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/serialization.ts#L124)
 
 Deserialize a value from postMessage.
 Converts serialization markers back to original types.

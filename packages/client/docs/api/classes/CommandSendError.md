@@ -6,7 +6,7 @@
 
 # Class: CommandSendError
 
-Defined in: [packages/client/src/core/command-queue/types.ts:150](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/command-queue/types.ts#L150)
+Defined in: [packages/client/src/core/command-queue/types.ts:150](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/types.ts#L150)
 
 Error thrown when command sending fails.
 
@@ -20,7 +20,7 @@ Error thrown when command sending fails.
 
 > **new CommandSendError**(`message`, `code`, `isRetryable`, `details?`): `CommandSendError`
 
-Defined in: [packages/client/src/core/command-queue/types.ts:151](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/command-queue/types.ts#L151)
+Defined in: [packages/client/src/core/command-queue/types.ts:151](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/types.ts#L151)
 
 #### Parameters
 
@@ -66,7 +66,7 @@ Defined in: node_modules/typescript/lib/lib.es2022.error.d.ts:26
 
 > `readonly` **code**: `string`
 
-Defined in: [packages/client/src/core/command-queue/types.ts:153](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/command-queue/types.ts#L153)
+Defined in: [packages/client/src/core/command-queue/types.ts:153](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/types.ts#L153)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [packages/client/src/core/command-queue/types.ts:153](https://github
 
 > `readonly` `optional` **details**: `unknown`
 
-Defined in: [packages/client/src/core/command-queue/types.ts:155](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/command-queue/types.ts#L155)
+Defined in: [packages/client/src/core/command-queue/types.ts:155](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/types.ts#L155)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [packages/client/src/core/command-queue/types.ts:155](https://github
 
 > `readonly` **isRetryable**: `boolean`
 
-Defined in: [packages/client/src/core/command-queue/types.ts:154](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/command-queue/types.ts#L154)
+Defined in: [packages/client/src/core/command-queue/types.ts:154](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/types.ts#L154)
 
 ---
 

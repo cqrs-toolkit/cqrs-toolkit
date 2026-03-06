@@ -6,7 +6,7 @@
 
 # Interface: ParsedEvent
 
-Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:30](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/EventProcessorRunner.ts#L30)
+Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:30](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-processor/EventProcessorRunner.ts#L30)
 
 Parsed event for processing.
 
@@ -16,7 +16,7 @@ Parsed event for processing.
 
 > **cacheKey**: `string`
 
-Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:39](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/EventProcessorRunner.ts#L39)
+Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:39](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-processor/EventProcessorRunner.ts#L39)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:39
 
 > `optional` **commandId**: `string`
 
-Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:36](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/EventProcessorRunner.ts#L36)
+Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:36](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-processor/EventProcessorRunner.ts#L36)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:36
 
 > **data**: `unknown`
 
-Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:35](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/EventProcessorRunner.ts#L35)
+Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:35](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-processor/EventProcessorRunner.ts#L35)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:35
 
 > **id**: `string`
 
-Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:31](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/EventProcessorRunner.ts#L31)
+Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:31](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-processor/EventProcessorRunner.ts#L31)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:31
 
 > **persistence**: [`EventPersistence`](../type-aliases/EventPersistence.md)
 
-Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:34](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/EventProcessorRunner.ts#L34)
+Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:34](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-processor/EventProcessorRunner.ts#L34)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:34
 
 > `optional` **position**: `bigint`
 
-Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:38](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/EventProcessorRunner.ts#L38)
+Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:38](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-processor/EventProcessorRunner.ts#L38)
 
 ---
 
@@ -64,7 +64,7 @@ Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:38
 
 > `optional` **revision**: `bigint`
 
-Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:37](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/EventProcessorRunner.ts#L37)
+Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:37](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-processor/EventProcessorRunner.ts#L37)
 
 ---
 
@@ -72,7 +72,7 @@ Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:37
 
 > **streamId**: `string`
 
-Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:33](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/EventProcessorRunner.ts#L33)
+Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:33](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-processor/EventProcessorRunner.ts#L33)
 
 ---
 
@@ -80,4 +80,4 @@ Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:33
 
 > **type**: `string`
 
-Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:32](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/EventProcessorRunner.ts#L32)
+Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:32](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-processor/EventProcessorRunner.ts#L32)

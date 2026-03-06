@@ -6,7 +6,7 @@
 
 # Class: OnlineOnlyAdapter
 
-Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:21](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts#L21)
+Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:21](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts#L21)
 
 Online-only adapter for development, testing, and deployments
 where offline persistence is not required.
@@ -19,13 +19,13 @@ where offline persistence is not required.
 
 ### Constructor
 
-> **new OnlineOnlyAdapter**(`_config`): `OnlineOnlyAdapter`
+> **new OnlineOnlyAdapter**(`config`): `OnlineOnlyAdapter`
 
-Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:29](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts#L29)
+Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:30](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts#L30)
 
 #### Parameters
 
-##### \_config
+##### config
 
 [`ResolvedConfig`](../interfaces/ResolvedConfig.md)
 
@@ -39,7 +39,7 @@ Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:29](h
 
 > `readonly` **eventBus**: [`EventBus`](EventBus.md)
 
-Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:23](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts#L23)
+Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:24](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts#L24)
 
 #### Implementation of
 
@@ -51,11 +51,27 @@ Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:23](h
 
 > `readonly` **mode**: `"online-only"`
 
-Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:22](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts#L22)
+Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:22](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts#L22)
 
 #### Implementation of
 
 [`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md).[`mode`](../interfaces/IOnlineOnlyAdapter.md#mode)
+
+---
+
+### role
+
+> `readonly` **role**: `"leader"`
+
+Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:23](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts#L23)
+
+Role of this client instance.
+'leader' = active writer (online-only, dedicated-worker, or active shared-worker tab).
+'standby' = shared-worker tab waiting for active-tab lock.
+
+#### Implementation of
+
+[`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md).[`role`](../interfaces/IOnlineOnlyAdapter.md#role)
 
 ## Accessors
 
@@ -65,7 +81,7 @@ Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:22](h
 
 > **get** **events$**(): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
-Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:37](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts#L37)
+Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:39](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts#L39)
 
 Observable of library events.
 
@@ -87,7 +103,7 @@ Observable of library events.
 
 > **get** **sessionManager**(): [`SessionManager`](SessionManager.md)
 
-Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:41](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts#L41)
+Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:43](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts#L43)
 
 ##### Returns
 
@@ -105,7 +121,7 @@ Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:41](h
 
 > **get** **status**(): [`AdapterStatus`](../type-aliases/AdapterStatus.md)
 
-Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:33](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts#L33)
+Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:35](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts#L35)
 
 Current adapter status.
 
@@ -127,7 +143,7 @@ Current adapter status.
 
 > **get** **storage**(): [`IStorage`](../interfaces/IStorage.md)
 
-Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:46](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts#L46)
+Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:48](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts#L48)
 
 ##### Returns
 
@@ -143,7 +159,7 @@ Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:46](h
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:73](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts#L73)
+Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:75](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts#L75)
 
 Close the adapter and release resources.
 
@@ -161,7 +177,7 @@ Close the adapter and release resources.
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:51](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts#L51)
+Defined in: [packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts:53](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/online-only/OnlineOnlyAdapter.ts#L53)
 
 Initialize the adapter.
 

@@ -6,7 +6,7 @@
 
 # Interface: EventCacheConfig
 
-Defined in: [packages/client/src/core/event-cache/EventCache.ts:24](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-cache/EventCache.ts#L24)
+Defined in: [packages/client/src/core/event-cache/EventCache.ts:24](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-cache/EventCache.ts#L24)
 
 Event cache configuration.
 
@@ -16,7 +16,7 @@ Event cache configuration.
 
 > **eventBus**: [`EventBus`](../classes/EventBus.md)
 
-Defined in: [packages/client/src/core/event-cache/EventCache.ts:26](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-cache/EventCache.ts#L26)
+Defined in: [packages/client/src/core/event-cache/EventCache.ts:26](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-cache/EventCache.ts#L26)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [packages/client/src/core/event-cache/EventCache.ts:26](https://gith
 
 > **storage**: [`IStorage`](IStorage.md)
 
-Defined in: [packages/client/src/core/event-cache/EventCache.ts:25](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-cache/EventCache.ts#L25)
+Defined in: [packages/client/src/core/event-cache/EventCache.ts:25](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-cache/EventCache.ts#L25)

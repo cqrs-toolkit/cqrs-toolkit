@@ -6,7 +6,7 @@
 
 # Class: SharedWorkerAdapter
 
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:70](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L70)
+Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:70](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L70)
 
 SharedWorker adapter for multi-tab offline support.
 
@@ -30,7 +30,7 @@ This adapter:
 
 > **new SharedWorkerAdapter**(`config`): `SharedWorkerAdapter`
 
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:94](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L94)
+Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:95](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L95)
 
 #### Parameters
 
@@ -48,7 +48,7 @@ Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:9
 
 > `readonly` **mode**: `"shared-worker"`
 
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:71](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L71)
+Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:71](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L71)
 
 #### Implementation of
 
@@ -62,7 +62,7 @@ Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:7
 
 > **get** **cacheManager**(): [`ICacheManager`](../interfaces/ICacheManager.md)
 
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:118](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L118)
+Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:119](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L119)
 
 ##### Returns
 
@@ -80,7 +80,7 @@ Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:1
 
 > **get** **commandQueue**(): [`ICommandQueue`](../interfaces/ICommandQueue.md)
 
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:108](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L108)
+Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:109](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L109)
 
 ##### Returns
 
@@ -98,7 +98,7 @@ Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:1
 
 > **get** **events$**(): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:103](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L103)
+Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:104](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L104)
 
 Observable of library events.
 
@@ -120,7 +120,7 @@ Observable of library events.
 
 > **get** **queryManager**(): [`IQueryManager`](../interfaces/IQueryManager.md)
 
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:113](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L113)
+Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:114](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L114)
 
 ##### Returns
 
@@ -132,13 +132,39 @@ Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:1
 
 ---
 
+### role
+
+#### Get Signature
+
+> **get** **role**(): `"leader"` \| `"standby"`
+
+Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:129](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L129)
+
+Role of this client instance.
+'leader' = active writer (online-only, dedicated-worker, or active shared-worker tab).
+'standby' = shared-worker tab waiting for active-tab lock.
+
+##### Returns
+
+`"leader"` \| `"standby"`
+
+Role of this client instance.
+'leader' = active writer (online-only, dedicated-worker, or active shared-worker tab).
+'standby' = shared-worker tab waiting for active-tab lock.
+
+#### Implementation of
+
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`role`](../interfaces/IWorkerAdapter.md#role)
+
+---
+
 ### status
 
 #### Get Signature
 
 > **get** **status**(): [`AdapterStatus`](../type-aliases/AdapterStatus.md)
 
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:99](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L99)
+Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:100](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L100)
 
 Current adapter status.
 
@@ -160,7 +186,7 @@ Current adapter status.
 
 > **get** **syncManager**(): [`CqrsClientSyncManager`](../interfaces/CqrsClientSyncManager.md)
 
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:123](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L123)
+Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:124](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L124)
 
 ##### Returns
 
@@ -176,7 +202,7 @@ Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:1
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:250](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L250)
+Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:262](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L262)
 
 Close the adapter and release resources.
 
@@ -190,11 +216,31 @@ Close the adapter and release resources.
 
 ---
 
+### enableDebug()
+
+> **enableDebug**(): `Promise`\<`void`\>
+
+Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:133](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L133)
+
+Enable debug mode in the worker.
+Sends a `debug.enable` RPC so the worker starts emitting debug events.
+One-way and idempotent — no disable path.
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`enableDebug`](../interfaces/IWorkerAdapter.md#enabledebug)
+
+---
+
 ### initialize()
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:133](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L133)
+Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:143](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L143)
 
 Initialize the adapter.
 

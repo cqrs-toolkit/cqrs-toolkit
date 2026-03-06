@@ -6,7 +6,7 @@
 
 # Class: CqrsClient
 
-Defined in: [packages/client/src/createCqrsClient.ts:90](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/createCqrsClient.ts#L90)
+Defined in: [packages/client/src/createCqrsClient.ts:97](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/createCqrsClient.ts#L97)
 
 CQRS Client instance returned by [createCqrsClient](../functions/createCqrsClient.md).
 
@@ -16,9 +16,9 @@ All fields are available immediately — the client is fully initialized at cons
 
 ### Constructor
 
-> **new CqrsClient**(`adapter`, `cacheManager`, `commandQueue`, `queryManager`, `syncManager`, `closeResources`, `mode`, `debug`): `CqrsClient`
+> **new CqrsClient**(`adapter`, `cacheManager`, `commandQueue`, `queryManager`, `syncManager`, `closeResources`, `mode`): `CqrsClient`
 
-Defined in: [packages/client/src/createCqrsClient.ts:106](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/createCqrsClient.ts#L106)
+Defined in: [packages/client/src/createCqrsClient.ts:112](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/createCqrsClient.ts#L112)
 
 #### Parameters
 
@@ -50,10 +50,6 @@ Defined in: [packages/client/src/createCqrsClient.ts:106](https://github.com/Swi
 
 [`ExecutionMode`](../type-aliases/ExecutionMode.md)
 
-##### debug
-
-`boolean`
-
 #### Returns
 
 `CqrsClient`
@@ -64,7 +60,7 @@ Defined in: [packages/client/src/createCqrsClient.ts:106](https://github.com/Swi
 
 > `readonly` **cacheManager**: [`ICacheManager`](../interfaces/ICacheManager.md)
 
-Defined in: [packages/client/src/createCqrsClient.ts:92](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/createCqrsClient.ts#L92)
+Defined in: [packages/client/src/createCqrsClient.ts:99](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/createCqrsClient.ts#L99)
 
 Cache manager for cache key lifecycle and eviction.
 
@@ -74,7 +70,7 @@ Cache manager for cache key lifecycle and eviction.
 
 > `readonly` **commandQueue**: [`ICommandQueue`](../interfaces/ICommandQueue.md)
 
-Defined in: [packages/client/src/createCqrsClient.ts:94](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/createCqrsClient.ts#L94)
+Defined in: [packages/client/src/createCqrsClient.ts:101](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/createCqrsClient.ts#L101)
 
 Command queue for enqueuing and tracking commands.
 
@@ -84,7 +80,7 @@ Command queue for enqueuing and tracking commands.
 
 > `readonly` **mode**: [`ExecutionMode`](../type-aliases/ExecutionMode.md)
 
-Defined in: [packages/client/src/createCqrsClient.ts:100](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/createCqrsClient.ts#L100)
+Defined in: [packages/client/src/createCqrsClient.ts:107](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/createCqrsClient.ts#L107)
 
 Resolved execution mode.
 
@@ -94,7 +90,7 @@ Resolved execution mode.
 
 > `readonly` **queryManager**: [`IQueryManager`](../interfaces/IQueryManager.md)
 
-Defined in: [packages/client/src/createCqrsClient.ts:96](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/createCqrsClient.ts#L96)
+Defined in: [packages/client/src/createCqrsClient.ts:103](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/createCqrsClient.ts#L103)
 
 Query manager for reading cached data.
 
@@ -104,7 +100,7 @@ Query manager for reading cached data.
 
 > `readonly` **syncManager**: [`CqrsClientSyncManager`](../interfaces/CqrsClientSyncManager.md)
 
-Defined in: [packages/client/src/createCqrsClient.ts:98](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/createCqrsClient.ts#L98)
+Defined in: [packages/client/src/createCqrsClient.ts:105](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/createCqrsClient.ts#L105)
 
 Sync manager for collection sync status and manual triggers.
 
@@ -116,7 +112,7 @@ Sync manager for collection sync status and manual triggers.
 
 > **get** **events$**(): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
-Defined in: [packages/client/src/createCqrsClient.ts:243](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/createCqrsClient.ts#L243)
+Defined in: [packages/client/src/createCqrsClient.ts:245](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/createCqrsClient.ts#L245)
 
 Observable of all library events.
 
@@ -132,7 +128,7 @@ Observable of all library events.
 
 > **get** **status**(): [`AdapterStatus`](../type-aliases/AdapterStatus.md)
 
-Defined in: [packages/client/src/createCqrsClient.ts:248](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/createCqrsClient.ts#L248)
+Defined in: [packages/client/src/createCqrsClient.ts:250](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/createCqrsClient.ts#L250)
 
 Current adapter status.
 
@@ -146,7 +142,7 @@ Current adapter status.
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/createCqrsClient.ts:256](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/createCqrsClient.ts#L256)
+Defined in: [packages/client/src/createCqrsClient.ts:258](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/createCqrsClient.ts#L258)
 
 Close the client and release all resources.
 Stops sync, destroys components, and closes the adapter.
@@ -161,7 +157,7 @@ Stops sync, destroys components, and closes the adapter.
 
 > **submit**\<`TPayload`, `TResponse`\>(`command`, `options?`): `Promise`\<[`SubmitResult`](../type-aliases/SubmitResult.md)\<`TResponse`\>\>
 
-Defined in: [packages/client/src/createCqrsClient.ts:139](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/createCqrsClient.ts#L139)
+Defined in: [packages/client/src/createCqrsClient.ts:141](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/createCqrsClient.ts#L141)
 
 Network-aware command submission.
 

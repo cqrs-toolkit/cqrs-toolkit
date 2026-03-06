@@ -6,7 +6,7 @@
 
 # Interface: SessionManagerConfig
 
-Defined in: [packages/client/src/core/session/SessionManager.ts:30](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/session/SessionManager.ts#L30)
+Defined in: [packages/client/src/core/session/SessionManager.ts:30](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/session/SessionManager.ts#L30)
 
 Session manager configuration.
 
@@ -16,7 +16,7 @@ Session manager configuration.
 
 > **eventBus**: [`EventBus`](../classes/EventBus.md)
 
-Defined in: [packages/client/src/core/session/SessionManager.ts:32](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/session/SessionManager.ts#L32)
+Defined in: [packages/client/src/core/session/SessionManager.ts:32](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/session/SessionManager.ts#L32)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [packages/client/src/core/session/SessionManager.ts:32](https://gith
 
 > **storage**: [`IStorage`](IStorage.md)
 
-Defined in: [packages/client/src/core/session/SessionManager.ts:31](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/session/SessionManager.ts#L31)
+Defined in: [packages/client/src/core/session/SessionManager.ts:31](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/session/SessionManager.ts#L31)

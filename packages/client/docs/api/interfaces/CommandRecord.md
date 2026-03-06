@@ -6,7 +6,7 @@
 
 # Interface: CommandRecord\<TPayload, TResponse\>
 
-Defined in: [packages/client/src/types/commands.ts:49](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L49)
+Defined in: [packages/client/src/types/commands.ts:49](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L49)
 
 Persisted command record.
 
@@ -26,7 +26,7 @@ Persisted command record.
 
 > **attempts**: `number`
 
-Defined in: [packages/client/src/types/commands.ts:65](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L65)
+Defined in: [packages/client/src/types/commands.ts:65](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L65)
 
 Number of send attempts
 
@@ -36,7 +36,7 @@ Number of send attempts
 
 > **blockedBy**: `string`[]
 
-Defined in: [packages/client/src/types/commands.ts:63](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L63)
+Defined in: [packages/client/src/types/commands.ts:63](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L63)
 
 Commands blocked by this command
 
@@ -46,7 +46,7 @@ Commands blocked by this command
 
 > **commandId**: `string`
 
-Defined in: [packages/client/src/types/commands.ts:51](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L51)
+Defined in: [packages/client/src/types/commands.ts:51](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L51)
 
 Unique command identifier (client-generated)
 
@@ -56,7 +56,7 @@ Unique command identifier (client-generated)
 
 > **createdAt**: `number`
 
-Defined in: [packages/client/src/types/commands.ts:73](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L73)
+Defined in: [packages/client/src/types/commands.ts:73](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L73)
 
 Creation timestamp
 
@@ -66,7 +66,7 @@ Creation timestamp
 
 > **dependsOn**: `string`[]
 
-Defined in: [packages/client/src/types/commands.ts:61](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L61)
+Defined in: [packages/client/src/types/commands.ts:61](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L61)
 
 Commands this command depends on (must complete first)
 
@@ -76,7 +76,7 @@ Commands this command depends on (must complete first)
 
 > `optional` **error**: [`CommandError`](CommandError.md)
 
-Defined in: [packages/client/src/types/commands.ts:69](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L69)
+Defined in: [packages/client/src/types/commands.ts:69](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L69)
 
 Error information if failed
 
@@ -86,7 +86,7 @@ Error information if failed
 
 > `optional` **lastAttemptAt**: `number`
 
-Defined in: [packages/client/src/types/commands.ts:67](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L67)
+Defined in: [packages/client/src/types/commands.ts:67](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L67)
 
 Timestamp of last send attempt
 
@@ -96,7 +96,7 @@ Timestamp of last send attempt
 
 > **payload**: `TPayload`
 
-Defined in: [packages/client/src/types/commands.ts:57](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L57)
+Defined in: [packages/client/src/types/commands.ts:57](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L57)
 
 Command payload
 
@@ -106,7 +106,7 @@ Command payload
 
 > `optional` **serverResponse**: `TResponse`
 
-Defined in: [packages/client/src/types/commands.ts:71](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L71)
+Defined in: [packages/client/src/types/commands.ts:71](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L71)
 
 Server response on success
 
@@ -116,7 +116,7 @@ Server response on success
 
 > **service**: `string`
 
-Defined in: [packages/client/src/types/commands.ts:53](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L53)
+Defined in: [packages/client/src/types/commands.ts:53](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L53)
 
 Target service for the command
 
@@ -126,7 +126,7 @@ Target service for the command
 
 > **status**: [`CommandStatus`](../type-aliases/CommandStatus.md)
 
-Defined in: [packages/client/src/types/commands.ts:59](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L59)
+Defined in: [packages/client/src/types/commands.ts:59](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L59)
 
 Current status
 
@@ -136,7 +136,7 @@ Current status
 
 > **type**: `string`
 
-Defined in: [packages/client/src/types/commands.ts:55](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L55)
+Defined in: [packages/client/src/types/commands.ts:55](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L55)
 
 Command type (e.g., 'CreateTodo', 'UpdateUser')
 
@@ -146,6 +146,6 @@ Command type (e.g., 'CreateTodo', 'UpdateUser')
 
 > **updatedAt**: `number`
 
-Defined in: [packages/client/src/types/commands.ts:75](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L75)
+Defined in: [packages/client/src/types/commands.ts:75](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L75)
 
 Last update timestamp

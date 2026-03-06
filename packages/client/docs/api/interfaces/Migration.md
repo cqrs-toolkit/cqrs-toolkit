@@ -6,7 +6,7 @@
 
 # Interface: Migration
 
-Defined in: [packages/client/src/storage/schema/migrations.ts:11](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/schema/migrations.ts#L11)
+Defined in: [packages/client/src/storage/schema/migrations.ts:11](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/schema/migrations.ts#L11)
 
 Migration definition.
 
@@ -16,7 +16,7 @@ Migration definition.
 
 > **description**: `string`
 
-Defined in: [packages/client/src/storage/schema/migrations.ts:13](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/schema/migrations.ts#L13)
+Defined in: [packages/client/src/storage/schema/migrations.ts:13](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/schema/migrations.ts#L13)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [packages/client/src/storage/schema/migrations.ts:13](https://github
 
 > **sql**: `string`[]
 
-Defined in: [packages/client/src/storage/schema/migrations.ts:14](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/schema/migrations.ts#L14)
+Defined in: [packages/client/src/storage/schema/migrations.ts:14](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/schema/migrations.ts#L14)
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: [packages/client/src/storage/schema/migrations.ts:14](https://github
 
 > **version**: `number`
 
-Defined in: [packages/client/src/storage/schema/migrations.ts:12](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/schema/migrations.ts#L12)
+Defined in: [packages/client/src/storage/schema/migrations.ts:12](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/schema/migrations.ts#L12)

@@ -8,7 +8,7 @@
 
 > **createTestSession**(`overrides?`): [`SessionRecord`](../../../../interfaces/SessionRecord.md)
 
-Defined in: [packages/client/src/testing/factories/session.ts:13](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/testing/factories/session.ts#L13)
+Defined in: [packages/client/src/testing/factories/session.ts:13](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/testing/factories/session.ts#L13)
 
 Create a test session record.
 

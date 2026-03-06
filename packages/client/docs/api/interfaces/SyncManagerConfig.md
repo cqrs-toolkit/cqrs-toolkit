@@ -6,7 +6,7 @@
 
 # Interface: SyncManagerConfig
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:30](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L30)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:30](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L30)
 
 Sync manager configuration.
 
@@ -16,7 +16,7 @@ Sync manager configuration.
 
 > **cacheManager**: [`CacheManager`](../classes/CacheManager.md)
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:35](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L35)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:35](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L35)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:35](https://gi
 
 > **collections**: [`Collection`](Collection.md)[]
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:40](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L40)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:40](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L40)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:40](https://gi
 
 > **commandQueue**: [`CommandQueue`](../classes/CommandQueue.md)
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:33](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L33)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:33](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L33)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:33](https://gi
 
 > **eventBus**: [`EventBus`](../classes/EventBus.md)
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:31](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L31)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:31](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L31)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:31](https://gi
 
 > **eventCache**: [`EventCache`](../classes/EventCache.md)
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:34](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L34)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:34](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L34)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:34](https://gi
 
 > **eventProcessor**: [`EventProcessorRunner`](../classes/EventProcessorRunner.md)
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:36](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L36)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:36](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L36)
 
 ---
 
@@ -64,7 +64,7 @@ Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:36](https://gi
 
 > **networkConfig**: [`NetworkConfig`](NetworkConfig.md)
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:39](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L39)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:39](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L39)
 
 ---
 
@@ -72,7 +72,7 @@ Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:39](https://gi
 
 > **queryManager**: [`QueryManager`](../classes/QueryManager.md)
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:38](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L38)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:38](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L38)
 
 ---
 
@@ -80,7 +80,7 @@ Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:38](https://gi
 
 > **readModelStore**: [`ReadModelStore`](../classes/ReadModelStore.md)
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:37](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L37)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:37](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L37)
 
 ---
 
@@ -88,4 +88,4 @@ Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:37](https://gi
 
 > **sessionManager**: [`SessionManager`](../classes/SessionManager.md)
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:32](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L32)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:32](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L32)

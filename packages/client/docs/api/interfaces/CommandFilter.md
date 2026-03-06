@@ -6,7 +6,7 @@
 
 # Interface: CommandFilter
 
-Defined in: [packages/client/src/types/commands.ts:235](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L235)
+Defined in: [packages/client/src/types/commands.ts:235](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L235)
 
 Filter for listing commands.
 
@@ -16,7 +16,7 @@ Filter for listing commands.
 
 > `optional` **createdAfter**: `number`
 
-Defined in: [packages/client/src/types/commands.ts:243](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L243)
+Defined in: [packages/client/src/types/commands.ts:243](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L243)
 
 Created after timestamp
 
@@ -26,7 +26,7 @@ Created after timestamp
 
 > `optional` **createdBefore**: `number`
 
-Defined in: [packages/client/src/types/commands.ts:245](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L245)
+Defined in: [packages/client/src/types/commands.ts:245](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L245)
 
 Created before timestamp
 
@@ -36,7 +36,7 @@ Created before timestamp
 
 > `optional` **limit**: `number`
 
-Defined in: [packages/client/src/types/commands.ts:247](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L247)
+Defined in: [packages/client/src/types/commands.ts:247](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L247)
 
 Limit number of results
 
@@ -46,7 +46,7 @@ Limit number of results
 
 > `optional` **offset**: `number`
 
-Defined in: [packages/client/src/types/commands.ts:249](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L249)
+Defined in: [packages/client/src/types/commands.ts:249](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L249)
 
 Offset for pagination
 
@@ -56,7 +56,7 @@ Offset for pagination
 
 > `optional` **service**: `string`
 
-Defined in: [packages/client/src/types/commands.ts:241](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L241)
+Defined in: [packages/client/src/types/commands.ts:241](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L241)
 
 Filter by service
 
@@ -66,7 +66,7 @@ Filter by service
 
 > `optional` **status**: [`CommandStatus`](../type-aliases/CommandStatus.md) \| [`CommandStatus`](../type-aliases/CommandStatus.md)[]
 
-Defined in: [packages/client/src/types/commands.ts:237](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L237)
+Defined in: [packages/client/src/types/commands.ts:237](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L237)
 
 Filter by status
 
@@ -76,6 +76,6 @@ Filter by status
 
 > `optional` **type**: `string` \| `string`[]
 
-Defined in: [packages/client/src/types/commands.ts:239](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L239)
+Defined in: [packages/client/src/types/commands.ts:239](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L239)
 
 Filter by type

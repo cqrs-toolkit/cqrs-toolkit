@@ -6,7 +6,7 @@
 
 # Interface: EnqueueCommand\<TPayload\>
 
-Defined in: [packages/client/src/types/commands.ts:81](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L81)
+Defined in: [packages/client/src/types/commands.ts:81](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L81)
 
 Command to enqueue.
 
@@ -22,7 +22,7 @@ Command to enqueue.
 
 > `optional` **dependsOn**: `string`[]
 
-Defined in: [packages/client/src/types/commands.ts:89](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L89)
+Defined in: [packages/client/src/types/commands.ts:89](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L89)
 
 Commands this depends on (optional)
 
@@ -32,7 +32,7 @@ Commands this depends on (optional)
 
 > **payload**: `TPayload`
 
-Defined in: [packages/client/src/types/commands.ts:85](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L85)
+Defined in: [packages/client/src/types/commands.ts:85](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L85)
 
 Command payload
 
@@ -42,7 +42,7 @@ Command payload
 
 > `optional` **service**: `string`
 
-Defined in: [packages/client/src/types/commands.ts:87](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L87)
+Defined in: [packages/client/src/types/commands.ts:87](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L87)
 
 Target service (optional, defaults to primary)
 
@@ -52,6 +52,6 @@ Target service (optional, defaults to primary)
 
 > **type**: `string`
 
-Defined in: [packages/client/src/types/commands.ts:83](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L83)
+Defined in: [packages/client/src/types/commands.ts:83](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L83)
 
 Command type

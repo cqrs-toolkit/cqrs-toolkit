@@ -6,7 +6,7 @@
 
 # Interface: LibraryEventPayloads
 
-Defined in: [packages/client/src/types/events.ts:66](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L66)
+Defined in: [packages/client/src/types/events.ts:76](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L76)
 
 Library event payload types.
 
@@ -16,7 +16,7 @@ Library event payload types.
 
 > **cache:evicted**: `object`
 
-Defined in: [packages/client/src/types/events.ts:73](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L73)
+Defined in: [packages/client/src/types/events.ts:83](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L83)
 
 #### cacheKey
 
@@ -28,11 +28,35 @@ Defined in: [packages/client/src/types/events.ts:73](https://github.com/Swifttt-
 
 ---
 
+### cache:key-acquired
+
+> **cache:key-acquired**: `object`
+
+Defined in: [packages/client/src/types/events.ts:103](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L103)
+
+#### collection
+
+> **collection**: `string`
+
+#### evictionPolicy
+
+> **evictionPolicy**: `string`
+
+#### key
+
+> **key**: `string`
+
+#### params?
+
+> `optional` **params**: `Record`\<`string`, `unknown`\>
+
+---
+
 ### cache:session-reset
 
 > **cache:session-reset**: `object`
 
-Defined in: [packages/client/src/types/events.ts:75](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L75)
+Defined in: [packages/client/src/types/events.ts:85](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L85)
 
 #### newUserId
 
@@ -48,7 +72,7 @@ Defined in: [packages/client/src/types/events.ts:75](https://github.com/Swifttt-
 
 > **cache:too-many-windows**: `object`
 
-Defined in: [packages/client/src/types/events.ts:74](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L74)
+Defined in: [packages/client/src/types/events.ts:84](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L84)
 
 #### maxWindows
 
@@ -64,7 +88,7 @@ Defined in: [packages/client/src/types/events.ts:74](https://github.com/Swifttt-
 
 > **command:completed**: `object`
 
-Defined in: [packages/client/src/types/events.ts:79](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L79)
+Defined in: [packages/client/src/types/events.ts:89](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L89)
 
 #### commandId
 
@@ -80,7 +104,7 @@ Defined in: [packages/client/src/types/events.ts:79](https://github.com/Swifttt-
 
 > **command:enqueued**: `object`
 
-Defined in: [packages/client/src/types/events.ts:77](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L77)
+Defined in: [packages/client/src/types/events.ts:87](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L87)
 
 #### commandId
 
@@ -96,7 +120,7 @@ Defined in: [packages/client/src/types/events.ts:77](https://github.com/Swifttt-
 
 > **command:failed**: `object`
 
-Defined in: [packages/client/src/types/events.ts:80](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L80)
+Defined in: [packages/client/src/types/events.ts:90](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L90)
 
 #### commandId
 
@@ -112,11 +136,59 @@ Defined in: [packages/client/src/types/events.ts:80](https://github.com/Swifttt-
 
 ---
 
+### command:response
+
+> **command:response**: `object`
+
+Defined in: [packages/client/src/types/events.ts:118](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L118)
+
+#### commandId
+
+> **commandId**: `string`
+
+#### correlationId
+
+> **correlationId**: `string`
+
+#### response
+
+> **response**: `unknown`
+
+---
+
+### command:sent
+
+> **command:sent**: `object`
+
+Defined in: [packages/client/src/types/events.ts:111](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L111)
+
+#### commandId
+
+> **commandId**: `string`
+
+#### correlationId
+
+> **correlationId**: `string`
+
+#### payload
+
+> **payload**: `unknown`
+
+#### service
+
+> **service**: `string`
+
+#### type
+
+> **type**: `string`
+
+---
+
 ### command:status-changed
 
 > **command:status-changed**: `object`
 
-Defined in: [packages/client/src/types/events.ts:78](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L78)
+Defined in: [packages/client/src/types/events.ts:88](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L88)
 
 #### commandId
 
@@ -136,7 +208,7 @@ Defined in: [packages/client/src/types/events.ts:78](https://github.com/Swifttt-
 
 > **connectivity:changed**: `object`
 
-Defined in: [packages/client/src/types/events.ts:69](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L69)
+Defined in: [packages/client/src/types/events.ts:79](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L79)
 
 #### online
 
@@ -148,7 +220,7 @@ Defined in: [packages/client/src/types/events.ts:69](https://github.com/Swifttt-
 
 > **error:network**: `object`
 
-Defined in: [packages/client/src/types/events.ts:83](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L83)
+Defined in: [packages/client/src/types/events.ts:93](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L93)
 
 #### code?
 
@@ -164,7 +236,7 @@ Defined in: [packages/client/src/types/events.ts:83](https://github.com/Swifttt-
 
 > **error:storage**: `object`
 
-Defined in: [packages/client/src/types/events.ts:82](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L82)
+Defined in: [packages/client/src/types/events.ts:92](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L92)
 
 #### code?
 
@@ -180,7 +252,7 @@ Defined in: [packages/client/src/types/events.ts:82](https://github.com/Swifttt-
 
 > **readmodel:updated**: `object`
 
-Defined in: [packages/client/src/types/events.ts:81](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L81)
+Defined in: [packages/client/src/types/events.ts:91](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L91)
 
 #### collection
 
@@ -196,7 +268,7 @@ Defined in: [packages/client/src/types/events.ts:81](https://github.com/Swifttt-
 
 > **session:changed**: `object`
 
-Defined in: [packages/client/src/types/events.ts:67](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L67)
+Defined in: [packages/client/src/types/events.ts:77](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L77)
 
 #### isNew
 
@@ -212,7 +284,7 @@ Defined in: [packages/client/src/types/events.ts:67](https://github.com/Swifttt-
 
 > **session:destroyed**: `object`
 
-Defined in: [packages/client/src/types/events.ts:68](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L68)
+Defined in: [packages/client/src/types/events.ts:78](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L78)
 
 #### reason
 
@@ -224,7 +296,7 @@ Defined in: [packages/client/src/types/events.ts:68](https://github.com/Swifttt-
 
 > **sync:completed**: `object`
 
-Defined in: [packages/client/src/types/events.ts:71](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L71)
+Defined in: [packages/client/src/types/events.ts:81](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L81)
 
 #### collection
 
@@ -240,7 +312,7 @@ Defined in: [packages/client/src/types/events.ts:71](https://github.com/Swifttt-
 
 > **sync:failed**: `object`
 
-Defined in: [packages/client/src/types/events.ts:72](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L72)
+Defined in: [packages/client/src/types/events.ts:82](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L82)
 
 #### collection
 
@@ -252,11 +324,95 @@ Defined in: [packages/client/src/types/events.ts:72](https://github.com/Swifttt-
 
 ---
 
+### sync:gap-detected
+
+> **sync:gap-detected**: `object`
+
+Defined in: [packages/client/src/types/events.ts:100](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L100)
+
+#### expected
+
+> **expected**: `bigint`
+
+#### received
+
+> **received**: `bigint`
+
+#### streamId
+
+> **streamId**: `string`
+
+---
+
+### sync:gap-repair-completed
+
+> **sync:gap-repair-completed**: `object`
+
+Defined in: [packages/client/src/types/events.ts:102](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L102)
+
+#### eventCount
+
+> **eventCount**: `number`
+
+#### streamId
+
+> **streamId**: `string`
+
+---
+
+### sync:gap-repair-started
+
+> **sync:gap-repair-started**: `object`
+
+Defined in: [packages/client/src/types/events.ts:101](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L101)
+
+#### fromRevision
+
+> **fromRevision**: `bigint`
+
+#### streamId
+
+> **streamId**: `string`
+
+---
+
+### sync:refetch-executed
+
+> **sync:refetch-executed**: `object`
+
+Defined in: [packages/client/src/types/events.ts:110](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L110)
+
+#### collection
+
+> **collection**: `string`
+
+#### recordCount
+
+> **recordCount**: `number`
+
+---
+
+### sync:refetch-scheduled
+
+> **sync:refetch-scheduled**: `object`
+
+Defined in: [packages/client/src/types/events.ts:109](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L109)
+
+#### collection
+
+> **collection**: `string`
+
+#### debounceMs
+
+> **debounceMs**: `number`
+
+---
+
 ### sync:seed-completed
 
 > **sync:seed-completed**: `object`
 
-Defined in: [packages/client/src/types/events.ts:76](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L76)
+Defined in: [packages/client/src/types/events.ts:86](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L86)
 
 #### cacheKey
 
@@ -276,7 +432,7 @@ Defined in: [packages/client/src/types/events.ts:76](https://github.com/Swifttt-
 
 > **sync:started**: `object`
 
-Defined in: [packages/client/src/types/events.ts:70](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L70)
+Defined in: [packages/client/src/types/events.ts:80](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L80)
 
 #### collection
 
@@ -284,11 +440,43 @@ Defined in: [packages/client/src/types/events.ts:70](https://github.com/Swifttt-
 
 ---
 
+### sync:ws-event-processed
+
+> **sync:ws-event-processed**: `object`
+
+Defined in: [packages/client/src/types/events.ts:99](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L99)
+
+#### event
+
+> **event**: [`IPersistedEvent`](../type-aliases/IPersistedEvent.md)
+
+#### invalidated
+
+> **invalidated**: `boolean`
+
+#### updatedIds
+
+> **updatedIds**: `string`[]
+
+---
+
+### sync:ws-event-received
+
+> **sync:ws-event-received**: `object`
+
+Defined in: [packages/client/src/types/events.ts:98](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L98)
+
+#### event
+
+> **event**: [`IPersistedEvent`](../type-aliases/IPersistedEvent.md)
+
+---
+
 ### ws:connected
 
 > **ws:connected**: `object`
 
-Defined in: [packages/client/src/types/events.ts:85](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L85)
+Defined in: [packages/client/src/types/events.ts:95](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L95)
 
 ---
 
@@ -296,7 +484,7 @@ Defined in: [packages/client/src/types/events.ts:85](https://github.com/Swifttt-
 
 > **ws:connecting**: `object`
 
-Defined in: [packages/client/src/types/events.ts:84](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L84)
+Defined in: [packages/client/src/types/events.ts:94](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L94)
 
 ---
 
@@ -304,7 +492,7 @@ Defined in: [packages/client/src/types/events.ts:84](https://github.com/Swifttt-
 
 > **ws:disconnected**: `object`
 
-Defined in: [packages/client/src/types/events.ts:87](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L87)
+Defined in: [packages/client/src/types/events.ts:97](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L97)
 
 #### topics
 
@@ -316,7 +504,7 @@ Defined in: [packages/client/src/types/events.ts:87](https://github.com/Swifttt-
 
 > **ws:subscribed**: `object`
 
-Defined in: [packages/client/src/types/events.ts:86](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L86)
+Defined in: [packages/client/src/types/events.ts:96](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L96)
 
 #### topics
 

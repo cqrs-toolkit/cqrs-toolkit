@@ -6,7 +6,7 @@
 
 # Interface: RegisterWindowRequest
 
-Defined in: [packages/client/src/protocol/messages.ts:58](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/messages.ts#L58)
+Defined in: [packages/client/src/protocol/messages.ts:60](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L60)
 
 Window registration request.
 
@@ -20,7 +20,7 @@ Window registration request.
 
 > **requestId**: `string`
 
-Defined in: [packages/client/src/protocol/messages.ts:15](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/messages.ts#L15)
+Defined in: [packages/client/src/protocol/messages.ts:15](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L15)
 
 Unique request ID for correlation
 
@@ -34,7 +34,7 @@ Unique request ID for correlation
 
 > **type**: `"register"`
 
-Defined in: [packages/client/src/protocol/messages.ts:59](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/messages.ts#L59)
+Defined in: [packages/client/src/protocol/messages.ts:61](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L61)
 
 Message type identifier
 
@@ -48,6 +48,6 @@ Message type identifier
 
 > **windowId**: `string`
 
-Defined in: [packages/client/src/protocol/messages.ts:61](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/messages.ts#L61)
+Defined in: [packages/client/src/protocol/messages.ts:63](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L63)
 
 Unique window identifier

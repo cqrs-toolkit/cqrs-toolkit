@@ -6,7 +6,7 @@
 
 # Interface: ReadModelQueryOptions
 
-Defined in: [packages/client/src/core/read-model-store/ReadModelStore.ts:40](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/read-model-store/ReadModelStore.ts#L40)
+Defined in: [packages/client/src/core/read-model-store/ReadModelStore.ts:40](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/read-model-store/ReadModelStore.ts#L40)
 
 Query options for listing read models.
 
@@ -24,7 +24,7 @@ Query options for listing read models.
 
 > `optional` **cacheKey**: `string`
 
-Defined in: [packages/client/src/core/read-model-store/ReadModelStore.ts:42](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/read-model-store/ReadModelStore.ts#L42)
+Defined in: [packages/client/src/core/read-model-store/ReadModelStore.ts:42](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/read-model-store/ReadModelStore.ts#L42)
 
 Filter by cache key
 
@@ -34,7 +34,7 @@ Filter by cache key
 
 > `optional` **limit**: `number`
 
-Defined in: [packages/client/src/storage/IStorage.ts:92](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/IStorage.ts#L92)
+Defined in: [packages/client/src/storage/IStorage.ts:92](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L92)
 
 #### Inherited from
 
@@ -46,7 +46,7 @@ Defined in: [packages/client/src/storage/IStorage.ts:92](https://github.com/Swif
 
 > `optional` **localChangesOnly**: `boolean`
 
-Defined in: [packages/client/src/core/read-model-store/ReadModelStore.ts:44](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/read-model-store/ReadModelStore.ts#L44)
+Defined in: [packages/client/src/core/read-model-store/ReadModelStore.ts:44](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/read-model-store/ReadModelStore.ts#L44)
 
 Only include models with local changes
 
@@ -56,7 +56,7 @@ Only include models with local changes
 
 > `optional` **offset**: `number`
 
-Defined in: [packages/client/src/storage/IStorage.ts:93](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/IStorage.ts#L93)
+Defined in: [packages/client/src/storage/IStorage.ts:93](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L93)
 
 #### Inherited from
 
@@ -68,7 +68,7 @@ Defined in: [packages/client/src/storage/IStorage.ts:93](https://github.com/Swif
 
 > `optional` **orderBy**: `string`
 
-Defined in: [packages/client/src/storage/IStorage.ts:94](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/IStorage.ts#L94)
+Defined in: [packages/client/src/storage/IStorage.ts:94](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L94)
 
 #### Inherited from
 
@@ -80,7 +80,7 @@ Defined in: [packages/client/src/storage/IStorage.ts:94](https://github.com/Swif
 
 > `optional` **orderDirection**: `"asc"` \| `"desc"`
 
-Defined in: [packages/client/src/storage/IStorage.ts:95](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/IStorage.ts#L95)
+Defined in: [packages/client/src/storage/IStorage.ts:95](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L95)
 
 #### Inherited from
 

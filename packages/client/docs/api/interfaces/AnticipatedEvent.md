@@ -6,7 +6,7 @@
 
 # Interface: AnticipatedEvent\<TPayload\>
 
-Defined in: [packages/client/src/types/events.ts:27](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L27)
+Defined in: [packages/client/src/types/events.ts:27](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L27)
 
 Anticipated event produced by local command execution.
 
@@ -22,7 +22,7 @@ Anticipated event produced by local command execution.
 
 > **commandId**: `string`
 
-Defined in: [packages/client/src/types/events.ts:34](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L34)
+Defined in: [packages/client/src/types/events.ts:34](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L34)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [packages/client/src/types/events.ts:34](https://github.com/Swifttt-
 
 > **createdAt**: `number`
 
-Defined in: [packages/client/src/types/events.ts:32](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L32)
+Defined in: [packages/client/src/types/events.ts:32](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L32)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [packages/client/src/types/events.ts:32](https://github.com/Swifttt-
 
 > **data**: `TPayload`
 
-Defined in: [packages/client/src/types/events.ts:29](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L29)
+Defined in: [packages/client/src/types/events.ts:29](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L29)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [packages/client/src/types/events.ts:29](https://github.com/Swifttt-
 
 > **id**: `string`
 
-Defined in: [packages/client/src/types/events.ts:31](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L31)
+Defined in: [packages/client/src/types/events.ts:31](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L31)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [packages/client/src/types/events.ts:31](https://github.com/Swifttt-
 
 > **persistence**: `"Anticipated"`
 
-Defined in: [packages/client/src/types/events.ts:33](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L33)
+Defined in: [packages/client/src/types/events.ts:33](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L33)
 
 ---
 
@@ -62,7 +62,7 @@ Defined in: [packages/client/src/types/events.ts:33](https://github.com/Swifttt-
 
 > **streamId**: `string`
 
-Defined in: [packages/client/src/types/events.ts:30](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L30)
+Defined in: [packages/client/src/types/events.ts:30](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L30)
 
 ---
 
@@ -70,4 +70,4 @@ Defined in: [packages/client/src/types/events.ts:30](https://github.com/Swifttt-
 
 > **type**: `string`
 
-Defined in: [packages/client/src/types/events.ts:28](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L28)
+Defined in: [packages/client/src/types/events.ts:28](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L28)

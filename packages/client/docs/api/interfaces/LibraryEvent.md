@@ -6,7 +6,7 @@
 
 # Interface: LibraryEvent\<T\>
 
-Defined in: [packages/client/src/types/events.ts:93](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L93)
+Defined in: [packages/client/src/types/events.ts:124](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L124)
 
 Typed library event.
 
@@ -18,11 +18,21 @@ Typed library event.
 
 ## Properties
 
+### debug?
+
+> `optional` **debug**: `boolean`
+
+Defined in: [packages/client/src/types/events.ts:129](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L129)
+
+Whether this event is a debug-only event (emitted via `emitDebug()`).
+
+---
+
 ### payload
 
 > **payload**: [`LibraryEventPayloads`](LibraryEventPayloads.md)\[`T`\]
 
-Defined in: [packages/client/src/types/events.ts:95](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L95)
+Defined in: [packages/client/src/types/events.ts:126](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L126)
 
 ---
 
@@ -30,7 +40,7 @@ Defined in: [packages/client/src/types/events.ts:95](https://github.com/Swifttt-
 
 > **timestamp**: `number`
 
-Defined in: [packages/client/src/types/events.ts:96](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L96)
+Defined in: [packages/client/src/types/events.ts:127](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L127)
 
 ---
 
@@ -38,4 +48,4 @@ Defined in: [packages/client/src/types/events.ts:96](https://github.com/Swifttt-
 
 > **type**: `T`
 
-Defined in: [packages/client/src/types/events.ts:94](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L94)
+Defined in: [packages/client/src/types/events.ts:125](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L125)

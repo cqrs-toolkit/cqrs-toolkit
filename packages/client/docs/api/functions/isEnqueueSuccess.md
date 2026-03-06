@@ -8,7 +8,7 @@
 
 > **isEnqueueSuccess**\<`TEvent`\>(`result`): `result is OkResult<EnqueueSuccess<TEvent>>`
 
-Defined in: [packages/client/src/types/commands.ts:255](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L255)
+Defined in: [packages/client/src/types/commands.ts:255](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L255)
 
 Type guard for successful enqueue result.
 

@@ -6,7 +6,7 @@
 
 # Interface: EnqueueOptions
 
-Defined in: [packages/client/src/types/commands.ts:95](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L95)
+Defined in: [packages/client/src/types/commands.ts:95](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L95)
 
 Options for enqueue operation.
 
@@ -21,7 +21,7 @@ Options for enqueue operation.
 
 > `optional` **commandId**: `string`
 
-Defined in: [packages/client/src/types/commands.ts:99](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L99)
+Defined in: [packages/client/src/types/commands.ts:99](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L99)
 
 Custom command ID (defaults to generated UUID)
 
@@ -31,6 +31,6 @@ Custom command ID (defaults to generated UUID)
 
 > `optional` **skipValidation**: `boolean`
 
-Defined in: [packages/client/src/types/commands.ts:97](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L97)
+Defined in: [packages/client/src/types/commands.ts:97](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L97)
 
 Skip local domain validation

@@ -6,7 +6,7 @@
 
 # Interface: AcquireCacheKeyOptions
 
-Defined in: [packages/client/src/core/cache-manager/types.ts:10](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/cache-manager/types.ts#L10)
+Defined in: [packages/client/src/core/cache-manager/types.ts:10](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/types.ts#L10)
 
 Options for acquiring a cache key.
 
@@ -16,7 +16,7 @@ Options for acquiring a cache key.
 
 > `optional` **evictionPolicy**: `"persistent"` \| `"ephemeral"`
 
-Defined in: [packages/client/src/core/cache-manager/types.ts:18](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/cache-manager/types.ts#L18)
+Defined in: [packages/client/src/core/cache-manager/types.ts:18](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/types.ts#L18)
 
 Eviction policy for new keys (default: 'persistent')
 
@@ -26,7 +26,7 @@ Eviction policy for new keys (default: 'persistent')
 
 > `optional` **hold**: `boolean`
 
-Defined in: [packages/client/src/core/cache-manager/types.ts:12](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/cache-manager/types.ts#L12)
+Defined in: [packages/client/src/core/cache-manager/types.ts:12](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/types.ts#L12)
 
 Whether to place a hold (prevents eviction)
 
@@ -36,7 +36,7 @@ Whether to place a hold (prevents eviction)
 
 > `optional` **scope**: `string`
 
-Defined in: [packages/client/src/core/cache-manager/types.ts:16](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/cache-manager/types.ts#L16)
+Defined in: [packages/client/src/core/cache-manager/types.ts:16](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/types.ts#L16)
 
 Scope for the cache key
 
@@ -46,6 +46,6 @@ Scope for the cache key
 
 > `optional` **ttl**: `number`
 
-Defined in: [packages/client/src/core/cache-manager/types.ts:14](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/cache-manager/types.ts#L14)
+Defined in: [packages/client/src/core/cache-manager/types.ts:14](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/types.ts#L14)
 
 TTL in milliseconds (overrides default)

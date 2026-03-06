@@ -6,7 +6,7 @@
 
 # Class: SyncManager
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:57](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L57)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:57](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L57)
 
 Sync manager.
 
@@ -16,7 +16,7 @@ Sync manager.
 
 > **new SyncManager**(`config`): `SyncManager`
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:96](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L96)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:96](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L96)
 
 #### Parameters
 
@@ -34,7 +34,7 @@ Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:96](https://gi
 
 > **clearKnownRevisions**(`streamIds`): `void`
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:858](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L858)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:928](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L928)
 
 Clear known revisions for specific streams.
 Used when a cache key is evicted and the associated stream state is no longer valid.
@@ -55,7 +55,7 @@ Used when a cache key is evicted and the associated stream state is no longer va
 
 > **destroy**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:225](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L225)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:225](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L225)
 
 Permanently destroy the sync manager. Not reversible.
 Calls stop(), then destroys the connectivity manager.
@@ -70,7 +70,7 @@ Calls stop(), then destroys the connectivity manager.
 
 > **getAllStatus**(): [`CollectionSyncStatus`](../interfaces/CollectionSyncStatus.md)[]
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:247](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L247)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:247](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L247)
 
 Get all collection statuses.
 
@@ -84,7 +84,7 @@ Get all collection statuses.
 
 > **getCollectionStatus**(`collection`): [`CollectionSyncStatus`](../interfaces/CollectionSyncStatus.md) \| `undefined`
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:240](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L240)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:240](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L240)
 
 Get sync status for a collection.
 
@@ -104,7 +104,7 @@ Get sync status for a collection.
 
 > **getConnectivity**(): [`ConnectivityManager`](ConnectivityManager.md)
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:233](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L233)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:233](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L233)
 
 Get connectivity manager.
 
@@ -118,7 +118,7 @@ Get connectivity manager.
 
 > **processResponseEvents**(`events`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:870](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L870)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:940](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L940)
 
 Process command response events.
 Events are processed immediately for fast UI feedback. If a gap is detected
@@ -141,7 +141,7 @@ missing events asynchronously.
 
 > **setAuthenticated**(`params`): `Promise`\<\{ `resumed`: `boolean`; \}\>
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:267](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L267)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:267](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L267)
 
 Signal that the user has been authenticated.
 Delegates to SessionManager and returns whether the session was resumed.
@@ -164,7 +164,7 @@ Delegates to SessionManager and returns whether the session was resumed.
 
 > **setUnauthenticated**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:275](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L275)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:275](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L275)
 
 Signal that the user has logged out.
 Delegates to SessionManager.
@@ -179,7 +179,7 @@ Delegates to SessionManager.
 
 > **start**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:132](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L132)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:132](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L132)
 
 Start the sync manager.
 Begins connectivity monitoring and initial sync.
@@ -198,7 +198,7 @@ This allows the app to render immediately from cached data while auth resolves.
 
 > **stop**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:189](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L189)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:189](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L189)
 
 Stop the sync manager. Reversible — can call start() again after.
 Terminates subscriptions, aborts in-flight fetches, disconnects WebSocket.
@@ -214,7 +214,7 @@ Connectivity monitoring is paused but not destroyed.
 
 > **syncCollection**(`collection`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:254](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L254)
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:254](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/SyncManager.ts#L254)
 
 Force sync a specific collection.
 

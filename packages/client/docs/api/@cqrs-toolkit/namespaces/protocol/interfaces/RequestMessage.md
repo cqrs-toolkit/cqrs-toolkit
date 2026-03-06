@@ -6,7 +6,7 @@
 
 # Interface: RequestMessage
 
-Defined in: [packages/client/src/protocol/messages.ts:21](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/messages.ts#L21)
+Defined in: [packages/client/src/protocol/messages.ts:21](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L21)
 
 Request message from window to worker.
 
@@ -20,7 +20,7 @@ Request message from window to worker.
 
 > **args**: `unknown`[]
 
-Defined in: [packages/client/src/protocol/messages.ts:26](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/messages.ts#L26)
+Defined in: [packages/client/src/protocol/messages.ts:26](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L26)
 
 Method arguments
 
@@ -30,7 +30,7 @@ Method arguments
 
 > **method**: `string`
 
-Defined in: [packages/client/src/protocol/messages.ts:24](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/messages.ts#L24)
+Defined in: [packages/client/src/protocol/messages.ts:24](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L24)
 
 Method to invoke
 
@@ -40,7 +40,7 @@ Method to invoke
 
 > **requestId**: `string`
 
-Defined in: [packages/client/src/protocol/messages.ts:15](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/messages.ts#L15)
+Defined in: [packages/client/src/protocol/messages.ts:15](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L15)
 
 Unique request ID for correlation
 
@@ -54,7 +54,7 @@ Unique request ID for correlation
 
 > **type**: `"request"`
 
-Defined in: [packages/client/src/protocol/messages.ts:22](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/messages.ts#L22)
+Defined in: [packages/client/src/protocol/messages.ts:22](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L22)
 
 Message type identifier
 

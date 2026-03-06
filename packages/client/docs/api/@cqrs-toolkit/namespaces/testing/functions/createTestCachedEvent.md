@@ -8,7 +8,7 @@
 
 > **createTestCachedEvent**(`overrides?`): [`CachedEventRecord`](../../../../interfaces/CachedEventRecord.md)
 
-Defined in: [packages/client/src/testing/factories/event.ts:14](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/testing/factories/event.ts#L14)
+Defined in: [packages/client/src/testing/factories/event.ts:14](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/testing/factories/event.ts#L14)
 
 Create a test cached event record.
 

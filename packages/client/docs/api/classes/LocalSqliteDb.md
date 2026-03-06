@@ -6,7 +6,7 @@
 
 # Class: LocalSqliteDb
 
-Defined in: [packages/client/src/storage/LocalSqliteDb.ts:91](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/LocalSqliteDb.ts#L91)
+Defined in: [packages/client/src/storage/LocalSqliteDb.ts:91](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/LocalSqliteDb.ts#L91)
 
 Thin async wrapper around the synchronous WASM SQLite database.
 
@@ -23,7 +23,7 @@ with `RemoteSqliteDb`.
 
 > **new LocalSqliteDb**(`rawDb`): `LocalSqliteDb`
 
-Defined in: [packages/client/src/storage/LocalSqliteDb.ts:94](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/LocalSqliteDb.ts#L94)
+Defined in: [packages/client/src/storage/LocalSqliteDb.ts:94](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/LocalSqliteDb.ts#L94)
 
 #### Parameters
 
@@ -41,7 +41,7 @@ Defined in: [packages/client/src/storage/LocalSqliteDb.ts:94](https://github.com
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/storage/LocalSqliteDb.ts:118](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/LocalSqliteDb.ts#L118)
+Defined in: [packages/client/src/storage/LocalSqliteDb.ts:118](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/LocalSqliteDb.ts#L118)
 
 #### Returns
 
@@ -59,7 +59,7 @@ Defined in: [packages/client/src/storage/LocalSqliteDb.ts:118](https://github.co
 
 > **exec**\<`T`\>(`sql`, `options`): `Promise`\<`T`[]\>
 
-Defined in: [packages/client/src/storage/LocalSqliteDb.ts:98](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/LocalSqliteDb.ts#L98)
+Defined in: [packages/client/src/storage/LocalSqliteDb.ts:98](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/LocalSqliteDb.ts#L98)
 
 ##### Type Parameters
 
@@ -99,7 +99,7 @@ Defined in: [packages/client/src/storage/LocalSqliteDb.ts:98](https://github.com
 
 > **exec**(`sql`, `options?`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/storage/LocalSqliteDb.ts:102](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/LocalSqliteDb.ts#L102)
+Defined in: [packages/client/src/storage/LocalSqliteDb.ts:102](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/LocalSqliteDb.ts#L102)
 
 ##### Parameters
 

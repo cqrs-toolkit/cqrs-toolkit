@@ -8,7 +8,7 @@
 
 > **isDomainSuccess**\<`TEvent`\>(`result`): `result is OkResult<DomainExecutionSuccess<TEvent>>`
 
-Defined in: [packages/client/src/types/domain.ts:73](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/domain.ts#L73)
+Defined in: [packages/client/src/types/domain.ts:73](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/domain.ts#L73)
 
 Type guard for successful domain execution.
 

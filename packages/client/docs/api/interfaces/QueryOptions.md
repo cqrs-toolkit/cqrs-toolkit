@@ -6,7 +6,7 @@
 
 # Interface: QueryOptions
 
-Defined in: [packages/client/src/storage/IStorage.ts:91](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/IStorage.ts#L91)
+Defined in: [packages/client/src/storage/IStorage.ts:91](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L91)
 
 Query options for list operations.
 
@@ -20,7 +20,7 @@ Query options for list operations.
 
 > `optional` **limit**: `number`
 
-Defined in: [packages/client/src/storage/IStorage.ts:92](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/IStorage.ts#L92)
+Defined in: [packages/client/src/storage/IStorage.ts:92](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L92)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [packages/client/src/storage/IStorage.ts:92](https://github.com/Swif
 
 > `optional` **offset**: `number`
 
-Defined in: [packages/client/src/storage/IStorage.ts:93](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/IStorage.ts#L93)
+Defined in: [packages/client/src/storage/IStorage.ts:93](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L93)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [packages/client/src/storage/IStorage.ts:93](https://github.com/Swif
 
 > `optional` **orderBy**: `string`
 
-Defined in: [packages/client/src/storage/IStorage.ts:94](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/IStorage.ts#L94)
+Defined in: [packages/client/src/storage/IStorage.ts:94](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L94)
 
 ---
 
@@ -44,4 +44,4 @@ Defined in: [packages/client/src/storage/IStorage.ts:94](https://github.com/Swif
 
 > `optional` **orderDirection**: `"asc"` \| `"desc"`
 
-Defined in: [packages/client/src/storage/IStorage.ts:95](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/IStorage.ts#L95)
+Defined in: [packages/client/src/storage/IStorage.ts:95](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L95)

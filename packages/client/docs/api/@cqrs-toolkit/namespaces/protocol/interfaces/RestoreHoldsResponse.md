@@ -6,7 +6,7 @@
 
 # Interface: RestoreHoldsResponse
 
-Defined in: [packages/client/src/protocol/messages.ts:108](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/messages.ts#L108)
+Defined in: [packages/client/src/protocol/messages.ts:110](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L110)
 
 Hold restoration response.
 
@@ -20,7 +20,7 @@ Hold restoration response.
 
 > **failedKeys**: `string`[]
 
-Defined in: [packages/client/src/protocol/messages.ts:114](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/messages.ts#L114)
+Defined in: [packages/client/src/protocol/messages.ts:116](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L116)
 
 Keys that failed to restore (no longer exist)
 
@@ -30,7 +30,7 @@ Keys that failed to restore (no longer exist)
 
 > **requestId**: `string`
 
-Defined in: [packages/client/src/protocol/messages.ts:15](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/messages.ts#L15)
+Defined in: [packages/client/src/protocol/messages.ts:15](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L15)
 
 Unique request ID for correlation
 
@@ -44,7 +44,7 @@ Unique request ID for correlation
 
 > **restoredKeys**: `string`[]
 
-Defined in: [packages/client/src/protocol/messages.ts:112](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/messages.ts#L112)
+Defined in: [packages/client/src/protocol/messages.ts:114](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L114)
 
 Keys that were successfully restored
 
@@ -54,7 +54,7 @@ Keys that were successfully restored
 
 > **success**: `boolean`
 
-Defined in: [packages/client/src/protocol/messages.ts:110](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/messages.ts#L110)
+Defined in: [packages/client/src/protocol/messages.ts:112](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L112)
 
 ---
 
@@ -62,7 +62,7 @@ Defined in: [packages/client/src/protocol/messages.ts:110](https://github.com/Sw
 
 > **type**: `"restore-holds-response"`
 
-Defined in: [packages/client/src/protocol/messages.ts:109](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/messages.ts#L109)
+Defined in: [packages/client/src/protocol/messages.ts:111](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L111)
 
 Message type identifier
 

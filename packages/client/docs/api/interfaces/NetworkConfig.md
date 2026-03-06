@@ -6,7 +6,7 @@
 
 # Interface: NetworkConfig
 
-Defined in: [packages/client/src/types/config.ts:42](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/config.ts#L42)
+Defined in: [packages/client/src/types/config.ts:42](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L42)
 
 Network configuration.
 
@@ -16,7 +16,7 @@ Network configuration.
 
 > **baseUrl**: `string`
 
-Defined in: [packages/client/src/types/config.ts:44](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/config.ts#L44)
+Defined in: [packages/client/src/types/config.ts:44](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L44)
 
 Base URL for API requests
 
@@ -26,7 +26,7 @@ Base URL for API requests
 
 > `optional` **getAuthToken**: () => `Promise`\<`string` \| `null`\>
 
-Defined in: [packages/client/src/types/config.ts:52](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/config.ts#L52)
+Defined in: [packages/client/src/types/config.ts:52](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L52)
 
 Function to get auth token
 
@@ -40,7 +40,7 @@ Function to get auth token
 
 > `optional` **headers**: `Record`\<`string`, `string`\>
 
-Defined in: [packages/client/src/types/config.ts:50](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/config.ts#L50)
+Defined in: [packages/client/src/types/config.ts:50](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L50)
 
 Custom headers to include in requests
 
@@ -50,7 +50,7 @@ Custom headers to include in requests
 
 > `optional` **timeout**: `number`
 
-Defined in: [packages/client/src/types/config.ts:48](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/config.ts#L48)
+Defined in: [packages/client/src/types/config.ts:48](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L48)
 
 Request timeout in milliseconds
 
@@ -60,6 +60,6 @@ Request timeout in milliseconds
 
 > `optional` **wsUrl**: `string`
 
-Defined in: [packages/client/src/types/config.ts:46](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/config.ts#L46)
+Defined in: [packages/client/src/types/config.ts:46](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L46)
 
 WebSocket URL for real-time events

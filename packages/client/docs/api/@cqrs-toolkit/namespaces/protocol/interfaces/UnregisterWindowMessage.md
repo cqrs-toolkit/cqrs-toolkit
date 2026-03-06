@@ -6,7 +6,7 @@
 
 # Interface: UnregisterWindowMessage
 
-Defined in: [packages/client/src/protocol/messages.ts:88](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/messages.ts#L88)
+Defined in: [packages/client/src/protocol/messages.ts:90](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L90)
 
 Window unregister message.
 
@@ -16,7 +16,7 @@ Window unregister message.
 
 > **type**: `"unregister"`
 
-Defined in: [packages/client/src/protocol/messages.ts:89](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/messages.ts#L89)
+Defined in: [packages/client/src/protocol/messages.ts:91](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L91)
 
 ---
 
@@ -24,6 +24,6 @@ Defined in: [packages/client/src/protocol/messages.ts:89](https://github.com/Swi
 
 > **windowId**: `string`
 
-Defined in: [packages/client/src/protocol/messages.ts:91](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/messages.ts#L91)
+Defined in: [packages/client/src/protocol/messages.ts:93](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L93)
 
 Window identifier

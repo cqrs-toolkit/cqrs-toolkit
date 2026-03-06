@@ -6,7 +6,7 @@
 
 # Class: WorkerMessageChannel
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:73](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/MessageChannel.ts#L73)
+Defined in: [packages/client/src/protocol/MessageChannel.ts:73](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L73)
 
 Message channel for window-to-worker communication.
 
@@ -16,7 +16,7 @@ Message channel for window-to-worker communication.
 
 > **new WorkerMessageChannel**(`target`, `config?`): `WorkerMessageChannel`
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:83](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/MessageChannel.ts#L83)
+Defined in: [packages/client/src/protocol/MessageChannel.ts:83](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L83)
 
 #### Parameters
 
@@ -40,7 +40,7 @@ Defined in: [packages/client/src/protocol/MessageChannel.ts:83](https://github.c
 
 > **get** **libraryEvents$**(): `Observable`\<[`EventMessage`](../interfaces/EventMessage.md)\>
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:260](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/MessageChannel.ts#L260)
+Defined in: [packages/client/src/protocol/MessageChannel.ts:260](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L260)
 
 Get observable of library events.
 
@@ -56,7 +56,7 @@ Get observable of library events.
 
 > **get** **workerInstanceChanges$**(): `Observable`\<`string`\>
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:267](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/MessageChannel.ts#L267)
+Defined in: [packages/client/src/protocol/MessageChannel.ts:267](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L267)
 
 Get observable of worker instance changes.
 
@@ -70,7 +70,7 @@ Get observable of worker instance changes.
 
 > **connect**(`source`): `void`
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:94](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/MessageChannel.ts#L94)
+Defined in: [packages/client/src/protocol/MessageChannel.ts:94](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L94)
 
 Start listening for messages.
 
@@ -90,7 +90,7 @@ Start listening for messages.
 
 > **destroy**(): `void`
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:282](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/MessageChannel.ts#L282)
+Defined in: [packages/client/src/protocol/MessageChannel.ts:282](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L282)
 
 Destroy the channel.
 
@@ -104,7 +104,7 @@ Destroy the channel.
 
 > **disconnect**(`source`): `void`
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:119](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/MessageChannel.ts#L119)
+Defined in: [packages/client/src/protocol/MessageChannel.ts:119](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L119)
 
 Stop listening for messages.
 
@@ -124,7 +124,7 @@ Stop listening for messages.
 
 > **register**(`windowId`): `Promise`\<[`RegisterWindowResponse`](../interfaces/RegisterWindowResponse.md)\>
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:173](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/MessageChannel.ts#L173)
+Defined in: [packages/client/src/protocol/MessageChannel.ts:173](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L173)
 
 Register a window with the worker.
 
@@ -148,7 +148,7 @@ Registration response
 
 > **request**\<`T`\>(`method`, `args?`): `Promise`\<`T`\>
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:133](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/MessageChannel.ts#L133)
+Defined in: [packages/client/src/protocol/MessageChannel.ts:133](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L133)
 
 Send a request and wait for response.
 
@@ -184,7 +184,7 @@ Response result
 
 > **restoreHolds**(`windowId`, `cacheKeys`): `Promise`\<[`RestoreHoldsResponse`](../interfaces/RestoreHoldsResponse.md)\>
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:231](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/MessageChannel.ts#L231)
+Defined in: [packages/client/src/protocol/MessageChannel.ts:231](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L231)
 
 Restore holds after worker restart.
 
@@ -214,7 +214,7 @@ Restoration response
 
 > **sendHeartbeat**(`windowId`): `void`
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:203](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/MessageChannel.ts#L203)
+Defined in: [packages/client/src/protocol/MessageChannel.ts:203](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L203)
 
 Send a heartbeat.
 
@@ -236,7 +236,7 @@ Window identifier
 
 > **unregister**(`windowId`): `void`
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:216](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/MessageChannel.ts#L216)
+Defined in: [packages/client/src/protocol/MessageChannel.ts:216](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L216)
 
 Unregister a window.
 
