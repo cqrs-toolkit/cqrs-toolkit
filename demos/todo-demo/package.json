@@ -9,7 +9,8 @@
     "server": "tsx server/server.ts",
     "client": "vite",
     "client:peer": "vite --port 5174",
-    "compile": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit"
+    "compile": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit",
+    "test:extension": "playwright test --config playwright.extension.config.ts"
   },
   "dependencies": {
     "@cqrs-toolkit/client": "*",

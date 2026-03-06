@@ -21,6 +21,7 @@
     "docs": "npm run docs --workspaces --if-present",
     "format:all": "prettier --write packages demos",
     "test:e2e": "npx playwright test --config demos/todo-demo/playwright.config.ts",
+    "test:extension": "npx playwright test --config demos/todo-demo/playwright.extension.config.ts",
     "format": "./scripts/format-changed.sh",
     "precommit": "npm run docs && git add . && npm run format && npm run test:run",
     "postinstall": "node .husky/install.mjs"

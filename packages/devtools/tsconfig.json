@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.common.json",
+  "compilerOptions": {
+    "types": ["chrome"],
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}

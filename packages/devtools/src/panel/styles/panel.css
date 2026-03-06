@@ -1,0 +1,545 @@
+/* ------------------------------------------------------------------ */
+/* Theme tokens                                                       */
+/* ------------------------------------------------------------------ */
+
+.theme-light {
+  --bg-primary: #fff;
+  --bg-secondary: #f5f5f5;
+  --bg-hover: #e8e8e8;
+  --bg-selected: #e0e7ff;
+  --text-primary: #1a1a1a;
+  --text-secondary: #666;
+  --text-muted: #999;
+  --border: #e0e0e0;
+  --border-strong: #ccc;
+
+  --status-pending: #d97706;
+  --status-pending-bg: #fef3c7;
+  --status-blocked: #7c3aed;
+  --status-blocked-bg: #ede9fe;
+  --status-sending: #2563eb;
+  --status-sending-bg: #dbeafe;
+  --status-succeeded: #16a34a;
+  --status-succeeded-bg: #dcfce7;
+  --status-failed: #dc2626;
+  --status-failed-bg: #fee2e2;
+  --status-cancelled: #6b7280;
+  --status-cancelled-bg: #f3f4f6;
+
+  --banner-error-bg: #fef2f2;
+  --banner-error-border: #fecaca;
+  --banner-error-text: #991b1b;
+  --banner-warning-bg: #fffbeb;
+  --banner-warning-border: #fde68a;
+  --banner-warning-text: #92400e;
+  --banner-info-bg: #eff6ff;
+  --banner-info-border: #bfdbfe;
+  --banner-info-text: #1e40af;
+
+  --chip-bg: #e5e7eb;
+  --chip-active-bg: #3b82f6;
+  --chip-active-text: #fff;
+
+  --json-key: #0451a5;
+  --json-string: #a31515;
+  --json-number: #098658;
+  --json-null: #6b7280;
+}
+
+.theme-dark {
+  --bg-primary: #1e1e1e;
+  --bg-secondary: #252526;
+  --bg-hover: #2a2d2e;
+  --bg-selected: #264f78;
+  --text-primary: #d4d4d4;
+  --text-secondary: #a0a0a0;
+  --text-muted: #6a6a6a;
+  --border: #3c3c3c;
+  --border-strong: #555;
+
+  --status-pending: #fbbf24;
+  --status-pending-bg: #422006;
+  --status-blocked: #a78bfa;
+  --status-blocked-bg: #2e1065;
+  --status-sending: #60a5fa;
+  --status-sending-bg: #172554;
+  --status-succeeded: #4ade80;
+  --status-succeeded-bg: #052e16;
+  --status-failed: #f87171;
+  --status-failed-bg: #450a0a;
+  --status-cancelled: #9ca3af;
+  --status-cancelled-bg: #1f2937;
+
+  --banner-error-bg: #450a0a;
+  --banner-error-border: #7f1d1d;
+  --banner-error-text: #fca5a5;
+  --banner-warning-bg: #422006;
+  --banner-warning-border: #78350f;
+  --banner-warning-text: #fde68a;
+  --banner-info-bg: #172554;
+  --banner-info-border: #1e3a5f;
+  --banner-info-text: #93c5fd;
+
+  --chip-bg: #374151;
+  --chip-active-bg: #2563eb;
+  --chip-active-text: #fff;
+
+  --json-key: #9cdcfe;
+  --json-string: #ce9178;
+  --json-number: #b5cea8;
+  --json-null: #6a6a6a;
+}
+
+/* ------------------------------------------------------------------ */
+/* Base                                                                */
+/* ------------------------------------------------------------------ */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 11px;
+  line-height: 1.4;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------------ */
+/* Banners                                                             */
+/* ------------------------------------------------------------------ */
+
+.banner {
+  padding: 4px 8px;
+  font-size: 11px;
+  border-bottom: 1px solid;
+  flex-shrink: 0;
+}
+
+.banner-error {
+  background: var(--banner-error-bg);
+  border-color: var(--banner-error-border);
+  color: var(--banner-error-text);
+}
+
+.banner-warning {
+  background: var(--banner-warning-bg);
+  border-color: var(--banner-warning-border);
+  color: var(--banner-warning-text);
+}
+
+.banner-info {
+  background: var(--banner-info-bg);
+  border-color: var(--banner-info-border);
+  color: var(--banner-info-text);
+}
+
+/* ------------------------------------------------------------------ */
+/* Tab bar                                                             */
+/* ------------------------------------------------------------------ */
+
+.tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.tab-btn {
+  padding: 4px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 11px;
+  border-bottom: 2px solid transparent;
+  font-family: inherit;
+}
+
+.tab-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.tab-btn.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--chip-active-bg);
+}
+
+/* ------------------------------------------------------------------ */
+/* Tab content                                                         */
+/* ------------------------------------------------------------------ */
+
+.tab-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Commands tab                                                        */
+/* ------------------------------------------------------------------ */
+
+.commands-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.commands-toolbar .count {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.commands-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.commands-table-wrap {
+  flex: 1;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.commands-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.commands-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-secondary);
+  padding: 3px 6px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Column widths */
+.commands-table .col-id {
+  width: 70px;
+}
+.commands-table .col-service {
+  width: 80px;
+}
+.commands-table .col-type {
+  width: 120px;
+}
+.commands-table .col-status {
+  width: 80px;
+}
+.commands-table .col-attempts {
+  width: 50px;
+}
+.commands-table .col-time {
+  width: 75px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Command row                                                         */
+/* ------------------------------------------------------------------ */
+
+.command-row {
+  cursor: pointer;
+}
+
+.command-row:hover {
+  background: var(--bg-hover);
+}
+
+.command-row.selected {
+  background: var(--bg-selected);
+}
+
+.command-row td {
+  padding: 2px 6px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  height: 22px;
+  vertical-align: middle;
+}
+
+.command-id {
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.command-type {
+  font-weight: 500;
+}
+
+.command-time {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ */
+/* Status badges                                                       */
+/* ------------------------------------------------------------------ */
+
+.status-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.status-pending {
+  color: var(--status-pending);
+  background: var(--status-pending-bg);
+}
+.status-blocked {
+  color: var(--status-blocked);
+  background: var(--status-blocked-bg);
+}
+.status-sending {
+  color: var(--status-sending);
+  background: var(--status-sending-bg);
+}
+.status-succeeded {
+  color: var(--status-succeeded);
+  background: var(--status-succeeded-bg);
+}
+.status-failed {
+  color: var(--status-failed);
+  background: var(--status-failed-bg);
+}
+.status-cancelled {
+  color: var(--status-cancelled);
+  background: var(--status-cancelled-bg);
+}
+
+/* ------------------------------------------------------------------ */
+/* Filter chips                                                        */
+/* ------------------------------------------------------------------ */
+
+.filter-chips {
+  display: flex;
+  gap: 3px;
+}
+
+.filter-chip {
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--chip-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 10px;
+  font-family: inherit;
+}
+
+.filter-chip.active {
+  background: var(--chip-active-bg);
+  color: var(--chip-active-text);
+  border-color: var(--chip-active-bg);
+}
+
+/* ------------------------------------------------------------------ */
+/* Detail panel                                                        */
+/* ------------------------------------------------------------------ */
+
+.command-detail {
+  width: 360px;
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  background: var(--bg-primary);
+  flex-shrink: 0;
+}
+
+.detail-header {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.detail-header h3 {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.detail-header .meta {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.detail-section {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.detail-section h4 {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.detail-json {
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 10px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: var(--bg-secondary);
+  padding: 4px 6px;
+  border-radius: 3px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.detail-actions {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+}
+
+.btn {
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 11px;
+  font-family: inherit;
+}
+
+.btn:hover {
+  background: var(--bg-hover);
+}
+
+.btn-danger {
+  border-color: var(--status-failed);
+  color: var(--status-failed);
+}
+
+.btn-primary {
+  border-color: var(--chip-active-bg);
+  color: var(--chip-active-bg);
+}
+
+/* ------------------------------------------------------------------ */
+/* Toolbar buttons                                                     */
+/* ------------------------------------------------------------------ */
+
+.toolbar-btn {
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 10px;
+  font-family: inherit;
+}
+
+.toolbar-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ------------------------------------------------------------------ */
+/* Debug event timeline                                                */
+/* ------------------------------------------------------------------ */
+
+.debug-timeline {
+  list-style: none;
+}
+
+.debug-timeline li {
+  padding: 2px 0;
+  font-size: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.debug-timeline .event-type {
+  font-weight: 500;
+}
+
+.debug-timeline .event-time {
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Dependencies                                                        */
+/* ------------------------------------------------------------------ */
+
+.dep-list {
+  list-style: none;
+}
+
+.dep-list li {
+  padding: 1px 0;
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.dep-label {
+  font-family: inherit;
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Empty state                                                         */
+/* ------------------------------------------------------------------ */
+
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--text-muted);
+  font-size: 12px;
+}
