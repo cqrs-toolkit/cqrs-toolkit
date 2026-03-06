@@ -6,7 +6,7 @@
 
 # Class: TabLockError
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:42
+Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:42](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts#L42)
 
 Error thrown when tab lock cannot be acquired.
 
@@ -20,7 +20,7 @@ Error thrown when tab lock cannot be acquired.
 
 > **new TabLockError**(`message`): `TabLockError`
 
-Defined in: packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:43
+Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:43](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts#L43)
 
 #### Parameters
 

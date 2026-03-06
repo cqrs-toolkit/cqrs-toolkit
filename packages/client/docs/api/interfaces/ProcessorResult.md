@@ -6,7 +6,7 @@
 
 # Interface: ProcessorResult\<T\>
 
-Defined in: packages/client/src/core/event-processor/types.ts:19
+Defined in: [packages/client/src/core/event-processor/types.ts:19](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/types.ts#L19)
 
 Result of processing an event.
 
@@ -22,7 +22,7 @@ Result of processing an event.
 
 > **collection**: `string`
 
-Defined in: packages/client/src/core/event-processor/types.ts:21
+Defined in: [packages/client/src/core/event-processor/types.ts:21](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/types.ts#L21)
 
 Collection to update
 
@@ -32,7 +32,7 @@ Collection to update
 
 > **id**: `string`
 
-Defined in: packages/client/src/core/event-processor/types.ts:23
+Defined in: [packages/client/src/core/event-processor/types.ts:23](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/types.ts#L23)
 
 Entity ID to update
 
@@ -42,7 +42,7 @@ Entity ID to update
 
 > **isServerUpdate**: `boolean`
 
-Defined in: packages/client/src/core/event-processor/types.ts:27
+Defined in: [packages/client/src/core/event-processor/types.ts:27](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/types.ts#L27)
 
 Whether this is a server baseline update (vs optimistic)
 
@@ -52,6 +52,6 @@ Whether this is a server baseline update (vs optimistic)
 
 > **update**: [`UpdateOperation`](../type-aliases/UpdateOperation.md)\<`T`\>
 
-Defined in: packages/client/src/core/event-processor/types.ts:25
+Defined in: [packages/client/src/core/event-processor/types.ts:25](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/types.ts#L25)
 
 Update operation

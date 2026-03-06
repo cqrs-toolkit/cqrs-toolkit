@@ -6,7 +6,7 @@
 
 # Interface: ResolvedConfig\<TCommand, TEvent\>
 
-Defined in: packages/client/src/types/config.ts:318
+Defined in: [packages/client/src/types/config.ts:318](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/config.ts#L318)
 
 Resolved shared configuration with all defaults applied.
 
@@ -30,7 +30,7 @@ Resolved shared configuration with all defaults applied.
 
 > **cache**: [`CacheConfig`](CacheConfig.md)
 
-Defined in: packages/client/src/types/config.ts:217
+Defined in: [packages/client/src/types/config.ts:217](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/config.ts#L217)
 
 Cache configuration.
 
@@ -44,7 +44,7 @@ Cache configuration.
 
 > **collections**: [`Collection`](Collection.md)[]
 
-Defined in: packages/client/src/types/config.ts:327
+Defined in: [packages/client/src/types/config.ts:327](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/config.ts#L327)
 
 ---
 
@@ -52,7 +52,7 @@ Defined in: packages/client/src/types/config.ts:327
 
 > `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)
 
-Defined in: packages/client/src/types/config.ts:325
+Defined in: [packages/client/src/types/config.ts:325](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/config.ts#L325)
 
 ---
 
@@ -60,7 +60,7 @@ Defined in: packages/client/src/types/config.ts:325
 
 > **debug**: `boolean`
 
-Defined in: packages/client/src/types/config.ts:244
+Defined in: [packages/client/src/types/config.ts:244](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/config.ts#L244)
 
 Enable debug logging.
 
@@ -74,7 +74,7 @@ Enable debug logging.
 
 > `optional` **domainExecutor**: [`IDomainExecutor`](IDomainExecutor.md)\<`TCommand`, `TEvent`\>
 
-Defined in: packages/client/src/types/config.ts:324
+Defined in: [packages/client/src/types/config.ts:324](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/config.ts#L324)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: packages/client/src/types/config.ts:324
 
 > **network**: [`NetworkConfig`](NetworkConfig.md)
 
-Defined in: packages/client/src/types/config.ts:202
+Defined in: [packages/client/src/types/config.ts:202](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/config.ts#L202)
 
 Network configuration.
 
@@ -96,7 +96,7 @@ Network configuration.
 
 > **processors**: [`ProcessorRegistration`](ProcessorRegistration.md)\<`unknown`, `Record`\<`string`, `unknown`\>\>[]
 
-Defined in: packages/client/src/types/config.ts:328
+Defined in: [packages/client/src/types/config.ts:328](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/config.ts#L328)
 
 ---
 
@@ -104,7 +104,7 @@ Defined in: packages/client/src/types/config.ts:328
 
 > **retainTerminal**: `boolean`
 
-Defined in: packages/client/src/types/config.ts:239
+Defined in: [packages/client/src/types/config.ts:239](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/config.ts#L239)
 
 Retain terminal commands in storage for debugging/introspection.
 
@@ -118,7 +118,7 @@ Retain terminal commands in storage for debugging/introspection.
 
 > **retry**: [`RetryConfig`](RetryConfig.md)
 
-Defined in: packages/client/src/types/config.ts:212
+Defined in: [packages/client/src/types/config.ts:212](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/config.ts#L212)
 
 Retry configuration for commands.
 
@@ -132,7 +132,7 @@ Retry configuration for commands.
 
 > **storage**: [`StorageConfig`](StorageConfig.md)
 
-Defined in: packages/client/src/types/config.ts:207
+Defined in: [packages/client/src/types/config.ts:207](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/config.ts#L207)
 
 Storage configuration (ignored for online-only mode).
 
@@ -146,4 +146,4 @@ Storage configuration (ignored for online-only mode).
 
 > `optional` **workerSetup**: `string`[]
 
-Defined in: packages/client/src/types/config.ts:326
+Defined in: [packages/client/src/types/config.ts:326](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/config.ts#L326)

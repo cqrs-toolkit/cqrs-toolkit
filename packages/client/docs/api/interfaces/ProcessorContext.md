@@ -6,7 +6,7 @@
 
 # Interface: ProcessorContext
 
-Defined in: packages/client/src/core/event-processor/types.ts:59
+Defined in: [packages/client/src/core/event-processor/types.ts:59](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/types.ts#L59)
 
 Context passed to event processors.
 
@@ -16,7 +16,7 @@ Context passed to event processors.
 
 > `optional` **commandId**: `string`
 
-Defined in: packages/client/src/core/event-processor/types.ts:63
+Defined in: [packages/client/src/core/event-processor/types.ts:63](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/types.ts#L63)
 
 For anticipated events, the command ID
 
@@ -26,7 +26,7 @@ For anticipated events, the command ID
 
 > **eventId**: `string`
 
-Defined in: packages/client/src/core/event-processor/types.ts:71
+Defined in: [packages/client/src/core/event-processor/types.ts:71](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/types.ts#L71)
 
 Unique event ID
 
@@ -36,7 +36,7 @@ Unique event ID
 
 > **getCurrentState**: \<`T`\>(`collection`, `id`) => `Promise`\<`T` \| `undefined`\>
 
-Defined in: packages/client/src/core/event-processor/types.ts:73
+Defined in: [packages/client/src/core/event-processor/types.ts:73](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/types.ts#L73)
 
 Get current read model state (may not exist)
 
@@ -66,7 +66,7 @@ Get current read model state (may not exist)
 
 > **persistence**: [`EventPersistence`](../type-aliases/EventPersistence.md)
 
-Defined in: packages/client/src/core/event-processor/types.ts:61
+Defined in: [packages/client/src/core/event-processor/types.ts:61](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/types.ts#L61)
 
 Event persistence type
 
@@ -76,7 +76,7 @@ Event persistence type
 
 > `optional` **position**: `bigint`
 
-Defined in: packages/client/src/core/event-processor/types.ts:67
+Defined in: [packages/client/src/core/event-processor/types.ts:67](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/types.ts#L67)
 
 Global position of the event (absent for anticipated events)
 
@@ -86,7 +86,7 @@ Global position of the event (absent for anticipated events)
 
 > `optional` **revision**: `bigint`
 
-Defined in: packages/client/src/core/event-processor/types.ts:65
+Defined in: [packages/client/src/core/event-processor/types.ts:65](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/types.ts#L65)
 
 Stream revision of the event (absent for anticipated events)
 
@@ -96,6 +96,6 @@ Stream revision of the event (absent for anticipated events)
 
 > **streamId**: `string`
 
-Defined in: packages/client/src/core/event-processor/types.ts:69
+Defined in: [packages/client/src/core/event-processor/types.ts:69](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/types.ts#L69)
 
 Stream ID the event belongs to

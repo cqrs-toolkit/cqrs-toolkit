@@ -8,7 +8,7 @@
 
 > **resolveConfig**\<`TCommand`, `TEvent`\>(`config`): [`ResolvedConfig`](../interfaces/ResolvedConfig.md)\<`TCommand`, `TEvent`\>
 
-Defined in: packages/client/src/types/config.ts:334
+Defined in: [packages/client/src/types/config.ts:334](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/config.ts#L334)
 
 Resolve shared configuration with defaults.
 

@@ -8,7 +8,7 @@
 
 > **startDedicatedWorker**(`config`): `void`
 
-Defined in: packages/client/src/adapters/worker-core/startDedicatedWorker.ts:36
+Defined in: [packages/client/src/adapters/worker-core/startDedicatedWorker.ts:36](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/worker-core/startDedicatedWorker.ts#L36)
 
 Bootstrap a Dedicated Worker with CQRS orchestration.
 

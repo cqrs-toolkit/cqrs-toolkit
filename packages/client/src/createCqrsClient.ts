@@ -13,7 +13,7 @@
  * @packageDocumentation
  */
 
-import { logProvider } from '@meticoeus/ddd-es'
+import { Err, Ok, logProvider } from '@meticoeus/ddd-es'
 import { type Observable, filter } from 'rxjs'
 import type {
   AdapterStatus,
@@ -42,7 +42,15 @@ import { ReadModelStore } from './core/read-model-store/ReadModelStore.js'
 import type { IConnectivity } from './core/sync-manager/ConnectivityManager.js'
 import type { CollectionSyncStatus } from './core/sync-manager/SyncManager.js'
 import { SyncManager } from './core/sync-manager/SyncManager.js'
-import type { CommandRecord, TerminalCommandStatus } from './types/commands.js'
+import type {
+  CommandRecord,
+  EnqueueCommand,
+  SubmitOptions,
+  SubmitResult,
+  SubmitSuccess,
+  TerminalCommandStatus,
+} from './types/commands.js'
+import { SubmitException } from './types/commands.js'
 import type {
   Collection,
   CqrsClientConfig,
@@ -115,6 +123,120 @@ export class CqrsClient {
     this._events$ = debug
       ? this.adapter.events$
       : this.adapter.events$.pipe(filter((e) => !DEBUG_EVENT_TYPES.has(e.type)))
+  }
+
+  /**
+   * Network-aware command submission.
+   *
+   * When online+authenticated: waits for server confirmation (like `enqueueAndWait`).
+   * When offline/unauthenticated: returns after enqueue (like `enqueue`).
+   *
+   * If `options.commandId` is provided, checks the queue first:
+   * - Found + non-terminal → resumes waiting (no duplicate enqueue)
+   * - Found + succeeded → returns cached success immediately
+   * - Found + failed/cancelled, or not found → fresh enqueue
+   */
+  async submit<TPayload, TResponse>(
+    command: EnqueueCommand<TPayload>,
+    options?: SubmitOptions,
+  ): Promise<SubmitResult<TResponse>> {
+    let commandId = options?.commandId
+
+    // Step 1: If commandId provided, check queue for existing command
+    if (commandId) {
+      const existing = await this.commandQueue.getCommand(commandId)
+      if (existing) {
+        switch (existing.status) {
+          case 'succeeded':
+            // Already confirmed — return cached success
+            return Ok({
+              stage: 'confirmed',
+              commandId,
+              response: existing.serverResponse as TResponse,
+            } satisfies SubmitSuccess<TResponse>)
+
+          case 'pending':
+          case 'blocked':
+          case 'sending':
+            // Non-terminal — skip enqueue, resume at connectivity check (step 4)
+            return this.submitWaitOrReturn(commandId, options?.timeout)
+
+          case 'failed':
+          case 'cancelled':
+            // Terminal failure — fresh enqueue with new commandId
+            commandId = undefined
+            break
+        }
+      }
+    }
+
+    // Step 2: Enqueue the command
+    const enqueueResult = await this.commandQueue.enqueue(command, {
+      skipValidation: options?.skipValidation,
+      commandId,
+    })
+
+    // Step 3: If validation fails, return error with no commandId
+    if (!enqueueResult.ok) {
+      const errors = enqueueResult.error.details ?? []
+      return Err(new SubmitException(errors, 'local'))
+    }
+
+    const resolvedCommandId = enqueueResult.value.commandId
+
+    // Steps 4-6: Check connectivity, wait or return
+    return this.submitWaitOrReturn(resolvedCommandId, options?.timeout)
+  }
+
+  /**
+   * Steps 4-6 of submit: check connectivity, return enqueued or wait for completion.
+   */
+  private async submitWaitOrReturn<TResponse>(
+    commandId: string,
+    timeout?: number,
+  ): Promise<SubmitResult<TResponse>> {
+    // Step 4: Check connectivity
+    const online = this.syncManager.connectivity.isOnline()
+
+    // Step 5: If offline, return enqueued immediately
+    if (!online) {
+      return Ok({ stage: 'enqueued', commandId } satisfies SubmitSuccess<TResponse>)
+    }
+
+    // Step 6: Online — wait for completion
+    const completion = await this.commandQueue.waitForCompletion(commandId, { timeout })
+
+    switch (completion.status) {
+      case 'succeeded':
+        return Ok({
+          stage: 'confirmed',
+          commandId,
+          response: completion.response as TResponse,
+        } satisfies SubmitSuccess<TResponse>)
+
+      case 'failed': {
+        const errors = completion.error.validationErrors ?? [
+          { path: '_', message: completion.error.message },
+        ]
+        return Err(new SubmitException(errors, completion.error.source, commandId))
+      }
+
+      case 'cancelled':
+        return Err(
+          new SubmitException([{ path: '_', message: 'Command cancelled' }], 'local', commandId),
+        )
+
+      case 'timeout': {
+        // Check if we went offline during the wait
+        const stillOnline = this.syncManager.connectivity.isOnline()
+        if (!stillOnline) {
+          return Ok({ stage: 'enqueued', commandId } satisfies SubmitSuccess<TResponse>)
+        }
+        return Err(
+          new SubmitException([{ path: '_', message: 'Command timed out' }], 'local', commandId),
+        )
+      }
+    }
   }
 
   /** Observable of all library events. */

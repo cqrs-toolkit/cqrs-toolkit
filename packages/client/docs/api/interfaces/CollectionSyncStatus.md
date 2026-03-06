@@ -6,7 +6,7 @@
 
 # Interface: CollectionSyncStatus
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:46
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:46](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L46)
 
 Sync status for a collection.
 
@@ -16,7 +16,7 @@ Sync status for a collection.
 
 > **collection**: `string`
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:47
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:47](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L47)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: packages/client/src/core/sync-manager/SyncManager.ts:47
 
 > `optional` **error**: `string`
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:51
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:51](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L51)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: packages/client/src/core/sync-manager/SyncManager.ts:51
 
 > `optional` **lastSyncedPosition**: `bigint`
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:49
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:49](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L49)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: packages/client/src/core/sync-manager/SyncManager.ts:49
 
 > **seeded**: `boolean`
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:48
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:48](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L48)
 
 ---
 
@@ -48,4 +48,4 @@ Defined in: packages/client/src/core/sync-manager/SyncManager.ts:48
 
 > **syncing**: `boolean`
 
-Defined in: packages/client/src/core/sync-manager/SyncManager.ts:50
+Defined in: [packages/client/src/core/sync-manager/SyncManager.ts:50](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/SyncManager.ts#L50)

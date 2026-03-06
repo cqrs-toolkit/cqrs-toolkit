@@ -7,7 +7,7 @@ interface AddTodoProps {
 }
 
 export default function AddTodo(props: AddTodoProps) {
-  const { commandQueue } = useClient()
+  const client = useClient()
   const [content, setContent] = createSignal('')
   let formEl: HTMLFormElement | undefined
   let inputRef: HTMLInputElement | undefined
@@ -19,7 +19,7 @@ export default function AddTodo(props: AddTodoProps) {
 
     props.onError(undefined)
 
-    const result = await commandQueue.enqueueAndWait({
+    const result = await client.submit({
       type: 'CreateTodo',
       payload: { content: text },
     })

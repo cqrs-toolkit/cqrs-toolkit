@@ -2,13 +2,13 @@
 
 ---
 
-[@cqrs-toolkit/client](../globals.md) / EnqueueAndWaitOptions
+[@cqrs-toolkit/client](../globals.md) / SubmitOptions
 
-# Interface: EnqueueAndWaitOptions
+# Interface: SubmitOptions
 
-Defined in: [packages/client/src/types/commands.ts:113](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L113)
+Defined in: [packages/client/src/types/commands.ts:289](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L289)
 
-Options for enqueueAndWait operation.
+Options for the network-aware submit operation.
 
 ## Extends
 

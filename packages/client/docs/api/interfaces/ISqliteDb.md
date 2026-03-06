@@ -6,7 +6,7 @@
 
 # Interface: ISqliteDb
 
-Defined in: packages/client/src/storage/ISqliteDb.ts:20
+Defined in: [packages/client/src/storage/ISqliteDb.ts:20](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/ISqliteDb.ts#L20)
 
 Async SQLite database interface.
 
@@ -21,7 +21,7 @@ getting — not a speculative cast.
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/ISqliteDb.ts:26
+Defined in: [packages/client/src/storage/ISqliteDb.ts:26](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/ISqliteDb.ts#L26)
 
 #### Returns
 
@@ -35,7 +35,7 @@ Defined in: packages/client/src/storage/ISqliteDb.ts:26
 
 > **exec**\<`T`\>(`sql`, `options`): `Promise`\<`T`[]\>
 
-Defined in: packages/client/src/storage/ISqliteDb.ts:21
+Defined in: [packages/client/src/storage/ISqliteDb.ts:21](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/ISqliteDb.ts#L21)
 
 ##### Type Parameters
 
@@ -71,7 +71,7 @@ Defined in: packages/client/src/storage/ISqliteDb.ts:21
 
 > **exec**(`sql`, `options?`): `Promise`\<`void`\>
 
-Defined in: packages/client/src/storage/ISqliteDb.ts:25
+Defined in: [packages/client/src/storage/ISqliteDb.ts:25](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/ISqliteDb.ts#L25)
 
 ##### Parameters
 

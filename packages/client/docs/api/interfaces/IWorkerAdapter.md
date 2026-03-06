@@ -6,7 +6,7 @@
 
 # Interface: IWorkerAdapter
 
-Defined in: packages/client/src/adapters/base/IAdapter.ts:70
+Defined in: [packages/client/src/adapters/base/IAdapter.ts:70](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/base/IAdapter.ts#L70)
 
 Worker adapter provides proxy objects. All orchestration happens in the
 worker; createCqrsClient just wraps the proxies.
@@ -21,7 +21,7 @@ worker; createCqrsClient just wraps the proxies.
 
 > `readonly` **cacheManager**: [`ICacheManager`](ICacheManager.md)
 
-Defined in: packages/client/src/adapters/base/IAdapter.ts:74
+Defined in: [packages/client/src/adapters/base/IAdapter.ts:74](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/base/IAdapter.ts#L74)
 
 ---
 
@@ -29,7 +29,7 @@ Defined in: packages/client/src/adapters/base/IAdapter.ts:74
 
 > `readonly` **commandQueue**: [`ICommandQueue`](ICommandQueue.md)
 
-Defined in: packages/client/src/adapters/base/IAdapter.ts:72
+Defined in: [packages/client/src/adapters/base/IAdapter.ts:72](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/base/IAdapter.ts#L72)
 
 ---
 
@@ -37,7 +37,7 @@ Defined in: packages/client/src/adapters/base/IAdapter.ts:72
 
 > `readonly` **events$**: `Observable`\<[`LibraryEvent`](LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
-Defined in: packages/client/src/adapters/base/IAdapter.ts:41
+Defined in: [packages/client/src/adapters/base/IAdapter.ts:41](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/base/IAdapter.ts#L41)
 
 Observable of library events.
 
@@ -51,7 +51,7 @@ Observable of library events.
 
 > `readonly` **mode**: `"shared-worker"` \| `"dedicated-worker"`
 
-Defined in: packages/client/src/adapters/base/IAdapter.ts:71
+Defined in: [packages/client/src/adapters/base/IAdapter.ts:71](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/base/IAdapter.ts#L71)
 
 ---
 
@@ -59,7 +59,7 @@ Defined in: packages/client/src/adapters/base/IAdapter.ts:71
 
 > `readonly` **queryManager**: [`IQueryManager`](IQueryManager.md)
 
-Defined in: packages/client/src/adapters/base/IAdapter.ts:73
+Defined in: [packages/client/src/adapters/base/IAdapter.ts:73](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/base/IAdapter.ts#L73)
 
 ---
 
@@ -67,7 +67,7 @@ Defined in: packages/client/src/adapters/base/IAdapter.ts:73
 
 > `readonly` **status**: [`AdapterStatus`](../type-aliases/AdapterStatus.md)
 
-Defined in: packages/client/src/adapters/base/IAdapter.ts:36
+Defined in: [packages/client/src/adapters/base/IAdapter.ts:36](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/base/IAdapter.ts#L36)
 
 Current adapter status.
 
@@ -81,7 +81,7 @@ Current adapter status.
 
 > `readonly` **syncManager**: [`CqrsClientSyncManager`](CqrsClientSyncManager.md)
 
-Defined in: packages/client/src/adapters/base/IAdapter.ts:75
+Defined in: [packages/client/src/adapters/base/IAdapter.ts:75](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/base/IAdapter.ts#L75)
 
 ## Methods
 
@@ -89,7 +89,7 @@ Defined in: packages/client/src/adapters/base/IAdapter.ts:75
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/base/IAdapter.ts:51
+Defined in: [packages/client/src/adapters/base/IAdapter.ts:51](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/base/IAdapter.ts#L51)
 
 Close the adapter and release resources.
 
@@ -107,7 +107,7 @@ Close the adapter and release resources.
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: packages/client/src/adapters/base/IAdapter.ts:46
+Defined in: [packages/client/src/adapters/base/IAdapter.ts:46](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/base/IAdapter.ts#L46)
 
 Initialize the adapter.
 

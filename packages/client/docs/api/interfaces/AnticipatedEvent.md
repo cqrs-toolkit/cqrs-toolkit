@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / AnticipatedEvent
 
 # Interface: AnticipatedEvent\<TPayload\>
 
-Defined in: packages/client/src/types/events.ts:27
+Defined in: [packages/client/src/types/events.ts:27](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L27)
 
 Anticipated event produced by local command execution.
 
@@ -22,52 +22,52 @@ Anticipated event produced by local command execution.
 
 > **commandId**: `string`
 
-Defined in: packages/client/src/types/events.ts:34
+Defined in: [packages/client/src/types/events.ts:34](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L34)
 
-***
+---
 
 ### createdAt
 
 > **createdAt**: `number`
 
-Defined in: packages/client/src/types/events.ts:32
+Defined in: [packages/client/src/types/events.ts:32](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L32)
 
-***
+---
 
 ### data
 
 > **data**: `TPayload`
 
-Defined in: packages/client/src/types/events.ts:29
+Defined in: [packages/client/src/types/events.ts:29](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L29)
 
-***
+---
 
 ### id
 
 > **id**: `string`
 
-Defined in: packages/client/src/types/events.ts:31
+Defined in: [packages/client/src/types/events.ts:31](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L31)
 
-***
+---
 
 ### persistence
 
 > **persistence**: `"Anticipated"`
 
-Defined in: packages/client/src/types/events.ts:33
+Defined in: [packages/client/src/types/events.ts:33](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L33)
 
-***
+---
 
 ### streamId
 
 > **streamId**: `string`
 
-Defined in: packages/client/src/types/events.ts:30
+Defined in: [packages/client/src/types/events.ts:30](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L30)
 
-***
+---
 
 ### type
 
 > **type**: `string`
 
-Defined in: packages/client/src/types/events.ts:28
+Defined in: [packages/client/src/types/events.ts:28](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L28)

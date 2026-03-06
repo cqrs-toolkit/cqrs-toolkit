@@ -6,7 +6,7 @@
 
 # Interface: LoadAndOpenDbConfig
 
-Defined in: packages/client/src/storage/LocalSqliteDb.ts:20
+Defined in: [packages/client/src/storage/LocalSqliteDb.ts:20](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/LocalSqliteDb.ts#L20)
 
 Configuration for loading and opening a local SQLite database.
 
@@ -16,7 +16,7 @@ Configuration for loading and opening a local SQLite database.
 
 > **dbName**: `string`
 
-Defined in: packages/client/src/storage/LocalSqliteDb.ts:22
+Defined in: [packages/client/src/storage/LocalSqliteDb.ts:22](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/LocalSqliteDb.ts#L22)
 
 Database file name
 
@@ -26,6 +26,6 @@ Database file name
 
 > **vfs**: [`VfsType`](../type-aliases/VfsType.md)
 
-Defined in: packages/client/src/storage/LocalSqliteDb.ts:24
+Defined in: [packages/client/src/storage/LocalSqliteDb.ts:24](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/LocalSqliteDb.ts#L24)
 
 VFS to use

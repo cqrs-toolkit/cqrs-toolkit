@@ -6,7 +6,7 @@
 
 # Interface: QueryManagerConfig
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:30
+Defined in: [packages/client/src/core/query-manager/QueryManager.ts:30](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/query-manager/QueryManager.ts#L30)
 
 Query manager configuration.
 
@@ -16,7 +16,7 @@ Query manager configuration.
 
 > **cacheManager**: [`CacheManager`](../classes/CacheManager.md)
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:32
+Defined in: [packages/client/src/core/query-manager/QueryManager.ts:32](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/query-manager/QueryManager.ts#L32)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: packages/client/src/core/query-manager/QueryManager.ts:32
 
 > **eventBus**: [`EventBus`](../classes/EventBus.md)
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:31
+Defined in: [packages/client/src/core/query-manager/QueryManager.ts:31](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/query-manager/QueryManager.ts#L31)
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: packages/client/src/core/query-manager/QueryManager.ts:31
 
 > **readModelStore**: [`ReadModelStore`](../classes/ReadModelStore.md)
 
-Defined in: packages/client/src/core/query-manager/QueryManager.ts:33
+Defined in: [packages/client/src/core/query-manager/QueryManager.ts:33](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/query-manager/QueryManager.ts#L33)

@@ -6,7 +6,7 @@
 
 # Class: OpfsUnavailableException
 
-Defined in: packages/client/src/adapters/worker-core/probeOpfs.ts:18
+Defined in: [packages/client/src/adapters/worker-core/probeOpfs.ts:18](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/worker-core/probeOpfs.ts#L18)
 
 OPFS is not available in this worker environment.
 
@@ -23,7 +23,7 @@ can catch it and the client factory can fall back to online-only mode.
 
 > **new OpfsUnavailableException**(): `OpfsUnavailableException`
 
-Defined in: packages/client/src/adapters/worker-core/probeOpfs.ts:21
+Defined in: [packages/client/src/adapters/worker-core/probeOpfs.ts:21](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/worker-core/probeOpfs.ts#L21)
 
 #### Returns
 
@@ -75,7 +75,7 @@ Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:12
 
 > `readonly` **errorCode**: `"OPFS_UNAVAILABLE"` = `'OPFS_UNAVAILABLE'`
 
-Defined in: packages/client/src/adapters/worker-core/probeOpfs.ts:19
+Defined in: [packages/client/src/adapters/worker-core/probeOpfs.ts:19](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/adapters/worker-core/probeOpfs.ts#L19)
 
 ---
 

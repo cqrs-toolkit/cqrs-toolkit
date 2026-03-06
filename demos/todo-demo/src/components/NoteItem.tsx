@@ -10,7 +10,7 @@ interface NoteItemProps {
 type EditState = 'viewing' | 'editing' | 'saving'
 
 export default function NoteItem(props: NoteItemProps) {
-  const { commandQueue } = useClient()
+  const client = useClient()
   const [editState, setEditState] = createSignal<EditState>('viewing')
   const [editTitle, setEditTitle] = createSignal('')
   const [editBody, setEditBody] = createSignal('')
@@ -45,7 +45,7 @@ export default function NoteItem(props: NoteItemProps) {
     props.onError(undefined)
 
     if (titleChanged) {
-      const result = await commandQueue.enqueueAndWait({
+      const result = await client.submit({
         type: 'UpdateNoteTitle',
         payload: { id: props.note.id, title: trimmedTitle, revision: props.note.latestRevision },
       })
@@ -57,7 +57,7 @@ export default function NoteItem(props: NoteItemProps) {
     }
 
     if (bodyChanged) {
-      const result = await commandQueue.enqueueAndWait({
+      const result = await client.submit({
         type: 'UpdateNoteBody',
         payload: { id: props.note.id, body: editBody(), revision: props.note.latestRevision },
       })
@@ -112,7 +112,7 @@ export default function NoteItem(props: NoteItemProps) {
 
   async function handleDelete() {
     props.onError(undefined)
-    const result = await commandQueue.enqueueAndWait({
+    const result = await client.submit({
       type: 'DeleteNote',
       payload: { id: props.note.id, revision: props.note.latestRevision },
     })

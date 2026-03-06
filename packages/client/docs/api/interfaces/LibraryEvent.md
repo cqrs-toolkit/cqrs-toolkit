@@ -6,7 +6,7 @@
 
 # Interface: LibraryEvent\<T\>
 
-Defined in: packages/client/src/types/events.ts:93
+Defined in: [packages/client/src/types/events.ts:93](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L93)
 
 Typed library event.
 
@@ -22,7 +22,7 @@ Typed library event.
 
 > **payload**: [`LibraryEventPayloads`](LibraryEventPayloads.md)\[`T`\]
 
-Defined in: packages/client/src/types/events.ts:95
+Defined in: [packages/client/src/types/events.ts:95](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L95)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: packages/client/src/types/events.ts:95
 
 > **timestamp**: `number`
 
-Defined in: packages/client/src/types/events.ts:96
+Defined in: [packages/client/src/types/events.ts:96](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L96)
 
 ---
 
@@ -38,4 +38,4 @@ Defined in: packages/client/src/types/events.ts:96
 
 > **type**: `T`
 
-Defined in: packages/client/src/types/events.ts:94
+Defined in: [packages/client/src/types/events.ts:94](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/events.ts#L94)

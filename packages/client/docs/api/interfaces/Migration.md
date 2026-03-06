@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / Migration
 
 # Interface: Migration
 
-Defined in: packages/client/src/storage/schema/migrations.ts:11
+Defined in: [packages/client/src/storage/schema/migrations.ts:11](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/schema/migrations.ts#L11)
 
 Migration definition.
 
@@ -16,20 +16,20 @@ Migration definition.
 
 > **description**: `string`
 
-Defined in: packages/client/src/storage/schema/migrations.ts:13
+Defined in: [packages/client/src/storage/schema/migrations.ts:13](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/schema/migrations.ts#L13)
 
-***
+---
 
 ### sql
 
 > **sql**: `string`[]
 
-Defined in: packages/client/src/storage/schema/migrations.ts:14
+Defined in: [packages/client/src/storage/schema/migrations.ts:14](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/schema/migrations.ts#L14)
 
-***
+---
 
 ### version
 
 > **version**: `number`
 
-Defined in: packages/client/src/storage/schema/migrations.ts:12
+Defined in: [packages/client/src/storage/schema/migrations.ts:12](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/storage/schema/migrations.ts#L12)

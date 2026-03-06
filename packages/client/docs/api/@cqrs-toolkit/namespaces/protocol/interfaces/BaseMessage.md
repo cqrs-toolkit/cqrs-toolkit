@@ -6,7 +6,7 @@
 
 # Interface: BaseMessage
 
-Defined in: packages/client/src/protocol/messages.ts:11
+Defined in: [packages/client/src/protocol/messages.ts:11](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/messages.ts#L11)
 
 Base message structure.
 
@@ -25,7 +25,7 @@ Base message structure.
 
 > **requestId**: `string`
 
-Defined in: packages/client/src/protocol/messages.ts:15
+Defined in: [packages/client/src/protocol/messages.ts:15](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/messages.ts#L15)
 
 Unique request ID for correlation
 
@@ -35,6 +35,6 @@ Unique request ID for correlation
 
 > **type**: `string`
 
-Defined in: packages/client/src/protocol/messages.ts:13
+Defined in: [packages/client/src/protocol/messages.ts:13](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/messages.ts#L13)
 
 Message type identifier

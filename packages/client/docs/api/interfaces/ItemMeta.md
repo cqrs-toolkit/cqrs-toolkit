@@ -6,7 +6,7 @@
 
 # Interface: ItemMeta
 
-Defined in: packages/client/src/core/query-manager/types.ts:23
+Defined in: [packages/client/src/core/query-manager/types.ts:23](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/query-manager/types.ts#L23)
 
 Identity and change-detection metadata for a single item.
 Carried alongside query results so decorators (e.g. StableRefQueryManager)
@@ -18,7 +18,7 @@ can reconcile references without inspecting consumer data.
 
 > `readonly` **id**: `string`
 
-Defined in: packages/client/src/core/query-manager/types.ts:24
+Defined in: [packages/client/src/core/query-manager/types.ts:24](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/query-manager/types.ts#L24)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: packages/client/src/core/query-manager/types.ts:24
 
 > `readonly` **updatedAt**: `number`
 
-Defined in: packages/client/src/core/query-manager/types.ts:25
+Defined in: [packages/client/src/core/query-manager/types.ts:25](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/query-manager/types.ts#L25)

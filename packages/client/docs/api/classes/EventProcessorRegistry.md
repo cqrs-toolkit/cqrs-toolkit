@@ -6,7 +6,7 @@
 
 # Class: EventProcessorRegistry
 
-Defined in: packages/client/src/core/event-processor/EventProcessorRegistry.ts:21
+Defined in: [packages/client/src/core/event-processor/EventProcessorRegistry.ts:21](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/EventProcessorRegistry.ts#L21)
 
 Event processor registry.
 
@@ -26,7 +26,7 @@ Event processor registry.
 
 > **clear**(): `void`
 
-Defined in: packages/client/src/core/event-processor/EventProcessorRegistry.ts:102
+Defined in: [packages/client/src/core/event-processor/EventProcessorRegistry.ts:102](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/EventProcessorRegistry.ts#L102)
 
 Clear all registrations.
 
@@ -40,7 +40,7 @@ Clear all registrations.
 
 > **getEventTypes**(): `Set`\<`string`\>
 
-Defined in: packages/client/src/core/event-processor/EventProcessorRegistry.ts:95
+Defined in: [packages/client/src/core/event-processor/EventProcessorRegistry.ts:95](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/EventProcessorRegistry.ts#L95)
 
 Get all registered event types.
 
@@ -56,7 +56,7 @@ Set of event types
 
 > **getProcessors**(`eventType`, `persistence`): [`EventProcessor`](../type-aliases/EventProcessor.md)[]
 
-Defined in: packages/client/src/core/event-processor/EventProcessorRegistry.ts:65
+Defined in: [packages/client/src/core/event-processor/EventProcessorRegistry.ts:65](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/EventProcessorRegistry.ts#L65)
 
 Get processors for an event type and persistence.
 
@@ -86,7 +86,7 @@ Matching processors
 
 > **hasProcessors**(`eventType`): `boolean`
 
-Defined in: packages/client/src/core/event-processor/EventProcessorRegistry.ts:85
+Defined in: [packages/client/src/core/event-processor/EventProcessorRegistry.ts:85](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/EventProcessorRegistry.ts#L85)
 
 Check if there are any processors for an event type.
 
@@ -110,7 +110,7 @@ Whether there are processors
 
 > **register**\<`TEvent`, `TModel`\>(`registration`): `void`
 
-Defined in: packages/client/src/core/event-processor/EventProcessorRegistry.ts:30
+Defined in: [packages/client/src/core/event-processor/EventProcessorRegistry.ts:30](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/EventProcessorRegistry.ts#L30)
 
 Register an event processor.
 

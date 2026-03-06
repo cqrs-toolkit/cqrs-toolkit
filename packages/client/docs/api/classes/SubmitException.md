@@ -2,25 +2,28 @@
 
 ---
 
-[@cqrs-toolkit/client](../globals.md) / EnqueueAndWaitException
+[@cqrs-toolkit/client](../globals.md) / SubmitException
 
-# Class: EnqueueAndWaitException
+# Class: SubmitException
 
-Defined in: [packages/client/src/types/commands.ts:187](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L187)
+Defined in: [packages/client/src/types/commands.ts:312](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L312)
 
-Exception for enqueueAndWait failures, carrying validation errors and their source.
+Exception for submit failures.
+
+`details.commandId` is set when the command IS in the queue despite the error
+(server rejection, timeout). The consumer can use it to retry or track.
 
 ## Extends
 
-- `Exception`\<\{ `errors`: [`ValidationError`](../interfaces/ValidationError.md)[]; `source`: [`CommandErrorSource`](../type-aliases/CommandErrorSource.md); \}\>
+- `Exception`\<\{ `commandId?`: `string`; `errors`: [`ValidationError`](../interfaces/ValidationError.md)[]; `source`: [`CommandErrorSource`](../type-aliases/CommandErrorSource.md); \}\>
 
 ## Constructors
 
 ### Constructor
 
-> **new EnqueueAndWaitException**(`errors`, `source`): `EnqueueAndWaitException`
+> **new SubmitException**(`errors`, `source`, `commandId?`): `SubmitException`
 
-Defined in: [packages/client/src/types/commands.ts:191](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L191)
+Defined in: [packages/client/src/types/commands.ts:317](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/commands.ts#L317)
 
 #### Parameters
 
@@ -32,19 +35,23 @@ Defined in: [packages/client/src/types/commands.ts:191](https://github.com/Swift
 
 [`CommandErrorSource`](../type-aliases/CommandErrorSource.md)
 
+##### commandId?
+
+`string`
+
 #### Returns
 
-`EnqueueAndWaitException`
+`SubmitException`
 
 #### Overrides
 
-`Exception<{ errors: ValidationError[] source: CommandErrorSource }>.constructor`
+`Exception<{ errors: ValidationError[] source: CommandErrorSource commandId?: string }>.constructor`
 
 ## Properties
 
 ### \_details
 
-> `protected` **\_details**: \{ `errors`: [`ValidationError`](../interfaces/ValidationError.md)[]; `source`: [`CommandErrorSource`](../type-aliases/CommandErrorSource.md); \} \| `undefined`
+> `protected` **\_details**: \{ `commandId?`: `string`; `errors`: [`ValidationError`](../interfaces/ValidationError.md)[]; `source`: [`CommandErrorSource`](../type-aliases/CommandErrorSource.md); \} \| `undefined`
 
 Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:14
 

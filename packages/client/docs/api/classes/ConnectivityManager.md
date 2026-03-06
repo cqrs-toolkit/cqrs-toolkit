@@ -6,7 +6,7 @@
 
 # Class: ConnectivityManager
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:70
+Defined in: [packages/client/src/core/sync-manager/ConnectivityManager.ts:70](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/ConnectivityManager.ts#L70)
 
 Connectivity manager.
 Tracks browser online status and API reachability.
@@ -21,7 +21,7 @@ Tracks browser online status and API reachability.
 
 > **new ConnectivityManager**(`config`): `ConnectivityManager`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:86
+Defined in: [packages/client/src/core/sync-manager/ConnectivityManager.ts:86](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/ConnectivityManager.ts#L86)
 
 #### Parameters
 
@@ -41,7 +41,7 @@ Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:86
 
 > **get** **online$**(): `Observable`\<`boolean`\>
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:109
+Defined in: [packages/client/src/core/sync-manager/ConnectivityManager.ts:109](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/ConnectivityManager.ts#L109)
 
 Observable of online status (browser + API reachable).
 
@@ -63,7 +63,7 @@ Observable of online status (browser + API reachable).
 
 > **get** **state**(): `Observable`\<[`ConnectivityState`](../interfaces/ConnectivityState.md)\>
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:102
+Defined in: [packages/client/src/core/sync-manager/ConnectivityManager.ts:102](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/ConnectivityManager.ts#L102)
 
 Observable of connectivity state changes.
 
@@ -83,7 +83,7 @@ Observable of connectivity state changes.
 
 > **destroy**(): `void`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:282
+Defined in: [packages/client/src/core/sync-manager/ConnectivityManager.ts:282](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/ConnectivityManager.ts#L282)
 
 Clean up resources.
 
@@ -97,7 +97,7 @@ Clean up resources.
 
 > **getState**(): [`ConnectivityState`](../interfaces/ConnectivityState.md)
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:95
+Defined in: [packages/client/src/core/sync-manager/ConnectivityManager.ts:95](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/ConnectivityManager.ts#L95)
 
 Get the current connectivity state.
 
@@ -115,7 +115,7 @@ Get the current connectivity state.
 
 > **isOnline**(): `boolean`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:119
+Defined in: [packages/client/src/core/sync-manager/ConnectivityManager.ts:119](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/ConnectivityManager.ts#L119)
 
 Check if we're effectively online.
 
@@ -133,7 +133,7 @@ Check if we're effectively online.
 
 > **reportContact**(): `void`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:188
+Defined in: [packages/client/src/core/sync-manager/ConnectivityManager.ts:188](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/ConnectivityManager.ts#L188)
 
 Report successful API contact.
 Called by other components when API calls succeed.
@@ -148,7 +148,7 @@ Called by other components when API calls succeed.
 
 > **reportFailure**(): `void`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:200
+Defined in: [packages/client/src/core/sync-manager/ConnectivityManager.ts:200](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/ConnectivityManager.ts#L200)
 
 Report API failure.
 Called by other components when API calls fail due to network.
@@ -163,7 +163,7 @@ Called by other components when API calls fail due to network.
 
 > **reportWsConnection**(`wsConnection`): `void`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:209
+Defined in: [packages/client/src/core/sync-manager/ConnectivityManager.ts:209](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/ConnectivityManager.ts#L209)
 
 Report WebSocket connection state transition.
 Emits the corresponding ws:\* debug event when the state changes.
@@ -185,7 +185,7 @@ On disconnect, clears subscribed topics.
 
 > **reportWsSubscribed**(`topics`): `void`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:231
+Defined in: [packages/client/src/core/sync-manager/ConnectivityManager.ts:231](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/ConnectivityManager.ts#L231)
 
 Report WebSocket topics confirmed by the server.
 Merges with existing topics and emits ws:subscribed.
@@ -206,7 +206,7 @@ readonly `string`[]
 
 > **start**(): `void`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:127
+Defined in: [packages/client/src/core/sync-manager/ConnectivityManager.ts:127](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/ConnectivityManager.ts#L127)
 
 Start monitoring connectivity.
 
@@ -220,7 +220,7 @@ Start monitoring connectivity.
 
 > **stop**(): `void`
 
-Defined in: packages/client/src/core/sync-manager/ConnectivityManager.ts:173
+Defined in: [packages/client/src/core/sync-manager/ConnectivityManager.ts:173](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/sync-manager/ConnectivityManager.ts#L173)
 
 Stop monitoring connectivity.
 

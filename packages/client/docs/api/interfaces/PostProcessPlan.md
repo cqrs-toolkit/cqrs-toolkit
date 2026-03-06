@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / PostProcessPlan
 
 # Interface: PostProcessPlan
 
-Defined in: packages/client/src/types/domain.ts:20
+Defined in: [packages/client/src/types/domain.ts:20](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/domain.ts#L20)
 
 Post-processing plan for after server confirmation.
 Used for temp ID replacement, cleanup, etc.
@@ -23,16 +23,16 @@ Additional plan-specific data
 
 > **kind**: `string`
 
-Defined in: packages/client/src/types/domain.ts:22
+Defined in: [packages/client/src/types/domain.ts:22](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/domain.ts#L22)
 
 Plan type identifier
 
-***
+---
 
 ### tempIds?
 
 > `optional` **tempIds**: `Record`\<`string`, `string`\>
 
-Defined in: packages/client/src/types/domain.ts:24
+Defined in: [packages/client/src/types/domain.ts:24](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/domain.ts#L24)
 
 Mapping of temporary IDs to placeholders

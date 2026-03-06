@@ -16,7 +16,7 @@ interface TodoItemProps {
 type EditState = 'viewing' | 'editing' | 'saving'
 
 export default function TodoItem(props: TodoItemProps) {
-  const { commandQueue } = useClient()
+  const client = useClient()
   const [editState, setEditState] = createSignal<EditState>('viewing')
   const [editText, setEditText] = createSignal('')
   let editInputRef: HTMLInputElement | undefined
@@ -35,7 +35,7 @@ export default function TodoItem(props: TodoItemProps) {
 
   async function handleToggle() {
     props.onError(undefined)
-    const result = await commandQueue.enqueueAndWait({
+    const result = await client.submit({
       type: 'ChangeTodoStatus',
       payload: {
         id: props.todo.id,
@@ -65,7 +65,7 @@ export default function TodoItem(props: TodoItemProps) {
 
     setEditState('saving')
     props.onError(undefined)
-    const result = await commandQueue.enqueueAndWait({
+    const result = await client.submit({
       type: 'UpdateTodoContent',
       payload: { id: props.todo.id, content: text, revision: props.todo.latestRevision },
     })
@@ -109,7 +109,7 @@ export default function TodoItem(props: TodoItemProps) {
 
   async function handleDelete() {
     props.onError(undefined)
-    const result = await commandQueue.enqueueAndWait({
+    const result = await client.submit({
       type: 'DeleteTodo',
       payload: { id: props.todo.id, revision: props.todo.latestRevision },
     })

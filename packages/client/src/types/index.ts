@@ -56,11 +56,15 @@ export type {
   EnqueueOptions,
   EnqueueResult,
   EnqueueSuccess,
+  SubmitOptions,
+  SubmitResult,
+  SubmitSuccess,
   WaitOptions,
 } from './commands.js'
 
 export {
   EnqueueAndWaitException,
+  SubmitException,
   isEnqueueFailure,
   isEnqueueSuccess,
   isTerminalStatus,

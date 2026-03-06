@@ -278,3 +278,44 @@ export type TerminalCommandStatus = 'succeeded' | 'failed' | 'cancelled'
 export function isTerminalStatus(status: CommandStatus): status is TerminalCommandStatus {
   return status === 'succeeded' || status === 'failed' || status === 'cancelled'
 }
+
+// ---------------------------------------------------------------------------
+// Network-aware submit types
+// ---------------------------------------------------------------------------
+
+/**
+ * Options for the network-aware submit operation.
+ */
+export interface SubmitOptions extends EnqueueOptions, WaitOptions {}
+
+/**
+ * Successful submit result — discriminated by lifecycle stage.
+ *
+ * - `'enqueued'` — command persisted locally, server sync pending (offline or unauthenticated).
+ * - `'confirmed'` — server acknowledged the command.
+ */
+export type SubmitSuccess<TResponse> =
+  | { stage: 'enqueued'; commandId: string }
+  | { stage: 'confirmed'; commandId: string; response: TResponse }
+
+/**
+ * Result of the network-aware submit operation.
+ */
+export type SubmitResult<TResponse> = Result<SubmitSuccess<TResponse>, SubmitException>
+
+/**
+ * Exception for submit failures.
+ *
+ * `details.commandId` is set when the command IS in the queue despite the error
+ * (server rejection, timeout). The consumer can use it to retry or track.
+ */
+export class SubmitException extends Exception<{
+  errors: ValidationError[]
+  source: CommandErrorSource
+  commandId?: string
+}> {
+  constructor(errors: ValidationError[], source: CommandErrorSource, commandId?: string) {
+    super('SubmitFailed', errors[0]?.message ?? 'Command failed')
+    this._details = { errors, source, commandId }
+  }
+}

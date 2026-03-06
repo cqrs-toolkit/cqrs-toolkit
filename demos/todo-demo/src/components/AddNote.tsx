@@ -7,11 +7,16 @@ interface AddNoteProps {
 }
 
 export default function AddNote(props: AddNoteProps) {
-  const { commandQueue } = useClient()
+  const client = useClient()
   const [title, setTitle] = createSignal('')
   const [body, setBody] = createSignal('')
   let formEl: HTMLFormElement | undefined
   let titleInputRef: HTMLInputElement | undefined
+  let pendingCommandId: string | undefined
+
+  function handleInput() {
+    pendingCommandId = undefined
+  }
 
   async function handleSubmit(e: SubmitEvent) {
     e.preventDefault()
@@ -20,15 +25,17 @@ export default function AddNote(props: AddNoteProps) {
 
     props.onError(undefined)
 
-    const result = await commandQueue.enqueueAndWait({
-      type: 'CreateNote',
-      payload: { title: trimmedTitle, body: body() },
-    })
+    const result = await client.submit(
+      { type: 'CreateNote', payload: { title: trimmedTitle, body: body() } },
+      { commandId: pendingCommandId },
+    )
 
     if (result.ok) {
+      pendingCommandId = undefined
       setTitle('')
       setBody('')
     } else {
+      pendingCommandId = result.error.details?.commandId
       props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
     }
   }
@@ -58,7 +65,10 @@ export default function AddNote(props: AddNoteProps) {
           type="text"
           placeholder="Note title"
           value={title()}
-          onInput={(e) => setTitle(e.currentTarget.value)}
+          onInput={(e) => {
+            setTitle(e.currentTarget.value)
+            handleInput()
+          }}
           onKeyDown={handleTitleKeyDown}
           class="flex-1 px-3 py-2 rounded border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-800 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
@@ -72,7 +82,10 @@ export default function AddNote(props: AddNoteProps) {
       <textarea
         placeholder="Body (optional)"
         value={body()}
-        onInput={(e) => setBody(e.currentTarget.value)}
+        onInput={(e) => {
+          setBody(e.currentTarget.value)
+          handleInput()
+        }}
         class="w-full mt-2 px-3 py-2 rounded border border-neutral-300 dark:border-neutral-600 dark:bg-neutral-800 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500"
         rows={2}
       />

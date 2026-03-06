@@ -6,7 +6,7 @@
 
 # Interface: StorageConfig
 
-Defined in: packages/client/src/types/config.ts:32
+Defined in: [packages/client/src/types/config.ts:32](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/config.ts#L32)
 
 Storage configuration.
 
@@ -16,7 +16,7 @@ Storage configuration.
 
 > `optional` **dbName**: `string`
 
-Defined in: packages/client/src/types/config.ts:34
+Defined in: [packages/client/src/types/config.ts:34](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/config.ts#L34)
 
 Database name/path
 
@@ -26,6 +26,6 @@ Database name/path
 
 > `optional` **vfs**: [`SqliteVfsType`](../type-aliases/SqliteVfsType.md)
 
-Defined in: packages/client/src/types/config.ts:36
+Defined in: [packages/client/src/types/config.ts:36](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/types/config.ts#L36)
 
 VFS type (auto-selected based on mode if not specified)

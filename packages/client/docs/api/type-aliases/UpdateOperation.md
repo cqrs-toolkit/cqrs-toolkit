@@ -8,7 +8,7 @@
 
 > **UpdateOperation**\<`T`\> = \{ `data`: `T`; `type`: `"set"`; \} \| \{ `data`: `Partial`\<`T`\>; `type`: `"merge"`; \} \| \{ `type`: `"delete"`; \}
 
-Defined in: packages/client/src/core/event-processor/types.ts:11
+Defined in: [packages/client/src/core/event-processor/types.ts:11](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-processor/types.ts#L11)
 
 Read model update operation.
 

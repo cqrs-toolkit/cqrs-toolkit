@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../../../../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../../../../globals.md) / [protocol](../README.md) / prepareForTransfer
 
@@ -8,7 +8,7 @@
 
 > **prepareForTransfer**\<`T`\>(`value`): `unknown`
 
-Defined in: packages/client/src/protocol/serialization.ts:183
+Defined in: [packages/client/src/protocol/serialization.ts:183](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/serialization.ts#L183)
 
 Create a structured clone-safe copy of a value.
 Use this before postMessage when you're unsure if a value contains special types.

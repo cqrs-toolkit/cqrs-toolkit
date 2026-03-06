@@ -1,6 +1,6 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / deriveId
 
@@ -8,7 +8,7 @@
 
 > **deriveId**(`name`, `namespace?`): `string`
 
-Defined in: packages/client/src/utils/uuid.ts:27
+Defined in: [packages/client/src/utils/uuid.ts:27](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/utils/uuid.ts#L27)
 
 Generate a deterministic UUID v5 from a name.
 

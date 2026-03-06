@@ -6,7 +6,7 @@
 
 # Interface: CacheManagerConfig
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:22
+Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:22](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/cache-manager/CacheManager.ts#L22)
 
 Cache manager configuration.
 
@@ -16,7 +16,7 @@ Cache manager configuration.
 
 > `optional` **cacheConfig**: [`CacheConfig`](CacheConfig.md)
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:25
+Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:25](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/cache-manager/CacheManager.ts#L25)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: packages/client/src/core/cache-manager/CacheManager.ts:25
 
 > **eventBus**: [`EventBus`](../classes/EventBus.md)
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:24
+Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:24](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/cache-manager/CacheManager.ts#L24)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: packages/client/src/core/cache-manager/CacheManager.ts:24
 
 > **storage**: [`IStorage`](IStorage.md)
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:23
+Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:23](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/cache-manager/CacheManager.ts#L23)
 
 ---
 
@@ -40,6 +40,6 @@ Defined in: packages/client/src/core/cache-manager/CacheManager.ts:23
 
 > **windowId**: `string`
 
-Defined in: packages/client/src/core/cache-manager/CacheManager.ts:27
+Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:27](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/cache-manager/CacheManager.ts#L27)
 
 Unique identifier for this window/tab

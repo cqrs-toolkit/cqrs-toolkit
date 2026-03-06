@@ -6,7 +6,7 @@
 
 # Interface: MessageTarget
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:66
+Defined in: [packages/client/src/protocol/MessageChannel.ts:66](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/MessageChannel.ts#L66)
 
 Generic worker interface that supports postMessage.
 
@@ -16,7 +16,7 @@ Generic worker interface that supports postMessage.
 
 > **postMessage**(`message`): `void`
 
-Defined in: packages/client/src/protocol/MessageChannel.ts:67
+Defined in: [packages/client/src/protocol/MessageChannel.ts:67](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/protocol/MessageChannel.ts#L67)
 
 #### Parameters
 

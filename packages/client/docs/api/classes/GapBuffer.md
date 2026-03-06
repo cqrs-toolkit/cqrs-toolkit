@@ -1,12 +1,12 @@
 [**@cqrs-toolkit/client**](../README.md)
 
-***
+---
 
 [@cqrs-toolkit/client](../globals.md) / GapBuffer
 
 # Class: GapBuffer\<TEvent\>
 
-Defined in: packages/client/src/core/event-cache/GapDetector.ts:89
+Defined in: [packages/client/src/core/event-cache/GapDetector.ts:89](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-cache/GapDetector.ts#L89)
 
 Gap buffer for accumulating events while waiting for gap repair.
 
@@ -32,7 +32,7 @@ Gap buffer for accumulating events while waiting for gap repair.
 
 > **add**(`streamId`, `position`, `event`): `boolean`
 
-Defined in: packages/client/src/core/event-cache/GapDetector.ts:101
+Defined in: [packages/client/src/core/event-cache/GapDetector.ts:101](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-cache/GapDetector.ts#L101)
 
 Add an event to the buffer.
 
@@ -62,13 +62,13 @@ The event data
 
 Whether this created a new gap
 
-***
+---
 
 ### clear()
 
 > **clear**(): `void`
 
-Defined in: packages/client/src/core/event-cache/GapDetector.ts:170
+Defined in: [packages/client/src/core/event-cache/GapDetector.ts:170](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-cache/GapDetector.ts#L170)
 
 Clear all buffered events.
 
@@ -76,13 +76,13 @@ Clear all buffered events.
 
 `void`
 
-***
+---
 
 ### clearStream()
 
 > **clearStream**(`streamId`): `void`
 
-Defined in: packages/client/src/core/event-cache/GapDetector.ts:162
+Defined in: [packages/client/src/core/event-cache/GapDetector.ts:162](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-cache/GapDetector.ts#L162)
 
 Clear all buffered events and known positions for a single stream.
 
@@ -98,13 +98,13 @@ Stream identifier
 
 `void`
 
-***
+---
 
 ### clearUpTo()
 
 > **clearUpTo**(`streamId`, `upToPosition`): `void`
 
-Defined in: packages/client/src/core/event-cache/GapDetector.ts:145
+Defined in: [packages/client/src/core/event-cache/GapDetector.ts:145](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-cache/GapDetector.ts#L145)
 
 Clear events for a stream up to a position.
 
@@ -126,13 +126,13 @@ Clear events with position <= this
 
 `void`
 
-***
+---
 
 ### getEvents()
 
 > **getEvents**(`streamId`): `object`[]
 
-Defined in: packages/client/src/core/event-cache/GapDetector.ts:132
+Defined in: [packages/client/src/core/event-cache/GapDetector.ts:132](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-cache/GapDetector.ts#L132)
 
 Get all buffered events for a stream, sorted by position.
 
@@ -150,13 +150,13 @@ Stream identifier
 
 Sorted events
 
-***
+---
 
 ### getGaps()
 
 > **getGaps**(): `Map`\<`string`, [`EventGap`](../interfaces/EventGap.md)[]\>
 
-Defined in: packages/client/src/core/event-cache/GapDetector.ts:180
+Defined in: [packages/client/src/core/event-cache/GapDetector.ts:180](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-cache/GapDetector.ts#L180)
 
 Get detected gaps for all streams.
 
@@ -166,13 +166,13 @@ Get detected gaps for all streams.
 
 Map of stream ID to gaps
 
-***
+---
 
 ### setKnownPosition()
 
 > **setKnownPosition**(`streamId`, `position`): `void`
 
-Defined in: packages/client/src/core/event-cache/GapDetector.ts:201
+Defined in: [packages/client/src/core/event-cache/GapDetector.ts:201](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/93be80a21907f07a104ca0e358c4b366dbf08b7d/packages/client/src/core/event-cache/GapDetector.ts#L201)
 
 Set the known highest position for a stream.
 Used when resuming from persisted state.
