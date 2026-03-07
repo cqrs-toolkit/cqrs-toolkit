@@ -101,7 +101,7 @@ export interface LibraryEventPayloads {
   'sync:gap-repair-started': { streamId: string; fromRevision: bigint }
   'sync:gap-repair-completed': { streamId: string; eventCount: number }
   'cache:key-acquired': {
-    key: string
+    cacheKey: string
     collection: string
     params?: Record<string, unknown>
     evictionPolicy: string

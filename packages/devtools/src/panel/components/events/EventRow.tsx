@@ -1,6 +1,6 @@
 import type { Component, JSX } from 'solid-js'
-import type { EventEntry, EventListItem, EventsStore } from '../stores/events.js'
-import { formatTime } from '../utils/format.js'
+import type { EventEntry, EventListItem, EventsStore } from '../../stores/events.js'
+import { formatTime } from '../../utils/format.js'
 
 interface EventRowProps {
   item: EventListItem

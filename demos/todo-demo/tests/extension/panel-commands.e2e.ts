@@ -1,97 +1,12 @@
 import type { CommandStatus } from '@cqrs-toolkit/client'
 import { expect, getOutgoing, sendToPanel, test } from './fixtures.js'
-
-// ---------------------------------------------------------------------------
-// Inline protocol types (devtools package has no exports)
-// ---------------------------------------------------------------------------
-
-interface SerializedConfig {
-  debug: boolean
-  retainTerminal: boolean
-  network: { baseUrl: string; wsUrl?: string; timeout?: number }
-  storage: { dbName?: string }
-  retry: { maxAttempts?: number; initialDelay?: number; maxDelay?: number }
-  cache: { maxCacheKeys?: number; defaultTtl?: number; evictionPolicy?: string }
-  collections: string[]
-}
-
-interface SerializedCommandRecord {
-  commandId: string
-  service: string
-  type: string
-  payload: unknown
-  status: CommandStatus
-  dependsOn: string[]
-  blockedBy: string[]
-  attempts: number
-  lastAttemptAt?: number
-  error?: { source: string; message: string; code?: string; details?: unknown }
-  serverResponse?: unknown
-  createdAt: number
-  updatedAt: number
-}
-
-interface SanitizedEvent {
-  type: string
-  payload: Record<string, unknown>
-  timestamp: number
-}
-
-interface BufferDumpMessage {
-  type: 'buffer-dump'
-  config: SerializedConfig | undefined
-  role: 'leader' | 'standby' | undefined
-  events: SanitizedEvent[]
-  commands: SerializedCommandRecord[]
-}
-
-// ---------------------------------------------------------------------------
-// Mock data factories
-// ---------------------------------------------------------------------------
-
-const MOCK_CONFIG: SerializedConfig = {
-  debug: true,
-  retainTerminal: false,
-  network: { baseUrl: 'http://localhost:3001' },
-  storage: { dbName: 'test-db' },
-  retry: { maxAttempts: 3 },
-  cache: {},
-  collections: ['todos'],
-}
-
-let idCounter = 0
-
-function makeCommand(overrides: Partial<SerializedCommandRecord> = {}): SerializedCommandRecord {
-  const id = `cmd-${++idCounter}`
-  return {
-    commandId: id,
-    service: 'todos',
-    type: 'CreateTodo',
-    payload: { text: 'Test todo' },
-    status: 'pending',
-    dependsOn: [],
-    blockedBy: [],
-    attempts: 0,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    ...overrides,
-  }
-}
-
-function makeBufferDump(overrides: Partial<BufferDumpMessage> = {}): BufferDumpMessage {
-  return {
-    type: 'buffer-dump',
-    config: undefined,
-    role: undefined,
-    events: [],
-    commands: [],
-    ...overrides,
-  }
-}
-
-function makeEvent(type: string, payload: Record<string, unknown>): SanitizedEvent {
-  return { type, payload, timestamp: Date.now() }
-}
+import {
+  MOCK_CONFIG,
+  makeBufferDump,
+  makeCommand,
+  makeEvent,
+  resetIdCounter,
+} from './panel-helpers.js'
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -99,7 +14,7 @@ function makeEvent(type: string, payload: Record<string, unknown>): SanitizedEve
 
 test.describe('Layer 2: Panel Commands Tab', () => {
   test.beforeEach(() => {
-    idCounter = 0
+    resetIdCounter()
   })
 
   test('waiting state on empty buffer-dump', async ({ mockPanelPage: page }) => {

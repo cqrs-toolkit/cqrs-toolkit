@@ -11,9 +11,9 @@ type TabId = 'commands' | 'events' | 'cache' | 'readModels' | 'sync' | 'storage'
 const MIN_LIST_WIDTHS: Record<TabId, number> = {
   commands: 525,
   events: 480,
-  cache: 300,
-  readModels: 300,
-  sync: 300,
+  cache: 410,
+  readModels: 370,
+  sync: 420,
   storage: 300,
 }
 
@@ -21,8 +21,8 @@ const MIN_LIST_WIDTHS: Record<TabId, number> = {
 const DEFAULTS: Record<TabId, number> = {
   commands: 360,
   events: 360,
-  cache: 320,
-  readModels: 380,
+  cache: 340,
+  readModels: 360,
   sync: 320,
   storage: 400,
 }

@@ -1,9 +1,9 @@
 import type { Component } from 'solid-js'
 import { For, Show } from 'solid-js'
-import type { SerializedCommandRecord } from '../../shared/protocol.js'
-import type { DebugEvent } from '../stores/commands.js'
-import { formatJson, formatTimestamp } from '../utils/format.js'
-import { DependencyList } from './DependencyList.js'
+import type { SerializedCommandRecord } from '../../../shared/protocol.js'
+import type { DebugEvent } from '../../stores/commands.js'
+import { formatJson, formatTimestamp } from '../../utils/format.js'
+import { DependencyList } from '../DependencyList.js'
 
 interface CommandDetailProps {
   command: SerializedCommandRecord

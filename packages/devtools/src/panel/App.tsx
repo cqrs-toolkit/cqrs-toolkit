@@ -1,22 +1,34 @@
 import { createSignal, type Component } from 'solid-js'
-import { CommandsTab } from './components/CommandsTab.js'
+import { CacheTab } from './components/cache/CacheTab.js'
+import { CommandsTab } from './components/commands/CommandsTab.js'
 import { ConnectionBanner } from './components/ConnectionBanner.js'
-import { EventsTab } from './components/EventsTab.js'
+import { EventsTab } from './components/events/EventsTab.js'
+import { ReadModelsTab } from './components/read-models/ReadModelsTab.js'
+import { SyncTab } from './components/sync/SyncTab.js'
 import { TabBar, type TabName } from './components/TabBar.js'
+import { createCacheStore } from './stores/cache.js'
 import { createCommandsStore } from './stores/commands.js'
 import { createConnectionStore } from './stores/connection.js'
 import { createEventsStore } from './stores/events.js'
+import { createReadModelsStore } from './stores/readModels.js'
+import { createSyncStore } from './stores/sync.js'
 
 export const App: Component = () => {
   const [activeTab, setActiveTab] = createSignal<TabName>('Commands')
 
   const commandsStore = createCommandsStore()
   const eventsStore = createEventsStore()
+  const cacheStore = createCacheStore()
+  const readModelsStore = createReadModelsStore()
+  const syncStore = createSyncStore()
 
   const connection = createConnectionStore({
     onEvent(event) {
       commandsStore.handleEvent(event)
       eventsStore.handleEvent(event)
+      cacheStore.handleEvent(event)
+      readModelsStore.handleEvent(event)
+      syncStore.handleEvent(event)
     },
     onCommandSnapshot(commands) {
       commandsStore.setCommands(commands)
@@ -28,6 +40,9 @@ export const App: Component = () => {
       for (const event of dump.events) {
         commandsStore.handleEvent(event)
         eventsStore.handleEvent(event)
+        cacheStore.handleEvent(event)
+        readModelsStore.handleEvent(event)
+        syncStore.handleEvent(event)
       }
     },
   })
@@ -54,6 +69,30 @@ export const App: Component = () => {
             onClear={() => {
               connection.clearBuffer()
               eventsStore.clear()
+            }}
+          />
+        ) : activeTab() === 'Cache' ? (
+          <CacheTab
+            store={cacheStore}
+            onClear={() => {
+              connection.clearBuffer()
+              cacheStore.clear()
+            }}
+          />
+        ) : activeTab() === 'Read Models' ? (
+          <ReadModelsTab
+            store={readModelsStore}
+            onClear={() => {
+              connection.clearBuffer()
+              readModelsStore.clear()
+            }}
+          />
+        ) : activeTab() === 'Sync' ? (
+          <SyncTab
+            store={syncStore}
+            onClear={() => {
+              connection.clearBuffer()
+              syncStore.clear()
             }}
           />
         ) : (

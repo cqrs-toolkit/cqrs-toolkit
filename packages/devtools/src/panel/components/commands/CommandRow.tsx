@@ -1,6 +1,6 @@
 import type { Component } from 'solid-js'
-import type { SerializedCommandRecord } from '../../shared/protocol.js'
-import { formatTime } from '../utils/format.js'
+import type { SerializedCommandRecord } from '../../../shared/protocol.js'
+import { formatTime } from '../../utils/format.js'
 
 interface CommandRowProps {
   command: SerializedCommandRecord

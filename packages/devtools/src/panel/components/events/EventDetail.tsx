@@ -1,7 +1,7 @@
 import type { Component } from 'solid-js'
 import { Show } from 'solid-js'
-import type { EventEntry, ProcessorResult } from '../stores/events.js'
-import { formatJson, formatTimestamp } from '../utils/format.js'
+import type { EventEntry, ProcessorResult } from '../../stores/events.js'
+import { formatJson, formatTimestamp } from '../../utils/format.js'
 
 interface EventDetailProps {
   entry: EventEntry

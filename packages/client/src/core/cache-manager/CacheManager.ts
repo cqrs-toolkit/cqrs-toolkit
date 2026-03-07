@@ -135,7 +135,7 @@ export class CacheManager implements ICacheManager {
     }
 
     this.eventBus.emitDebug('cache:key-acquired', {
-      key,
+      cacheKey: key,
       collection,
       params,
       evictionPolicy: record.evictionPolicy,
