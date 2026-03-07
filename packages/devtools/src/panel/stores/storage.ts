@@ -12,6 +12,7 @@ interface TableInfo {
   name: string
   ddl: string
   columns: string[]
+  columnTypes: Record<string, string>
 }
 
 interface StorageTabQuery {
@@ -37,6 +38,7 @@ type StorageTab = StorageTabQuery | StorageTabResult | StorageTabDdl
 
 export interface ResultTabData {
   columns: string[]
+  columnTypes: Record<string, string>
   rows: Record<string, unknown>[]
   totalRows: number
   page: number
@@ -139,7 +141,13 @@ export function createStorageStore(): StorageStore {
           const name = row['name'] as string
           const pragmaRows = await exec(`PRAGMA table_info("${name}")`)
           const columns = pragmaRows.map((r) => r['name'] as string)
-          return { name, ddl: (row['sql'] as string) ?? '', columns }
+          const columnTypes: Record<string, string> = {}
+          for (const r of pragmaRows) {
+            const colName = r['name'] as string
+            const colType = r['type'] as string
+            columnTypes[colName] = colType
+          }
+          return { name, ddl: (row['sql'] as string) ?? '', columns, columnTypes }
         }),
       )
       setTables(tableInfos)
@@ -181,6 +189,10 @@ export function createStorageStore(): StorageStore {
     setTabs([...tabs(), newTab])
     setActiveTabId(tabId)
 
+    // Look up column types from loaded tables
+    const tableInfo = tables().find((t) => t.name === table)
+    const columnTypes = tableInfo?.columnTypes ?? {}
+
     // Query table
     try {
       const countRows = await exec(`SELECT COUNT(*) as cnt FROM "${table}"`)
@@ -190,6 +202,7 @@ export function createStorageStore(): StorageStore {
 
       const data: ResultTabData = {
         columns,
+        columnTypes,
         rows,
         totalRows,
         page: 0,
@@ -203,6 +216,7 @@ export function createStorageStore(): StorageStore {
     } catch (err) {
       const data: ResultTabData = {
         columns: [],
+        columnTypes,
         rows: [],
         totalRows: 0,
         page: 0,
@@ -299,6 +313,7 @@ export function createStorageStore(): StorageStore {
 
       const data: ResultTabData = {
         columns,
+        columnTypes: {},
         rows,
         totalRows: -1,
         page: 0,

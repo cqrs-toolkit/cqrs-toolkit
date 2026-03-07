@@ -3,6 +3,20 @@ import { createMemo, For, Show } from 'solid-js'
 import type { ResultTabData } from '../../stores/storage.js'
 import { ResultRow } from './ResultRow.js'
 
+const TEXT_TYPES = /^(TEXT|VARCHAR|CHAR|CLOB)/i
+const NUMERIC_TYPES = /^(REAL|FLOAT|DOUBLE|NUMERIC)/i
+const INT_TYPES = /^(INTEGER|INT)/i
+const BLOB_TYPE = /^BLOB$/i
+
+function typeBasedMin(type: string | undefined): number {
+  if (!type) return 60
+  if (INT_TYPES.test(type)) return 60
+  if (NUMERIC_TYPES.test(type)) return 80
+  if (TEXT_TYPES.test(type)) return 120
+  if (BLOB_TYPE.test(type)) return 80
+  return 60
+}
+
 interface ResultPanelProps {
   data: ResultTabData
   onFilterChange: (text: string) => void
@@ -11,10 +25,18 @@ interface ResultPanelProps {
 }
 
 export const ResultPanel: Component<ResultPanelProps> = (props) => {
+  const columnMins = createMemo(() =>
+    props.data.columns.map((name) => {
+      const nameMin = name.length * 7 + 4
+      const typeMin = typeBasedMin(props.data.columnTypes[name])
+      return Math.max(nameMin, typeMin)
+    }),
+  )
+
   const gridTemplate = createMemo(() => {
-    const count = props.data.columns.length
-    if (count === 0) return ''
-    return props.data.columns.map(() => 'minmax(60px, 1fr)').join(' ')
+    const mins = columnMins()
+    if (mins.length === 0) return ''
+    return mins.map((min) => `minmax(${min}px, 1fr)`).join(' ')
   })
 
   const filteredRows = createMemo(() => {
@@ -73,7 +95,7 @@ export const ResultPanel: Component<ResultPanelProps> = (props) => {
 
       <Show when={props.data.columns.length > 0}>
         <div class="storage-result-scroll">
-          <div style={{ 'min-width': `${props.data.columns.length * 100}px` }}>
+          <div style={{ 'min-width': `${columnMins().reduce((sum, m) => sum + m, 0)}px` }}>
             <div
               class="storage-result-header"
               style={{ display: 'grid', 'grid-template-columns': gridTemplate() }}
