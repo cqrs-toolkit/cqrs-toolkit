@@ -36,6 +36,12 @@ export const MSG_REQUEST_COMMAND_SNAPSHOT = 'cqrs-devtools-request-command-snaps
 /** Execute a command action (retry/cancel). */
 export const MSG_ACTION = 'cqrs-devtools-action'
 
+/** Request raw SQL execution against client storage. */
+export const MSG_REQUEST_STORAGE = 'cqrs-devtools-request-storage'
+
+/** Response from raw SQL execution. */
+export const MSG_STORAGE_RESPONSE = 'cqrs-devtools-storage-response'
+
 // ---------------------------------------------------------------------------
 // Panel ↔ Background message types (chrome.runtime port)
 // ---------------------------------------------------------------------------

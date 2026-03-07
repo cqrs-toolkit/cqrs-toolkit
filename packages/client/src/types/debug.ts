@@ -13,6 +13,14 @@ import type { ResolvedConfig } from './config.js'
 import type { LibraryEvent } from './events.js'
 
 /**
+ * Debug API for raw SQL access to the client's SQLite database.
+ * Only available in worker modes (dedicated-worker, shared-worker).
+ */
+export interface DebugStorageAPI {
+  exec(sql: string, bind?: unknown[]): Promise<Record<string, unknown>[]>
+}
+
+/**
  * Debug API exposed to devtools extensions.
  */
 export interface CqrsDebugAPI {
@@ -28,6 +36,8 @@ export interface CqrsDebugAPI {
   readonly syncManager: CqrsClientSyncManager
   /** Storage interface (only available in online-only mode). */
   readonly storage?: IStorage
+  /** Raw SQL debug access (only available in worker modes). */
+  readonly debugStorage?: DebugStorageAPI
   /** Resolved client configuration. */
   readonly config: ResolvedConfig
   /** Role of this client instance. */

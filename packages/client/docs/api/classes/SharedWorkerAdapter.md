@@ -202,7 +202,7 @@ Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:1
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:262](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L262)
+Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:267](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L267)
 
 Close the adapter and release resources.
 
@@ -213,6 +213,41 @@ Close the adapter and release resources.
 #### Implementation of
 
 [`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`close`](../interfaces/IWorkerAdapter.md#close)
+
+---
+
+### debugQuery()
+
+> **debugQuery**\<`T`\>(`method`, `args?`): `Promise`\<`T`\>
+
+Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:138](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L138)
+
+Send an arbitrary debug RPC to the worker and return the result.
+Used by devtools for raw SQL queries and other debug commands.
+
+#### Type Parameters
+
+##### T
+
+`T`
+
+#### Parameters
+
+##### method
+
+`string`
+
+##### args?
+
+`unknown`[]
+
+#### Returns
+
+`Promise`\<`T`\>
+
+#### Implementation of
+
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`debugQuery`](../interfaces/IWorkerAdapter.md#debugquery)
 
 ---
 
@@ -240,7 +275,7 @@ One-way and idempotent — no disable path.
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:143](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L143)
+Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:148](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L148)
 
 Initialize the adapter.
 

@@ -188,7 +188,7 @@ Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapte
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:203](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts#L203)
+Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:208](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts#L208)
 
 Close the adapter and release resources.
 
@@ -199,6 +199,41 @@ Close the adapter and release resources.
 #### Implementation of
 
 [`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`close`](../interfaces/IWorkerAdapter.md#close)
+
+---
+
+### debugQuery()
+
+> **debugQuery**\<`T`\>(`method`, `args?`): `Promise`\<`T`\>
+
+Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:117](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts#L117)
+
+Send an arbitrary debug RPC to the worker and return the result.
+Used by devtools for raw SQL queries and other debug commands.
+
+#### Type Parameters
+
+##### T
+
+`T`
+
+#### Parameters
+
+##### method
+
+`string`
+
+##### args?
+
+`unknown`[]
+
+#### Returns
+
+`Promise`\<`T`\>
+
+#### Implementation of
+
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`debugQuery`](../interfaces/IWorkerAdapter.md#debugquery)
 
 ---
 
@@ -226,7 +261,7 @@ One-way and idempotent — no disable path.
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:124](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts#L124)
+Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:129](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts#L129)
 
 Initialize the adapter.
 

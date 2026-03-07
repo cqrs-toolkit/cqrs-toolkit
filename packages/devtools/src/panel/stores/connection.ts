@@ -16,6 +16,8 @@ import {
   MSG_PANEL_CLEAR,
   MSG_PANEL_CONNECT,
   MSG_REQUEST_COMMAND_SNAPSHOT,
+  MSG_REQUEST_STORAGE,
+  MSG_STORAGE_RESPONSE,
   PORT_PANEL,
 } from '../../shared/constants.js'
 import type {
@@ -26,6 +28,7 @@ import type {
   SanitizedEvent,
   SerializedCommandRecord,
   SerializedConfig,
+  StorageResponseMessage,
 } from '../../shared/protocol.js'
 
 export type ConnectionState = 'disconnected' | 'waiting' | 'connected'
@@ -44,6 +47,7 @@ export interface ConnectionStore {
   requestCommandSnapshot: () => void
   sendAction: (action: 'retry' | 'cancel', commandId: string) => void
   clearBuffer: () => void
+  execSql: (sql: string, bind?: unknown[]) => Promise<Record<string, unknown>[]>
 }
 
 export function createConnectionStore(handlers: ConnectionEventHandlers): ConnectionStore {
@@ -52,6 +56,11 @@ export function createConnectionStore(handlers: ConnectionEventHandlers): Connec
   const [role, setRole] = createSignal<'leader' | 'standby' | undefined>()
 
   let port: chrome.runtime.Port | undefined
+
+  const pendingStorage = new Map<
+    string,
+    { resolve: (rows: Record<string, unknown>[]) => void; reject: (err: Error) => void }
+  >()
 
   function connect(): void {
     port = chrome.runtime.connect({ name: PORT_PANEL })
@@ -106,6 +115,20 @@ export function createConnectionStore(handlers: ConnectionEventHandlers): Connec
           handlers.onCommandSnapshot?.(snapshot.commands)
           break
         }
+
+        case MSG_STORAGE_RESPONSE: {
+          const response = msg as unknown as StorageResponseMessage
+          const pending = pendingStorage.get(response.requestId)
+          if (pending) {
+            pendingStorage.delete(response.requestId)
+            if (response.error) {
+              pending.reject(new Error(response.error))
+            } else {
+              pending.resolve(response.rows)
+            }
+          }
+          break
+        }
       }
     })
 
@@ -141,6 +164,17 @@ export function createConnectionStore(handlers: ConnectionEventHandlers): Connec
     },
     clearBuffer() {
       port?.postMessage({ type: MSG_PANEL_CLEAR })
+    },
+    execSql(sql, bind) {
+      return new Promise((resolve, reject) => {
+        if (!port) {
+          reject(new Error('Not connected'))
+          return
+        }
+        const requestId = crypto.randomUUID()
+        pendingStorage.set(requestId, { resolve, reject })
+        port.postMessage({ type: MSG_REQUEST_STORAGE, sql, bind, requestId })
+      })
     },
   }
 }

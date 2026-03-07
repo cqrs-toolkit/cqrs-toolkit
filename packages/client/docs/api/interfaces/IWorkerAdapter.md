@@ -119,6 +119,37 @@ Close the adapter and release resources.
 
 ---
 
+### debugQuery()
+
+> **debugQuery**\<`T`\>(`method`, `args?`): `Promise`\<`T`\>
+
+Defined in: [packages/client/src/adapters/base/IAdapter.ts:95](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/base/IAdapter.ts#L95)
+
+Send an arbitrary debug RPC to the worker and return the result.
+Used by devtools for raw SQL queries and other debug commands.
+
+#### Type Parameters
+
+##### T
+
+`T`
+
+#### Parameters
+
+##### method
+
+`string`
+
+##### args?
+
+`unknown`[]
+
+#### Returns
+
+`Promise`\<`T`\>
+
+---
+
 ### enableDebug()
 
 > **enableDebug**(): `Promise`\<`void`\>

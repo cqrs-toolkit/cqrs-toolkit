@@ -7,6 +7,7 @@ import type { CacheManager } from '../../core/cache-manager/CacheManager.js'
 import type { CommandQueue } from '../../core/command-queue/CommandQueue.js'
 import type { SyncManager } from '../../core/sync-manager/SyncManager.js'
 import type { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
+import type { ISqliteDb } from '../../storage/ISqliteDb.js'
 import type { IStorage } from '../../storage/IStorage.js'
 
 /**
@@ -17,13 +18,14 @@ export interface DebugMethodDeps {
   cacheManager: CacheManager
   syncManager: SyncManager
   storage: IStorage
+  db: ISqliteDb
 }
 
 /**
  * Register debug snapshot RPC methods on the worker message handler.
  */
 export function registerDebugMethods(handler: WorkerMessageHandler, deps: DebugMethodDeps): void {
-  const { commandQueue, cacheManager, syncManager, storage } = deps
+  const { commandQueue, cacheManager, syncManager, storage, db } = deps
 
   handler.registerMethod('debug.getCommandSnapshot', async () => {
     return commandQueue.listCommands()
@@ -62,5 +64,15 @@ export function registerDebugMethods(handler: WorkerMessageHandler, deps: DebugM
       cacheKeyCount: cacheKeys.length,
       readModelCount,
     }
+  })
+
+  handler.registerMethod('debug.storage.exec', async (args) => {
+    const sql = args[0] as string
+    const bind = args[1] as unknown[] | undefined
+    return db.exec<Record<string, unknown>>(sql, {
+      bind,
+      rowMode: 'object',
+      returnValue: 'resultRows',
+    })
   })
 }

@@ -1322,3 +1322,389 @@ body {
   color: var(--status-failed);
   background: var(--status-failed-bg);
 }
+
+/* ------------------------------------------------------------------ */
+/* Storage tab                                                         */
+/* ------------------------------------------------------------------ */
+
+.storage-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.storage-tree {
+  width: 160px;
+  min-width: 120px;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.storage-tree-header {
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.storage-tree-list {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.storage-tree-item {
+  border-bottom: 1px solid var(--border);
+}
+
+.storage-tree-name {
+  padding: 3px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.storage-tree-name:hover {
+  background: var(--bg-hover);
+}
+
+.storage-tree-name.expanded {
+  font-weight: 500;
+}
+
+.storage-tree-arrow {
+  font-size: 9px;
+  color: var(--text-muted);
+  width: 10px;
+  flex-shrink: 0;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.storage-tree-action {
+  padding: 2px 8px 2px 22px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.storage-tree-action:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.storage-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.storage-tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+.storage-tab-btn {
+  padding: 3px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 10px;
+  border-bottom: 2px solid transparent;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.storage-tab-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.storage-tab-btn.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--chip-active-bg);
+}
+
+.storage-tab-close {
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0.6;
+  cursor: pointer;
+}
+
+.storage-tab-close:hover {
+  opacity: 1;
+}
+
+.storage-panel-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.storage-result-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.storage-result-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.storage-filter-input {
+  width: 150px;
+}
+
+.storage-pagination {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.storage-row-indicator {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.storage-result-scroll {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+
+.storage-result-header {
+  padding: 3px 6px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  user-select: none;
+  column-gap: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.storage-result-body {
+  font-size: 11px;
+}
+
+.storage-result-row {
+  padding: 0 6px;
+  height: 22px;
+  align-items: center;
+  font-size: 11px;
+  border-bottom: 1px solid var(--border);
+  column-gap: 8px;
+}
+
+.storage-result-row:hover {
+  background: var(--bg-hover);
+}
+
+.storage-result-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 10px;
+}
+
+.storage-query-writer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.storage-query-editor {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.storage-query-editor .cm-editor {
+  height: 100%;
+}
+
+.storage-query-actions {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.storage-execute-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 0;
+}
+
+.storage-execute-btn:hover {
+  background: var(--bg-hover);
+}
+
+.storage-ddl-viewer {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.storage-ddl-viewer .cm-editor {
+  height: 100%;
+}
+
+.storage-error {
+  padding: 4px 8px;
+  background: var(--banner-error-bg);
+  border-bottom: 1px solid var(--banner-error-border);
+  color: var(--banner-error-text);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+/* Storage logs panel */
+
+.storage-logs-toggle {
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 10px;
+  font-family: inherit;
+}
+
+.storage-logs-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.storage-logs-toggle.active {
+  background: var(--chip-active-bg);
+  color: var(--chip-active-text);
+  border-color: var(--chip-active-bg);
+}
+
+.storage-logs-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.storage-logs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.storage-logs-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-secondary);
+}
+
+.storage-logs-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.storage-logs-header .detail-close-btn {
+  margin: 0;
+  width: 22px;
+  height: 22px;
+}
+
+.storage-logs-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 10px;
+}
+
+.storage-log-entry {
+  padding: 2px 8px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.storage-log-time {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.storage-log-error .storage-log-message {
+  color: var(--banner-error-text);
+}
+
+.storage-log-info .storage-log-message {
+  color: var(--text-primary);
+}
+
+.storage-unavailable {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 16px;
+  text-align: center;
+}

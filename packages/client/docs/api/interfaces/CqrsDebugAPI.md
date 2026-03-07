@@ -6,7 +6,7 @@
 
 # Interface: CqrsDebugAPI
 
-Defined in: [packages/client/src/types/debug.ts:18](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/debug.ts#L18)
+Defined in: [packages/client/src/types/debug.ts:26](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/debug.ts#L26)
 
 Debug API exposed to devtools extensions.
 
@@ -16,7 +16,7 @@ Debug API exposed to devtools extensions.
 
 > `readonly` **cacheManager**: [`ICacheManager`](ICacheManager.md)
 
-Defined in: [packages/client/src/types/debug.ts:26](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/debug.ts#L26)
+Defined in: [packages/client/src/types/debug.ts:34](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/debug.ts#L34)
 
 Cache manager interface for inspection.
 
@@ -26,7 +26,7 @@ Cache manager interface for inspection.
 
 > `readonly` **commandQueue**: [`ICommandQueue`](ICommandQueue.md)
 
-Defined in: [packages/client/src/types/debug.ts:22](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/debug.ts#L22)
+Defined in: [packages/client/src/types/debug.ts:30](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/debug.ts#L30)
 
 Command queue interface for inspection.
 
@@ -36,9 +36,19 @@ Command queue interface for inspection.
 
 > `readonly` **config**: [`ResolvedConfig`](ResolvedConfig.md)
 
-Defined in: [packages/client/src/types/debug.ts:32](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/debug.ts#L32)
+Defined in: [packages/client/src/types/debug.ts:42](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/debug.ts#L42)
 
 Resolved client configuration.
+
+---
+
+### debugStorage?
+
+> `readonly` `optional` **debugStorage**: `DebugStorageAPI`
+
+Defined in: [packages/client/src/types/debug.ts:40](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/debug.ts#L40)
+
+Raw SQL debug access (only available in worker modes).
 
 ---
 
@@ -46,7 +56,7 @@ Resolved client configuration.
 
 > `readonly` **events$**: `Observable`\<[`LibraryEvent`](LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
-Defined in: [packages/client/src/types/debug.ts:20](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/debug.ts#L20)
+Defined in: [packages/client/src/types/debug.ts:28](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/debug.ts#L28)
 
 Observable of all library events (including debug events).
 
@@ -56,7 +66,7 @@ Observable of all library events (including debug events).
 
 > `readonly` **queryManager**: [`IQueryManager`](IQueryManager.md)
 
-Defined in: [packages/client/src/types/debug.ts:24](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/debug.ts#L24)
+Defined in: [packages/client/src/types/debug.ts:32](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/debug.ts#L32)
 
 Query manager interface for inspection.
 
@@ -66,7 +76,7 @@ Query manager interface for inspection.
 
 > `readonly` **role**: `"leader"` \| `"standby"`
 
-Defined in: [packages/client/src/types/debug.ts:34](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/debug.ts#L34)
+Defined in: [packages/client/src/types/debug.ts:44](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/debug.ts#L44)
 
 Role of this client instance.
 
@@ -76,7 +86,7 @@ Role of this client instance.
 
 > `readonly` `optional` **storage**: [`IStorage`](IStorage.md)
 
-Defined in: [packages/client/src/types/debug.ts:30](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/debug.ts#L30)
+Defined in: [packages/client/src/types/debug.ts:38](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/debug.ts#L38)
 
 Storage interface (only available in online-only mode).
 
@@ -86,6 +96,6 @@ Storage interface (only available in online-only mode).
 
 > `readonly` **syncManager**: [`CqrsClientSyncManager`](CqrsClientSyncManager.md)
 
-Defined in: [packages/client/src/types/debug.ts:28](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/debug.ts#L28)
+Defined in: [packages/client/src/types/debug.ts:36](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/debug.ts#L36)
 
 Sync manager interface for inspection.

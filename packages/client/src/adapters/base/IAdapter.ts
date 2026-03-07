@@ -87,6 +87,12 @@ export interface IWorkerAdapter extends IAdapterBase {
    * One-way and idempotent — no disable path.
    */
   enableDebug(): Promise<void>
+
+  /**
+   * Send an arbitrary debug RPC to the worker and return the result.
+   * Used by devtools for raw SQL queries and other debug commands.
+   */
+  debugQuery<T>(method: string, args?: unknown[]): Promise<T>
 }
 
 /**

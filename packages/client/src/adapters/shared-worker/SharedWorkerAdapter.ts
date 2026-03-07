@@ -135,6 +135,11 @@ export class SharedWorkerAdapter implements IWorkerAdapter {
     await this.channel.request('debug.enable')
   }
 
+  async debugQuery<T>(method: string, args?: unknown[]): Promise<T> {
+    assert(this.channel, 'Adapter not initialized')
+    return this.channel.request(method, args) as Promise<T>
+  }
+
   /**
    * Initialize the adapter.
    *

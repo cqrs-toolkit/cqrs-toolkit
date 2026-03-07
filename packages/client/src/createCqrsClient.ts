@@ -59,7 +59,7 @@ import type {
   ResolvedConfig,
 } from './types/config.js'
 import { resolveConfig } from './types/config.js'
-import type { CqrsDevToolsHook } from './types/debug.js'
+import type { CqrsDevToolsHook, DebugStorageAPI } from './types/debug.js'
 import type { EventPersistence, LibraryEvent } from './types/events.js'
 import { assert } from './utils/assert.js'
 
@@ -331,6 +331,15 @@ export async function createCqrsClient(config: CqrsClientConfig): Promise<CqrsCl
   if (resolved.debug && typeof window !== 'undefined') {
     const hook = (window as WindowWithDevtools).__CQRS_TOOLKIT_DEVTOOLS__
     if (hook) {
+      let debugStorage: DebugStorageAPI | undefined
+      if (adapter.mode !== 'online-only') {
+        const workerAdapter = adapter
+        debugStorage = {
+          exec: (sql, bind) =>
+            workerAdapter.debugQuery<Record<string, unknown>[]>('debug.storage.exec', [sql, bind]),
+        }
+      }
+
       hook.registerClient({
         events$: client.events$,
         commandQueue: client.commandQueue,
@@ -338,6 +347,7 @@ export async function createCqrsClient(config: CqrsClientConfig): Promise<CqrsCl
         cacheManager: client.cacheManager,
         syncManager: client.syncManager,
         storage: adapter.mode === 'online-only' ? adapter.storage : undefined,
+        debugStorage,
         config: resolved,
         role: adapter.role ?? 'leader',
       })

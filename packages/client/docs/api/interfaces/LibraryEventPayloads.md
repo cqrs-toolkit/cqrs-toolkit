@@ -34,6 +34,10 @@ Defined in: [packages/client/src/types/events.ts:83](https://github.com/Swifttt-
 
 Defined in: [packages/client/src/types/events.ts:103](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L103)
 
+#### cacheKey
+
+> **cacheKey**: `string`
+
 #### collection
 
 > **collection**: `string`
@@ -41,10 +45,6 @@ Defined in: [packages/client/src/types/events.ts:103](https://github.com/Swifttt
 #### evictionPolicy
 
 > **evictionPolicy**: `string`
-
-#### key
-
-> **key**: `string`
 
 #### params?
 

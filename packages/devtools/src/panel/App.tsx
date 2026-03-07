@@ -4,6 +4,7 @@ import { CommandsTab } from './components/commands/CommandsTab.js'
 import { ConnectionBanner } from './components/ConnectionBanner.js'
 import { EventsTab } from './components/events/EventsTab.js'
 import { ReadModelsTab } from './components/read-models/ReadModelsTab.js'
+import { StorageTab } from './components/storage/StorageTab.js'
 import { SyncTab } from './components/sync/SyncTab.js'
 import { TabBar, type TabName } from './components/TabBar.js'
 import { createCacheStore } from './stores/cache.js'
@@ -11,6 +12,7 @@ import { createCommandsStore } from './stores/commands.js'
 import { createConnectionStore } from './stores/connection.js'
 import { createEventsStore } from './stores/events.js'
 import { createReadModelsStore } from './stores/readModels.js'
+import { createStorageStore } from './stores/storage.js'
 import { createSyncStore } from './stores/sync.js'
 
 export const App: Component = () => {
@@ -21,6 +23,7 @@ export const App: Component = () => {
   const cacheStore = createCacheStore()
   const readModelsStore = createReadModelsStore()
   const syncStore = createSyncStore()
+  const storageStore = createStorageStore()
 
   const connection = createConnectionStore({
     onEvent(event) {
@@ -94,6 +97,12 @@ export const App: Component = () => {
               connection.clearBuffer()
               syncStore.clear()
             }}
+          />
+        ) : activeTab() === 'Storage' ? (
+          <StorageTab
+            store={storageStore}
+            exec={(sql, bind) => connection.execSql(sql, bind)}
+            isDark={detectTheme() === 'theme-dark'}
           />
         ) : (
           <div class="placeholder">{activeTab()} tab — coming soon</div>

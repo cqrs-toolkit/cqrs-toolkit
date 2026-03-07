@@ -20,6 +20,8 @@
   const MSG_DEACTIVATE = 'cqrs-devtools-deactivate'
   const MSG_REQUEST_COMMAND_SNAPSHOT = 'cqrs-devtools-request-command-snapshot'
   const MSG_ACTION = 'cqrs-devtools-action'
+  const MSG_REQUEST_STORAGE = 'cqrs-devtools-request-storage'
+  const MSG_STORAGE_RESPONSE = 'cqrs-devtools-storage-response'
 
   // Duck-typed API shape (matches CqrsDebugAPI)
   interface DebugAPI {
@@ -29,6 +31,7 @@
       retryCommand(commandId: string): Promise<void>
       cancelCommand(commandId: string): Promise<void>
     }
+    debugStorage?: { exec(sql: string, bind?: unknown[]): Promise<unknown> }
     config: Record<string, unknown>
     role: 'leader' | 'standby'
   }
@@ -136,7 +139,13 @@
   window.addEventListener('message', (event: MessageEvent) => {
     if (event.source !== window) return
     const data = event.data as
-      | { type?: string; source?: string; action?: string; commandId?: string }
+      | {
+          type?: string
+          source?: string
+          action?: string
+          commandId?: string
+          requestId?: string
+        }
       | undefined
     if (!data || data.source !== CONTENT_SOURCE) return
 
@@ -162,6 +171,41 @@
           } else if (data.action === 'cancel') {
             api.commandQueue.cancelCommand(data.commandId)
           }
+        }
+        break
+
+      case MSG_REQUEST_STORAGE:
+        if (api?.debugStorage && data.requestId) {
+          const storageData = data as {
+            requestId: string
+            sql: string
+            bind?: unknown[]
+          }
+          api.debugStorage
+            .exec(storageData.sql, storageData.bind)
+            .then((rows) => {
+              window.postMessage(
+                {
+                  type: MSG_STORAGE_RESPONSE,
+                  source: HOOK_SOURCE,
+                  requestId: storageData.requestId,
+                  rows: sanitizeForTransfer(rows),
+                },
+                '*',
+              )
+            })
+            .catch((err: unknown) => {
+              window.postMessage(
+                {
+                  type: MSG_STORAGE_RESPONSE,
+                  source: HOOK_SOURCE,
+                  requestId: storageData.requestId,
+                  rows: [],
+                  error: err instanceof Error ? err.message : String(err),
+                },
+                '*',
+              )
+            })
         }
         break
     }

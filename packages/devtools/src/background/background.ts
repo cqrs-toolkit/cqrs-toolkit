@@ -16,6 +16,8 @@ import {
   MSG_PANEL_CLEAR,
   MSG_PANEL_CONNECT,
   MSG_REQUEST_COMMAND_SNAPSHOT,
+  MSG_REQUEST_STORAGE,
+  MSG_STORAGE_RESPONSE,
   PORT_CONTENT_SCRIPT,
   PORT_PANEL,
 } from '../shared/constants.js'
@@ -98,6 +100,15 @@ function handleContentScriptConnect(port: chrome.runtime.Port): void {
         }
         break
       }
+
+      case MSG_STORAGE_RESPONSE: {
+        // Forward storage response to panel (no buffering)
+        const panelPort = ports.getPanelPort(tabId)
+        if (panelPort) {
+          panelPort.postMessage(msg)
+        }
+        break
+      }
     }
   })
 
@@ -171,6 +182,16 @@ function handlePanelConnect(port: chrome.runtime.Port): void {
               action: actionMsg.action,
               commandId: actionMsg.commandId,
             })
+          }
+        }
+        break
+      }
+
+      case MSG_REQUEST_STORAGE: {
+        if (panelTabId !== undefined) {
+          const contentPort = ports.getContentPort(panelTabId)
+          if (contentPort) {
+            contentPort.postMessage(msg)
           }
         }
         break

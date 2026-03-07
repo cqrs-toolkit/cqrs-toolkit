@@ -225,6 +225,7 @@ export class WorkerOrchestrator {
           cacheManager,
           syncManager,
           storage,
+          db,
         })
       }
     })

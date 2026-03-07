@@ -19,6 +19,8 @@ import type {
   MSG_PANEL_CLEAR,
   MSG_PANEL_CONNECT,
   MSG_REQUEST_COMMAND_SNAPSHOT,
+  MSG_REQUEST_STORAGE,
+  MSG_STORAGE_RESPONSE,
 } from './constants.js'
 
 // ---------------------------------------------------------------------------
@@ -85,6 +87,22 @@ export interface ActionMessage {
   commandId: string
 }
 
+export interface RequestStorageMessage {
+  type: typeof MSG_REQUEST_STORAGE
+  source: 'cqrs-content'
+  sql: string
+  bind?: unknown[]
+  requestId: string
+}
+
+export interface StorageResponseMessage {
+  type: typeof MSG_STORAGE_RESPONSE
+  source: 'cqrs-hook'
+  requestId: string
+  rows: Record<string, unknown>[]
+  error?: string
+}
+
 // ---------------------------------------------------------------------------
 // Panel ↔ Background (chrome.runtime port)
 // ---------------------------------------------------------------------------
@@ -111,7 +129,11 @@ export interface PanelClearMessage {
 // ---------------------------------------------------------------------------
 
 /** Messages from hook (MAIN world) to content script. */
-export type HookMessage = ClientDetectedMessage | EventMessage | CommandSnapshotMessage
+export type HookMessage =
+  | ClientDetectedMessage
+  | EventMessage
+  | CommandSnapshotMessage
+  | StorageResponseMessage
 
 /** Messages from content script to hook. */
 export type ContentToHookMessage =
@@ -119,6 +141,7 @@ export type ContentToHookMessage =
   | DeactivateMessage
   | RequestCommandSnapshotMessage
   | ActionMessage
+  | RequestStorageMessage
 
 /** Messages from panel to background. */
 export type PanelToBackgroundMessage =
@@ -126,6 +149,7 @@ export type PanelToBackgroundMessage =
   | PanelClearMessage
   | RequestCommandSnapshotMessage
   | ActionMessage
+  | RequestStorageMessage
 
 /** Messages from background to panel. */
 export type BackgroundToPanelMessage =
@@ -133,6 +157,7 @@ export type BackgroundToPanelMessage =
   | ClientDetectedMessage
   | EventMessage
   | CommandSnapshotMessage
+  | StorageResponseMessage
 
 // ---------------------------------------------------------------------------
 // Serialization helpers

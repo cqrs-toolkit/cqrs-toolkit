@@ -14,7 +14,7 @@
     "demos/*"
   ],
   "scripts": {
-    "build": "tsc --build tsconfig.build.json && npm run compile --workspaces --if-present",
+    "build": "tsc --build tsconfig.build.json && npm run compile --workspaces --if-present && npm run build --workspace=packages/devtools",
     "test": "vitest --project unit-*",
     "test:run": "vitest --project unit-* --run",
     "dev": "npm run dev -w @cqrs-toolkit/todo-demo",
