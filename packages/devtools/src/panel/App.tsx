@@ -1,18 +1,22 @@
 import { createSignal, type Component } from 'solid-js'
 import { CommandsTab } from './components/CommandsTab.js'
 import { ConnectionBanner } from './components/ConnectionBanner.js'
+import { EventsTab } from './components/EventsTab.js'
 import { TabBar, type TabName } from './components/TabBar.js'
 import { createCommandsStore } from './stores/commands.js'
 import { createConnectionStore } from './stores/connection.js'
+import { createEventsStore } from './stores/events.js'
 
 export const App: Component = () => {
   const [activeTab, setActiveTab] = createSignal<TabName>('Commands')
 
   const commandsStore = createCommandsStore()
+  const eventsStore = createEventsStore()
 
   const connection = createConnectionStore({
     onEvent(event) {
       commandsStore.handleEvent(event)
+      eventsStore.handleEvent(event)
     },
     onCommandSnapshot(commands) {
       commandsStore.setCommands(commands)
@@ -23,6 +27,7 @@ export const App: Component = () => {
       }
       for (const event of dump.events) {
         commandsStore.handleEvent(event)
+        eventsStore.handleEvent(event)
       }
     },
   })
@@ -41,6 +46,14 @@ export const App: Component = () => {
             onClear={() => {
               connection.clearBuffer()
               commandsStore.clear()
+            }}
+          />
+        ) : activeTab() === 'Events' ? (
+          <EventsTab
+            store={eventsStore}
+            onClear={() => {
+              connection.clearBuffer()
+              eventsStore.clear()
             }}
           />
         ) : (

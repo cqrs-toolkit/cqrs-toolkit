@@ -293,7 +293,24 @@ Target Chrome DevTools condensed aesthetics:
 
 All lists and log views across every tab share the same baseline behaviour:
 
-**Sort order:** Newest first, fixed. Not user-configurable.
+**Sort order:** Newest at bottom (log-tail style), fixed. Not user-configurable. This matches the natural causality of the domain — commands, events, and sync activity form sequences that read correctly in chronological order top-to-bottom.
+
+**Virtual scrolling:** All log views use a shared custom virtual scroller rather than a third-party library. A custom implementation is warranted because all lists are append-only with fixed row heights and need auto-scroll behaviour that is difficult to layer cleanly onto an off-the-shelf virtualizer. Fixed row heights eliminate dynamic measurement complexity, making the implementation straightforward.
+
+**Auto-scroll behaviour:** The virtual scroller auto-scrolls to the new last item when an item is appended, but only if the user is already near the bottom. Once the user has scrolled up far enough that more than 2–3 rows are off the bottom of the viewport, auto-scrolling stops and the user retains full control of scroll position. Auto-scroll resumes if the user manually scrolls back to the bottom.
+
+The at-bottom check uses scroll position arithmetic against the virtualizer's own measurements — not the rendered item index — so it is independent of overscan settings:
+
+```js
+const THRESHOLD = ROW_HEIGHT * 3 // 2–3 rows off screen before disengaging
+const isAtBottom = () =>
+  scrollEl.scrollTop >= virtualizer.getTotalSize() - scrollEl.clientHeight - THRESHOLD
+
+// on append:
+if (isAtBottom()) virtualizer.scrollToIndex(items.length - 1)
+```
+
+**Filter changes:** When filter state changes, the displayed list resets to the bottom unconditionally. The previous scroll position has no meaningful relationship to the new result set.
 
 **Filtering:** Each list is filterable, with filters appropriate to its content. The exact filter set per tab will be refined once a working prototype exists — the specifics below are indicative, not final. The architecture must support adding and changing filter controls without structural rework: filters are predicates applied to the in-memory signal array, not baked into how data is loaded or stored.
 
@@ -342,7 +359,7 @@ All filter state is local to the panel session — not persisted across DevTools
 
 **UI:**
 
-- Streaming log view (newest at bottom, auto-scroll with pause-on-scroll-up)
+- Streaming log view — log-tail style as per §14.4 (newest at bottom, auto-scroll while at bottom)
 - Columns: timestamp, event type, stream ID, revision, persistence (badge), processed (checkmark)
 - Persistence filter: Permanent / Stateful / Anticipated
 - Type filter: text input with autocomplete from seen types

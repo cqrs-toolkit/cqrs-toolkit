@@ -25,6 +25,7 @@ export interface CommandsStore {
   filteredCommands: () => CommandEntry[]
   filterStatuses: () => Set<CommandStatus>
   toggleFilter: (status: CommandStatus) => void
+  filterVersion: () => number
   selectedId: () => string | undefined
   selectCommand: (id: string | undefined) => void
   selectedEntry: () => CommandEntry | undefined
@@ -48,6 +49,11 @@ export function createCommandsStore(): CommandsStore {
     new Set(ALL_STATUSES),
   )
   const [selectedId, setSelectedId] = createSignal<string | undefined>()
+  const [filterVersion, setFilterVersion] = createSignal(0)
+
+  function bumpFilterVersion(): void {
+    setFilterVersion((v) => v + 1)
+  }
 
   function getEntry(commandId: string): CommandEntry | undefined {
     return entries().get(commandId)
@@ -229,7 +235,9 @@ export function createCommandsStore(): CommandsStore {
         }
         return next
       })
+      bumpFilterVersion()
     },
+    filterVersion,
     selectedId,
     selectCommand: setSelectedId,
     selectedEntry() {

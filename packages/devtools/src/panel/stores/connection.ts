@@ -55,7 +55,6 @@ export function createConnectionStore(handlers: ConnectionEventHandlers): Connec
 
   function connect(): void {
     port = chrome.runtime.connect({ name: PORT_PANEL })
-    setState('waiting')
 
     // Send panel-connect with the inspected tab's ID
     port.postMessage({
@@ -74,6 +73,14 @@ export function createConnectionStore(handlers: ConnectionEventHandlers): Connec
             setConfig(dump.config)
             setRole(dump.role)
             setState('connected')
+          } else if (config()) {
+            // Reconnect after service worker restart: buffer is empty but we
+            // already know the client from a previous connection. Restore
+            // 'connected' state — the content script will re-detect the client
+            // on the next page load.
+            setState('connected')
+          } else {
+            setState('waiting')
           }
           handlers.onBufferDump?.(dump)
           break
@@ -104,8 +111,19 @@ export function createConnectionStore(handlers: ConnectionEventHandlers): Connec
 
     port.onDisconnect.addListener(() => {
       port = undefined
-      setState('disconnected')
+      // MV3 service workers go idle and terminate, dropping the port.
+      // Reconnect immediately — chrome.runtime.connect() wakes the worker.
+      reconnect()
     })
+  }
+
+  function reconnect(): void {
+    // Untracked setTimeout is intentional here:
+    // - No cleanup needed: the panel runs in a dedicated DevTools page whose
+    //   destruction (on DevTools close) tears down all pending timers.
+    // - No double-fire risk: onDisconnect fires exactly once per port, and the
+    //   flow is serial (disconnect → delay → connect creates a new port).
+    setTimeout(connect, 500)
   }
 
   // Connect immediately

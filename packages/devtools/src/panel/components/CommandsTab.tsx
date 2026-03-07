@@ -1,9 +1,14 @@
 import type { Component } from 'solid-js'
-import { For, Show } from 'solid-js'
+import { Show } from 'solid-js'
 import type { CommandsStore } from '../stores/commands.js'
 import { CommandDetail } from './CommandDetail.js'
 import { CommandRow } from './CommandRow.js'
 import { StatusFilterChips } from './StatusFilterChips.js'
+import { VirtualScroller } from './VirtualScroller.js'
+
+const COMMANDS_COLUMNS =
+  'minmax(65px, auto) minmax(70px, auto) minmax(120px, 1fr) minmax(75px, auto) minmax(35px, auto) minmax(65px, auto)'
+const COMMANDS_MIN_WIDTH = '430px'
 
 interface CommandsTabProps {
   store: CommandsStore
@@ -34,39 +39,47 @@ export const CommandsTab: Component<CommandsTabProps> = (props) => {
       </div>
 
       <div class="commands-layout">
-        <Show when={filtered().length > 0} fallback={<div class="empty-state">No commands</div>}>
-          <div class="commands-table-wrap">
-            <table class="commands-table">
-              <thead>
-                <tr>
-                  <th class="col-id">ID</th>
-                  <th class="col-service">Service</th>
-                  <th class="col-type">Type</th>
-                  <th class="col-status">Status</th>
-                  <th class="col-attempts">#</th>
-                  <th class="col-time">Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                <For each={filtered()}>
-                  {(entry) => (
+        <div class="commands-list">
+          <div class="commands-scroll-wrap">
+            <div style={{ 'min-width': COMMANDS_MIN_WIDTH }}>
+              <div
+                class="commands-header"
+                style={{ display: 'grid', 'grid-template-columns': COMMANDS_COLUMNS }}
+              >
+                <span>ID</span>
+                <span>Service</span>
+                <span>Type</span>
+                <span>Status</span>
+                <span style={{ 'text-align': 'right' }}>#</span>
+                <span>Time</span>
+              </div>
+              <Show
+                when={filtered().length > 0}
+                fallback={<div class="empty-state">No commands</div>}
+              >
+                <VirtualScroller
+                  items={filtered}
+                  filterVersion={props.store.filterVersion}
+                  renderRow={(entry) => (
                     <CommandRow
                       command={entry.record}
+                      columns={COMMANDS_COLUMNS}
                       selected={props.store.selectedId() === entry.record.commandId}
                       onSelect={() => props.store.selectCommand(entry.record.commandId)}
                     />
                   )}
-                </For>
-              </tbody>
-            </table>
+                />
+              </Show>
+            </div>
           </div>
-        </Show>
+        </div>
 
         <Show when={selected()}>
           {(entry) => (
             <CommandDetail
               command={entry().record}
               debugEvents={entry().debugEvents}
+              onClose={() => props.store.selectCommand(undefined)}
               onRetry={() => props.onRetry(entry().record.commandId)}
               onCancel={() => props.onCancel(entry().record.commandId)}
             />

@@ -12,9 +12,34 @@
   const CONTENT_SOURCE = 'cqrs-content'
   const PORT_CONTENT_SCRIPT = 'content-script'
 
-  const MSG_DEACTIVATE = 'cqrs-devtools-deactivate'
+  const MSG_ACTIVATE = 'cqrs-devtools-activate'
 
-  const port = chrome.runtime.connect({ name: PORT_CONTENT_SCRIPT })
+  let port: chrome.runtime.Port
+
+  function connect(): void {
+    port = chrome.runtime.connect({ name: PORT_CONTENT_SCRIPT })
+
+    // Background → Content Script → Hook
+    // Forward messages from background to the page hook via window.postMessage.
+    port.onMessage.addListener((message: unknown) => {
+      const msg = message as { type?: string } | undefined
+      if (!msg?.type) return
+
+      window.postMessage({ ...msg, source: CONTENT_SOURCE }, '*')
+    })
+
+    // MV3 service workers go idle and terminate, dropping the port.
+    // Reconnect so event flow resumes when the worker wakes back up.
+    // Re-activate the hook so it re-sends client-detected to the fresh worker.
+    port.onDisconnect.addListener(() => {
+      setTimeout(() => {
+        connect()
+        window.postMessage({ type: MSG_ACTIVATE, source: CONTENT_SOURCE }, '*')
+      }, 500)
+    })
+  }
+
+  connect()
 
   // Hook → Content Script → Background
   // Forward messages from the page hook to the background service worker.
@@ -24,19 +49,5 @@
     if (!data || data.source !== HOOK_SOURCE) return
 
     port.postMessage(data)
-  })
-
-  // Background → Content Script → Hook
-  // Forward messages from background to the page hook via window.postMessage.
-  port.onMessage.addListener((message: unknown) => {
-    const msg = message as { type?: string } | undefined
-    if (!msg?.type) return
-
-    window.postMessage({ ...msg, source: CONTENT_SOURCE }, '*')
-  })
-
-  // When the background port disconnects, tell the hook to deactivate.
-  port.onDisconnect.addListener(() => {
-    window.postMessage({ type: MSG_DEACTIVATE, source: CONTENT_SOURCE }, '*')
   })
 })()
