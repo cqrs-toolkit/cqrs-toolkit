@@ -7,6 +7,7 @@ interface EventDetailProps {
   entry: EventEntry
   processorResult: ProcessorResult | undefined
   onClose: () => void
+  width: number
 }
 
 export const EventDetail: Component<EventDetailProps> = (props) => {
@@ -14,7 +15,7 @@ export const EventDetail: Component<EventDetailProps> = (props) => {
   const persistenceLabel = () => evt().persistence ?? 'Permanent'
 
   return (
-    <div class="event-detail">
+    <div class="event-detail" style={{ width: `${props.width}px` }}>
       <div class="detail-header">
         <h3>
           {evt().type}

@@ -11,6 +11,7 @@ interface CommandDetailProps {
   onClose: () => void
   onRetry: () => void
   onCancel: () => void
+  width: number
 }
 
 export const CommandDetail: Component<CommandDetailProps> = (props) => {
@@ -18,7 +19,7 @@ export const CommandDetail: Component<CommandDetailProps> = (props) => {
   const canCancel = () => props.command.status === 'pending' || props.command.status === 'blocked'
 
   return (
-    <div class="command-detail">
+    <div class="command-detail" style={{ width: `${props.width}px` }}>
       <div class="detail-header">
         <h3>
           {props.command.type}
