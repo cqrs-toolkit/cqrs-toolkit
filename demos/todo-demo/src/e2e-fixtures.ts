@@ -9,6 +9,14 @@ export const test = base.extend<ModeFixtures>({
   mode: ['online-only', { option: true }],
 })
 
+test.afterEach(async ({ request }) => {
+  try {
+    await request.post('http://localhost:3001/api/test/ws-resume')
+  } catch {
+    // Best-effort: don't let cleanup failures crash the test runner.
+  }
+})
+
 export { expect } from '@playwright/test'
 
 /**

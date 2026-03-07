@@ -91,6 +91,9 @@ export class SyncManager {
   /** Debounced collection refetch timers for invalidation responses. */
   private readonly pendingRefetches = new Map<string, ReturnType<typeof setTimeout>>()
 
+  /** True while setAuthenticated/setUnauthenticated is handling the wipe inline. */
+  private sessionDestroyHandledInline = false
+
   private static readonly INVALIDATION_REFETCH_DELAY_MS = 500
 
   constructor(config: SyncManagerConfig) {
@@ -164,11 +167,14 @@ export class SyncManager {
       })
     this.subscriptions.push(sessionSub)
 
-    // Subscribe to session destroyed — clean up sync state on logout
+    // Subscribe to session destroyed — clean up sync state on logout.
+    // When setAuthenticated/setUnauthenticated handle the wipe inline, the flag
+    // prevents this subscription from triggering a redundant (racing) wipe.
     const destroyedSub = this.eventBus
       .on('session:destroyed')
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
+        if (this.sessionDestroyHandledInline) return
         this.onSessionDestroyed().catch((err) => {
           logProvider.log.error({ err }, 'onSessionDestroyed failed')
         })
@@ -263,16 +269,43 @@ export class SyncManager {
   /**
    * Signal that the user has been authenticated.
    * Delegates to SessionManager and returns whether the session was resumed.
+   *
+   * When the userId differs from the cached session, the data wipe is awaited
+   * inline before SessionManager creates the new session.  This prevents the
+   * fire-and-forget event subscription from racing with the new session's sync.
    */
   async setAuthenticated(params: { userId: string }): Promise<{ resumed: boolean }> {
+    const previousUserId = this.sessionManager.getUserId()
+    const isUserChange = previousUserId !== undefined && previousUserId !== params.userId
+
+    if (isUserChange) {
+      this.sessionDestroyHandledInline = true
+      try {
+        await this.onSessionDestroyed()
+      } finally {
+        this.sessionDestroyHandledInline = false
+      }
+    }
+
     return this.sessionManager.signalAuthenticated(params.userId)
   }
 
   /**
    * Signal that the user has logged out.
-   * Delegates to SessionManager.
+   * Delegates to SessionManager after awaiting the data wipe.
    */
   async setUnauthenticated(): Promise<void> {
+    const hasSession = this.sessionManager.getUserId() !== undefined
+
+    if (hasSession) {
+      this.sessionDestroyHandledInline = true
+      try {
+        await this.onSessionDestroyed()
+      } finally {
+        this.sessionDestroyHandledInline = false
+      }
+    }
+
     await this.sessionManager.signalLoggedOut()
   }
 
@@ -343,6 +376,13 @@ export class SyncManager {
         seeded: false,
         syncing: false,
       })
+    }
+
+    // 11. Invalidate active queries so connected windows re-fetch (now-empty) data.
+    //     In shared-worker mode the worker survives page reloads, so windows that
+    //     mounted before setAuthenticated may still be showing stale read models.
+    for (const collection of this.collections) {
+      this.eventBus.emit('readmodel:updated', { collection: collection.name, ids: [] })
     }
   }
 
