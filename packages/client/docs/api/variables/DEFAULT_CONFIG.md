@@ -8,8 +8,6 @@
 
 > `const` **DEFAULT_CONFIG**: `object`
 
-Defined in: [packages/client/src/types/config.ts:292](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L292)
-
 Default configuration values.
 
 ## Type Declaration

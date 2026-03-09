@@ -8,8 +8,6 @@
 
 > **deriveScopedCacheKey**(`scope`, `collection`, `params?`): `string`
 
-Defined in: [packages/client/src/core/cache-manager/CacheKey.ts:39](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/CacheKey.ts#L39)
-
 Derive a scope-based cache key.
 Scopes allow sub-partitioning of cache data (e.g., per-user data).
 

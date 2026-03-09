@@ -8,6 +8,4 @@
 
 > **VfsType** = `"opfs"` \| `"opfs-sahpool"` \| `"memory"`
 
-Defined in: [packages/client/src/storage/LocalSqliteDb.ts:15](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/LocalSqliteDb.ts#L15)
-
 VFS type for SQLite storage.

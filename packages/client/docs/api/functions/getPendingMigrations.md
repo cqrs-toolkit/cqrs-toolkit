@@ -8,8 +8,6 @@
 
 > **getPendingMigrations**(`currentVersion`): [`Migration`](../interfaces/Migration.md)[]
 
-Defined in: [packages/client/src/storage/schema/migrations.ts:45](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/schema/migrations.ts#L45)
-
 Get migrations that need to be applied.
 
 ## Parameters

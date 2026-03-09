@@ -6,8 +6,6 @@
 
 # Interface: InvalidateSignal
 
-Defined in: [packages/client/src/core/event-processor/types.ts:33](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-processor/types.ts#L33)
-
 Signal that the processor cannot apply the event and the collection should be refetched.
 
 ## Properties
@@ -15,5 +13,3 @@ Signal that the processor cannot apply the event and the collection should be re
 ### invalidate
 
 > **invalidate**: `true`
-
-Defined in: [packages/client/src/core/event-processor/types.ts:34](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-processor/types.ts#L34)

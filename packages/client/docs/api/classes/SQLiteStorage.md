@@ -6,8 +6,6 @@
 
 # Class: SQLiteStorage
 
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:34](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L34)
-
 SQLite storage implementation.
 
 ## Implements
@@ -19,8 +17,6 @@ SQLite storage implementation.
 ### Constructor
 
 > **new SQLiteStorage**(`config`): `SQLiteStorage`
-
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:38](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L38)
 
 #### Parameters
 
@@ -38,8 +34,6 @@ Defined in: [packages/client/src/storage/SQLiteStorage.ts:38](https://github.com
 
 > **clear**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:58](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L58)
-
 Clear all data from storage.
 
 #### Returns
@@ -55,8 +49,6 @@ Clear all data from storage.
 ### close()
 
 > **close**(): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:53](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L53)
 
 Close the storage backend and release resources.
 
@@ -74,8 +66,6 @@ Close the storage backend and release resources.
 
 > **deleteAllCommands**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:299](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L299)
-
 Delete all commands (e.g., on session clear).
 
 #### Returns
@@ -91,8 +81,6 @@ Delete all commands (e.g., on session clear).
 ### deleteAnticipatedEventsByCommand()
 
 > **deleteAnticipatedEventsByCommand**(`commandId`): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:398](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L398)
 
 Delete all anticipated events for a command.
 
@@ -116,8 +104,6 @@ Delete all anticipated events for a command.
 
 > **deleteCachedEvent**(`id`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:393](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L393)
-
 Delete a cached event.
 
 #### Parameters
@@ -139,8 +125,6 @@ Delete a cached event.
 ### deleteCachedEventsByCacheKey()
 
 > **deleteCachedEventsByCacheKey**(`cacheKey`): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:406](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L406)
 
 Delete all cached events for a cache key.
 
@@ -164,8 +148,6 @@ Delete all cached events for a cache key.
 
 > **deleteCacheKey**(`key`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:147](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L147)
-
 Delete a cache key and all associated data.
 
 #### Parameters
@@ -188,8 +170,6 @@ Delete a cache key and all associated data.
 
 > **deleteCommand**(`commandId`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:293](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L293)
-
 Delete a command.
 
 #### Parameters
@@ -211,8 +191,6 @@ Delete a command.
 ### deleteReadModel()
 
 > **deleteReadModel**(`collection`, `id`): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:504](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L504)
 
 Delete a read model record.
 
@@ -240,8 +218,6 @@ Delete a read model record.
 
 > **deleteReadModelsByCacheKey**(`cacheKey`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:509](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L509)
-
 Delete all read model records for a cache key.
 
 #### Parameters
@@ -263,8 +239,6 @@ Delete all read model records for a cache key.
 ### deleteReadModelsByCollection()
 
 > **deleteReadModelsByCollection**(`collection`): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:514](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L514)
 
 Delete all read model records for a collection.
 
@@ -288,8 +262,6 @@ Delete all read model records for a collection.
 
 > **deleteSession**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:98](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L98)
-
 Delete the current session and all associated data.
 
 #### Returns
@@ -306,8 +278,6 @@ Delete the current session and all associated data.
 
 > **getAllCacheKeys**(): `Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md)[]\>
 
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:124](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L124)
-
 Get all cache keys.
 
 #### Returns
@@ -323,8 +293,6 @@ Get all cache keys.
 ### getAnticipatedEventsByCommand()
 
 > **getAnticipatedEventsByCommand**(`commandId`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md)[]\>
-
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:335](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L335)
 
 Get anticipated events for a command.
 
@@ -348,8 +316,6 @@ Get anticipated events for a command.
 
 > **getCachedEvent**(`id`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md) \| `undefined`\>
 
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:307](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L307)
-
 Get a cached event by ID.
 
 #### Parameters
@@ -371,8 +337,6 @@ Get a cached event by ID.
 ### getCachedEventsByCacheKey()
 
 > **getCachedEventsByCacheKey**(`cacheKey`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md)[]\>
-
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:316](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L316)
 
 Get cached events for a cache key.
 
@@ -396,8 +360,6 @@ Get cached events for a cache key.
 
 > **getCachedEventsByStream**(`streamId`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md)[]\>
 
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:324](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L324)
-
 Get cached events for a stream.
 
 #### Parameters
@@ -419,8 +381,6 @@ Get cached events for a stream.
 ### getCacheKey()
 
 > **getCacheKey**(`key`): `Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md) \| `undefined`\>
-
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:115](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L115)
 
 Get a cache key record.
 
@@ -444,8 +404,6 @@ Get a cache key record.
 
 > **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\> \| `undefined`\>
 
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:187](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L187)
-
 Get a command by ID.
 
 #### Parameters
@@ -467,8 +425,6 @@ Get a command by ID.
 ### getCommands()
 
 > **getCommands**(`filter?`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\>[]\>
-
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:198](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L198)
 
 Get commands matching a filter.
 
@@ -492,8 +448,6 @@ Get commands matching a filter.
 
 > **getCommandsBlockedBy**(`commandId`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\>[]\>
 
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:250](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L250)
-
 Get commands blocked by a specific command.
 
 #### Parameters
@@ -515,8 +469,6 @@ Get commands blocked by a specific command.
 ### getCommandsByStatus()
 
 > **getCommandsByStatus**(`status`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\>[]\>
-
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:246](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L246)
 
 Get commands by status.
 
@@ -540,8 +492,6 @@ Get commands by status.
 
 > **getEvictableCacheKeys**(`limit`): `Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md)[]\>
 
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:171](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L171)
-
 Get cache keys eligible for eviction (holdCount = 0, not frozen).
 
 #### Parameters
@@ -563,8 +513,6 @@ Get cache keys eligible for eviction (holdCount = 0, not frozen).
 ### getReadModel()
 
 > **getReadModel**(`collection`, `id`): `Promise`\<[`ReadModelRecord`](../interfaces/ReadModelRecord.md) \| `undefined`\>
-
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:413](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L413)
 
 Get a read model record.
 
@@ -592,8 +540,6 @@ Get a read model record.
 
 > **getReadModelCount**(): `Promise`\<`number`\>
 
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:519](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L519)
-
 Get the total count of read model records.
 
 #### Returns
@@ -609,8 +555,6 @@ Get the total count of read model records.
 ### getReadModelsByCacheKey()
 
 > **getReadModelsByCacheKey**(`cacheKey`): `Promise`\<[`ReadModelRecord`](../interfaces/ReadModelRecord.md)[]\>
-
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:453](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L453)
 
 Get read model records by cache key.
 
@@ -633,8 +577,6 @@ Get read model records by cache key.
 ### getReadModelsByCollection()
 
 > **getReadModelsByCollection**(`collection`, `options?`): `Promise`\<[`ReadModelRecord`](../interfaces/ReadModelRecord.md)[]\>
-
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:425](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L425)
 
 Get all read model records for a collection.
 
@@ -662,8 +604,6 @@ Get all read model records for a collection.
 
 > **getSession**(): `Promise`\<[`SessionRecord`](../interfaces/SessionRecord.md) \| `undefined`\>
 
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:70](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L70)
-
 Get the current session, if any.
 
 #### Returns
@@ -679,8 +619,6 @@ Get the current session, if any.
 ### holdCacheKey()
 
 > **holdCacheKey**(`key`): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:154](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L154)
 
 Increment hold count for a cache key.
 
@@ -704,8 +642,6 @@ Increment hold count for a cache key.
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:44](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L44)
-
 Initialize the storage backend.
 For SQLite, this creates tables and runs migrations.
 
@@ -722,8 +658,6 @@ For SQLite, this creates tables and runs migrations.
 ### releaseCacheKey()
 
 > **releaseCacheKey**(`key`): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:159](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L159)
 
 Decrement hold count for a cache key.
 
@@ -747,8 +681,6 @@ Decrement hold count for a cache key.
 
 > **saveCachedEvent**(`event`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:344](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L344)
-
 Save a cached event.
 
 #### Parameters
@@ -770,8 +702,6 @@ Save a cached event.
 ### saveCachedEvents()
 
 > **saveCachedEvents**(`events`): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:365](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L365)
 
 Save multiple cached events in a batch.
 
@@ -795,8 +725,6 @@ Save multiple cached events in a batch.
 
 > **saveCacheKey**(`record`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:130](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L130)
-
 Save or update a cache key.
 
 #### Parameters
@@ -818,8 +746,6 @@ Save or update a cache key.
 ### saveCommand()
 
 > **saveCommand**(`command`): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:259](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L259)
 
 Save a new command.
 
@@ -843,8 +769,6 @@ Save a new command.
 
 > **saveReadModel**(`record`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:461](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L461)
-
 Save a read model record.
 
 #### Parameters
@@ -866,8 +790,6 @@ Save a read model record.
 ### saveReadModels()
 
 > **saveReadModels**(`records`): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:479](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L479)
 
 Save multiple read model records in a batch.
 
@@ -891,8 +813,6 @@ Save multiple read model records in a batch.
 
 > **saveSession**(`session`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:89](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L89)
-
 Save or update the session.
 
 #### Parameters
@@ -914,8 +834,6 @@ Save or update the session.
 ### touchCacheKey()
 
 > **touchCacheKey**(`key`): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:166](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L166)
 
 Touch a cache key (update lastAccessedAt).
 
@@ -939,8 +857,6 @@ Touch a cache key (update lastAccessedAt).
 
 > **touchSession**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:108](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L108)
-
 Update the last seen timestamp.
 
 #### Returns
@@ -956,8 +872,6 @@ Update the last seen timestamp.
 ### updateCommand()
 
 > **updateCommand**(`commandId`, `updates`): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:284](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L284)
 
 Update an existing command.
 

@@ -6,8 +6,6 @@
 
 # Class: WorkerMessageHandler
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:292](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L292)
-
 Message handler for worker-side communication.
 
 ## Constructors
@@ -15,8 +13,6 @@ Message handler for worker-side communication.
 ### Constructor
 
 > **new WorkerMessageHandler**(`config?`): `WorkerMessageHandler`
-
-Defined in: [packages/client/src/protocol/MessageChannel.ts:315](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L315)
 
 #### Parameters
 
@@ -36,8 +32,6 @@ Defined in: [packages/client/src/protocol/MessageChannel.ts:315](https://github.
 
 > **get** **instanceId**(): `string`
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:326](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L326)
-
 Get the worker instance ID.
 
 ##### Returns
@@ -49,8 +43,6 @@ Get the worker instance ID.
 ### broadcastEvent()
 
 > **broadcastEvent**(`eventName`, `payload`, `debug?`): `void`
-
-Defined in: [packages/client/src/protocol/MessageChannel.ts:403](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L403)
 
 Broadcast an event to all connected windows.
 
@@ -84,8 +76,6 @@ Whether this is a debug-only event
 
 > **getDeadWindows**(`ttlMs`): `string`[]
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:461](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L461)
-
 Get dead windows (exceeded TTL).
 
 #### Parameters
@@ -108,8 +98,6 @@ Array of dead window IDs
 
 > **getRegisteredWindows**(): `string`[]
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:436](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L436)
-
 Get registered window IDs.
 
 #### Returns
@@ -121,8 +109,6 @@ Get registered window IDs.
 ### handleConnect()
 
 > **handleConnect**(`port`): `void`
-
-Defined in: [packages/client/src/protocol/MessageChannel.ts:346](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L346)
 
 Handle a new connection (SharedWorker).
 
@@ -144,8 +130,6 @@ MessagePort from the connect event
 
 > **handleMessageEvent**(`event`): `void`
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:368](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L368)
-
 Handle a message (Dedicated Worker).
 
 #### Parameters
@@ -165,8 +149,6 @@ Message event
 ### isWindowAlive()
 
 > **isWindowAlive**(`windowId`, `ttlMs`): `boolean`
-
-Defined in: [packages/client/src/protocol/MessageChannel.ts:447](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L447)
 
 Check if a window is still alive (within TTL).
 
@@ -196,8 +178,6 @@ Whether the window is alive
 
 > **onWindowRemoved**(`callback`): `void`
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:497](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L497)
-
 Register a callback for when a window is removed.
 
 #### Parameters
@@ -217,8 +197,6 @@ Async callback receiving the removed window ID
 ### registerMethod()
 
 > **registerMethod**(`method`, `handler`): `void`
-
-Defined in: [packages/client/src/protocol/MessageChannel.ts:389](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L389)
 
 Register a method handler.
 
@@ -246,8 +224,6 @@ Handler function
 
 > **removeWindow**(`windowId`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:479](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L479)
-
 Remove a window registration and notify listeners.
 
 #### Parameters
@@ -267,8 +243,6 @@ Window identifier
 ### sendResponse()
 
 > **sendResponse**(`response`): `void`
-
-Defined in: [packages/client/src/protocol/MessageChannel.ts:425](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L425)
 
 Send response to requester (Dedicated Worker).
 
@@ -290,8 +264,6 @@ Response message
 
 > **sendWorkerInstance**(): `void`
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:375](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L375)
-
 Send worker-instance message (Dedicated Worker startup).
 
 #### Returns
@@ -303,8 +275,6 @@ Send worker-instance message (Dedicated Worker startup).
 ### setRawMessageHook()
 
 > **setRawMessageHook**(`hook`): `void`
-
-Defined in: [packages/client/src/protocol/MessageChannel.ts:337](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L337)
 
 Set a hook that intercepts raw MessageEvents before standard handling.
 
@@ -327,8 +297,6 @@ The hook returns `true` if it handled the message (suppressing normal handling).
 ### setRestoreHoldsHandler()
 
 > **setRestoreHoldsHandler**(`handler`): `void`
-
-Defined in: [packages/client/src/protocol/MessageChannel.ts:506](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L506)
 
 Register the handler for restore-holds requests.
 

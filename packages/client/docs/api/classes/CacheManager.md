@@ -6,8 +6,6 @@
 
 # Class: CacheManager
 
-Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:36](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/CacheManager.ts#L36)
-
 Cache manager implementation.
 
 ## Implements
@@ -19,8 +17,6 @@ Cache manager implementation.
 ### Constructor
 
 > **new CacheManager**(`config`): `CacheManager`
-
-Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:51](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/CacheManager.ts#L51)
 
 #### Parameters
 
@@ -37,8 +33,6 @@ Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:51](https://
 ### acquire()
 
 > **acquire**(`collection`, `params?`, `options?`): `Promise`\<`string`\>
-
-Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:95](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/CacheManager.ts#L95)
 
 Acquire a cache key for a collection with optional parameters.
 Creates the cache key if it doesn't exist.
@@ -79,8 +73,6 @@ Cache key identifier
 
 > **checkSessionUser**(`userId`): `Promise`\<`boolean`\>
 
-Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:395](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/CacheManager.ts#L395)
-
 Check for session/user mismatch. If the current session belongs to a
 different user, wipes all cache keys and emits `cache:session-reset`.
 
@@ -103,8 +95,6 @@ Whether a mismatch was detected and the cache was reset
 ### evict()
 
 > **evict**(`key`): `Promise`\<`boolean`\>
-
-Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:339](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/CacheManager.ts#L339)
 
 Explicitly evict a cache key.
 This will delete the cache key and all associated data.
@@ -135,8 +125,6 @@ Whether eviction succeeded
 
 > **evictAll**(): `Promise`\<`number`\>
 
-Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:365](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/CacheManager.ts#L365)
-
 Evict all evictable cache keys.
 Used during session clear or manual cleanup.
 
@@ -156,8 +144,6 @@ Number of cache keys evicted
 
 > **evictExpired**(): `Promise`\<`number`\>
 
-Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:456](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/CacheManager.ts#L456)
-
 Evict expired cache keys.
 Should be called periodically (e.g., on activity).
 
@@ -176,8 +162,6 @@ Number of cache keys evicted
 ### exists()
 
 > **exists**(`key`): `Promise`\<`boolean`\>
-
-Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:153](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/CacheManager.ts#L153)
 
 Check if a cache key exists.
 
@@ -205,8 +189,6 @@ Whether the cache key exists
 
 > **freeze**(`key`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:300](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/CacheManager.ts#L300)
-
 Freeze a cache key.
 While frozen, no changes can be made to data under this cache key.
 Ephemeral keys cannot be frozen (no-op).
@@ -232,8 +214,6 @@ Cache key identifier
 ### get()
 
 > **get**(`key`): `Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md) \| `undefined`\>
-
-Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:164](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/CacheManager.ts#L164)
 
 Get a cache key record.
 
@@ -261,8 +241,6 @@ Cache key record or undefined
 
 > **getCount**(): `Promise`\<`number`\>
 
-Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:383](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/CacheManager.ts#L383)
-
 Get the number of cache keys.
 
 #### Returns
@@ -280,8 +258,6 @@ Total cache key count
 ### hold()
 
 > **hold**(`key`): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:184](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/CacheManager.ts#L184)
 
 Place a hold on a cache key for this window.
 While held by any window, the cache key cannot be evicted.
@@ -309,8 +285,6 @@ Cache key identifier
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:65](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/CacheManager.ts#L65)
-
 Initialize the cache manager.
 Resets all persisted hold counts, evicts ephemeral keys, and registers this window.
 
@@ -323,8 +297,6 @@ Resets all persisted hold counts, evicts ephemeral keys, and registers this wind
 ### isFrozen()
 
 > **isFrozen**(`key`): `Promise`\<`boolean`\>
-
-Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:325](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/CacheManager.ts#L325)
 
 Check if a cache key is frozen.
 
@@ -352,8 +324,6 @@ Whether the cache key is frozen
 
 > **onSessionDestroyed**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:422](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/CacheManager.ts#L422)
-
 Handle session destroyed — wipe all cache keys and in-memory state.
 Deletes each cache key via storage.deleteCacheKey() which cascade-deletes events + read models.
 
@@ -366,8 +336,6 @@ Deletes each cache key via storage.deleteCacheKey() which cascade-deletes events
 ### registerWindow()
 
 > **registerWindow**(`windowId`): `boolean`
-
-Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:266](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/CacheManager.ts#L266)
 
 Register a window for capacity tracking.
 Returns false and emits event if at capacity.
@@ -391,8 +359,6 @@ Whether registration succeeded
 ### release()
 
 > **release**(`key`): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:210](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/CacheManager.ts#L210)
 
 Release a hold on a cache key for this window.
 If this was the last window holding the key, the persisted holdCount drops to 0.
@@ -420,8 +386,6 @@ Cache key identifier
 
 > **releaseAllForWindow**(`windowId`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:237](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/CacheManager.ts#L237)
-
 Release all holds for a specific window across all cache keys.
 Used for tab-death cleanup.
 
@@ -442,8 +406,6 @@ Window identifier to release
 ### touch()
 
 > **touch**(`key`): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:173](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/CacheManager.ts#L173)
 
 Touch a cache key to update its access time.
 
@@ -469,8 +431,6 @@ Cache key identifier
 
 > **unfreeze**(`key`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:312](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/CacheManager.ts#L312)
-
 Unfreeze a cache key.
 
 #### Parameters
@@ -494,8 +454,6 @@ Cache key identifier
 ### unregisterWindow()
 
 > **unregisterWindow**(`windowId`): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/core/cache-manager/CacheManager.ts:288](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/CacheManager.ts#L288)
 
 Unregister a window, releasing all its holds.
 

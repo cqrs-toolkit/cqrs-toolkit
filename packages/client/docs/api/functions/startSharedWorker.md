@@ -8,8 +8,6 @@
 
 > **startSharedWorker**(`config`): `void`
 
-Defined in: [packages/client/src/adapters/worker-core/startSharedWorker.ts:106](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/worker-core/startSharedWorker.ts#L106)
-
 Bootstrap a SharedWorker with CQRS orchestration.
 
 Creates the message handler, orchestrator, and coordinator logic for

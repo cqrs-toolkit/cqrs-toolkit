@@ -8,8 +8,6 @@
 
 > **createSucceededCommand**\<`TPayload`, `TResponse`\>(`response`, `overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TPayload`, `TResponse`\>
 
-Defined in: [packages/client/src/testing/factories/command.ts:59](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/testing/factories/command.ts#L59)
-
 Create a succeeded command.
 
 ## Type Parameters

@@ -6,8 +6,6 @@
 
 # Interface: ReadModelRecord
 
-Defined in: [packages/client/src/storage/IStorage.ts:71](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L71)
-
 Read model record.
 
 ## Properties
@@ -15,8 +13,6 @@ Read model record.
 ### cacheKey
 
 > **cacheKey**: `string`
-
-Defined in: [packages/client/src/storage/IStorage.ts:77](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L77)
 
 Cache key this record belongs to
 
@@ -26,8 +22,6 @@ Cache key this record belongs to
 
 > **collection**: `string`
 
-Defined in: [packages/client/src/storage/IStorage.ts:75](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L75)
-
 Collection name
 
 ---
@@ -35,8 +29,6 @@ Collection name
 ### effectiveData
 
 > **effectiveData**: `string`
-
-Defined in: [packages/client/src/storage/IStorage.ts:81](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L81)
 
 Effective data including optimistic updates (JSON serialized)
 
@@ -46,8 +38,6 @@ Effective data including optimistic updates (JSON serialized)
 
 > **hasLocalChanges**: `boolean`
 
-Defined in: [packages/client/src/storage/IStorage.ts:83](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L83)
-
 Whether this record has local modifications
 
 ---
@@ -55,8 +45,6 @@ Whether this record has local modifications
 ### id
 
 > **id**: `string`
-
-Defined in: [packages/client/src/storage/IStorage.ts:73](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L73)
 
 Entity ID
 
@@ -66,8 +54,6 @@ Entity ID
 
 > **serverData**: `string` \| `null`
 
-Defined in: [packages/client/src/storage/IStorage.ts:79](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L79)
-
 Server baseline data (JSON serialized)
 
 ---
@@ -75,7 +61,5 @@ Server baseline data (JSON serialized)
 ### updatedAt
 
 > **updatedAt**: `number`
-
-Defined in: [packages/client/src/storage/IStorage.ts:85](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L85)
 
 Last update timestamp

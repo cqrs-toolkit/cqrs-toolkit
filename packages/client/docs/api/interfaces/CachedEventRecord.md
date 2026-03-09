@@ -6,8 +6,6 @@
 
 # Interface: CachedEventRecord
 
-Defined in: [packages/client/src/storage/IStorage.ts:45](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L45)
-
 Cached event record.
 
 ## Properties
@@ -15,8 +13,6 @@ Cached event record.
 ### cacheKey
 
 > **cacheKey**: `string`
-
-Defined in: [packages/client/src/storage/IStorage.ts:63](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L63)
 
 Cache key this event belongs to
 
@@ -26,8 +22,6 @@ Cache key this event belongs to
 
 > **commandId**: `string` \| `null`
 
-Defined in: [packages/client/src/storage/IStorage.ts:61](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L61)
-
 Command ID (for Anticipated events)
 
 ---
@@ -35,8 +29,6 @@ Command ID (for Anticipated events)
 ### createdAt
 
 > **createdAt**: `number`
-
-Defined in: [packages/client/src/storage/IStorage.ts:65](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L65)
 
 Event creation timestamp
 
@@ -46,8 +38,6 @@ Event creation timestamp
 
 > **data**: `string`
 
-Defined in: [packages/client/src/storage/IStorage.ts:55](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L55)
-
 Event data (JSON serialized)
 
 ---
@@ -55,8 +45,6 @@ Event data (JSON serialized)
 ### id
 
 > **id**: `string`
-
-Defined in: [packages/client/src/storage/IStorage.ts:47](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L47)
 
 Event ID
 
@@ -66,8 +54,6 @@ Event ID
 
 > **persistence**: `"Permanent"` \| `"Stateful"` \| `"Anticipated"`
 
-Defined in: [packages/client/src/storage/IStorage.ts:53](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L53)
-
 Event persistence type
 
 ---
@@ -75,8 +61,6 @@ Event persistence type
 ### position
 
 > **position**: `string` \| `null`
-
-Defined in: [packages/client/src/storage/IStorage.ts:57](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L57)
 
 Global position (for Permanent events)
 
@@ -86,8 +70,6 @@ Global position (for Permanent events)
 
 > **revision**: `string` \| `null`
 
-Defined in: [packages/client/src/storage/IStorage.ts:59](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L59)
-
 Stream revision (for Permanent events)
 
 ---
@@ -96,8 +78,6 @@ Stream revision (for Permanent events)
 
 > **streamId**: `string`
 
-Defined in: [packages/client/src/storage/IStorage.ts:51](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L51)
-
 Stream ID
 
 ---
@@ -105,7 +85,5 @@ Stream ID
 ### type
 
 > **type**: `string`
-
-Defined in: [packages/client/src/storage/IStorage.ts:49](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/IStorage.ts#L49)
 
 Event type

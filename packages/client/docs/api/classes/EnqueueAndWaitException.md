@@ -6,8 +6,6 @@
 
 # Class: EnqueueAndWaitException
 
-Defined in: [packages/client/src/types/commands.ts:187](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L187)
-
 Exception for enqueueAndWait failures, carrying validation errors and their source.
 
 ## Extends
@@ -19,8 +17,6 @@ Exception for enqueueAndWait failures, carrying validation errors and their sour
 ### Constructor
 
 > **new EnqueueAndWaitException**(`errors`, `source`): `EnqueueAndWaitException`
-
-Defined in: [packages/client/src/types/commands.ts:191](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L191)
 
 #### Parameters
 
@@ -46,8 +42,6 @@ Defined in: [packages/client/src/types/commands.ts:191](https://github.com/Swift
 
 > `protected` **\_details**: \{ `errors`: [`ValidationError`](../interfaces/ValidationError.md)[]; `source`: [`CommandErrorSource`](../type-aliases/CommandErrorSource.md); \} \| `undefined`
 
-Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:14
-
 #### Inherited from
 
 `Exception._details`
@@ -57,8 +51,6 @@ Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:14
 ### \_userMessage
 
 > `protected` **\_userMessage**: `string` \| `undefined`
-
-Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:13
 
 #### Inherited from
 
@@ -70,8 +62,6 @@ Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:13
 
 > `readonly` `optional` **code**: `number`
 
-Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:12
-
 #### Inherited from
 
 `Exception.code`
@@ -82,8 +72,6 @@ Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:12
 
 > `readonly` **message**: `string`
 
-Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:11
-
 #### Inherited from
 
 `Exception.message`
@@ -93,8 +81,6 @@ Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:11
 ### name
 
 > `readonly` **name**: `string`
-
-Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:10
 
 #### Inherited from
 
@@ -107,8 +93,6 @@ Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:10
 #### Get Signature
 
 > **get** **details**(): `Details` \| `undefined`
-
-Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:17
 
 ##### Returns
 
@@ -125,8 +109,6 @@ Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:17
 #### Get Signature
 
 > **get** **userMessage**(): `string`
-
-Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:16
 
 ##### Returns
 

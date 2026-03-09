@@ -8,8 +8,6 @@
 
 > **normalizeEventPersistence**(`event`): [`EventPersistence`](../type-aliases/EventPersistence.md)
 
-Defined in: [packages/client/src/types/events.ts:138](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L138)
-
 Normalize event persistence - missing field means Permanent.
 Accepts the ddd-es persistence values ('Permanent' | 'Stateful' | 'Ephemeral') in addition
 to the client-only 'Anticipated' value. Ephemeral events are not persisted, so this value

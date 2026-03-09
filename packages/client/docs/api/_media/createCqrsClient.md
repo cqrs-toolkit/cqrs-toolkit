@@ -8,8 +8,6 @@
 
 > **createCqrsClient**(`config`): `Promise`\<[`CqrsClient`](../classes/CqrsClient.md)\>
 
-Defined in: [packages/client/src/createCqrsClient.ts:305](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/createCqrsClient.ts#L305)
-
 Create a new CQRS Client instance.
 
 Resolves configuration, initializes the adapter, registers event processors,

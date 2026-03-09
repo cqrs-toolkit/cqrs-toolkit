@@ -6,8 +6,6 @@
 
 # Class: CommandQueue
 
-Defined in: [packages/client/src/core/command-queue/CommandQueue.ts:82](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/CommandQueue.ts#L82)
-
 Command queue implementation.
 
 ## Implements
@@ -19,8 +17,6 @@ Command queue implementation.
 ### Constructor
 
 > **new CommandQueue**(`config`): `CommandQueue`
-
-Defined in: [packages/client/src/core/command-queue/CommandQueue.ts:104](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/CommandQueue.ts#L104)
 
 #### Parameters
 
@@ -38,8 +34,6 @@ Defined in: [packages/client/src/core/command-queue/CommandQueue.ts:104](https:/
 
 > `readonly` **events$**: `Observable`\<[`CommandEvent`](../interfaces/CommandEvent.md)\>
 
-Defined in: [packages/client/src/core/command-queue/CommandQueue.ts:102](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/CommandQueue.ts#L102)
-
 Observable of command events for reactive consumers.
 Emits for all command status changes.
 
@@ -52,8 +46,6 @@ Emits for all command status changes.
 ### cancelCommand()
 
 > **cancelCommand**(`commandId`): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/core/command-queue/CommandQueue.ts:286](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/CommandQueue.ts#L286)
 
 Cancel a pending command.
 Cannot cancel commands that are already sending or completed.
@@ -80,8 +72,6 @@ Command ID to cancel
 
 > **clearAll**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/command-queue/CommandQueue.ts:625](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/CommandQueue.ts#L625)
-
 Clear all command state for session destroy.
 Pauses, clears retry timers, waits for in-flight, clears anticipated event tracking, deletes all commands.
 
@@ -94,8 +84,6 @@ Pauses, clears retry timers, waits for in-flight, clears anticipated event track
 ### commandEvents$()
 
 > **commandEvents$**(`commandId`): `Observable`\<[`CommandEvent`](../interfaces/CommandEvent.md)\>
-
-Defined in: [packages/client/src/core/command-queue/CommandQueue.ts:274](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/CommandQueue.ts#L274)
 
 Observable filtered to a specific command.
 Useful for tracking a single command's lifecycle.
@@ -124,8 +112,6 @@ Observable of events for that command
 
 > **destroy**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/command-queue/CommandQueue.ts:673](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/CommandQueue.ts#L673)
-
 Destroy the command queue and release resources.
 Waits for any in-flight command processing to settle before returning.
 
@@ -138,8 +124,6 @@ Waits for any in-flight command processing to settle before returning.
 ### enqueue()
 
 > **enqueue**\<`TPayload`, `TEvent`\>(`command`, `options?`): `Promise`\<[`EnqueueResult`](../type-aliases/EnqueueResult.md)\<`TEvent`\>\>
-
-Defined in: [packages/client/src/core/command-queue/CommandQueue.ts:118](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/CommandQueue.ts#L118)
 
 Enqueue a command with local validation.
 Returns immediately with either validation errors or the queued command.
@@ -185,8 +169,6 @@ Enqueue result with validation status
 ### enqueueAndWait()
 
 > **enqueueAndWait**\<`TPayload`, `TEvent`, `TResponse`\>(`command`, `options?`): `Promise`\<[`EnqueueAndWaitResult`](../type-aliases/EnqueueAndWaitResult.md)\<`TResponse`\>\>
-
-Defined in: [packages/client/src/core/command-queue/CommandQueue.ts:235](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/CommandQueue.ts#L235)
 
 Convenience: enqueue and wait for completion in one call.
 Best for simple form submissions.
@@ -235,8 +217,6 @@ Combined enqueue and completion result
 
 > **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\> \| `undefined`\>
 
-Defined in: [packages/client/src/core/command-queue/CommandQueue.ts:278](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/CommandQueue.ts#L278)
-
 Get a command by ID.
 
 #### Parameters
@@ -263,8 +243,6 @@ Command record or undefined
 
 > **isPaused**(): `boolean`
 
-Defined in: [packages/client/src/core/command-queue/CommandQueue.ts:665](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/CommandQueue.ts#L665)
-
 Check if command processing is paused.
 
 #### Returns
@@ -280,8 +258,6 @@ Check if command processing is paused.
 ### listCommands()
 
 > **listCommands**(`filter?`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\>[]\>
-
-Defined in: [packages/client/src/core/command-queue/CommandQueue.ts:282](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/CommandQueue.ts#L282)
 
 List commands matching a filter.
 
@@ -309,8 +285,6 @@ Matching commands
 
 > **pause**(): `void`
 
-Defined in: [packages/client/src/core/command-queue/CommandQueue.ts:651](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/CommandQueue.ts#L651)
-
 Pause command processing.
 
 #### Returns
@@ -326,8 +300,6 @@ Pause command processing.
 ### processPendingCommands()
 
 > **processPendingCommands**(): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/core/command-queue/CommandQueue.ts:316](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/CommandQueue.ts#L316)
 
 Process pending commands.
 Called by the sync manager when network is available.
@@ -346,8 +318,6 @@ Called by the sync manager when network is available.
 
 > **reset**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/command-queue/CommandQueue.ts:636](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/CommandQueue.ts#L636)
-
 Reset the command queue for a session change.
 Pauses, clears retry timers, and waits for in-flight processing to settle.
 
@@ -360,8 +330,6 @@ Pauses, clears retry timers, and waits for in-flight processing to settle.
 ### resume()
 
 > **resume**(): `void`
-
-Defined in: [packages/client/src/core/command-queue/CommandQueue.ts:656](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/CommandQueue.ts#L656)
 
 Resume command processing.
 
@@ -378,8 +346,6 @@ Resume command processing.
 ### retryCommand()
 
 > **retryCommand**(`commandId`): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/core/command-queue/CommandQueue.ts:303](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/CommandQueue.ts#L303)
 
 Retry a failed command.
 
@@ -404,8 +370,6 @@ Command ID to retry
 ### waitForCompletion()
 
 > **waitForCompletion**(`commandId`, `options?`): `Promise`\<[`CommandCompletionResult`](../type-aliases/CommandCompletionResult.md)\>
-
-Defined in: [packages/client/src/core/command-queue/CommandQueue.ts:206](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/CommandQueue.ts#L206)
 
 Wait for a specific command to reach a terminal state.
 Returns when command succeeds, fails, or is cancelled.

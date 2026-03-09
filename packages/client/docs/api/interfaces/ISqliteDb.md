@@ -6,8 +6,6 @@
 
 # Interface: ISqliteDb
 
-Defined in: [packages/client/src/storage/ISqliteDb.ts:20](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/ISqliteDb.ts#L20)
-
 Async SQLite database interface.
 
 The generic on the query overload declares the row shape we expect back.
@@ -21,8 +19,6 @@ getting — not a speculative cast.
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/storage/ISqliteDb.ts:26](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/ISqliteDb.ts#L26)
-
 #### Returns
 
 `Promise`\<`void`\>
@@ -34,8 +30,6 @@ Defined in: [packages/client/src/storage/ISqliteDb.ts:26](https://github.com/Swi
 #### Call Signature
 
 > **exec**\<`T`\>(`sql`, `options`): `Promise`\<`T`[]\>
-
-Defined in: [packages/client/src/storage/ISqliteDb.ts:21](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/ISqliteDb.ts#L21)
 
 ##### Type Parameters
 
@@ -70,8 +64,6 @@ Defined in: [packages/client/src/storage/ISqliteDb.ts:21](https://github.com/Swi
 #### Call Signature
 
 > **exec**(`sql`, `options?`): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/storage/ISqliteDb.ts:25](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/ISqliteDb.ts#L25)
 
 ##### Parameters
 

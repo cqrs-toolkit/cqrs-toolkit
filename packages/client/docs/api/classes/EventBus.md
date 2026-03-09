@@ -6,8 +6,6 @@
 
 # Class: EventBus
 
-Defined in: [packages/client/src/core/events/EventBus.ts:13](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/events/EventBus.ts#L13)
-
 Event bus for library-level events.
 All components can emit events, and consumers can subscribe to specific event types.
 
@@ -16,8 +14,6 @@ All components can emit events, and consumers can subscribe to specific event ty
 ### Constructor
 
 > **new EventBus**(): `EventBus`
-
-Defined in: [packages/client/src/core/events/EventBus.ts:28](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/events/EventBus.ts#L28)
 
 #### Returns
 
@@ -29,8 +25,6 @@ Defined in: [packages/client/src/core/events/EventBus.ts:28](https://github.com/
 
 > **debug**: `boolean` = `false`
 
-Defined in: [packages/client/src/core/events/EventBus.ts:21](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/events/EventBus.ts#L21)
-
 Whether debug events are enabled.
 Mutable so the worker can enable debug after startup via RPC.
 When false, `emitDebug()` is a no-op.
@@ -41,8 +35,6 @@ When false, `emitDebug()` is a no-op.
 
 > `readonly` **events$**: `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
-Defined in: [packages/client/src/core/events/EventBus.ts:26](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/events/EventBus.ts#L26)
-
 Observable of all library events.
 
 ## Methods
@@ -50,8 +42,6 @@ Observable of all library events.
 ### complete()
 
 > **complete**(): `void`
-
-Defined in: [packages/client/src/core/events/EventBus.ts:93](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/events/EventBus.ts#L93)
 
 Complete the event bus.
 Should be called when the client is destroyed.
@@ -65,8 +55,6 @@ Should be called when the client is destroyed.
 ### emit()
 
 > **emit**\<`T`\>(`type`, `payload`): `void`
-
-Defined in: [packages/client/src/core/events/EventBus.ts:39](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/events/EventBus.ts#L39)
 
 Emit a library event.
 
@@ -99,8 +87,6 @@ Event payload
 ### emitDebug()
 
 > **emitDebug**\<`T`\>(`type`, `payload`): `void`
-
-Defined in: [packages/client/src/core/events/EventBus.ts:56](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/events/EventBus.ts#L56)
 
 Emit a debug-only library event.
 No-op when `this.debug` is false. When enabled, emits with `debug: true`
@@ -136,8 +122,6 @@ Event payload
 
 > **on**\<`T`\>(`type`): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<`T`\>\>
 
-Defined in: [packages/client/src/core/events/EventBus.ts:73](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/events/EventBus.ts#L73)
-
 Get an observable filtered to a specific event type.
 
 #### Type Parameters
@@ -165,8 +149,6 @@ Observable of events of that type
 ### onAny()
 
 > **onAny**\<`T`\>(`types`): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<`T`\>\>
-
-Defined in: [packages/client/src/core/events/EventBus.ts:83](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/events/EventBus.ts#L83)
 
 Get an observable filtered to multiple event types.
 

@@ -8,8 +8,6 @@
 
 > **startSqliteWorker**(): `void`
 
-Defined in: [packages/client/src/adapters/worker-core/sqlite-worker/startSqliteWorker.ts:36](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/worker-core/sqlite-worker/startSqliteWorker.ts#L36)
-
 Bootstrap the SQLite worker.
 
 Listens for probe/routing-port setup messages on self.onmessage,

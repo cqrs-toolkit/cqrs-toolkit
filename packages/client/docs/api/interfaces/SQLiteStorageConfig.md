@@ -6,8 +6,6 @@
 
 # Interface: SQLiteStorageConfig
 
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:26](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L26)
-
 SQLite storage configuration.
 
 ## Properties
@@ -15,7 +13,5 @@ SQLite storage configuration.
 ### db
 
 > **db**: [`ISqliteDb`](ISqliteDb.md)
-
-Defined in: [packages/client/src/storage/SQLiteStorage.ts:28](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/SQLiteStorage.ts#L28)
 
 Injected async SQLite database handle

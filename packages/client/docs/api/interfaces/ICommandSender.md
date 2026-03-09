@@ -6,8 +6,6 @@
 
 # Interface: ICommandSender
 
-Defined in: [packages/client/src/core/command-queue/types.ts:136](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/types.ts#L136)
-
 HTTP command sender interface.
 Abstracted for testability and different transport implementations.
 
@@ -16,8 +14,6 @@ Abstracted for testability and different transport implementations.
 ### send()
 
 > **send**\<`TPayload`, `TResponse`\>(`command`): `Promise`\<`TResponse`\>
-
-Defined in: [packages/client/src/core/command-queue/types.ts:144](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/command-queue/types.ts#L144)
 
 Send a command to the server.
 

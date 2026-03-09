@@ -3,6 +3,7 @@
  */
 
 import type { IPersistedEvent } from '@meticoeus/ddd-es'
+import type { AuthStrategy } from '../core/auth.js'
 import type { ICommandSender } from '../core/command-queue/types.js'
 import type { ProcessorRegistration } from '../core/event-processor/types.js'
 import type { IDomainExecutor } from './domain.js'
@@ -48,8 +49,6 @@ export interface NetworkConfig {
   timeout?: number
   /** Custom headers to include in requests */
   headers?: Record<string, string>
-  /** Function to get auth token */
-  getAuthToken?: () => Promise<string | null>
 }
 
 /**
@@ -86,9 +85,9 @@ export interface CacheConfig {
  * Network context passed to collection fetch methods.
  *
  * Contains the resolved base URL and headers from NetworkConfig.
- * If NetworkConfig.getAuthToken is configured, the resolved token is included
- * as an Authorization header. For cookie-based auth, no special handling is
- * needed — the browser sends cookies automatically with fetch().
+ * If AuthStrategy.getHttpHeaders is configured, the resolved headers are
+ * merged in. For cookie-based auth, no special handling is needed — the
+ * browser sends cookies automatically with fetch().
  *
  * Collections may add their own headers (e.g., Accept-Profile for versioning,
  * x-tenant-id for tenant context) in their fetch implementations.
@@ -195,6 +194,13 @@ export interface CqrsConfig<TCommand = unknown, TEvent = unknown> {
    * If not provided, commands are sent directly without local validation.
    */
   domainExecutor?: IDomainExecutor<TCommand, TEvent>
+
+  /**
+   * Auth strategy for transport-level authentication.
+   * Controls how HTTP requests and WebSocket connections are authenticated.
+   * Use `cookieAuthStrategy` for cookie-based auth (all hooks are noop).
+   */
+  auth: AuthStrategy
 
   /**
    * Network configuration.
@@ -337,6 +343,7 @@ export function resolveConfig<TCommand, TEvent>(
   return {
     domainExecutor: config.domainExecutor,
     commandSender: config.commandSender,
+    auth: config.auth,
     network: {
       ...DEFAULT_CONFIG.network,
       ...config.network,

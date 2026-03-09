@@ -6,8 +6,6 @@
 
 # Interface: CqrsClientSyncManager
 
-Defined in: [packages/client/src/createCqrsClient.ts:77](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/createCqrsClient.ts#L77)
-
 Restricted view of SyncManager exposed to consumers.
 Start/stop are managed internally by the client lifecycle.
 
@@ -17,8 +15,6 @@ Start/stop are managed internally by the client lifecycle.
 
 > `readonly` **connectivity**: [`IConnectivity`](IConnectivity.md)
 
-Defined in: [packages/client/src/createCqrsClient.ts:89](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/createCqrsClient.ts#L89)
-
 Connectivity manager for network status observation.
 
 ## Methods
@@ -26,8 +22,6 @@ Connectivity manager for network status observation.
 ### getAllStatus()
 
 > **getAllStatus**(): [`CollectionSyncStatus`](CollectionSyncStatus.md)[]
-
-Defined in: [packages/client/src/createCqrsClient.ts:81](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/createCqrsClient.ts#L81)
 
 Get sync status for all collections.
 
@@ -40,8 +34,6 @@ Get sync status for all collections.
 ### getCollectionStatus()
 
 > **getCollectionStatus**(`collection`): [`CollectionSyncStatus`](CollectionSyncStatus.md) \| `undefined`
-
-Defined in: [packages/client/src/createCqrsClient.ts:79](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/createCqrsClient.ts#L79)
 
 Get sync status for a specific collection.
 
@@ -60,8 +52,6 @@ Get sync status for a specific collection.
 ### setAuthenticated()
 
 > **setAuthenticated**(`params`): `Promise`\<\{ `resumed`: `boolean`; \}\>
-
-Defined in: [packages/client/src/createCqrsClient.ts:85](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/createCqrsClient.ts#L85)
 
 Signal that the user has been authenticated.
 
@@ -83,8 +73,6 @@ Signal that the user has been authenticated.
 
 > **setUnauthenticated**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/createCqrsClient.ts:87](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/createCqrsClient.ts#L87)
-
 Signal that the user has logged out.
 
 #### Returns
@@ -96,8 +84,6 @@ Signal that the user has logged out.
 ### syncCollection()
 
 > **syncCollection**(`collection`): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/createCqrsClient.ts:83](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/createCqrsClient.ts#L83)
 
 Force-sync a specific collection from the server.
 

@@ -6,8 +6,6 @@
 
 # Class: SharedWorkerAdapter
 
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:70](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L70)
-
 SharedWorker adapter for multi-tab offline support.
 
 This adapter:
@@ -30,8 +28,6 @@ This adapter:
 
 > **new SharedWorkerAdapter**(`config`): `SharedWorkerAdapter`
 
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:95](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L95)
-
 #### Parameters
 
 ##### config
@@ -48,8 +44,6 @@ Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:9
 
 > `readonly` **mode**: `"shared-worker"`
 
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:71](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L71)
-
 #### Implementation of
 
 [`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`mode`](../interfaces/IWorkerAdapter.md#mode)
@@ -61,8 +55,6 @@ Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:7
 #### Get Signature
 
 > **get** **cacheManager**(): [`ICacheManager`](../interfaces/ICacheManager.md)
-
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:119](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L119)
 
 ##### Returns
 
@@ -80,8 +72,6 @@ Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:1
 
 > **get** **commandQueue**(): [`ICommandQueue`](../interfaces/ICommandQueue.md)
 
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:109](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L109)
-
 ##### Returns
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md)
@@ -97,8 +87,6 @@ Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:1
 #### Get Signature
 
 > **get** **events$**(): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
-
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:104](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L104)
 
 Observable of library events.
 
@@ -120,8 +108,6 @@ Observable of library events.
 
 > **get** **queryManager**(): [`IQueryManager`](../interfaces/IQueryManager.md)
 
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:114](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L114)
-
 ##### Returns
 
 [`IQueryManager`](../interfaces/IQueryManager.md)
@@ -137,8 +123,6 @@ Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:1
 #### Get Signature
 
 > **get** **role**(): `"leader"` \| `"standby"`
-
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:129](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L129)
 
 Role of this client instance.
 'leader' = active writer (online-only, dedicated-worker, or active shared-worker tab).
@@ -164,8 +148,6 @@ Role of this client instance.
 
 > **get** **status**(): [`AdapterStatus`](../type-aliases/AdapterStatus.md)
 
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:100](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L100)
-
 Current adapter status.
 
 ##### Returns
@@ -186,8 +168,6 @@ Current adapter status.
 
 > **get** **syncManager**(): [`CqrsClientSyncManager`](../interfaces/CqrsClientSyncManager.md)
 
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:124](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L124)
-
 ##### Returns
 
 [`CqrsClientSyncManager`](../interfaces/CqrsClientSyncManager.md)
@@ -201,8 +181,6 @@ Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:1
 ### close()
 
 > **close**(): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:267](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L267)
 
 Close the adapter and release resources.
 
@@ -219,8 +197,6 @@ Close the adapter and release resources.
 ### debugQuery()
 
 > **debugQuery**\<`T`\>(`method`, `args?`): `Promise`\<`T`\>
-
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:138](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L138)
 
 Send an arbitrary debug RPC to the worker and return the result.
 Used by devtools for raw SQL queries and other debug commands.
@@ -255,8 +231,6 @@ Used by devtools for raw SQL queries and other debug commands.
 
 > **enableDebug**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:133](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L133)
-
 Enable debug mode in the worker.
 Sends a `debug.enable` RPC so the worker starts emitting debug events.
 One-way and idempotent — no disable path.
@@ -274,8 +248,6 @@ One-way and idempotent — no disable path.
 ### initialize()
 
 > **initialize**(): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts:148](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/shared-worker/SharedWorkerAdapter.ts#L148)
 
 Initialize the adapter.
 

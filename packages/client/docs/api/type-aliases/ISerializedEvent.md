@@ -8,8 +8,6 @@
 
 > **ISerializedEvent**\<`Type`, `Data`, `Metadata`\> = `IEvent`\<`Type`, `Data`, `Metadata`\> & `object`
 
-Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:125
-
 ## Type Declaration
 
 ### created

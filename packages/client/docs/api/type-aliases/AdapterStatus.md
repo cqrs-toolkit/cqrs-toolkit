@@ -8,6 +8,4 @@
 
 > **AdapterStatus** = `"uninitialized"` \| `"initializing"` \| `"ready"` \| `"error"` \| `"closed"`
 
-Defined in: [packages/client/src/adapters/base/IAdapter.ts:27](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/base/IAdapter.ts#L27)
-
 Adapter status.

@@ -8,6 +8,4 @@
 
 > **CommandStatus** = `"pending"` \| `"blocked"` \| `"sending"` \| `"succeeded"` \| `"failed"` \| `"cancelled"`
 
-Defined in: [packages/client/src/types/commands.ts:17](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L17)
-
 Command lifecycle status.

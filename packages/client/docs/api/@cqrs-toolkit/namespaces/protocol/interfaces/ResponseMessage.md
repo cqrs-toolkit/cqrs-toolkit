@@ -6,8 +6,6 @@
 
 # Interface: ResponseMessage
 
-Defined in: [packages/client/src/protocol/messages.ts:32](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L32)
-
 Response message from worker to window.
 
 ## Extends
@@ -20,8 +18,6 @@ Response message from worker to window.
 
 > `optional` **error**: `string`
 
-Defined in: [packages/client/src/protocol/messages.ts:39](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L39)
-
 Error message (on failure)
 
 ---
@@ -30,8 +26,6 @@ Error message (on failure)
 
 > `optional` **errorCode**: `string`
 
-Defined in: [packages/client/src/protocol/messages.ts:41](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L41)
-
 Error code (on failure)
 
 ---
@@ -39,8 +33,6 @@ Error code (on failure)
 ### requestId
 
 > **requestId**: `string`
-
-Defined in: [packages/client/src/protocol/messages.ts:15](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L15)
 
 Unique request ID for correlation
 
@@ -54,8 +46,6 @@ Unique request ID for correlation
 
 > `optional` **result**: `unknown`
 
-Defined in: [packages/client/src/protocol/messages.ts:37](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L37)
-
 Result data (on success)
 
 ---
@@ -64,8 +54,6 @@ Result data (on success)
 
 > **success**: `boolean`
 
-Defined in: [packages/client/src/protocol/messages.ts:35](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L35)
-
 Whether the request succeeded
 
 ---
@@ -73,8 +61,6 @@ Whether the request succeeded
 ### type
 
 > **type**: `"response"`
-
-Defined in: [packages/client/src/protocol/messages.ts:33](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L33)
 
 Message type identifier
 

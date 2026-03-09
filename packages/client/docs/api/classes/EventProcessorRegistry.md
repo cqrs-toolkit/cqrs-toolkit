@@ -6,8 +6,6 @@
 
 # Class: EventProcessorRegistry
 
-Defined in: [packages/client/src/core/event-processor/EventProcessorRegistry.ts:21](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-processor/EventProcessorRegistry.ts#L21)
-
 Event processor registry.
 
 ## Constructors
@@ -26,8 +24,6 @@ Event processor registry.
 
 > **clear**(): `void`
 
-Defined in: [packages/client/src/core/event-processor/EventProcessorRegistry.ts:102](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-processor/EventProcessorRegistry.ts#L102)
-
 Clear all registrations.
 
 #### Returns
@@ -39,8 +35,6 @@ Clear all registrations.
 ### getEventTypes()
 
 > **getEventTypes**(): `Set`\<`string`\>
-
-Defined in: [packages/client/src/core/event-processor/EventProcessorRegistry.ts:95](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-processor/EventProcessorRegistry.ts#L95)
 
 Get all registered event types.
 
@@ -55,8 +49,6 @@ Set of event types
 ### getProcessors()
 
 > **getProcessors**(`eventType`, `persistence`): [`EventProcessor`](../type-aliases/EventProcessor.md)[]
-
-Defined in: [packages/client/src/core/event-processor/EventProcessorRegistry.ts:65](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-processor/EventProcessorRegistry.ts#L65)
 
 Get processors for an event type and persistence.
 
@@ -86,8 +78,6 @@ Matching processors
 
 > **hasProcessors**(`eventType`): `boolean`
 
-Defined in: [packages/client/src/core/event-processor/EventProcessorRegistry.ts:85](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-processor/EventProcessorRegistry.ts#L85)
-
 Check if there are any processors for an event type.
 
 #### Parameters
@@ -109,8 +99,6 @@ Whether there are processors
 ### register()
 
 > **register**\<`TEvent`, `TModel`\>(`registration`): `void`
-
-Defined in: [packages/client/src/core/event-processor/EventProcessorRegistry.ts:30](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-processor/EventProcessorRegistry.ts#L30)
 
 Register an event processor.
 

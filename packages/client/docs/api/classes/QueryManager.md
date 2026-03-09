@@ -6,8 +6,6 @@
 
 # Class: QueryManager
 
-Defined in: [packages/client/src/core/query-manager/QueryManager.ts:42](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/QueryManager.ts#L42)
-
 Query manager.
 
 ## Implements
@@ -19,8 +17,6 @@ Query manager.
 ### Constructor
 
 > **new QueryManager**(`config`): `QueryManager`
-
-Defined in: [packages/client/src/core/query-manager/QueryManager.ts:50](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/QueryManager.ts#L50)
 
 #### Parameters
 
@@ -37,8 +33,6 @@ Defined in: [packages/client/src/core/query-manager/QueryManager.ts:50](https://
 ### count()
 
 > **count**(`collection`): `Promise`\<`number`\>
-
-Defined in: [packages/client/src/core/query-manager/QueryManager.ts:205](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/QueryManager.ts#L205)
 
 Get the count of entities in a collection.
 
@@ -66,8 +60,6 @@ Count
 
 > **destroy**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/query-manager/QueryManager.ts:284](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/QueryManager.ts#L284)
-
 Destroy the query manager.
 
 #### Returns
@@ -83,8 +75,6 @@ Destroy the query manager.
 ### exists()
 
 > **exists**(`collection`, `id`): `Promise`\<`boolean`\>
-
-Defined in: [packages/client/src/core/query-manager/QueryManager.ts:195](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/QueryManager.ts#L195)
 
 Check if an entity exists.
 
@@ -117,8 +107,6 @@ Whether the entity exists
 ### getById()
 
 > **getById**\<`T`\>(`collection`, `id`, `options?`): `Promise`\<[`QueryResult`](../interfaces/QueryResult.md)\<`T`\>\>
-
-Defined in: [packages/client/src/core/query-manager/QueryManager.ts:64](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/QueryManager.ts#L64)
 
 Get a single entity by ID.
 
@@ -164,8 +152,6 @@ Query result
 
 > **getByIds**\<`T`\>(`collection`, `ids`, `options?`): `Promise`\<`Map`\<`string`, [`QueryResult`](../interfaces/QueryResult.md)\<`T`\>\>\>
 
-Defined in: [packages/client/src/core/query-manager/QueryManager.ts:92](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/QueryManager.ts#L92)
-
 Get multiple entities by IDs.
 
 #### Type Parameters
@@ -210,8 +196,6 @@ Map of ID to query result
 
 > **hold**(`cacheKey`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/query-manager/QueryManager.ts:227](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/QueryManager.ts#L227)
-
 Place a hold on a cache key.
 While held, the data cannot be evicted.
 Only calls cacheManager.hold() on the 0→1 transition.
@@ -237,8 +221,6 @@ Cache key to hold
 ### list()
 
 > **list**\<`T`\>(`collection`, `options?`): `Promise`\<[`ListQueryResult`](../interfaces/ListQueryResult.md)\<`T`\>\>
-
-Defined in: [packages/client/src/core/query-manager/QueryManager.ts:125](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/QueryManager.ts#L125)
 
 List entities in a collection.
 
@@ -278,8 +260,6 @@ List query result
 
 > **onSessionDestroyed**(): `void`
 
-Defined in: [packages/client/src/core/query-manager/QueryManager.ts:257](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/QueryManager.ts#L257)
-
 Handle session destroyed — clear all in-memory holds without calling cacheManager.release().
 CacheManager state is already being wiped separately.
 
@@ -292,8 +272,6 @@ CacheManager state is already being wiped separately.
 ### release()
 
 > **release**(`cacheKey`): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/core/query-manager/QueryManager.ts:241](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/QueryManager.ts#L241)
 
 Release a hold on a cache key.
 Only calls cacheManager.release() on the 1→0 transition.
@@ -320,8 +298,6 @@ Cache key to release
 
 > **releaseAll**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/query-manager/QueryManager.ts:274](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/QueryManager.ts#L274)
-
 Release all active holds.
 One cacheManager.release() per key regardless of local count.
 
@@ -338,8 +314,6 @@ One cacheManager.release() per key regardless of local count.
 ### releaseForCacheKey()
 
 > **releaseForCacheKey**(`cacheKey`): `void`
-
-Defined in: [packages/client/src/core/query-manager/QueryManager.ts:266](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/QueryManager.ts#L266)
 
 Release hold tracking for an evicted cache key.
 Removes the entry from activeHolds without calling cacheManager.release()
@@ -360,8 +334,6 @@ since the cache key has already been evicted from storage.
 ### touch()
 
 > **touch**(`collection`): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/core/query-manager/QueryManager.ts:215](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/QueryManager.ts#L215)
 
 Touch the cache key for a collection.
 Extends its lifetime in the cache.
@@ -387,8 +359,6 @@ Collection name
 ### watchById()
 
 > **watchById**\<`T`\>(`collection`, `id`): `Observable`\<`T` \| `undefined`\>
-
-Defined in: [packages/client/src/core/query-manager/QueryManager.ts:170](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/QueryManager.ts#L170)
 
 Get an observable that emits when a specific entity changes.
 
@@ -427,8 +397,6 @@ Observable of the entity data
 ### watchCollection()
 
 > **watchCollection**(`collection`): `Observable`\<`string`[]\>
-
-Defined in: [packages/client/src/core/query-manager/QueryManager.ts:155](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/QueryManager.ts#L155)
 
 Get an observable that emits when data in a collection changes.
 Use this for reactive UI updates.

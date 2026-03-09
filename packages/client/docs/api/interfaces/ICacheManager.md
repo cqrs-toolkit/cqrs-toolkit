@@ -6,8 +6,6 @@
 
 # Interface: ICacheManager
 
-Defined in: [packages/client/src/core/cache-manager/types.ts:25](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/types.ts#L25)
-
 Cache manager interface.
 Provides cache key lifecycle, eviction, and hold management.
 
@@ -16,8 +14,6 @@ Provides cache key lifecycle, eviction, and hold management.
 ### acquire()
 
 > **acquire**(`collection`, `params?`, `options?`): `Promise`\<`string`\>
-
-Defined in: [packages/client/src/core/cache-manager/types.ts:35](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/types.ts#L35)
 
 Acquire a cache key for a collection with optional parameters.
 Creates the cache key if it doesn't exist.
@@ -54,8 +50,6 @@ Cache key identifier
 
 > **evict**(`key`): `Promise`\<`boolean`\>
 
-Defined in: [packages/client/src/core/cache-manager/types.ts:107](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/types.ts#L107)
-
 Explicitly evict a cache key.
 
 #### Parameters
@@ -78,8 +72,6 @@ Whether eviction succeeded
 
 > **evictAll**(): `Promise`\<`number`\>
 
-Defined in: [packages/client/src/core/cache-manager/types.ts:114](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/types.ts#L114)
-
 Evict all evictable cache keys.
 
 #### Returns
@@ -94,8 +86,6 @@ Number of cache keys evicted
 
 > **evictExpired**(): `Promise`\<`number`\>
 
-Defined in: [packages/client/src/core/cache-manager/types.ts:121](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/types.ts#L121)
-
 Evict expired cache keys.
 
 #### Returns
@@ -109,8 +99,6 @@ Number of cache keys evicted
 ### exists()
 
 > **exists**(`key`): `Promise`\<`boolean`\>
-
-Defined in: [packages/client/src/core/cache-manager/types.ts:47](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/types.ts#L47)
 
 Check if a cache key exists.
 
@@ -134,8 +122,6 @@ Whether the cache key exists
 
 > **freeze**(`key`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/cache-manager/types.ts:84](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/types.ts#L84)
-
 Freeze a cache key.
 
 #### Parameters
@@ -155,8 +141,6 @@ Cache key identifier
 ### get()
 
 > **get**(`key`): `Promise`\<[`CacheKeyRecord`](CacheKeyRecord.md) \| `undefined`\>
-
-Defined in: [packages/client/src/core/cache-manager/types.ts:55](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/types.ts#L55)
 
 Get a cache key record.
 
@@ -180,8 +164,6 @@ Cache key record or undefined
 
 > **getCount**(): `Promise`\<`number`\>
 
-Defined in: [packages/client/src/core/cache-manager/types.ts:128](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/types.ts#L128)
-
 Get the number of cache keys.
 
 #### Returns
@@ -195,8 +177,6 @@ Total cache key count
 ### hold()
 
 > **hold**(`key`): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/core/cache-manager/types.ts:70](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/types.ts#L70)
 
 Place a hold on a cache key.
 While held, the cache key cannot be evicted.
@@ -218,8 +198,6 @@ Cache key identifier
 ### isFrozen()
 
 > **isFrozen**(`key`): `Promise`\<`boolean`\>
-
-Defined in: [packages/client/src/core/cache-manager/types.ts:99](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/types.ts#L99)
 
 Check if a cache key is frozen.
 
@@ -243,8 +221,6 @@ Whether the cache key is frozen
 
 > **release**(`key`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/cache-manager/types.ts:77](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/types.ts#L77)
-
 Release a hold on a cache key.
 
 #### Parameters
@@ -265,8 +241,6 @@ Cache key identifier
 
 > **touch**(`key`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/cache-manager/types.ts:62](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/types.ts#L62)
-
 Touch a cache key to update its access time.
 
 #### Parameters
@@ -286,8 +260,6 @@ Cache key identifier
 ### unfreeze()
 
 > **unfreeze**(`key`): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/core/cache-manager/types.ts:91](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/types.ts#L91)
 
 Unfreeze a cache key.
 

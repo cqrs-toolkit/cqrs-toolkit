@@ -8,8 +8,6 @@
 
 > **retryWithBackoff**\<`T`\>(`fn`, `config?`, `shouldRetryError?`): `Promise`\<`T`\>
 
-Defined in: [packages/client/src/utils/retry.ts:73](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/utils/retry.ts#L73)
-
 Retry a function with exponential backoff.
 
 ## Type Parameters

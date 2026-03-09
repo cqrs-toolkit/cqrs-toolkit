@@ -8,8 +8,6 @@
 
 > **createValidationError**(`path`, `message`, `code?`, `context?`): [`ValidationError`](../interfaces/ValidationError.md)
 
-Defined in: [packages/client/src/types/validation.ts:37](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/validation.ts#L37)
-
 Helper to create a validation error.
 
 ## Parameters

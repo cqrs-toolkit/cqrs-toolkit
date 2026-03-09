@@ -6,8 +6,6 @@
 
 # Class: EventCache
 
-Defined in: [packages/client/src/core/event-cache/EventCache.ts:42](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-cache/EventCache.ts#L42)
-
 Event cache implementation.
 
 ## Constructors
@@ -15,8 +13,6 @@ Event cache implementation.
 ### Constructor
 
 > **new EventCache**(`config`): `EventCache`
-
-Defined in: [packages/client/src/core/event-cache/EventCache.ts:53](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-cache/EventCache.ts#L53)
 
 #### Parameters
 
@@ -33,8 +29,6 @@ Defined in: [packages/client/src/core/event-cache/EventCache.ts:53](https://gith
 ### cacheAnticipatedEvent()
 
 > **cacheAnticipatedEvent**\<`T`\>(`event`, `options`): `Promise`\<`string`\>
-
-Defined in: [packages/client/src/core/event-cache/EventCache.ts:147](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-cache/EventCache.ts#L147)
 
 Cache an anticipated event (optimistic local event).
 
@@ -70,8 +64,6 @@ Generated event ID
 
 > **cacheAnticipatedEvents**\<`T`\>(`events`, `options`): `Promise`\<`string`[]\>
 
-Defined in: [packages/client/src/core/event-cache/EventCache.ts:178](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-cache/EventCache.ts#L178)
-
 Cache multiple anticipated events for a command.
 
 #### Type Parameters
@@ -106,8 +98,6 @@ Generated event IDs
 
 > **cacheResponseEvent**(`event`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/event-cache/EventCache.ts:363](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-cache/EventCache.ts#L363)
-
 Cache a command response event for WS dedup and immediate processing.
 Constructs a CachedEventRecord from a ParsedEvent, saves to storage (INSERT OR IGNORE),
 and adds to gap buffer for Permanent events.
@@ -129,8 +119,6 @@ Parsed event from command response
 ### cacheServerEvent()
 
 > **cacheServerEvent**(`event`, `options`): `Promise`\<`boolean`\>
-
-Defined in: [packages/client/src/core/event-cache/EventCache.ts:66](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-cache/EventCache.ts#L66)
 
 Cache a persisted event from the server.
 
@@ -159,8 +147,6 @@ Whether the event was cached (false if duplicate)
 ### cacheServerEvents()
 
 > **cacheServerEvents**(`events`, `options`): `Promise`\<`number`\>
-
-Defined in: [packages/client/src/core/event-cache/EventCache.ts:109](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-cache/EventCache.ts#L109)
 
 Cache multiple persisted events in batch.
 
@@ -192,8 +178,6 @@ Number of events submitted (duplicates are silently skipped by storage)
 
 > **clearByCacheKey**(`cacheKey`): `string`[]
 
-Defined in: [packages/client/src/core/event-cache/EventCache.ts:344](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-cache/EventCache.ts#L344)
-
 Clear gap buffer entries for all streams associated with a cache key.
 Returns the affected streamIds so callers can clean up their own per-stream state.
 
@@ -216,8 +200,6 @@ Array of streamIds that were cleared
 ### clearGapBuffer()
 
 > **clearGapBuffer**(`streamId?`, `upToPosition?`): `void`
-
-Defined in: [packages/client/src/core/event-cache/EventCache.ts:324](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-cache/EventCache.ts#L324)
 
 Clear gap buffer.
 With both arguments: clears for a specific stream up to a position.
@@ -248,8 +230,6 @@ Optional position to clear up to
 
 > **deleteAnticipatedEvents**(`commandId`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/event-cache/EventCache.ts:257](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-cache/EventCache.ts#L257)
-
 Delete anticipated events for a command.
 Called when command succeeds/fails and anticipated events should be removed.
 
@@ -271,8 +251,6 @@ Command identifier
 
 > **destroy**(): `void`
 
-Defined in: [packages/client/src/core/event-cache/EventCache.ts:391](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-cache/EventCache.ts#L391)
-
 Destroy the event cache. Completes subscriptions and clears in-memory state.
 
 #### Returns
@@ -284,8 +262,6 @@ Destroy the event cache. Completes subscriptions and clears in-memory state.
 ### getAnticipatedEventsByCommand()
 
 > **getAnticipatedEventsByCommand**(`commandId`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md)[]\>
-
-Defined in: [packages/client/src/core/event-cache/EventCache.ts:247](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-cache/EventCache.ts#L247)
 
 Get anticipated events for a command.
 
@@ -308,8 +284,6 @@ Anticipated events
 ### getBufferedEvents()
 
 > **getBufferedEvents**(`streamId`): `object`[]
-
-Defined in: [packages/client/src/core/event-cache/EventCache.ts:287](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-cache/EventCache.ts#L287)
 
 Get buffered events for a stream, sorted by revision.
 Used during gap repair to process events in order.
@@ -334,8 +308,6 @@ Buffered events sorted by position/revision
 
 > **getEvent**(`id`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md) \| `undefined`\>
 
-Defined in: [packages/client/src/core/event-cache/EventCache.ts:217](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-cache/EventCache.ts#L217)
-
 Get a cached event by ID.
 
 #### Parameters
@@ -357,8 +329,6 @@ Cached event record or undefined
 ### getEventsByCacheKey()
 
 > **getEventsByCacheKey**(`cacheKey`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md)[]\>
-
-Defined in: [packages/client/src/core/event-cache/EventCache.ts:227](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-cache/EventCache.ts#L227)
 
 Get all events for a cache key.
 
@@ -382,8 +352,6 @@ Cached events
 
 > **getEventsByStream**(`streamId`): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md)[]\>
 
-Defined in: [packages/client/src/core/event-cache/EventCache.ts:237](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-cache/EventCache.ts#L237)
-
 Get all events for a stream, sorted by position.
 
 #### Parameters
@@ -406,8 +374,6 @@ Cached events in order
 
 > **getGaps**(): `Map`\<`string`, [`EventGap`](../interfaces/EventGap.md)[]\>
 
-Defined in: [packages/client/src/core/event-cache/EventCache.ts:266](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-cache/EventCache.ts#L266)
-
 Get detected gaps in the event stream.
 
 #### Returns
@@ -421,8 +387,6 @@ Map of stream ID to gaps
 ### getStreamGaps()
 
 > **getStreamGaps**(`streamId`): [`EventGap`](../interfaces/EventGap.md)[]
-
-Defined in: [packages/client/src/core/event-cache/EventCache.ts:276](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-cache/EventCache.ts#L276)
 
 Get detected gaps for a specific stream.
 
@@ -446,8 +410,6 @@ Gaps for the stream, empty array if none
 
 > **hasGaps**(): `boolean`
 
-Defined in: [packages/client/src/core/event-cache/EventCache.ts:296](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-cache/EventCache.ts#L296)
-
 Check if there are any gaps in the event stream.
 
 #### Returns
@@ -461,8 +423,6 @@ Whether there are gaps
 ### setKnownPosition()
 
 > **setKnownPosition**(`streamId`, `position`): `void`
-
-Defined in: [packages/client/src/core/event-cache/EventCache.ts:311](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-cache/EventCache.ts#L311)
 
 Set the known highest position for a stream.
 Used when resuming from persisted state.

@@ -6,8 +6,6 @@
 
 # Class: OpfsUnavailableException
 
-Defined in: [packages/client/src/adapters/worker-core/probeOpfs.ts:18](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/worker-core/probeOpfs.ts#L18)
-
 OPFS is not available in this worker environment.
 
 Thrown at the RPC boundary (worker → main thread) so the adapter layer
@@ -23,8 +21,6 @@ can catch it and the client factory can fall back to online-only mode.
 
 > **new OpfsUnavailableException**(): `OpfsUnavailableException`
 
-Defined in: [packages/client/src/adapters/worker-core/probeOpfs.ts:21](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/worker-core/probeOpfs.ts#L21)
-
 #### Returns
 
 `OpfsUnavailableException`
@@ -39,8 +35,6 @@ Defined in: [packages/client/src/adapters/worker-core/probeOpfs.ts:21](https://g
 
 > `protected` **\_details**: `unknown`
 
-Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:14
-
 #### Inherited from
 
 `Exception._details`
@@ -50,8 +44,6 @@ Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:14
 ### \_userMessage
 
 > `protected` **\_userMessage**: `string` \| `undefined`
-
-Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:13
 
 #### Inherited from
 
@@ -63,8 +55,6 @@ Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:13
 
 > `readonly` `optional` **code**: `number`
 
-Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:12
-
 #### Inherited from
 
 `Exception.code`
@@ -75,15 +65,11 @@ Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:12
 
 > `readonly` **errorCode**: `"OPFS_UNAVAILABLE"` = `'OPFS_UNAVAILABLE'`
 
-Defined in: [packages/client/src/adapters/worker-core/probeOpfs.ts:19](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/worker-core/probeOpfs.ts#L19)
-
 ---
 
 ### message
 
 > `readonly` **message**: `string`
-
-Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:11
 
 #### Inherited from
 
@@ -94,8 +80,6 @@ Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:11
 ### name
 
 > `readonly` **name**: `string`
-
-Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:10
 
 #### Inherited from
 
@@ -108,8 +92,6 @@ Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:10
 #### Get Signature
 
 > **get** **details**(): `Details` \| `undefined`
-
-Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:17
 
 ##### Returns
 
@@ -126,8 +108,6 @@ Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:17
 #### Get Signature
 
 > **get** **userMessage**(): `string`
-
-Defined in: node_modules/@meticoeus/ddd-es/dist/src/types.d.ts:16
 
 ##### Returns
 

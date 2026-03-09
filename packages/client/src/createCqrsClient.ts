@@ -440,6 +440,7 @@ async function createOnlineOnlyClient(
     readModelStore,
     queryManager,
     networkConfig: resolved.network,
+    auth: resolved.auth,
     collections: resolved.collections,
   })
   syncManagerRef = syncManager

@@ -8,8 +8,6 @@
 
 > **deriveId**(`name`, `namespace?`): `string`
 
-Defined in: [packages/client/src/utils/uuid.ts:27](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/utils/uuid.ts#L27)
-
 Generate a deterministic UUID v5 from a name.
 
 ## Parameters

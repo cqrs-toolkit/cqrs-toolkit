@@ -6,8 +6,6 @@
 
 # Interface: Collection
 
-Defined in: [packages/client/src/types/config.ts:133](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L133)
-
 A synchronized event collection.
 
 Collections define how the library discovers, fetches, and routes events.
@@ -19,15 +17,11 @@ Consumer code implements the fetch methods to control HTTP conventions.
 
 > `readonly` **name**: `string`
 
-Defined in: [packages/client/src/types/config.ts:134](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L134)
-
 ---
 
 ### seedOnInit?
 
 > `readonly` `optional` **seedOnInit**: `boolean`
-
-Defined in: [packages/client/src/types/config.ts:180](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L180)
 
 Whether to seed on initial sync. Default: true.
 
@@ -37,8 +31,6 @@ Whether to seed on initial sync. Default: true.
 
 > `readonly` `optional` **seedPageSize**: `number`
 
-Defined in: [packages/client/src/types/config.ts:183](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L183)
-
 Page size for seeding. Default: 100.
 
 ## Methods
@@ -46,8 +38,6 @@ Page size for seeding. Default: 100.
 ### fetchSeedEvents()?
 
 > `optional` **fetchSeedEvents**(`ctx`, `cursor`, `limit`): `Promise`\<[`SeedEventPage`](SeedEventPage.md)\>
-
-Defined in: [packages/client/src/types/config.ts:167](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L167)
 
 Fetch a page of events for initial seeding (fallback).
 Events are processed through event processors to build read models.
@@ -78,8 +68,6 @@ Only used if fetchSeedRecords is not defined.
 ### fetchSeedRecords()?
 
 > `optional` **fetchSeedRecords**(`ctx`, `cursor`, `limit`): `Promise`\<[`SeedRecordPage`](SeedRecordPage.md)\>
-
-Defined in: [packages/client/src/types/config.ts:154](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L154)
 
 Fetch a page of pre-computed read model records for initial seeding.
 This is the primary seeding mechanism — records go directly into the
@@ -112,8 +100,6 @@ If neither is defined, seeding is skipped for this collection.
 
 > `optional` **fetchStreamEvents**(`ctx`, `streamId`, `afterRevision`): `Promise`\<[`IPersistedEvent`](../type-aliases/IPersistedEvent.md)[]\>
 
-Defined in: [packages/client/src/types/config.ts:173](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L173)
-
 Fetch per-stream events for gap recovery and command response processing.
 If undefined, gap recovery processes buffered events as-is (lossy).
 
@@ -141,8 +127,6 @@ If undefined, gap recovery processes buffered events as-is (lossy).
 
 > **getTopics**(): `string`[]
 
-Defined in: [packages/client/src/types/config.ts:137](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L137)
-
 WS topic patterns to subscribe to. Return [] for no subscription.
 
 #### Returns
@@ -154,8 +138,6 @@ WS topic patterns to subscribe to. Return [] for no subscription.
 ### matchesStream()
 
 > **matchesStream**(`streamId`): `boolean`
-
-Defined in: [packages/client/src/types/config.ts:144](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L144)
 
 Test whether a streamId belongs to this collection.
 Called for WS events and command response events to route them.

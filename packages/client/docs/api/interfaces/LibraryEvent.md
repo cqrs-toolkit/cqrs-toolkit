@@ -6,8 +6,6 @@
 
 # Interface: LibraryEvent\<T\>
 
-Defined in: [packages/client/src/types/events.ts:124](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L124)
-
 Typed library event.
 
 ## Type Parameters
@@ -22,8 +20,6 @@ Typed library event.
 
 > `optional` **debug**: `boolean`
 
-Defined in: [packages/client/src/types/events.ts:129](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L129)
-
 Whether this event is a debug-only event (emitted via `emitDebug()`).
 
 ---
@@ -32,20 +28,14 @@ Whether this event is a debug-only event (emitted via `emitDebug()`).
 
 > **payload**: [`LibraryEventPayloads`](LibraryEventPayloads.md)\[`T`\]
 
-Defined in: [packages/client/src/types/events.ts:126](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L126)
-
 ---
 
 ### timestamp
 
 > **timestamp**: `number`
 
-Defined in: [packages/client/src/types/events.ts:127](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L127)
-
 ---
 
 ### type
 
 > **type**: `T`
-
-Defined in: [packages/client/src/types/events.ts:125](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L125)

@@ -8,8 +8,6 @@
 
 > **isEnqueueFailure**\<`TEvent`\>(`result`): `result is ErrResult<ValidationException<ValidationError[]>>`
 
-Defined in: [packages/client/src/types/commands.ts:264](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L264)
-
 Type guard for failed enqueue result.
 
 ## Type Parameters

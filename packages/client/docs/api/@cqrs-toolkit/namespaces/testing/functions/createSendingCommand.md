@@ -8,8 +8,6 @@
 
 > **createSendingCommand**\<`TPayload`\>(`overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TPayload`\>
 
-Defined in: [packages/client/src/testing/factories/command.ts:45](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/testing/factories/command.ts#L45)
-
 Create a sending command.
 
 ## Type Parameters

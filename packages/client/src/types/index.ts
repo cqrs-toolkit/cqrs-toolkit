@@ -70,6 +70,9 @@ export {
   isTerminalStatus,
 } from './commands.js'
 
+// Auth
+export type { AuthStrategy } from '../core/auth.js'
+
 // Config
 export type {
   CacheConfig,

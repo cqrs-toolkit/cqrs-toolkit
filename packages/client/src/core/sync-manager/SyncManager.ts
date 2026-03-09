@@ -14,6 +14,7 @@ import { logProvider } from '@meticoeus/ddd-es'
 import { Subject, Subscription, takeUntil } from 'rxjs'
 import type { Collection, FetchContext, NetworkConfig } from '../../types/config.js'
 import { hydrateSerializedEvent, normalizeEventPersistence } from '../../types/events.js'
+import type { AuthStrategy } from '../auth.js'
 import type { CacheManager } from '../cache-manager/CacheManager.js'
 import type { CommandQueue } from '../command-queue/CommandQueue.js'
 import type { EventCache } from '../event-cache/EventCache.js'
@@ -37,6 +38,7 @@ export interface SyncManagerConfig {
   readModelStore: ReadModelStore
   queryManager: QueryManager
   networkConfig: NetworkConfig
+  auth: AuthStrategy
   collections: Collection[]
 }
 
@@ -64,6 +66,7 @@ export class SyncManager {
   private readonly readModelStore: ReadModelStore
   private readonly queryManager: QueryManager
   private readonly networkConfig: NetworkConfig
+  private readonly auth: AuthStrategy
   private readonly collections: Collection[]
 
   private readonly connectivity: ConnectivityManager
@@ -106,6 +109,7 @@ export class SyncManager {
     this.readModelStore = config.readModelStore
     this.queryManager = config.queryManager
     this.networkConfig = config.networkConfig
+    this.auth = config.auth
     this.collections = config.collections
 
     // Initialize connectivity manager
@@ -573,18 +577,14 @@ export class SyncManager {
 
   /**
    * Build network context for collection fetch methods.
-   * Resolves headers from NetworkConfig. If getAuthToken is configured (Bearer token apps),
-   * the resolved token is included. For cookie-based auth, this is a no-op —
+   * Merges static headers from NetworkConfig with dynamic auth headers
+   * from the AuthStrategy. For cookie-based auth, this is a no-op —
    * the browser sends cookies automatically with fetch().
    */
   private async buildFetchContext(): Promise<FetchContext> {
     const headers: Record<string, string> = { ...this.networkConfig.headers }
-    if (this.networkConfig.getAuthToken) {
-      const token = await this.networkConfig.getAuthToken()
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`
-      }
-    }
+    const authHeaders = (await this.auth.getHttpHeaders?.()) ?? {}
+    Object.assign(headers, authHeaders)
     const signal = this.abortController?.signal ?? AbortSignal.abort()
     return { baseUrl: this.networkConfig.baseUrl, headers, signal }
   }
@@ -602,68 +602,104 @@ export class SyncManager {
   private connectWebSocket(): void {
     if (!this.networkConfig.wsUrl || this.wsConnection) return
 
-    try {
-      this.wsConnection = new WebSocket(this.networkConfig.wsUrl)
-      this.connectivity.reportWsConnection('connecting')
+    this.openAuthenticatedWebSocket(this.networkConfig.wsUrl)
+      .then((socket) => {
+        this.wsConnection = socket
 
-      this.wsConnection.onopen = () => {
+        socket.onmessage = (wsEvent) => {
+          try {
+            const message = parseServerMessage(wsEvent.data)
+            if (!message) return
+
+            switch (message.type) {
+              case 'connected':
+                logProvider.log.debug('WebSocket server ack')
+                this.connectivity.reportWsConnection('connected')
+                this.sendSubscriptions()
+                break
+              case 'event':
+                this.enqueueWsEvent(hydrateSerializedEvent(message.event))
+                break
+              case 'heartbeat':
+                this.connectivity.reportContact()
+                break
+              case 'subscribed':
+                logProvider.log.debug({ topics: message.topics }, 'Subscription confirmed')
+                this.connectivity.reportWsSubscribed(message.topics)
+                break
+              case 'unsubscribed':
+                logProvider.log.debug({ topics: message.topics }, 'Subscription removed')
+                break
+              case 'subscription_denied':
+              case 'subscription_revoked':
+                logProvider.log.warn(
+                  { type: message.type, topics: message.topics, message: message.message },
+                  'Subscription issue',
+                )
+                break
+            }
+          } catch (error) {
+            logProvider.log.error({ err: error }, 'Failed to process WebSocket message')
+          }
+        }
+
+        socket.onclose = () => {
+          logProvider.log.debug('WebSocket disconnected')
+          this.wsConnection = undefined
+          this.connectivity.reportWsConnection('disconnected')
+          // Reconnect if still online
+          if (this.connectivity.isOnline()) {
+            setTimeout(() => {
+              this.connectWebSocket()
+            }, 5000)
+          }
+        }
+
+        socket.onerror = () => {
+          this.connectivity.reportFailure()
+        }
+      })
+      .catch((error) => {
+        logProvider.log.error({ err: error }, 'Failed to connect WebSocket')
+      })
+  }
+
+  /**
+   * Open a WebSocket connection and run auth strategy hooks.
+   *
+   * 1. Calls `auth.prepareWebSocketUrl` to get the final URL
+   * 2. Creates `new WebSocket(url)`
+   * 3. Waits for `onopen`
+   * 4. If `auth.authenticateWebSocket` exists, calls it; on rejection → close socket, throw
+   * 5. Returns the connected+authenticated socket
+   */
+  private async openAuthenticatedWebSocket(rawUrl: string): Promise<WebSocket> {
+    const url = (await this.auth.prepareWebSocketUrl?.(rawUrl)) ?? rawUrl
+    const socket = new WebSocket(url)
+    this.connectivity.reportWsConnection('connecting')
+
+    await new Promise<void>((resolve, reject) => {
+      socket.onopen = () => {
         logProvider.log.debug('WebSocket connected')
         this.connectivity.reportContact()
+        resolve()
       }
-
-      this.wsConnection.onmessage = (wsEvent) => {
-        try {
-          const message = parseServerMessage(wsEvent.data)
-          if (!message) return
-
-          switch (message.type) {
-            case 'connected':
-              logProvider.log.debug('WebSocket server ack')
-              this.connectivity.reportWsConnection('connected')
-              this.sendSubscriptions()
-              break
-            case 'event':
-              this.enqueueWsEvent(hydrateSerializedEvent(message.event))
-              break
-            case 'heartbeat':
-              this.connectivity.reportContact()
-              break
-            case 'subscribed':
-              logProvider.log.debug({ topics: message.topics }, 'Subscription confirmed')
-              this.connectivity.reportWsSubscribed(message.topics)
-              break
-            case 'unsubscribed':
-              logProvider.log.debug({ topics: message.topics }, 'Subscription removed')
-              break
-            case 'subscription_denied':
-            case 'subscription_revoked':
-              logProvider.log.warn(
-                { type: message.type, topics: message.topics, message: message.message },
-                'Subscription issue',
-              )
-              break
-          }
-        } catch (error) {
-          logProvider.log.error({ err: error }, 'Failed to process WebSocket message')
-        }
-      }
-
-      this.wsConnection.onclose = () => {
-        logProvider.log.debug('WebSocket disconnected')
-        this.wsConnection = undefined
-        this.connectivity.reportWsConnection('disconnected')
-        // Reconnect if still online
-        if (this.connectivity.isOnline()) {
-          setTimeout(() => this.connectWebSocket(), 5000)
-        }
-      }
-
-      this.wsConnection.onerror = () => {
+      socket.onerror = () => {
         this.connectivity.reportFailure()
+        reject(new Error('WebSocket connection failed'))
       }
-    } catch (error) {
-      logProvider.log.error({ err: error }, 'Failed to connect WebSocket')
+    })
+
+    if (this.auth.authenticateWebSocket) {
+      try {
+        await this.auth.authenticateWebSocket(socket)
+      } catch (error) {
+        socket.close()
+        throw error
+      }
     }
+
+    return socket
   }
 
   /**

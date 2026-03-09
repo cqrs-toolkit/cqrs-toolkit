@@ -6,8 +6,6 @@
 
 # Interface: QueryResult\<T\>
 
-Defined in: [packages/client/src/core/query-manager/types.ts:31](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/types.ts#L31)
-
 Query result with metadata.
 
 ## Type Parameters
@@ -22,8 +20,6 @@ Query result with metadata.
 
 > **cacheKey**: `string`
 
-Defined in: [packages/client/src/core/query-manager/types.ts:39](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/types.ts#L39)
-
 Cache key used for this query
 
 ---
@@ -31,8 +27,6 @@ Cache key used for this query
 ### data
 
 > **data**: `T` \| `undefined`
-
-Defined in: [packages/client/src/core/query-manager/types.ts:33](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/types.ts#L33)
 
 The data, or undefined if not found
 
@@ -42,8 +36,6 @@ The data, or undefined if not found
 
 > **hasLocalChanges**: `boolean`
 
-Defined in: [packages/client/src/core/query-manager/types.ts:37](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/types.ts#L37)
-
 Whether the data has local changes pending sync
 
 ---
@@ -51,7 +43,5 @@ Whether the data has local changes pending sync
 ### meta
 
 > **meta**: [`ItemMeta`](ItemMeta.md) \| `undefined`
-
-Defined in: [packages/client/src/core/query-manager/types.ts:35](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/query-manager/types.ts#L35)
 
 Identity metadata for change detection, undefined when data is undefined

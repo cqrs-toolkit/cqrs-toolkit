@@ -8,8 +8,6 @@
 
 > **sleep**(`ms`): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/utils/retry.ts:61](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/utils/retry.ts#L61)
-
 Sleep for a given duration.
 
 ## Parameters

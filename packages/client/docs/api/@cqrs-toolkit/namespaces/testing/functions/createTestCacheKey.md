@@ -8,8 +8,6 @@
 
 > **createTestCacheKey**(`overrides?`): [`CacheKeyRecord`](../../../../interfaces/CacheKeyRecord.md)
 
-Defined in: [packages/client/src/testing/factories/cacheKey.ts:14](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/testing/factories/cacheKey.ts#L14)
-
 Create a test cache key record.
 
 ## Parameters

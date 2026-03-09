@@ -6,8 +6,6 @@
 
 # Class: SessionManager
 
-Defined in: [packages/client/src/core/session/SessionManager.ts:39](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/session/SessionManager.ts#L39)
-
 Session manager.
 Coordinates user identity with persisted session data.
 
@@ -16,8 +14,6 @@ Coordinates user identity with persisted session data.
 ### Constructor
 
 > **new SessionManager**(`config`): `SessionManager`
-
-Defined in: [packages/client/src/core/session/SessionManager.ts:47](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/session/SessionManager.ts#L47)
 
 #### Parameters
 
@@ -35,8 +31,6 @@ Defined in: [packages/client/src/core/session/SessionManager.ts:47](https://gith
 
 > **getAuthState**(): [`AuthState`](../type-aliases/AuthState.md)
 
-Defined in: [packages/client/src/core/session/SessionManager.ts:62](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/session/SessionManager.ts#L62)
-
 Get the current authentication state.
 
 #### Returns
@@ -48,8 +42,6 @@ Get the current authentication state.
 ### getSessionState()
 
 > **getSessionState**(): [`SessionState`](../type-aliases/SessionState.md)
-
-Defined in: [packages/client/src/core/session/SessionManager.ts:55](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/session/SessionManager.ts#L55)
 
 Get the current session state.
 
@@ -63,8 +55,6 @@ Get the current session state.
 
 > **getUserId**(): `string` \| `undefined`
 
-Defined in: [packages/client/src/core/session/SessionManager.ts:77](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/session/SessionManager.ts#L77)
-
 Get the current user ID, if any.
 
 #### Returns
@@ -76,8 +66,6 @@ Get the current user ID, if any.
 ### initialize()
 
 > **initialize**(): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/core/session/SessionManager.ts:89](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/session/SessionManager.ts#L89)
 
 Initialize the session manager.
 Loads any existing session from storage.
@@ -93,8 +81,6 @@ Does not resume network activity.
 
 > **isNetworkPaused**(): `boolean`
 
-Defined in: [packages/client/src/core/session/SessionManager.ts:70](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/session/SessionManager.ts#L70)
-
 Check if network operations are paused.
 Network is paused until authentication is confirmed.
 
@@ -107,8 +93,6 @@ Network is paused until authentication is confirmed.
 ### signalAuthenticated()
 
 > **signalAuthenticated**(`userId`): `Promise`\<\{ `resumed`: `boolean`; \}\>
-
-Defined in: [packages/client/src/core/session/SessionManager.ts:111](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/session/SessionManager.ts#L111)
 
 Signal that the user has been authenticated.
 This is called by the host application after successful authentication.
@@ -135,8 +119,6 @@ Whether the session was resumed (true) or created new (false)
 
 > **signalLoggedOut**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/core/session/SessionManager.ts:150](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/session/SessionManager.ts#L150)
-
 Signal that the user has been logged out.
 Clears all session data and pauses network activity.
 
@@ -149,8 +131,6 @@ Clears all session data and pauses network activity.
 ### touchSession()
 
 > **touchSession**(): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/core/session/SessionManager.ts:166](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/session/SessionManager.ts#L166)
 
 Touch the session to update last seen timestamp.
 Should be called periodically during active use.

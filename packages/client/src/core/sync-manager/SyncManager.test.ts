@@ -5,6 +5,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import type { Collection } from '../../types/config.js'
+import { cookieAuthStrategy } from '../auth.js'
 import { CacheManager } from '../cache-manager/CacheManager.js'
 import type { IAnticipatedEventHandler } from '../command-queue/CommandQueue.js'
 import { CommandQueue } from '../command-queue/CommandQueue.js'
@@ -73,6 +74,7 @@ describe('SyncManager', () => {
       readModelStore,
       queryManager,
       networkConfig: DUMMY_NETWORK,
+      auth: cookieAuthStrategy,
       collections: [
         {
           name: 'todos',

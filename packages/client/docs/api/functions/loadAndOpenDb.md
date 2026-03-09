@@ -8,8 +8,6 @@
 
 > **loadAndOpenDb**(`config`): `Promise`\<[`LocalSqliteDb`](../classes/LocalSqliteDb.md)\>
 
-Defined in: [packages/client/src/storage/LocalSqliteDb.ts:77](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/storage/LocalSqliteDb.ts#L77)
-
 Load the SQLite WASM module and open a database.
 
 This is the single place that touches `@sqlite.org/sqlite-wasm`.

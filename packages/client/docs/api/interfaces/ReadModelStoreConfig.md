@@ -6,8 +6,6 @@
 
 # Interface: ReadModelStoreConfig
 
-Defined in: [packages/client/src/core/read-model-store/ReadModelStore.ts:15](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/read-model-store/ReadModelStore.ts#L15)
-
 Read model store configuration.
 
 ## Properties
@@ -15,5 +13,3 @@ Read model store configuration.
 ### storage
 
 > **storage**: [`IStorage`](IStorage.md)
-
-Defined in: [packages/client/src/core/read-model-store/ReadModelStore.ts:16](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/read-model-store/ReadModelStore.ts#L16)

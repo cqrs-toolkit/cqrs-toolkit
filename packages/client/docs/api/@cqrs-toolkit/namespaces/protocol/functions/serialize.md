@@ -8,8 +8,6 @@
 
 > **serialize**\<`T`\>(`value`): `unknown`
 
-Defined in: [packages/client/src/protocol/serialization.ts:36](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/serialization.ts#L36)
-
 Serialize a value for postMessage.
 Converts BigInt and Date to serialization markers.
 

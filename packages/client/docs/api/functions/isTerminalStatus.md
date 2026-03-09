@@ -8,8 +8,6 @@
 
 > **isTerminalStatus**(`status`): `status is TerminalCommandStatus`
 
-Defined in: [packages/client/src/types/commands.ts:278](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L278)
-
 Check if command is in a terminal state.
 
 ## Parameters

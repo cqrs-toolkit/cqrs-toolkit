@@ -8,8 +8,6 @@
 
 > **hydrateSerializedEvent**(`event`): [`IPersistedEvent`](../type-aliases/IPersistedEvent.md)
 
-Defined in: [packages/client/src/types/events.ts:153](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/events.ts#L153)
-
 Hydrate a serialized event (JSON wire format) into a persisted event.
 Converts string revision/position to bigint. All other fields pass through unchanged.
 

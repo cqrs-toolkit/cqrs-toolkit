@@ -6,8 +6,6 @@
 
 # Interface: ResolvedConfig\<TCommand, TEvent\>
 
-Defined in: [packages/client/src/types/config.ts:318](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L318)
-
 Resolved shared configuration with all defaults applied.
 
 ## Extends
@@ -26,11 +24,23 @@ Resolved shared configuration with all defaults applied.
 
 ## Properties
 
+### auth
+
+> **auth**: [`AuthStrategy`](AuthStrategy.md)
+
+Auth strategy for transport-level authentication.
+Controls how HTTP requests and WebSocket connections are authenticated.
+Use `cookieAuthStrategy` for cookie-based auth (all hooks are noop).
+
+#### Inherited from
+
+[`CqrsClientConfig`](CqrsClientConfig.md).[`auth`](CqrsClientConfig.md#auth)
+
+---
+
 ### cache
 
 > **cache**: [`CacheConfig`](CacheConfig.md)
-
-Defined in: [packages/client/src/types/config.ts:217](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L217)
 
 Cache configuration.
 
@@ -44,23 +54,17 @@ Cache configuration.
 
 > **collections**: [`Collection`](Collection.md)[]
 
-Defined in: [packages/client/src/types/config.ts:327](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L327)
-
 ---
 
 ### commandSender?
 
 > `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)
 
-Defined in: [packages/client/src/types/config.ts:325](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L325)
-
 ---
 
 ### debug
 
 > **debug**: `boolean`
-
-Defined in: [packages/client/src/types/config.ts:244](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L244)
 
 Enable debug logging.
 
@@ -74,15 +78,11 @@ Enable debug logging.
 
 > `optional` **domainExecutor**: [`IDomainExecutor`](IDomainExecutor.md)\<`TCommand`, `TEvent`\>
 
-Defined in: [packages/client/src/types/config.ts:324](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L324)
-
 ---
 
 ### network
 
 > **network**: [`NetworkConfig`](NetworkConfig.md)
-
-Defined in: [packages/client/src/types/config.ts:202](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L202)
 
 Network configuration.
 
@@ -96,15 +96,11 @@ Network configuration.
 
 > **processors**: [`ProcessorRegistration`](ProcessorRegistration.md)\<`unknown`, `Record`\<`string`, `unknown`\>\>[]
 
-Defined in: [packages/client/src/types/config.ts:328](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L328)
-
 ---
 
 ### retainTerminal
 
 > **retainTerminal**: `boolean`
-
-Defined in: [packages/client/src/types/config.ts:239](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L239)
 
 Retain terminal commands in storage for debugging/introspection.
 
@@ -118,8 +114,6 @@ Retain terminal commands in storage for debugging/introspection.
 
 > **retry**: [`RetryConfig`](RetryConfig.md)
 
-Defined in: [packages/client/src/types/config.ts:212](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L212)
-
 Retry configuration for commands.
 
 #### Inherited from
@@ -132,8 +126,6 @@ Retry configuration for commands.
 
 > **storage**: [`StorageConfig`](StorageConfig.md)
 
-Defined in: [packages/client/src/types/config.ts:207](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L207)
-
 Storage configuration (ignored for online-only mode).
 
 #### Inherited from
@@ -145,5 +137,3 @@ Storage configuration (ignored for online-only mode).
 ### workerSetup?
 
 > `optional` **workerSetup**: `string`[]
-
-Defined in: [packages/client/src/types/config.ts:326](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L326)

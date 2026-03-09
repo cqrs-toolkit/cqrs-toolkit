@@ -6,8 +6,6 @@
 
 # Class: WorkerMessageChannel
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:73](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L73)
-
 Message channel for window-to-worker communication.
 
 ## Constructors
@@ -15,8 +13,6 @@ Message channel for window-to-worker communication.
 ### Constructor
 
 > **new WorkerMessageChannel**(`target`, `config?`): `WorkerMessageChannel`
-
-Defined in: [packages/client/src/protocol/MessageChannel.ts:83](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L83)
 
 #### Parameters
 
@@ -40,8 +36,6 @@ Defined in: [packages/client/src/protocol/MessageChannel.ts:83](https://github.c
 
 > **get** **libraryEvents$**(): `Observable`\<[`EventMessage`](../interfaces/EventMessage.md)\>
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:260](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L260)
-
 Get observable of library events.
 
 ##### Returns
@@ -56,8 +50,6 @@ Get observable of library events.
 
 > **get** **workerInstanceChanges$**(): `Observable`\<`string`\>
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:267](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L267)
-
 Get observable of worker instance changes.
 
 ##### Returns
@@ -69,8 +61,6 @@ Get observable of worker instance changes.
 ### connect()
 
 > **connect**(`source`): `void`
-
-Defined in: [packages/client/src/protocol/MessageChannel.ts:94](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L94)
 
 Start listening for messages.
 
@@ -90,8 +80,6 @@ Start listening for messages.
 
 > **destroy**(): `void`
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:282](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L282)
-
 Destroy the channel.
 
 #### Returns
@@ -103,8 +91,6 @@ Destroy the channel.
 ### disconnect()
 
 > **disconnect**(`source`): `void`
-
-Defined in: [packages/client/src/protocol/MessageChannel.ts:119](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L119)
 
 Stop listening for messages.
 
@@ -123,8 +109,6 @@ Stop listening for messages.
 ### register()
 
 > **register**(`windowId`): `Promise`\<[`RegisterWindowResponse`](../interfaces/RegisterWindowResponse.md)\>
-
-Defined in: [packages/client/src/protocol/MessageChannel.ts:173](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L173)
 
 Register a window with the worker.
 
@@ -147,8 +131,6 @@ Registration response
 ### request()
 
 > **request**\<`T`\>(`method`, `args?`): `Promise`\<`T`\>
-
-Defined in: [packages/client/src/protocol/MessageChannel.ts:133](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L133)
 
 Send a request and wait for response.
 
@@ -184,8 +166,6 @@ Response result
 
 > **restoreHolds**(`windowId`, `cacheKeys`): `Promise`\<[`RestoreHoldsResponse`](../interfaces/RestoreHoldsResponse.md)\>
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:231](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L231)
-
 Restore holds after worker restart.
 
 #### Parameters
@@ -214,8 +194,6 @@ Restoration response
 
 > **sendHeartbeat**(`windowId`): `void`
 
-Defined in: [packages/client/src/protocol/MessageChannel.ts:203](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L203)
-
 Send a heartbeat.
 
 #### Parameters
@@ -235,8 +213,6 @@ Window identifier
 ### unregister()
 
 > **unregister**(`windowId`): `void`
-
-Defined in: [packages/client/src/protocol/MessageChannel.ts:216](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/MessageChannel.ts#L216)
 
 Unregister a window.
 

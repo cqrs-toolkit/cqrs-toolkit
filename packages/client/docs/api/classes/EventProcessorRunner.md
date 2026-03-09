@@ -6,8 +6,6 @@
 
 # Class: EventProcessorRunner
 
-Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:53](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-processor/EventProcessorRunner.ts#L53)
-
 Event processor runner.
 
 ## Constructors
@@ -15,8 +13,6 @@ Event processor runner.
 ### Constructor
 
 > **new EventProcessorRunner**(`config`): `EventProcessorRunner`
-
-Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:58](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-processor/EventProcessorRunner.ts#L58)
 
 #### Parameters
 
@@ -33,8 +29,6 @@ Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:58
 ### processEvent()
 
 > **processEvent**(`event`): `Promise`\<[`ProcessEventResult`](../interfaces/ProcessEventResult.md)\>
-
-Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:70](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-processor/EventProcessorRunner.ts#L70)
 
 Process an event and apply updates to the read model store.
 
@@ -57,8 +51,6 @@ IDs of updated read models and whether any processor signalled invalidation
 ### processEvents()
 
 > **processEvents**(`events`): `Promise`\<[`ProcessEventResult`](../interfaces/ProcessEventResult.md)\>
-
-Defined in: [packages/client/src/core/event-processor/EventProcessorRunner.ts:120](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/event-processor/EventProcessorRunner.ts#L120)
 
 Process multiple events in order.
 

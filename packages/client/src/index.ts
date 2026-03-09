@@ -10,6 +10,10 @@
 export { CqrsClient, createCqrsClient } from './createCqrsClient.js'
 export type { CqrsClientSyncManager } from './createCqrsClient.js'
 
+// Auth
+export { cookieAuthStrategy } from './core/auth.js'
+export type { AuthStrategy } from './core/auth.js'
+
 // Auto-detection
 export { detectMode } from './core/detectMode.js'
 

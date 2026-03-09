@@ -6,8 +6,6 @@
 
 # Class: DedicatedWorkerAdapter
 
-Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:62](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts#L62)
-
 Dedicated Worker adapter for single-tab offline support.
 
 This adapter:
@@ -26,8 +24,6 @@ This adapter:
 
 > **new DedicatedWorkerAdapter**(`config`): `DedicatedWorkerAdapter`
 
-Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:79](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts#L79)
-
 #### Parameters
 
 ##### config
@@ -44,8 +40,6 @@ Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapte
 
 > `readonly` **mode**: `"dedicated-worker"`
 
-Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:63](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts#L63)
-
 #### Implementation of
 
 [`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`mode`](../interfaces/IWorkerAdapter.md#mode)
@@ -55,8 +49,6 @@ Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapte
 ### role
 
 > `readonly` **role**: `"leader"`
-
-Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:64](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts#L64)
 
 Role of this client instance.
 'leader' = active writer (online-only, dedicated-worker, or active shared-worker tab).
@@ -74,8 +66,6 @@ Role of this client instance.
 
 > **get** **cacheManager**(): [`ICacheManager`](../interfaces/ICacheManager.md)
 
-Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:102](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts#L102)
-
 ##### Returns
 
 [`ICacheManager`](../interfaces/ICacheManager.md)
@@ -92,8 +82,6 @@ Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapte
 
 > **get** **commandQueue**(): [`ICommandQueue`](../interfaces/ICommandQueue.md)
 
-Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:92](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts#L92)
-
 ##### Returns
 
 [`ICommandQueue`](../interfaces/ICommandQueue.md)
@@ -109,8 +97,6 @@ Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapte
 #### Get Signature
 
 > **get** **events$**(): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
-
-Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:87](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts#L87)
 
 Observable of library events.
 
@@ -132,8 +118,6 @@ Observable of library events.
 
 > **get** **queryManager**(): [`IQueryManager`](../interfaces/IQueryManager.md)
 
-Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:97](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts#L97)
-
 ##### Returns
 
 [`IQueryManager`](../interfaces/IQueryManager.md)
@@ -149,8 +133,6 @@ Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapte
 #### Get Signature
 
 > **get** **status**(): [`AdapterStatus`](../type-aliases/AdapterStatus.md)
-
-Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:83](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts#L83)
 
 Current adapter status.
 
@@ -172,8 +154,6 @@ Current adapter status.
 
 > **get** **syncManager**(): [`CqrsClientSyncManager`](../interfaces/CqrsClientSyncManager.md)
 
-Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:107](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts#L107)
-
 ##### Returns
 
 [`CqrsClientSyncManager`](../interfaces/CqrsClientSyncManager.md)
@@ -187,8 +167,6 @@ Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapte
 ### close()
 
 > **close**(): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:208](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts#L208)
 
 Close the adapter and release resources.
 
@@ -205,8 +183,6 @@ Close the adapter and release resources.
 ### debugQuery()
 
 > **debugQuery**\<`T`\>(`method`, `args?`): `Promise`\<`T`\>
-
-Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:117](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts#L117)
 
 Send an arbitrary debug RPC to the worker and return the result.
 Used by devtools for raw SQL queries and other debug commands.
@@ -241,8 +217,6 @@ Used by devtools for raw SQL queries and other debug commands.
 
 > **enableDebug**(): `Promise`\<`void`\>
 
-Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:112](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts#L112)
-
 Enable debug mode in the worker.
 Sends a `debug.enable` RPC so the worker starts emitting debug events.
 One-way and idempotent — no disable path.
@@ -260,8 +234,6 @@ One-way and idempotent — no disable path.
 ### initialize()
 
 > **initialize**(): `Promise`\<`void`\>
-
-Defined in: [packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts:129](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/dedicated-worker/DedicatedWorkerAdapter.ts#L129)
 
 Initialize the adapter.
 

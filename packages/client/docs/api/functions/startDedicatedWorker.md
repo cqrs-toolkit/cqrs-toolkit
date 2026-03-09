@@ -8,8 +8,6 @@
 
 > **startDedicatedWorker**(`config`): `void`
 
-Defined in: [packages/client/src/adapters/worker-core/startDedicatedWorker.ts:36](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/adapters/worker-core/startDedicatedWorker.ts#L36)
-
 Bootstrap a Dedicated Worker with CQRS orchestration.
 
 Creates the message handler and orchestrator, registers lifecycle RPC

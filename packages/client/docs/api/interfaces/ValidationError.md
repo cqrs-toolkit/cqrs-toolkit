@@ -6,8 +6,6 @@
 
 # Interface: ValidationError
 
-Defined in: [packages/client/src/types/validation.ts:18](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/validation.ts#L18)
-
 Generic validation error for a single field.
 
 ## Properties
@@ -15,8 +13,6 @@ Generic validation error for a single field.
 ### code?
 
 > `optional` **code**: `string`
-
-Defined in: [packages/client/src/types/validation.ts:24](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/validation.ts#L24)
 
 Error code for programmatic handling (optional)
 
@@ -26,8 +22,6 @@ Error code for programmatic handling (optional)
 
 > `optional` **context**: `Record`\<`string`, `unknown`\>
 
-Defined in: [packages/client/src/types/validation.ts:26](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/validation.ts#L26)
-
 Additional context (optional)
 
 ---
@@ -36,8 +30,6 @@ Additional context (optional)
 
 > **message**: `string`
 
-Defined in: [packages/client/src/types/validation.ts:22](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/validation.ts#L22)
-
 Error message for display
 
 ---
@@ -45,7 +37,5 @@ Error message for display
 ### path
 
 > **path**: `string`
-
-Defined in: [packages/client/src/types/validation.ts:20](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/validation.ts#L20)
 
 Field path (e.g., "email", "address.city", "items[0].name")

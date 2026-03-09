@@ -195,6 +195,7 @@ export class WorkerOrchestrator {
       readModelStore,
       queryManager,
       networkConfig: config.network,
+      auth: config.auth,
       collections: config.collections,
     })
     syncManagerRef = syncManager

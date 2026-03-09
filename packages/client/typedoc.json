@@ -4,5 +4,5 @@
   "tsconfig": "tsconfig.build.json",
   "out": "docs/api",
   "cleanOutputDir": true,
-  "gitRevision": "master"
+  "disableSources": true
 }

@@ -6,8 +6,6 @@
 
 # Interface: IConnectivity
 
-Defined in: [packages/client/src/core/sync-manager/ConnectivityManager.ts:51](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/ConnectivityManager.ts#L51)
-
 Consumer-facing connectivity interface.
 Both the real ConnectivityManager (online-only / worker-internal) and
 ConnectivityProxy (main-thread in worker modes) implement this.
@@ -18,8 +16,6 @@ ConnectivityProxy (main-thread in worker modes) implement this.
 
 > `readonly` **online$**: `Observable`\<`boolean`\>
 
-Defined in: [packages/client/src/core/sync-manager/ConnectivityManager.ts:57](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/ConnectivityManager.ts#L57)
-
 Observable of online status (browser + API reachable).
 
 ---
@@ -28,8 +24,6 @@ Observable of online status (browser + API reachable).
 
 > `readonly` **state**: `Observable`\<[`ConnectivityState`](ConnectivityState.md)\>
 
-Defined in: [packages/client/src/core/sync-manager/ConnectivityManager.ts:55](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/ConnectivityManager.ts#L55)
-
 Observable of connectivity state changes.
 
 ## Methods
@@ -37,8 +31,6 @@ Observable of connectivity state changes.
 ### getState()
 
 > **getState**(): [`ConnectivityState`](ConnectivityState.md)
-
-Defined in: [packages/client/src/core/sync-manager/ConnectivityManager.ts:53](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/ConnectivityManager.ts#L53)
 
 Get the current connectivity state.
 
@@ -51,8 +43,6 @@ Get the current connectivity state.
 ### isOnline()
 
 > **isOnline**(): `boolean`
-
-Defined in: [packages/client/src/core/sync-manager/ConnectivityManager.ts:59](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/sync-manager/ConnectivityManager.ts#L59)
 
 Check if we're effectively online.
 

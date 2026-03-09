@@ -8,6 +8,7 @@
 
 import {
   CommandSendError,
+  cookieAuthStrategy,
   hydrateSerializedEvent,
   type Collection,
   type CqrsConfig,
@@ -140,6 +141,10 @@ const notesCollection: Collection = {
 // ---------------------------------------------------------------------------
 
 export const cqrsConfig: CqrsConfig = {
+  // Cookie-based auth — the browser sends cookies automatically.
+  // For token-based auth, override per context with spread-and-override:
+  //   startDedicatedWorker({ ...cqrsConfig, auth: workerAuthStrategy })
+  auth: cookieAuthStrategy,
   network: {
     baseUrl: `${location.origin}/api`,
     wsUrl: `${location.origin.replace(/^http/, 'ws')}/ws`,

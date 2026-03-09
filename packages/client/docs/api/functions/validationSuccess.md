@@ -8,8 +8,6 @@
 
 > **validationSuccess**(): [`ValidationResult`](../type-aliases/ValidationResult.md)
 
-Defined in: [packages/client/src/types/validation.ts:49](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/validation.ts#L49)
-
 Helper to create a successful validation result.
 
 ## Returns

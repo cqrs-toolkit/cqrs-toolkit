@@ -6,8 +6,6 @@
 
 # Interface: RegisterWindowResponse
 
-Defined in: [packages/client/src/protocol/messages.ts:69](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L69)
-
 Window registration response.
 
 ## Extends
@@ -20,8 +18,6 @@ Window registration response.
 
 > `optional` **error**: `string`
 
-Defined in: [packages/client/src/protocol/messages.ts:75](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L75)
-
 Error message if registration failed
 
 ---
@@ -29,8 +25,6 @@ Error message if registration failed
 ### requestId
 
 > **requestId**: `string`
-
-Defined in: [packages/client/src/protocol/messages.ts:15](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L15)
 
 Unique request ID for correlation
 
@@ -44,15 +38,11 @@ Unique request ID for correlation
 
 > **success**: `boolean`
 
-Defined in: [packages/client/src/protocol/messages.ts:71](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L71)
-
 ---
 
 ### type
 
 > **type**: `"register-response"`
-
-Defined in: [packages/client/src/protocol/messages.ts:70](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L70)
 
 Message type identifier
 
@@ -65,7 +55,5 @@ Message type identifier
 ### workerInstanceId
 
 > **workerInstanceId**: `string`
-
-Defined in: [packages/client/src/protocol/messages.ts:73](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/protocol/messages.ts#L73)
 
 Worker instance ID (for detecting restarts)

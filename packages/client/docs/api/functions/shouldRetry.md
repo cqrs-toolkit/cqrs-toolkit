@@ -8,8 +8,6 @@
 
 > **shouldRetry**(`attempt`, `config?`): `boolean`
 
-Defined in: [packages/client/src/utils/retry.ts:50](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/utils/retry.ts#L50)
-
 Check if we should retry based on attempt count.
 
 ## Parameters

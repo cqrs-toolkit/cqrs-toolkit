@@ -8,8 +8,6 @@
 
 > **createFailedCommand**\<`TPayload`\>(`error`, `overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TPayload`\>
 
-Defined in: [packages/client/src/testing/factories/command.ts:75](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/testing/factories/command.ts#L75)
-
 Create a failed command.
 
 ## Type Parameters

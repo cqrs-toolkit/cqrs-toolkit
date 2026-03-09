@@ -8,8 +8,6 @@
 
 > **createTestCommand**\<`TPayload`, `TResponse`\>(`overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TPayload`, `TResponse`\>
 
-Defined in: [packages/client/src/testing/factories/command.ts:14](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/testing/factories/command.ts#L14)
-
 Create a test command record.
 
 ## Type Parameters

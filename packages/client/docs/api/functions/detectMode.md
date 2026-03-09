@@ -8,8 +8,6 @@
 
 > **detectMode**(): [`ExecutionMode`](../type-aliases/ExecutionMode.md)
 
-Defined in: [packages/client/src/core/detectMode.ts:35](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/detectMode.ts#L35)
-
 Detect the best execution mode for the current browser environment.
 
 Stage 1 checks:

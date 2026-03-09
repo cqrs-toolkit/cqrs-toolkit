@@ -8,8 +8,6 @@
 
 > **resolveConfig**\<`TCommand`, `TEvent`\>(`config`): [`ResolvedConfig`](../interfaces/ResolvedConfig.md)\<`TCommand`, `TEvent`\>
 
-Defined in: [packages/client/src/types/config.ts:334](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L334)
-
 Resolve shared configuration with defaults.
 
 ## Type Parameters

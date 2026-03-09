@@ -6,8 +6,6 @@
 
 # Interface: CompletionTimeout
 
-Defined in: [packages/client/src/types/commands.ts:161](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L161)
-
 Command completion result - timeout.
 
 ## Properties
@@ -15,5 +13,3 @@ Command completion result - timeout.
 ### status
 
 > **status**: `"timeout"`
-
-Defined in: [packages/client/src/types/commands.ts:162](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L162)

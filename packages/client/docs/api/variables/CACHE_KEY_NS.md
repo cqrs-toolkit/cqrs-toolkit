@@ -8,7 +8,5 @@
 
 > `const` **CACHE_KEY_NS**: `"6ba7b810-9dad-11d1-80b4-00c04fd430c8"` = `'6ba7b810-9dad-11d1-80b4-00c04fd430c8'`
 
-Defined in: [packages/client/src/core/cache-manager/CacheKey.ts:12](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/core/cache-manager/CacheKey.ts#L12)
-
 Namespace UUID for cache key derivation.
 This is a well-known UUID namespace for DNS names.

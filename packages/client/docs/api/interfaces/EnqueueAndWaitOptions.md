@@ -6,8 +6,6 @@
 
 # Interface: EnqueueAndWaitOptions
 
-Defined in: [packages/client/src/types/commands.ts:113](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L113)
-
 Options for enqueueAndWait operation.
 
 ## Extends
@@ -19,8 +17,6 @@ Options for enqueueAndWait operation.
 ### commandId?
 
 > `optional` **commandId**: `string`
-
-Defined in: [packages/client/src/types/commands.ts:99](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L99)
 
 Custom command ID (defaults to generated UUID)
 
@@ -34,8 +30,6 @@ Custom command ID (defaults to generated UUID)
 
 > `optional` **skipValidation**: `boolean`
 
-Defined in: [packages/client/src/types/commands.ts:97](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L97)
-
 Skip local domain validation
 
 #### Inherited from
@@ -47,8 +41,6 @@ Skip local domain validation
 ### timeout?
 
 > `optional` **timeout**: `number`
-
-Defined in: [packages/client/src/types/commands.ts:107](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/commands.ts#L107)
 
 Timeout in milliseconds (default: 30000)
 

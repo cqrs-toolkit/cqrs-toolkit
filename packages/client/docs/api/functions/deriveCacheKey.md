@@ -8,8 +8,6 @@
 
 > **deriveCacheKey**(`collection`, `params?`): `string`
 
-Defined in: [packages/client/src/utils/uuid.ts:38](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/utils/uuid.ts#L38)
-
 Derive a cache key from collection and query parameters.
 
 ## Parameters

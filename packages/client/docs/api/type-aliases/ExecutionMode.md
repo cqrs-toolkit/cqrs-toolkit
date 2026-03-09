@@ -8,6 +8,4 @@
 
 > **ExecutionMode** = `"online-only"` \| `"shared-worker"` \| `"dedicated-worker"`
 
-Defined in: [packages/client/src/types/config.ts:13](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/config.ts#L13)
-
 Execution mode for the CQRS Client.

@@ -8,8 +8,6 @@
 
 > **isDomainFailure**\<`TEvent`\>(`result`): `result is ErrResult<ValidationException<ValidationError[]>>`
 
-Defined in: [packages/client/src/types/domain.ts:82](https://github.com/Swifttt-Dev/cqrs-toolkit/blob/master/packages/client/src/types/domain.ts#L82)
-
 Type guard for failed domain execution.
 
 ## Type Parameters
