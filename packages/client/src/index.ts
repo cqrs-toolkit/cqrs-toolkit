@@ -22,13 +22,11 @@ export * from './types/index.js'
 
 // Storage
 export {
-  ALL_TABLES,
   InMemoryStorage,
   LocalSqliteDb,
   MIGRATIONS,
   SQLiteStorage,
   getPendingMigrations,
-  getSchemaVersion,
   loadAndOpenDb,
 } from './storage/index.js'
 export type {

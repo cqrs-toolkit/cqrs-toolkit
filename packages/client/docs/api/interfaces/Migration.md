@@ -6,8 +6,6 @@
 
 # Interface: Migration
 
-Migration definition.
-
 ## Properties
 
 ### description

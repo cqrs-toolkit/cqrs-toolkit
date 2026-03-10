@@ -159,7 +159,6 @@ Offline-capable CQRS/event-sourcing client library.
 
 ## Variables
 
-- [ALL_TABLES](variables/ALL_TABLES.md)
 - [CACHE_KEY_NAMESPACE](variables/CACHE_KEY_NAMESPACE.md)
 - [CACHE_KEY_NS](variables/CACHE_KEY_NS.md)
 - [cookieAuthStrategy](variables/cookieAuthStrategy.md)
@@ -181,7 +180,6 @@ Offline-capable CQRS/event-sourcing client library.
 - [domainSuccess](functions/domainSuccess.md)
 - [generateId](functions/generateId.md)
 - [getPendingMigrations](functions/getPendingMigrations.md)
-- [getSchemaVersion](functions/getSchemaVersion.md)
 - [hydrateSerializedEvent](functions/hydrateSerializedEvent.md)
 - [isDomainFailure](functions/isDomainFailure.md)
 - [isDomainSuccess](functions/isDomainSuccess.md)

@@ -18,7 +18,12 @@ import type {
   ReadModelRecord,
   SessionRecord,
 } from './IStorage.js'
-import { ALL_TABLES, getPendingMigrations } from './schema/index.js'
+import { getPendingMigrations } from './schema/index.js'
+
+const MIGRATIONS_TABLE = `CREATE TABLE migrations (
+  version INTEGER PRIMARY KEY,
+  applied_at INTEGER NOT NULL
+)`
 
 /**
  * SQLite storage configuration.
@@ -44,7 +49,6 @@ export class SQLiteStorage implements IStorage {
   async initialize(): Promise<void> {
     if (this.initialized) return
 
-    await this.createSchema()
     await this.runMigrations()
 
     this.initialized = true
@@ -524,30 +528,39 @@ export class SQLiteStorage implements IStorage {
 
   // Private helpers
 
-  private async createSchema(): Promise<void> {
-    for (const statement of ALL_TABLES) {
-      await this.exec(statement)
-    }
-  }
-
   private async runMigrations(): Promise<void> {
-    // Get current version
-    const rows = await this.query<{ version: number }>(
-      'SELECT MAX(version) as version FROM migrations',
+    const tables = await this.query<{ name: string }>(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'migrations'",
     )
-    const currentVersion = rows[0]?.version ?? 0
 
-    // Get pending migrations
+    let currentVersion: number
+    if (tables.length === 0) {
+      await this.exec(MIGRATIONS_TABLE)
+      currentVersion = 0
+    } else {
+      const rows = await this.query<{ version: number | null }>(
+        'SELECT MAX(version) as version FROM migrations',
+      )
+      currentVersion = rows[0]?.version ?? 0
+    }
+
     const pending = getPendingMigrations(currentVersion)
 
     for (const migration of pending) {
-      for (const sql of migration.sql) {
-        await this.exec(sql)
+      await this.exec('BEGIN')
+      try {
+        for (const sql of migration.sql) {
+          await this.exec(sql)
+        }
+        await this.exec('INSERT INTO migrations (version, applied_at) VALUES (?, ?)', [
+          migration.version,
+          Date.now(),
+        ])
+        await this.exec('COMMIT')
+      } catch (error) {
+        await this.exec('ROLLBACK')
+        throw error
       }
-      await this.exec('INSERT INTO migrations (version, applied_at) VALUES (?, ?)', [
-        migration.version,
-        Date.now(),
-      ])
     }
   }
 

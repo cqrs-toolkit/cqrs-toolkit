@@ -1,0 +1,107 @@
+import type { Migration } from '../migrations.js'
+
+const SESSION_TABLE = `
+CREATE TABLE session (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  user_id TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  last_seen_at INTEGER NOT NULL
+)`
+
+const CACHE_KEYS_TABLE = `
+CREATE TABLE cache_keys (
+  key TEXT PRIMARY KEY,
+  last_accessed_at INTEGER NOT NULL,
+  hold_count INTEGER NOT NULL DEFAULT 0,
+  frozen INTEGER NOT NULL DEFAULT 0,
+  expires_at INTEGER,
+  created_at INTEGER NOT NULL,
+  eviction_policy TEXT NOT NULL DEFAULT 'persistent'
+)`
+
+const CACHE_KEYS_ACCESS_INDEX = `
+CREATE INDEX idx_cache_keys_access ON cache_keys (last_accessed_at)`
+
+const COMMANDS_TABLE = `
+CREATE TABLE commands (
+  command_id TEXT PRIMARY KEY,
+  service TEXT NOT NULL,
+  type TEXT NOT NULL,
+  payload TEXT NOT NULL,
+  status TEXT NOT NULL,
+  depends_on TEXT NOT NULL DEFAULT '[]',
+  blocked_by TEXT NOT NULL DEFAULT '[]',
+  attempts INTEGER NOT NULL DEFAULT 0,
+  last_attempt_at INTEGER,
+  error TEXT,
+  server_response TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+)`
+
+const COMMANDS_STATUS_INDEX = `
+CREATE INDEX idx_commands_status ON commands (status)`
+
+const COMMANDS_TYPE_INDEX = `
+CREATE INDEX idx_commands_type ON commands (type)`
+
+const CACHED_EVENTS_TABLE = `
+CREATE TABLE cached_events (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  stream_id TEXT NOT NULL,
+  persistence TEXT NOT NULL,
+  data TEXT NOT NULL,
+  position TEXT,
+  revision TEXT,
+  command_id TEXT,
+  cache_key TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+)`
+
+const CACHED_EVENTS_CACHE_KEY_INDEX = `
+CREATE INDEX idx_cached_events_cache_key ON cached_events (cache_key)`
+
+const CACHED_EVENTS_STREAM_INDEX = `
+CREATE INDEX idx_cached_events_stream ON cached_events (stream_id, position)`
+
+const CACHED_EVENTS_COMMAND_INDEX = `
+CREATE INDEX idx_cached_events_command ON cached_events (command_id)`
+
+const READ_MODELS_TABLE = `
+CREATE TABLE read_models (
+  id TEXT NOT NULL,
+  collection TEXT NOT NULL,
+  cache_key TEXT NOT NULL,
+  server_data TEXT,
+  effective_data TEXT NOT NULL,
+  has_local_changes INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY (collection, id)
+)`
+
+const READ_MODELS_CACHE_KEY_INDEX = `
+CREATE INDEX idx_read_models_cache_key ON read_models (cache_key)`
+
+const READ_MODELS_COLLECTION_INDEX = `
+CREATE INDEX idx_read_models_collection ON read_models (collection)`
+
+export const migration001: Migration = {
+  version: 1,
+  description: 'Initial schema',
+  sql: [
+    SESSION_TABLE,
+    CACHE_KEYS_TABLE,
+    CACHE_KEYS_ACCESS_INDEX,
+    COMMANDS_TABLE,
+    COMMANDS_STATUS_INDEX,
+    COMMANDS_TYPE_INDEX,
+    CACHED_EVENTS_TABLE,
+    CACHED_EVENTS_CACHE_KEY_INDEX,
+    CACHED_EVENTS_STREAM_INDEX,
+    CACHED_EVENTS_COMMAND_INDEX,
+    READ_MODELS_TABLE,
+    READ_MODELS_CACHE_KEY_INDEX,
+    READ_MODELS_COLLECTION_INDEX,
+  ],
+}

@@ -1,47 +1,21 @@
-/**
- * SQLite migrations for CQRS Client storage.
- *
- * Migrations are applied in order and tracked in the migrations table.
- * Each migration has a version number and SQL statements to execute.
- */
+import { assert } from '../../utils/assert.js'
+import { migration001 } from './migrations/001_init.js'
 
-/**
- * Migration definition.
- */
 export interface Migration {
   version: number
   description: string
   sql: string[]
 }
 
-/**
- * All migrations in order.
- * Version 0 is the initial schema creation (handled separately).
- */
-export const MIGRATIONS: Migration[] = [
-  // Future migrations will be added here
-  // {
-  //   version: 1,
-  //   description: 'Add example column',
-  //   sql: [
-  //     'ALTER TABLE example ADD COLUMN new_column TEXT',
-  //   ],
-  // },
-]
+export const MIGRATIONS: Migration[] = [migration001]
 
-/**
- * Get the current schema version.
- */
-export function getSchemaVersion(): number {
-  return MIGRATIONS.length
+for (let i = 0; i < MIGRATIONS.length; i++) {
+  assert(
+    MIGRATIONS[i]?.version === i + 1,
+    `Migration at index ${i} must have version ${i + 1}, got ${MIGRATIONS[i]?.version}`,
+  )
 }
 
-/**
- * Get migrations that need to be applied.
- *
- * @param currentVersion - Currently applied version
- * @returns Migrations to apply
- */
 export function getPendingMigrations(currentVersion: number): Migration[] {
   return MIGRATIONS.filter((m) => m.version > currentVersion)
 }
