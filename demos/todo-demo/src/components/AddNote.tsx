@@ -6,10 +6,13 @@ interface AddNoteProps {
   formRef?: (el: HTMLFormElement) => void
 }
 
+type EditState = 'editing' | 'saving'
+
 export default function AddNote(props: AddNoteProps) {
   const client = useClient()
   const [title, setTitle] = createSignal('')
   const [body, setBody] = createSignal('')
+  const [editState, setEditState] = createSignal<EditState>('editing')
   let formEl: HTMLFormElement | undefined
   let titleInputRef: HTMLInputElement | undefined
   let pendingCommandId: string | undefined
@@ -20,10 +23,12 @@ export default function AddNote(props: AddNoteProps) {
 
   async function handleSubmit(e: SubmitEvent) {
     e.preventDefault()
+    if (editState() !== 'editing') return
     const trimmedTitle = title().trim()
     if (trimmedTitle.length === 0) return
 
     props.onError(undefined)
+    setEditState('saving')
 
     const result = await client.submit(
       { type: 'CreateNote', payload: { title: trimmedTitle, body: body() } },
@@ -38,6 +43,7 @@ export default function AddNote(props: AddNoteProps) {
       pendingCommandId = result.error.details?.commandId
       props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
     }
+    setEditState('editing')
   }
 
   function handleTitleKeyDown(e: KeyboardEvent) {
@@ -65,6 +71,7 @@ export default function AddNote(props: AddNoteProps) {
           type="text"
           placeholder="Note title"
           value={title()}
+          disabled={editState() === 'saving'}
           onInput={(e) => {
             setTitle(e.currentTarget.value)
             handleInput()
@@ -74,6 +81,7 @@ export default function AddNote(props: AddNoteProps) {
         />
         <button
           type="submit"
+          disabled={editState() === 'saving'}
           class="px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700 text-sm cursor-pointer"
         >
           Add
@@ -82,6 +90,7 @@ export default function AddNote(props: AddNoteProps) {
       <textarea
         placeholder="Body (optional)"
         value={body()}
+        disabled={editState() === 'saving'}
         onInput={(e) => {
           setBody(e.currentTarget.value)
           handleInput()
