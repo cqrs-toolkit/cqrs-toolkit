@@ -1,0 +1,44 @@
+{
+  "name": "@cqrs-toolkit/schema",
+  "version": "0.1.0",
+  "description": "JSON Schema validation, registration, $id/$ref linking, and int64 hydration for event-sourced systems",
+  "keywords": [
+    "cqrs",
+    "json-schema",
+    "ajv",
+    "validation",
+    "event-sourcing"
+  ],
+  "license": "MIT",
+  "author": "Ontel, LLC",
+  "main": "dist/src/index.js",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    },
+    "./mocks": {
+      "types": "./dist/src/mocks.d.ts",
+      "import": "./dist/src/mocks.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "compile": "tsc -p tsconfig.json --noEmit",
+    "docs": "typedoc",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@types/json-schema": "^7.0.15"
+  },
+  "peerDependencies": {
+    "@meticoeus/ddd-es": ">=0.7.2",
+    "ajv": ">=8.0.0"
+  }
+}
