@@ -27,21 +27,48 @@ async function respondToStorage(
   })
 }
 
+type StorageRequest = { type: string; sql: string; bind?: unknown[]; requestId: string }
+
+/** Get all outgoing storage requests. */
+async function getAllStorageRequests(
+  page: import('@playwright/test').Page,
+): Promise<StorageRequest[]> {
+  const outgoing = await getOutgoing(page)
+  const results: StorageRequest[] = []
+  for (const msg of outgoing) {
+    const m = msg as Record<string, unknown> | undefined
+    if (m?.['type'] === 'cqrs-devtools-request-storage') {
+      results.push(m as unknown as StorageRequest)
+    }
+  }
+  return results
+}
+
 /** Get the most recent outgoing storage request. */
 async function getLastStorageRequest(
   page: import('@playwright/test').Page,
-): Promise<{ type: string; sql: string; bind?: unknown[]; requestId: string } | undefined> {
-  const outgoing = await getOutgoing(page)
-  for (let i = outgoing.length - 1; i >= 0; i--) {
-    const msg = outgoing[i] as Record<string, unknown> | undefined
-    if (msg?.['type'] === 'cqrs-devtools-request-storage') {
-      return msg as unknown as { type: string; sql: string; bind?: unknown[]; requestId: string }
-    }
-  }
-  return undefined
+): Promise<StorageRequest | undefined> {
+  const all = await getAllStorageRequests(page)
+  return all[all.length - 1]
 }
 
-/** Switch to storage tab and auto-respond to the initial sqlite_master query. */
+/** Mock PRAGMA table_info rows for each table (matches columns in SQLITE_MASTER_ROWS DDL). */
+const PRAGMA_RESPONSES: Record<string, Record<string, unknown>[]> = {
+  commands: [
+    { name: 'id', type: 'TEXT' },
+    { name: 'type', type: 'TEXT' },
+  ],
+  cache_keys: [
+    { name: 'key', type: 'TEXT' },
+    { name: 'collection', type: 'TEXT' },
+  ],
+  read_models: [
+    { name: 'id', type: 'TEXT' },
+    { name: 'collection', type: 'TEXT' },
+  ],
+}
+
+/** Switch to storage tab and auto-respond to the initial sqlite_master + PRAGMA queries. */
 async function switchToStorageWithTables(page: import('@playwright/test').Page): Promise<void> {
   // Send initial buffer-dump with config
   await sendToPanel(page, makeBufferDump({ config: MOCK_CONFIG, role: 'leader' }))
@@ -67,6 +94,37 @@ async function switchToStorageWithTables(page: import('@playwright/test').Page):
   if (req) {
     await respondToStorage(page, req.requestId, SQLITE_MASTER_ROWS)
   }
+
+  // loadTables fires PRAGMA table_info for each table via Promise.all — wait for all 3
+  const expectedTotal = 1 + SQLITE_MASTER_ROWS.length // sqlite_master + one PRAGMA per table
+  await page.waitForFunction((total) => {
+    const mock = (window as unknown as Record<string, unknown>)['__TEST_MOCK__'] as {
+      outgoing: unknown[]
+    }
+    return (
+      mock.outgoing.filter(
+        (m) =>
+          typeof m === 'object' &&
+          m !== null &&
+          (m as Record<string, unknown>)['type'] === 'cqrs-devtools-request-storage',
+      ).length >= total
+    )
+  }, expectedTotal)
+
+  // Respond to each PRAGMA request
+  const allReqs = await getAllStorageRequests(page)
+  for (const pragmaReq of allReqs) {
+    if (!pragmaReq.sql.includes('PRAGMA')) continue
+    // Extract table name from PRAGMA table_info("tableName")
+    const match = pragmaReq.sql.match(/PRAGMA table_info\("(.+?)"\)/)
+    const tableName = match?.[1]
+    if (tableName && PRAGMA_RESPONSES[tableName]) {
+      await respondToStorage(page, pragmaReq.requestId, PRAGMA_RESPONSES[tableName])
+    }
+  }
+
+  // Wait for the tree to render
+  await expect(page.locator('.storage-tree-name').first()).toBeVisible()
 }
 
 // ---------------------------------------------------------------------------
@@ -109,8 +167,11 @@ test.describe('Layer 2: Panel Storage Tab', () => {
   test('expand table shows Schema action', async ({ mockPanelPage: page }) => {
     await switchToStorageWithTables(page)
 
-    // Click to expand
-    await page.locator('.storage-tree-name', { hasText: 'commands' }).click()
+    // Click arrow to expand
+    await page
+      .locator('.storage-tree-name', { hasText: 'commands' })
+      .locator('.storage-tree-arrow')
+      .click()
 
     await expect(page.locator('.storage-tree-action')).toContainText('Schema')
   })
@@ -360,7 +421,10 @@ test.describe('Layer 2: Panel Storage Tab', () => {
     await switchToStorageWithTables(page)
 
     // Expand table
-    await page.locator('.storage-tree-name', { hasText: 'commands' }).click()
+    await page
+      .locator('.storage-tree-name', { hasText: 'commands' })
+      .locator('.storage-tree-arrow')
+      .click()
 
     // Double-click Schema
     await page.locator('.storage-tree-action', { hasText: 'Schema' }).dblclick()
