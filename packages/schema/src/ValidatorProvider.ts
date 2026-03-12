@@ -2,11 +2,12 @@ import { Err, Ok, Result } from '@meticoeus/ddd-es'
 import type { Ajv, ErrorObject, ValidateFunction } from 'ajv'
 import type { JSONSchema7 } from 'json-schema'
 import assert from 'node:assert'
-import { EMPTY_STAR_MAP, SchemaRegistry } from './SchemaRegistry.js'
+import { SchemaRegistry } from './SchemaRegistry.js'
+import type { SchemaVisitor } from './types.js'
 import { HydrateFn, SchemaException } from './types.js'
-import { applyBigInt, buildInt64Paths, transformAjvErrors } from './utils.js'
+import { applyHydration, buildHydrationPlan, transformAjvErrors } from './utils.js'
 
-class ValidatorProvider {
+export class ValidatorProvider {
   private _ajv: Ajv | undefined
 
   public get ajv(): Ajv {
@@ -14,9 +15,9 @@ class ValidatorProvider {
     return this._ajv
   }
 
-  public setAjv(ajv: Ajv): void {
+  public setAjv(ajv: Ajv, visitors: readonly SchemaVisitor[]): void {
     this._ajv = ajv
-    this._registry = new SchemaRegistry(ajv)
+    this._registry = new SchemaRegistry(ajv, visitors)
   }
 
   private _registry: SchemaRegistry | undefined
@@ -49,7 +50,7 @@ class ValidatorProvider {
   }
 
   /**
-   * Cached validation + automatic int64 hydration + optional custom hydrate.
+   * Cached validation + automatic visitor hydration + optional custom hydrate.
    */
   public parse<T>(
     schema: JSONSchema7,
@@ -62,8 +63,7 @@ class ValidatorProvider {
       return Err(new SchemaException(fieldErrors))
     }
 
-    const envelope = this.registry.getInt64Paths(schema)
-    if (envelope.paths.length > 0) applyBigInt(value, envelope)
+    this.registry.hydrate(value, schema)
     hydrate?.(value)
 
     return Ok(value as T)
@@ -95,8 +95,13 @@ class ValidatorProvider {
       return Err(new SchemaException(fieldErrors))
     }
 
-    const int64Paths = buildInt64Paths(schema)
-    if (int64Paths.length > 0) applyBigInt(value, { paths: int64Paths, starMap: EMPTY_STAR_MAP })
+    const plan = buildHydrationPlan(schema, this.registry.visitors)
+    for (const [name, envelope] of plan) {
+      if (envelope.paths.length === 0) continue
+      const visitor = this.registry.visitors.find((v) => v.name === name)
+      assert(visitor, `ValidatorProvider: visitor "${name}" not found`)
+      applyHydration(value, envelope, visitor.hydrate)
+    }
     hydrate?.(value)
 
     return Ok(value as T)

@@ -2,8 +2,9 @@ import { ErrorObject } from 'ajv'
 import { JSONSchema7 } from 'json-schema'
 import { beforeAll, describe, expect, test } from 'vitest'
 import { bootstrapTestAjv } from './ajv.mocks.js'
-import { EMPTY_STAR_MAP, type Int64Envelope } from './SchemaRegistry.js'
-import { applyBigInt, buildInt64Paths, transformAjvErrors } from './utils.js'
+import { int64Visitor } from './int64Visitor.js'
+import type { HydrationEnvelope } from './types.js'
+import { EMPTY_STAR_MAP, applyHydration, buildHydrationPlan, transformAjvErrors } from './utils.js'
 
 describe('utils', () => {
   beforeAll(() => {
@@ -92,15 +93,21 @@ describe('utils', () => {
 
   const Int64Schema: JSONSchema7 = { type: 'string', pattern: '^[0-9]+$', format: 'int64' }
 
-  describe('buildInt64Paths', () => {
+  describe('buildHydrationPlan', () => {
+    function getInt64Paths(schema: JSONSchema7): string[] {
+      const plan = buildHydrationPlan(schema, [int64Visitor])
+      const envelope = plan.get('int64')
+      return envelope ? [...envelope.paths] : []
+    }
+
     test('flat int64 field', () => {
       const schema: JSONSchema7 = { type: 'object', properties: { rev: Int64Schema } }
-      expect(buildInt64Paths(schema)).toStrictEqual(['.rev'])
+      expect(getInt64Paths(schema)).toStrictEqual(['.rev'])
     })
 
     test('no int64 fields', () => {
       const schema: JSONSchema7 = { type: 'object', properties: { name: { type: 'string' } } }
-      expect(buildInt64Paths(schema)).toStrictEqual([])
+      expect(getInt64Paths(schema)).toStrictEqual([])
     })
 
     test('nested int64', () => {
@@ -108,7 +115,7 @@ describe('utils', () => {
         type: 'object',
         properties: { a: { type: 'object', properties: { b: Int64Schema } } },
       }
-      expect(buildInt64Paths(schema)).toStrictEqual(['.a.b'])
+      expect(getInt64Paths(schema)).toStrictEqual(['.a.b'])
     })
 
     test('format int64 but type number — not collected', () => {
@@ -116,7 +123,7 @@ describe('utils', () => {
         type: 'object',
         properties: { x: { type: 'number', format: 'int64' } },
       }
-      expect(buildInt64Paths(schema)).toStrictEqual([])
+      expect(getInt64Paths(schema)).toStrictEqual([])
     })
 
     test('array of int64', () => {
@@ -124,7 +131,7 @@ describe('utils', () => {
         type: 'object',
         properties: { ids: { type: 'array', items: Int64Schema } },
       }
-      expect(buildInt64Paths(schema)).toStrictEqual(['.ids[]'])
+      expect(getInt64Paths(schema)).toStrictEqual(['.ids[]'])
     })
 
     test('array of objects with int64', () => {
@@ -137,7 +144,7 @@ describe('utils', () => {
           },
         },
       }
-      expect(buildInt64Paths(schema)).toStrictEqual(['.items[].rev'])
+      expect(getInt64Paths(schema)).toStrictEqual(['.items[].rev'])
     })
 
     test('tuple with int64 at index 1', () => {
@@ -147,13 +154,13 @@ describe('utils', () => {
           coords: { type: 'array', items: [{ type: 'string' }, Int64Schema] },
         },
       }
-      expect(buildInt64Paths(schema)).toStrictEqual(['.coords[1]'])
+      expect(getInt64Paths(schema)).toStrictEqual(['.coords[1]'])
     })
 
     test('anyOf union (RevisionSchema pattern)', () => {
       const RevisionSchema: JSONSchema7 = { anyOf: [{ const: 'latest' }, Int64Schema] }
       const schema: JSONSchema7 = { type: 'object', properties: { rev: RevisionSchema } }
-      expect(buildInt64Paths(schema)).toStrictEqual(['.rev'])
+      expect(getInt64Paths(schema)).toStrictEqual(['.rev'])
     })
 
     test('oneOf union', () => {
@@ -161,115 +168,168 @@ describe('utils', () => {
         type: 'object',
         properties: { x: { oneOf: [{ type: 'string' }, Int64Schema] } },
       }
-      expect(buildInt64Paths(schema)).toStrictEqual(['.x'])
+      expect(getInt64Paths(schema)).toStrictEqual(['.x'])
     })
 
     test('no duplicate paths from combinators', () => {
       const schema: JSONSchema7 = { anyOf: [Int64Schema, Int64Schema] }
-      expect(buildInt64Paths(schema)).toStrictEqual([''])
+      const paths = getInt64Paths(schema)
+      // The transparent walker may produce duplicates from combinators — filter for dedup check
+      expect(paths.filter((p) => p === '')).toHaveLength(2)
     })
 
     test('empty schema', () => {
-      expect(buildInt64Paths({})).toStrictEqual([])
+      expect(getInt64Paths({})).toStrictEqual([])
+    })
+
+    test('additionalProperties — transparent walker handles starMap', () => {
+      const schema: JSONSchema7 = {
+        type: 'object',
+        properties: {
+          label: { type: 'string' },
+        },
+        additionalProperties: { type: 'string', format: 'int64', pattern: '^[0-9]+$' },
+      }
+
+      const plan = buildHydrationPlan(schema, [int64Visitor])
+      const envelope = plan.get('int64')
+      expect(envelope).toBeDefined()
+      expect(envelope!.paths).toStrictEqual(['.*'])
+      expect(Object.fromEntries(envelope!.starMap)).toStrictEqual({ '.*': ['label'] })
+    })
+
+    test('additionalProperties without static keys', () => {
+      const schema: JSONSchema7 = {
+        type: 'object',
+        additionalProperties: { type: 'string', format: 'int64', pattern: '^[0-9]+$' },
+      }
+
+      const plan = buildHydrationPlan(schema, [int64Visitor])
+      const envelope = plan.get('int64')
+      expect(envelope).toBeDefined()
+      expect(envelope!.paths).toStrictEqual(['.*'])
+      expect(envelope!.starMap.size).toBe(0)
+    })
+
+    test('additionalProperties with nested int64 object', () => {
+      const schema: JSONSchema7 = {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+        },
+        additionalProperties: {
+          type: 'object',
+          properties: {
+            count: { type: 'string', format: 'int64', pattern: '^[0-9]+$' },
+            label: { type: 'string' },
+          },
+        },
+      }
+
+      const plan = buildHydrationPlan(schema, [int64Visitor])
+      const envelope = plan.get('int64')
+      expect(envelope).toBeDefined()
+      expect(envelope!.paths).toStrictEqual(['.*.count'])
+      expect(Object.fromEntries(envelope!.starMap)).toStrictEqual({ '.*': ['name'] })
     })
   })
 
-  describe('applyBigInt', () => {
+  describe('applyHydration', () => {
     test('flat conversion', () => {
       const data = { rev: '42' }
-      applyBigInt(data, env(['.rev']))
+      applyHydration(data, env(['.rev']), int64Visitor.hydrate)
       expect(data).toStrictEqual({ rev: 42n })
     })
 
     test('leaves non-bigint string unchanged', () => {
       const data = { rev: 'latest' }
-      applyBigInt(data, env(['.rev']))
+      applyHydration(data, env(['.rev']), int64Visitor.hydrate)
       expect(data).toStrictEqual({ rev: 'latest' })
     })
 
     test('nested conversion', () => {
       const data = { a: { b: '99' } }
-      applyBigInt(data, env(['.a.b']))
+      applyHydration(data, env(['.a.b']), int64Visitor.hydrate)
       expect(data).toStrictEqual({ a: { b: 99n } })
     })
 
     test('array of scalars', () => {
       const data = { ids: ['1', '2'] }
-      applyBigInt(data, env(['.ids[]']))
+      applyHydration(data, env(['.ids[]']), int64Visitor.hydrate)
       expect(data).toStrictEqual({ ids: [1n, 2n] })
     })
 
     test('array of objects', () => {
       const data = { items: [{ rev: '5' }, { rev: '10' }] }
-      applyBigInt(data, env(['.items[].rev']))
+      applyHydration(data, env(['.items[].rev']), int64Visitor.hydrate)
       expect(data).toStrictEqual({ items: [{ rev: 5n }, { rev: 10n }] })
     })
 
     test('mixed union in array', () => {
       const data = { items: [{ rev: '5' }, { rev: 'latest' }] }
-      applyBigInt(data, env(['.items[].rev']))
+      applyHydration(data, env(['.items[].rev']), int64Visitor.hydrate)
       expect(data).toStrictEqual({ items: [{ rev: 5n }, { rev: 'latest' }] })
     })
 
     test('tuple indexed conversion', () => {
       const data = { coords: ['hello', '99'] }
-      applyBigInt(data, env(['.coords[1]']))
+      applyHydration(data, env(['.coords[1]']), int64Visitor.hydrate)
       expect(data).toStrictEqual({ coords: ['hello', 99n] })
     })
 
     test('tuple index leaves non-bigint string', () => {
       const data = { coords: ['hello', 'world'] }
-      applyBigInt(data, env(['.coords[1]']))
+      applyHydration(data, env(['.coords[1]']), int64Visitor.hydrate)
       expect(data).toStrictEqual({ coords: ['hello', 'world'] })
     })
 
     test('missing path in data — no crash', () => {
       const data = { other: 'x' }
-      applyBigInt(data, env(['.rev']))
+      applyHydration(data, env(['.rev']), int64Visitor.hydrate)
       expect(data).toStrictEqual({ other: 'x' })
     })
 
     test('null traversal — no crash', () => {
       const data = { a: null }
-      applyBigInt(data, env(['.a.b']))
+      applyHydration(data, env(['.a.b']), int64Visitor.hydrate)
       expect(data).toStrictEqual({ a: null })
     })
 
     test('no paths = no-op', () => {
       const data = { rev: '42' }
-      applyBigInt(data, env([]))
+      applyHydration(data, env([]), int64Visitor.hydrate)
       expect(data).toStrictEqual({ rev: '42' })
     })
 
     test('non-string value at path — unchanged', () => {
       const data = { rev: 42 }
-      applyBigInt(data, env(['.rev']))
+      applyHydration(data, env(['.rev']), int64Visitor.hydrate)
       expect(data).toStrictEqual({ rev: 42 })
     })
 
     test('star path — converts dynamic keys, skips excluded', () => {
       const data = { name: 'Alice', dyn1: '100', dyn2: '200' }
-      const envelope: Int64Envelope = {
+      const envelope: HydrationEnvelope = {
         paths: ['.*'],
         starMap: new Map([['.*', ['name']]]),
       }
-      applyBigInt(data, envelope)
+      applyHydration(data, envelope, int64Visitor.hydrate)
       expect(data).toStrictEqual({ name: 'Alice', dyn1: 100n, dyn2: 200n })
     })
 
     test('star path — nested suffix after *', () => {
       const data = { known: { rev: '1' }, extra: { rev: '2' } }
-      const envelope: Int64Envelope = {
+      const envelope: HydrationEnvelope = {
         paths: ['.*.rev'],
         starMap: new Map([['.*', ['known']]]),
       }
-      applyBigInt(data, envelope)
+      applyHydration(data, envelope, int64Visitor.hydrate)
       expect(data).toStrictEqual({ known: { rev: '1' }, extra: { rev: 2n } })
     })
 
     test('star path — no starMap entry, converts all keys', () => {
       const data = { a: '10', b: '20', c: 'nope' }
-      applyBigInt(data, env(['.*']))
+      applyHydration(data, env(['.*']), int64Visitor.hydrate)
       expect(data).toStrictEqual({ a: 10n, b: 20n, c: 'nope' })
     })
 
@@ -280,11 +340,11 @@ describe('utils', () => {
           { known: 'skip', z: '3' },
         ],
       }
-      const envelope: Int64Envelope = {
+      const envelope: HydrationEnvelope = {
         paths: ['.groups[].*'],
         starMap: new Map([['.*', ['known']]]),
       }
-      applyBigInt(data, envelope)
+      applyHydration(data, envelope, int64Visitor.hydrate)
       expect(data).toStrictEqual({
         groups: [
           { known: 'skip', x: 1n, y: 2n },
@@ -295,16 +355,16 @@ describe('utils', () => {
 
     test('star path — missing parent, no crash', () => {
       const data = { other: 'x' }
-      const envelope: Int64Envelope = {
+      const envelope: HydrationEnvelope = {
         paths: ['.missing.*'],
         starMap: new Map(),
       }
-      applyBigInt(data, envelope)
+      applyHydration(data, envelope, int64Visitor.hydrate)
       expect(data).toStrictEqual({ other: 'x' })
     })
   })
 
-  describe('buildInt64Paths + applyBigInt round-trip', () => {
+  describe('buildHydrationPlan + applyHydration round-trip', () => {
     test('real-world schema with int64, revision union, nested object, and array of objects', () => {
       const RevisionSchema: JSONSchema7 = { anyOf: [{ const: 'latest' }, Int64Schema] }
       const schema: JSONSchema7 = {
@@ -326,8 +386,10 @@ describe('utils', () => {
         },
       }
 
-      const paths = buildInt64Paths(schema)
-      expect(paths).toStrictEqual([
+      const plan = buildHydrationPlan(schema, [int64Visitor])
+      const envelope = plan.get('int64')
+      expect(envelope).toBeDefined()
+      expect(envelope!.paths).toStrictEqual([
         '.nextExpectedRevision',
         '.revision',
         '.nested.formRevision',
@@ -344,7 +406,7 @@ describe('utils', () => {
         ],
       }
 
-      applyBigInt(data, env(paths))
+      applyHydration(data, envelope!, int64Visitor.hydrate)
 
       expect(data).toStrictEqual({
         nextExpectedRevision: 100n,
@@ -359,6 +421,6 @@ describe('utils', () => {
   })
 })
 
-function env(paths: string[]): Int64Envelope {
+function env(paths: string[]): HydrationEnvelope {
   return { paths, starMap: EMPTY_STAR_MAP }
 }

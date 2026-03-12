@@ -1,30 +1,20 @@
 import type { Ajv, ValidateFunction } from 'ajv'
 import type { JSONSchema7 } from 'json-schema'
 import assert from 'node:assert'
-
-export interface Int64Envelope {
-  /** All int64 paths, including ones containing `*` segments. */
-  readonly paths: readonly string[]
-  /**
-   * Maps each `*` path prefix to property keys the hydrator must skip.
-   * When the hydrator encounters a `*` segment in a path, it looks up the `*` prefix
-   * here to know which object keys are statically defined properties (not dynamic keys).
-   */
-  readonly starMap: ReadonlyMap<string, readonly string[]>
-}
-
-interface WalkContext {
-  readonly paths: string[]
-  readonly starEntries: [string, readonly string[]][]
-}
-
-export const EMPTY_STAR_MAP: ReadonlyMap<string, readonly string[]> = new Map()
-export const EMPTY_ENVELOPE: Int64Envelope = { paths: [], starMap: EMPTY_STAR_MAP }
+import type { HydrationPlan, SchemaVisitor } from './types.js'
+import {
+  EMPTY_PLAN,
+  type WalkContext,
+  applyHydration,
+  buildPlanFromContext,
+  composeAdditionalPropertiesFromPlan,
+  getOrCreateContext,
+} from './utils.js'
 
 /**
  * Walks JSON Schema trees, discovers reusable sub-schemas (those with `$id`), registers them
- * with AJV, replaces inline definitions with `$ref` pointers, and computes int64 path envelopes
- * for runtime BigInt hydration.
+ * with AJV, replaces inline definitions with `$ref` pointers, and computes hydration plans
+ * for runtime value conversion via pluggable visitors.
  *
  * **Common schemas** are sub-schemas auto-discovered via `$id` during tree walks.
  * `getCommonSchemas()` returns them for documentation generation and client discovery.
@@ -35,13 +25,16 @@ export class SchemaRegistry {
   private addedRefs = new Set<JSONSchema7>()
   private commonSchemas = new Map<string, JSONSchema7>()
   private manuallyRegistered = new Set<JSONSchema7>()
-  private int64PathCache = new Map<JSONSchema7, Int64Envelope>()
+  private planCache = new Map<JSONSchema7, HydrationPlan>()
   private idToSchema = new Map<string, JSONSchema7>()
 
-  constructor(private ajv: Ajv) {}
+  constructor(
+    private ajv: Ajv,
+    public readonly visitors: readonly SchemaVisitor[],
+  ) {}
 
   /**
-   * Walk schema tree, discover $id sub-schemas, replace with $ref, cache int64 paths.
+   * Walk schema tree, discover $id sub-schemas, replace with $ref, cache hydration plan.
    *
    * Schemas referenced via pre-existing `$ref` (not `$id`) must be registered
    * before the schemas that reference them.
@@ -69,25 +62,36 @@ export class SchemaRegistry {
     return this.commonSchemas
   }
 
-  /** Cached int64 path envelope for a registered schema. */
-  public getInt64Paths(schema: JSONSchema7): Int64Envelope {
-    return this.int64PathCache.get(schema) ?? EMPTY_ENVELOPE
+  /** Cached hydration plan for a registered schema. */
+  public getHydrationPlan(schema: JSONSchema7): HydrationPlan {
+    return this.planCache.get(schema) ?? EMPTY_PLAN
+  }
+
+  /** Apply all visitor hydrations for a registered schema. */
+  public hydrate(data: unknown, schema: JSONSchema7): void {
+    const plan = this.planCache.get(schema)
+    if (!plan) return
+    for (const [name, envelope] of plan) {
+      if (envelope.paths.length === 0) continue
+      const visitor = this.visitors.find((v) => v.name === name)
+      assert(visitor, `SchemaRegistry: visitor "${name}" not found`)
+      applyHydration(data, envelope, visitor.hydrate)
+    }
   }
 
   private processSchema(schema: JSONSchema7): void {
-    if (this.int64PathCache.has(schema)) return
-    const ctx: WalkContext = { paths: [], starEntries: [] }
+    if (this.planCache.has(schema)) return
+    const ctx = new Map<string, WalkContext>()
     this.walkSchema(schema, '', ctx)
-    this.int64PathCache.set(schema, {
-      paths: ctx.paths,
-      starMap: ctx.starEntries.length > 0 ? new Map(ctx.starEntries) : EMPTY_STAR_MAP,
-    })
+    this.planCache.set(schema, buildPlanFromContext(ctx))
   }
 
-  private walkSchema(schema: JSONSchema7, path: string, ctx: WalkContext): void {
-    // Int64 leaf detection
-    if (schema.type === 'string' && schema.format === 'int64') {
-      ctx.paths.push(path)
+  private walkSchema(schema: JSONSchema7, path: string, ctx: Map<string, WalkContext>): void {
+    // Leaf detection — iterate all visitors
+    for (const visitor of this.visitors) {
+      if (visitor.match(schema)) {
+        getOrCreateContext(ctx, visitor.name).paths.push(path)
+      }
     }
 
     // properties
@@ -97,7 +101,7 @@ export class SchemaRegistry {
         const childPath = `${path}.${key}`
         if (child.$id) {
           this.ensureCommonRegistered(child)
-          this.composeInt64Paths(child, childPath, ctx)
+          this.composePaths(child, childPath, ctx)
           schema.properties[key] = { $ref: child.$id }
         } else {
           this.walkSchema(child, childPath, ctx)
@@ -115,7 +119,7 @@ export class SchemaRegistry {
           const itemPath = `${path}[${i}]`
           if (item.$id) {
             this.ensureCommonRegistered(item)
-            this.composeInt64Paths(item, itemPath, ctx)
+            this.composePaths(item, itemPath, ctx)
             schema.items[i] = { $ref: item.$id }
           } else {
             this.walkSchema(item, itemPath, ctx)
@@ -125,7 +129,7 @@ export class SchemaRegistry {
         const itemPath = `${path}[]`
         if (schema.items.$id) {
           this.ensureCommonRegistered(schema.items)
-          this.composeInt64Paths(schema.items, itemPath, ctx)
+          this.composePaths(schema.items, itemPath, ctx)
           schema.items = { $ref: schema.items.$id }
         } else {
           this.walkSchema(schema.items, itemPath, ctx)
@@ -142,7 +146,7 @@ export class SchemaRegistry {
         const branch: JSONSchema7 = rawBranch
         if (branch.$id) {
           this.ensureCommonRegistered(branch)
-          this.composeInt64Paths(branch, path, ctx)
+          this.composePaths(branch, path, ctx)
           branches[i] = { $ref: branch.$id }
         } else {
           this.walkSchema(branch, path, ctx)
@@ -155,15 +159,15 @@ export class SchemaRegistry {
       const addProps = schema.additionalProperties
       if (addProps.$id) {
         this.ensureCommonRegistered(addProps)
-        this.collectAdditionalPropertiesInt64(schema, addProps, path, ctx)
+        this.collectAdditionalProperties(schema, addProps, path, ctx)
         schema.additionalProperties = { $ref: addProps.$id }
       } else if (addProps.$ref) {
         const target = this.idToSchema.get(addProps.$ref)
         assert(target, `SchemaRegistry: $ref "${addProps.$ref}" references an unregistered schema`)
-        this.collectAdditionalPropertiesInt64(schema, target, path, ctx)
+        this.collectAdditionalProperties(schema, target, path, ctx)
       } else {
         this.processSchema(addProps)
-        this.collectAdditionalPropertiesInt64(schema, addProps, path, ctx)
+        this.collectAdditionalProperties(schema, addProps, path, ctx)
       }
     }
 
@@ -171,7 +175,7 @@ export class SchemaRegistry {
     if (schema.$ref) {
       const target = this.idToSchema.get(schema.$ref)
       assert(target, `SchemaRegistry: $ref "${schema.$ref}" references an unregistered schema`)
-      this.composeInt64Paths(target, path, ctx)
+      this.composePaths(target, path, ctx)
     }
   }
 
@@ -194,59 +198,41 @@ export class SchemaRegistry {
   }
 
   /**
-   * Take a sub-schema's pre-computed int64 envelope and prefix with the current path.
+   * Take a sub-schema's pre-computed hydration plan and prefix with the current path.
    */
-  private composeInt64Paths(subSchema: JSONSchema7, currentPath: string, ctx: WalkContext): void {
-    const sub = this.int64PathCache.get(subSchema)
-    assert(sub, 'SchemaRegistry: composeInt64Paths called for a schema with no cached envelope')
-    for (const p of sub.paths) {
-      ctx.paths.push(`${currentPath}${p}`)
-    }
-    for (const [prefix, excludeKeys] of sub.starMap) {
-      ctx.starEntries.push([`${currentPath}${prefix}`, excludeKeys])
+  private composePaths(
+    subSchema: JSONSchema7,
+    currentPath: string,
+    ctx: Map<string, WalkContext>,
+  ): void {
+    const subPlan = this.planCache.get(subSchema)
+    assert(subPlan, 'SchemaRegistry: composePaths called for a schema with no cached plan')
+    for (const [name, envelope] of subPlan) {
+      const wctx = getOrCreateContext(ctx, name)
+      for (const p of envelope.paths) {
+        wctx.paths.push(`${currentPath}${p}`)
+      }
+      for (const [prefix, excludeKeys] of envelope.starMap) {
+        wctx.starEntries.push([`${currentPath}${prefix}`, excludeKeys])
+      }
     }
   }
 
   /**
-   * Compose int64 paths for an already-resolved additionalProperties schema.
-   * Adds a `*` prefix to sub-schema paths and records a starMap entry with all
-   * static property keys so the hydrator skips them.
+   * Compose hydration paths for an already-resolved additionalProperties schema.
+   * Delegates to the shared composition function.
    */
-  private collectAdditionalPropertiesInt64(
+  private collectAdditionalProperties(
     parentSchema: JSONSchema7,
     resolvedSchema: JSONSchema7,
     path: string,
-    ctx: WalkContext,
+    ctx: Map<string, WalkContext>,
   ): void {
-    const sub = this.int64PathCache.get(resolvedSchema)
+    const subPlan = this.planCache.get(resolvedSchema)
     assert(
-      sub,
-      'SchemaRegistry: collectAdditionalPropertiesInt64 called for a schema with no cached envelope',
+      subPlan,
+      'SchemaRegistry: collectAdditionalProperties called for a schema with no cached plan',
     )
-    if (sub.paths.length === 0 && sub.starMap.size === 0) return
-
-    // Add starMap entry with all static property keys to skip
-    const staticKeys = this.getStaticPropertyKeys(parentSchema)
-    if (staticKeys.length > 0) {
-      ctx.starEntries.push([`${path}.*`, staticKeys])
-    }
-
-    // Compose sub-schema's paths with * prefix
-    for (const p of sub.paths) {
-      ctx.paths.push(`${path}.*${p}`)
-    }
-    // Compose sub-schema's starMap with * prefix
-    for (const [prefix, keys] of sub.starMap) {
-      ctx.starEntries.push([`${path}.*${prefix}`, keys])
-    }
-  }
-
-  /**
-   * All property keys from the parent's `properties` — these are statically defined
-   * and should be skipped by the hydrator when iterating dynamic additionalProperties.
-   */
-  private getStaticPropertyKeys(parentSchema: JSONSchema7): readonly string[] {
-    if (!parentSchema.properties) return []
-    return Object.keys(parentSchema.properties)
+    composeAdditionalPropertiesFromPlan(parentSchema, subPlan, path, ctx)
   }
 }
