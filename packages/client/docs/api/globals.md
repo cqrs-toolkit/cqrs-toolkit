@@ -95,9 +95,10 @@ Offline-capable CQRS/event-sourcing client library.
 - [IWorkerAdapter](interfaces/IWorkerAdapter.md)
 - [LibraryEvent](interfaces/LibraryEvent.md)
 - [LibraryEventPayloads](interfaces/LibraryEventPayloads.md)
+- [LibraryStep](interfaces/LibraryStep.md)
 - [ListQueryResult](interfaces/ListQueryResult.md)
 - [LoadAndOpenDbConfig](interfaces/LoadAndOpenDbConfig.md)
-- [Migration](interfaces/Migration.md)
+- [ManagedCollectionDef](interfaces/ManagedCollectionDef.md)
 - [NetworkConfig](interfaces/NetworkConfig.md)
 - [ParsedEvent](interfaces/ParsedEvent.md)
 - [PostProcessPlan](interfaces/PostProcessPlan.md)
@@ -115,6 +116,7 @@ Offline-capable CQRS/event-sourcing client library.
 - [ReadModelStoreConfig](interfaces/ReadModelStoreConfig.md)
 - [ResolvedConfig](interfaces/ResolvedConfig.md)
 - [RetryConfig](interfaces/RetryConfig.md)
+- [SchemaMigration](interfaces/SchemaMigration.md)
 - [SeedEventPage](interfaces/SeedEventPage.md)
 - [SeedRecord](interfaces/SeedRecord.md)
 - [SeedRecordPage](interfaces/SeedRecordPage.md)
@@ -147,6 +149,7 @@ Offline-capable CQRS/event-sourcing client library.
 - [IPersistedEvent](type-aliases/IPersistedEvent.md)
 - [ISerializedEvent](type-aliases/ISerializedEvent.md)
 - [LibraryEventType](type-aliases/LibraryEventType.md)
+- [MigrationStep](type-aliases/MigrationStep.md)
 - [ProcessorReturn](type-aliases/ProcessorReturn.md)
 - [SessionState](type-aliases/SessionState.md)
 - [SqliteVfsType](type-aliases/SqliteVfsType.md)
@@ -161,10 +164,10 @@ Offline-capable CQRS/event-sourcing client library.
 
 - [CACHE_KEY_NAMESPACE](variables/CACHE_KEY_NAMESPACE.md)
 - [CACHE_KEY_NS](variables/CACHE_KEY_NS.md)
+- [clientSchema](variables/clientSchema.md)
 - [cookieAuthStrategy](variables/cookieAuthStrategy.md)
 - [DEFAULT_CONFIG](variables/DEFAULT_CONFIG.md)
 - [DEFAULT_RETRY_CONFIG](variables/DEFAULT_RETRY_CONFIG.md)
-- [MIGRATIONS](variables/MIGRATIONS.md)
 
 ## Functions
 
@@ -179,7 +182,6 @@ Offline-capable CQRS/event-sourcing client library.
 - [domainFailure](functions/domainFailure.md)
 - [domainSuccess](functions/domainSuccess.md)
 - [generateId](functions/generateId.md)
-- [getPendingMigrations](functions/getPendingMigrations.md)
 - [hydrateSerializedEvent](functions/hydrateSerializedEvent.md)
 - [isDomainFailure](functions/isDomainFailure.md)
 - [isDomainSuccess](functions/isDomainSuccess.md)

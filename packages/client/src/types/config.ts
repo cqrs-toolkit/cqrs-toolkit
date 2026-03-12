@@ -28,6 +28,57 @@ export type ExecutionModeConfig = ExecutionMode | 'auto'
 export type SqliteVfsType = 'opfs' | 'opfs-sahpool'
 
 /**
+ * A library-owned schema step.
+ *
+ * Library steps create infrastructure tables (session, commands, cache_keys, etc.).
+ * They are placed by the consumer inside their `SchemaMigration` sequence.
+ *
+ * Future: `collectionHook: (tableName: string) => string[]` will be added for
+ * v2+ library upgrades that need to ALTER pre-existing managed tables.
+ * The runner will query `sqlite_master` to introspect which `rm_*` tables
+ * actually exist before applying the hook — tables from earlier migrations
+ * may have been dropped by the user.
+ */
+export interface LibraryStep {
+  type: 'library'
+  /** Identifies this step (e.g., 'init') */
+  id: string
+  /** Ordering version within library steps (1, 2, 3...) */
+  version: number
+  /** Infrastructure DDL statements */
+  sql: string[]
+}
+
+// TODO: provide a way to drop read model tables
+/**
+ * A managed read model collection.
+ *
+ * The library owns the table schema — `generateCollectionDDL(name)` creates
+ * `rm_{name}` with the standard columns.
+ */
+export interface ManagedCollectionDef {
+  type: 'managed'
+  name: string
+}
+
+/**
+ * A step within a schema migration.
+ */
+export type MigrationStep = LibraryStep | ManagedCollectionDef
+
+/**
+ * A versioned schema migration.
+ *
+ * Consumers declare migrations incrementally. Each migration adds the new
+ * collections (and library steps) introduced in that version.
+ */
+export interface SchemaMigration {
+  version: number
+  message: string
+  steps: MigrationStep[]
+}
+
+/**
  * Storage configuration.
  */
 export interface StorageConfig {
@@ -35,6 +86,8 @@ export interface StorageConfig {
   dbName?: string
   /** VFS type (auto-selected based on mode if not specified) */
   vfs?: SqliteVfsType
+  /** Schema migrations — required, non-empty */
+  migrations: [SchemaMigration, ...SchemaMigration[]]
 }
 
 /**
@@ -208,9 +261,9 @@ export interface CqrsConfig<TCommand = unknown, TEvent = unknown> {
   network: NetworkConfig
 
   /**
-   * Storage configuration (ignored for online-only mode).
+   * Storage configuration.
    */
-  storage?: StorageConfig
+  storage: StorageConfig
 
   /**
    * Retry configuration for commands.
@@ -299,7 +352,7 @@ export const DEFAULT_CONFIG = {
   mode: 'auto' as const,
   storage: {
     dbName: 'cqrs-client',
-  },
+  } satisfies Omit<StorageConfig, 'migrations'>,
   retry: {
     maxAttempts: 3,
     initialDelay: 1000,
@@ -349,8 +402,9 @@ export function resolveConfig<TCommand, TEvent>(
       ...config.network,
     },
     storage: {
-      ...DEFAULT_CONFIG.storage,
-      ...config.storage,
+      dbName: config.storage.dbName ?? DEFAULT_CONFIG.storage.dbName,
+      vfs: config.storage.vfs,
+      migrations: config.storage.migrations,
     },
     retry: {
       ...DEFAULT_CONFIG.retry,

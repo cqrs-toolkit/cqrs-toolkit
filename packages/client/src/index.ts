@@ -24,9 +24,8 @@ export * from './types/index.js'
 export {
   InMemoryStorage,
   LocalSqliteDb,
-  MIGRATIONS,
   SQLiteStorage,
-  getPendingMigrations,
+  clientSchema,
   loadAndOpenDb,
 } from './storage/index.js'
 export type {
@@ -35,7 +34,6 @@ export type {
   ISqliteDb,
   IStorage,
   LoadAndOpenDbConfig,
-  Migration,
   QueryOptions,
   ReadModelRecord,
   SQLiteStorageConfig,

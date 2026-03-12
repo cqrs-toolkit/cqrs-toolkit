@@ -1,4 +1,11 @@
-import type { Migration } from '../migrations.js'
+/**
+ * Library-owned schema steps.
+ *
+ * Consumers place these steps in their `SchemaMigration` sequence to create
+ * the infrastructure tables the library requires.
+ */
+
+import type { LibraryStep } from '../../types/config.js'
 
 const SESSION_TABLE = `
 CREATE TABLE session (
@@ -68,40 +75,35 @@ CREATE INDEX idx_cached_events_stream ON cached_events (stream_id, position)`
 const CACHED_EVENTS_COMMAND_INDEX = `
 CREATE INDEX idx_cached_events_command ON cached_events (command_id)`
 
-const READ_MODELS_TABLE = `
-CREATE TABLE read_models (
-  id TEXT NOT NULL,
-  collection TEXT NOT NULL,
-  cache_key TEXT NOT NULL,
-  server_data TEXT,
-  effective_data TEXT NOT NULL,
-  has_local_changes INTEGER NOT NULL DEFAULT 0,
-  updated_at INTEGER NOT NULL,
-  PRIMARY KEY (collection, id)
-)`
+/**
+ * Library schema steps.
+ *
+ * Consumers include these in their migration sequence:
+ * ```ts
+ * steps: [clientSchema.init, { type: 'managed', name: 'todos' }]
+ * ```
+ */
+export const clientSchema = {
+  init: {
+    type: 'library',
+    id: 'init',
+    version: 1,
+    sql: [
+      SESSION_TABLE,
+      CACHE_KEYS_TABLE,
+      CACHE_KEYS_ACCESS_INDEX,
+      COMMANDS_TABLE,
+      COMMANDS_STATUS_INDEX,
+      COMMANDS_TYPE_INDEX,
+      CACHED_EVENTS_TABLE,
+      CACHED_EVENTS_CACHE_KEY_INDEX,
+      CACHED_EVENTS_STREAM_INDEX,
+      CACHED_EVENTS_COMMAND_INDEX,
+    ],
+  },
+} satisfies Record<string, LibraryStep>
 
-const READ_MODELS_CACHE_KEY_INDEX = `
-CREATE INDEX idx_read_models_cache_key ON read_models (cache_key)`
-
-const READ_MODELS_COLLECTION_INDEX = `
-CREATE INDEX idx_read_models_collection ON read_models (collection)`
-
-export const migration001: Migration = {
-  version: 1,
-  description: 'Initial schema',
-  sql: [
-    SESSION_TABLE,
-    CACHE_KEYS_TABLE,
-    CACHE_KEYS_ACCESS_INDEX,
-    COMMANDS_TABLE,
-    COMMANDS_STATUS_INDEX,
-    COMMANDS_TYPE_INDEX,
-    CACHED_EVENTS_TABLE,
-    CACHED_EVENTS_CACHE_KEY_INDEX,
-    CACHED_EVENTS_STREAM_INDEX,
-    CACHED_EVENTS_COMMAND_INDEX,
-    READ_MODELS_TABLE,
-    READ_MODELS_CACHE_KEY_INDEX,
-    READ_MODELS_COLLECTION_INDEX,
-  ],
-}
+/**
+ * Library step IDs that must appear in the migration sequence.
+ */
+export const REQUIRED_LIBRARY_STEPS: readonly string[] = ['init']

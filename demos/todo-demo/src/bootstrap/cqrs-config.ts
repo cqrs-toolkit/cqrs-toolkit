@@ -8,6 +8,7 @@
 
 import {
   CommandSendError,
+  clientSchema,
   cookieAuthStrategy,
   hydrateSerializedEvent,
   type Collection,
@@ -148,6 +149,19 @@ export const cqrsConfig: CqrsConfig = {
   network: {
     baseUrl: `${location.origin}/api`,
     wsUrl: `${location.origin.replace(/^http/, 'ws')}/ws`,
+  },
+  storage: {
+    migrations: [
+      {
+        version: 1,
+        message: 'Initial setup',
+        steps: [
+          clientSchema.init,
+          { type: 'managed', name: 'todos' },
+          { type: 'managed', name: 'notes' },
+        ],
+      },
+    ],
   },
   collections: [todosCollection, notesCollection],
   processors: [...todoProcessors, ...noteProcessors],

@@ -104,7 +104,7 @@ export class WorkerOrchestrator {
       db = await loadAndOpenDb({ dbName, vfs })
     }
 
-    const storage = new SQLiteStorage({ db })
+    const storage = new SQLiteStorage({ db, migrations: config.storage.migrations })
     await storage.initialize()
     this.storage = storage
 

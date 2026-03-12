@@ -126,7 +126,7 @@ Retry configuration for commands.
 
 > **storage**: [`StorageConfig`](StorageConfig.md)
 
-Storage configuration (ignored for online-only mode).
+Storage configuration.
 
 #### Inherited from
 

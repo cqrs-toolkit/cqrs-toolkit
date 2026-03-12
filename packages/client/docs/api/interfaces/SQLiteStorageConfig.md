@@ -15,3 +15,11 @@ SQLite storage configuration.
 > **db**: [`ISqliteDb`](ISqliteDb.md)
 
 Injected async SQLite database handle
+
+---
+
+### migrations
+
+> **migrations**: \[[`SchemaMigration`](SchemaMigration.md), `...SchemaMigration[]`\]
+
+Schema migrations — validated at construction time

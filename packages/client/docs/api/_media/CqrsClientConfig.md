@@ -175,11 +175,11 @@ where the bundler can process asset URL imports (e.g., Vite's
 
 ---
 
-### storage?
+### storage
 
-> `optional` **storage**: [`StorageConfig`](StorageConfig.md)
+> **storage**: [`StorageConfig`](StorageConfig.md)
 
-Storage configuration (ignored for online-only mode).
+Storage configuration.
 
 #### Inherited from
 

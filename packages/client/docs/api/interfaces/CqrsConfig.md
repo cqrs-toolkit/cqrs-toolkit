@@ -112,11 +112,11 @@ Retry configuration for commands.
 
 ---
 
-### storage?
+### storage
 
-> `optional` **storage**: [`StorageConfig`](StorageConfig.md)
+> **storage**: [`StorageConfig`](StorageConfig.md)
 
-Storage configuration (ignored for online-only mode).
+Storage configuration.
 
 ---
 

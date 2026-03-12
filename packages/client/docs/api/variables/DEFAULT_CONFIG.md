@@ -74,4 +74,4 @@ Default configuration values.
 
 #### storage.dbName
 
-> `readonly` **dbName**: `"cqrs-client"` = `'cqrs-client'`
+> **dbName**: `string` = `'cqrs-client'`

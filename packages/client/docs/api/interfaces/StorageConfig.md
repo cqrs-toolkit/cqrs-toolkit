@@ -18,6 +18,14 @@ Database name/path
 
 ---
 
+### migrations
+
+> **migrations**: \[[`SchemaMigration`](SchemaMigration.md), `...SchemaMigration[]`\]
+
+Schema migrations — required, non-empty
+
+---
+
 ### vfs?
 
 > `optional` **vfs**: [`SqliteVfsType`](../type-aliases/SqliteVfsType.md)
