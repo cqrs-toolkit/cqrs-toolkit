@@ -2,36 +2,41 @@
   "name": "@cqrs-toolkit/client-solid",
   "version": "0.1.0",
   "description": "SolidJS reactive primitives for @cqrs-toolkit/client",
-  "type": "module",
-  "main": "dist/src/index.js",
-  "exports": {
-    ".": {
-      "types": "./dist/src/index.d.ts",
-      "import": "./dist/src/index.js"
-    }
-  },
-  "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "compile": "tsc -p tsconfig.json --noEmit",
-    "docs": "typedoc",
-    "test": "vitest"
-  },
   "keywords": [
     "cqrs",
     "event-sourcing",
     "solidjs",
     "reactive"
   ],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "@cqrs-toolkit/client": "*"
+  "license": "MIT",
+  "author": "Ontel, LLC",
+  "main": "dist/src/index.js",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
   },
-  "peerDependencies": {
-    "solid-js": "^1.6.0"
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "compile": "tsc -p tsconfig.json --noEmit",
+    "docs": "typedoc",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@cqrs-toolkit/client": "^0.1.0"
   },
   "devDependencies": {
     "solid-js": "^1.9.0",
     "rxjs": "^7.8.1"
+  },
+  "peerDependencies": {
+    "solid-js": "^1.6.0"
   }
 }

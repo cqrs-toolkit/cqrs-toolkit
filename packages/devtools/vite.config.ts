@@ -1,6 +1,6 @@
 /// <reference types="vitest" />
 import { build as esbuild } from 'esbuild'
-import { copyFileSync } from 'node:fs'
+import { copyFileSync, cpSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig, type Plugin } from 'vite'
 import solidPlugin from 'vite-plugin-solid'
@@ -41,6 +41,11 @@ function extensionBuildPlugin(): Plugin {
       copyFileSync(resolve(root, 'manifest.json'), resolve(dist, 'manifest.json'))
       copyFileSync(resolve(root, 'devtools.html'), resolve(dist, 'devtools.html'))
       copyFileSync(resolve(root, 'panel.html'), resolve(dist, 'panel.html'))
+
+      const iconsDir = resolve(root, 'icons')
+      if (existsSync(iconsDir)) {
+        cpSync(iconsDir, resolve(dist, 'icons'), { recursive: true })
+      }
     },
   }
 }

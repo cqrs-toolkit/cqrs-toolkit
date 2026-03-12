@@ -2,26 +2,31 @@
   "name": "@cqrs-toolkit/realtime",
   "version": "0.1.0",
   "description": "Canonical WebSocket message protocol types for the CQRS realtime gateway",
-  "type": "module",
-  "main": "dist/src/index.js",
-  "exports": {
-    ".": {
-      "types": "./dist/src/index.d.ts",
-      "import": "./dist/src/index.js"
-    }
-  },
-  "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "compile": "tsc -p tsconfig.json --noEmit",
-    "docs": "typedoc",
-    "test": "vitest"
-  },
   "keywords": [
     "cqrs",
     "event-sourcing",
     "realtime",
     "websocket"
   ],
-  "author": "",
-  "license": "ISC"
+  "license": "MIT",
+  "author": "Ontel, LLC",
+  "main": "dist/src/index.js",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "compile": "tsc -p tsconfig.json --noEmit",
+    "docs": "typedoc",
+    "test": "vitest"
+  }
 }

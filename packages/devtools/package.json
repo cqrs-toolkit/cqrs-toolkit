@@ -2,6 +2,9 @@
   "name": "@cqrs-toolkit/devtools",
   "version": "0.1.0",
   "private": true,
+  "description": "Chrome DevTools extension for @cqrs-toolkit/client",
+  "license": "MIT",
+  "author": "Ontel, LLC",
   "type": "module",
   "scripts": {
     "build:icons": "tsx scripts/build-icons.ts",

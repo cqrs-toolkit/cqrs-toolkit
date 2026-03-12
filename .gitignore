@@ -10,7 +10,7 @@ pids
 
 # Coverage directory
 coverage
-/demos/todo-demo/test-results/
+**/test-results/**
 
 # Dependency directories
 node_modules
@@ -37,6 +37,7 @@ node_modules
 # compiled app
 build
 dist
+tsconfig.tsbuildinfo
 
 # env - root only
 /.env
