@@ -27,13 +27,24 @@ export {
 
 // Domain
 export type {
+  AutoRevision,
+  CommandHandlerRegistration,
+  CreateCommandConfig,
   DomainExecutionResult,
   DomainExecutionSuccess,
+  ICommandHandlerMetadata,
   IDomainExecutor,
   PostProcessPlan,
 } from './domain.js'
 
-export { domainFailure, domainSuccess, isDomainFailure, isDomainSuccess } from './domain.js'
+export {
+  autoRevision,
+  domainFailure,
+  domainSuccess,
+  isAutoRevision,
+  isDomainFailure,
+  isDomainSuccess,
+} from './domain.js'
 
 // Commands
 export type {

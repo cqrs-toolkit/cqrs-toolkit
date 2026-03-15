@@ -42,6 +42,9 @@ CREATE TABLE commands (
   last_attempt_at INTEGER,
   error TEXT,
   server_response TEXT,
+  post_process TEXT,
+  creates TEXT,
+  revision_field TEXT,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 )`
@@ -75,6 +78,17 @@ CREATE INDEX idx_cached_events_stream ON cached_events (stream_id, position)`
 const CACHED_EVENTS_COMMAND_INDEX = `
 CREATE INDEX idx_cached_events_command ON cached_events (command_id)`
 
+const COMMAND_ID_MAPPINGS_TABLE = `
+CREATE TABLE command_id_mappings (
+  client_id TEXT PRIMARY KEY,
+  server_id TEXT NOT NULL,
+  data TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+)`
+
+const COMMAND_ID_MAPPINGS_SERVER_INDEX = `
+CREATE INDEX idx_command_id_mappings_server ON command_id_mappings (server_id)`
+
 /**
  * Library schema steps.
  *
@@ -99,6 +113,8 @@ export const clientSchema = {
       CACHED_EVENTS_CACHE_KEY_INDEX,
       CACHED_EVENTS_STREAM_INDEX,
       CACHED_EVENTS_COMMAND_INDEX,
+      COMMAND_ID_MAPPINGS_TABLE,
+      COMMAND_ID_MAPPINGS_SERVER_INDEX,
     ],
   },
 } satisfies Record<string, LibraryStep>

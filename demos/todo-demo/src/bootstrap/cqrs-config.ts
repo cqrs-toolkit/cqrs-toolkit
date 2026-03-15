@@ -19,8 +19,10 @@ import {
   type ISerializedEvent,
   type SeedEventPage,
 } from '@cqrs-toolkit/client'
-import { noteProcessors } from '../notes/processor'
-import { todoProcessors } from '../todos/processor'
+import { noteHandlers } from '../notes/executor.js'
+import { noteProcessors } from '../notes/processor.js'
+import { todoHandlers } from '../todos/executor.js'
+import { todoProcessors } from '../todos/processor.js'
 
 // ---------------------------------------------------------------------------
 // Command sender
@@ -46,7 +48,10 @@ const commandSender: ICommandSender = {
 
     const res = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-command-id': command.commandId,
+      },
       body: JSON.stringify({ type: command.type, payload: command.payload }),
     })
 
@@ -165,6 +170,7 @@ export const cqrsConfig: CqrsConfig = {
   },
   collections: [todosCollection, notesCollection],
   processors: [...todoProcessors, ...noteProcessors],
+  commandHandlers: [...todoHandlers, ...noteHandlers],
   commandSender,
   retainTerminal: true,
   debug: true,

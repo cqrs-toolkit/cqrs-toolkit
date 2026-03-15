@@ -10,6 +10,14 @@ Event processor runner configuration.
 
 ## Properties
 
+### anticipatedEventHandler?
+
+> `optional` **anticipatedEventHandler**: `IAnticipatedEventHandler`
+
+Anticipated event handler for create reconciliation. Optional — only needed with command handlers.
+
+---
+
 ### eventBus
 
 > **eventBus**: [`EventBus`](../classes/EventBus.md)

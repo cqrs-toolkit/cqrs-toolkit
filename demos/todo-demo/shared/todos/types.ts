@@ -10,7 +10,7 @@ export interface Todo {
   readonly status: TodoStatus
   readonly createdAt: string
   readonly updatedAt: string
-  readonly latestRevision: string
+  readonly latestRevision?: string | undefined
 }
 
 export interface ListTodosResponse {

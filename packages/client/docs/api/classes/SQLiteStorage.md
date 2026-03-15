@@ -62,6 +62,22 @@ Close the storage backend and release resources.
 
 ---
 
+### deleteAllCommandIdMappings()
+
+> **deleteAllCommandIdMappings**(): `Promise`\<`void`\>
+
+Delete all command ID mappings (e.g., on session clear).
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`deleteAllCommandIdMappings`](../interfaces/IStorage.md#deleteallcommandidmappings)
+
+---
+
 ### deleteAllCommands()
 
 > **deleteAllCommands**(): `Promise`\<`void`\>
@@ -185,6 +201,28 @@ Delete a command.
 #### Implementation of
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteCommand`](../interfaces/IStorage.md#deletecommand)
+
+---
+
+### deleteCommandIdMappingsOlderThan()
+
+> **deleteCommandIdMappingsOlderThan**(`timestamp`): `Promise`\<`void`\>
+
+Delete command ID mappings older than a timestamp.
+
+#### Parameters
+
+##### timestamp
+
+`number`
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`deleteCommandIdMappingsOlderThan`](../interfaces/IStorage.md#deletecommandidmappingsolderthan)
 
 ---
 
@@ -419,6 +457,50 @@ Get a command by ID.
 #### Implementation of
 
 [`IStorage`](../interfaces/IStorage.md).[`getCommand`](../interfaces/IStorage.md#getcommand)
+
+---
+
+### getCommandIdMapping()
+
+> **getCommandIdMapping**(`clientId`): `Promise`\<`CommandIdMappingRecord` \| `undefined`\>
+
+Get a command ID mapping by client ID.
+
+#### Parameters
+
+##### clientId
+
+`string`
+
+#### Returns
+
+`Promise`\<`CommandIdMappingRecord` \| `undefined`\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`getCommandIdMapping`](../interfaces/IStorage.md#getcommandidmapping)
+
+---
+
+### getCommandIdMappingByServerId()
+
+> **getCommandIdMappingByServerId**(`serverId`): `Promise`\<`CommandIdMappingRecord` \| `undefined`\>
+
+Get a command ID mapping by server ID.
+
+#### Parameters
+
+##### serverId
+
+`string`
+
+#### Returns
+
+`Promise`\<`CommandIdMappingRecord` \| `undefined`\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`getCommandIdMappingByServerId`](../interfaces/IStorage.md#getcommandidmappingbyserverid)
 
 ---
 
@@ -762,6 +844,28 @@ Save a new command.
 #### Implementation of
 
 [`IStorage`](../interfaces/IStorage.md).[`saveCommand`](../interfaces/IStorage.md#savecommand)
+
+---
+
+### saveCommandIdMapping()
+
+> **saveCommandIdMapping**(`record`): `Promise`\<`void`\>
+
+Save a command ID mapping.
+
+#### Parameters
+
+##### record
+
+`CommandIdMappingRecord`
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`saveCommandIdMapping`](../interfaces/IStorage.md#savecommandidmapping)
 
 ---
 

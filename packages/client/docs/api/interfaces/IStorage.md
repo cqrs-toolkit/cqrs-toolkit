@@ -66,6 +66,18 @@ Commit a transaction.
 
 ---
 
+### deleteAllCommandIdMappings()
+
+> **deleteAllCommandIdMappings**(): `Promise`\<`void`\>
+
+Delete all command ID mappings (e.g., on session clear).
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
 ### deleteAllCommands()
 
 > **deleteAllCommands**(): `Promise`\<`void`\>
@@ -161,6 +173,24 @@ Delete a command.
 ##### commandId
 
 `string`
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
+### deleteCommandIdMappingsOlderThan()
+
+> **deleteCommandIdMappingsOlderThan**(`timestamp`): `Promise`\<`void`\>
+
+Delete command ID mappings older than a timestamp.
+
+#### Parameters
+
+##### timestamp
+
+`number`
 
 #### Returns
 
@@ -355,6 +385,42 @@ Get a command by ID.
 #### Returns
 
 `Promise`\<[`CommandRecord`](CommandRecord.md)\<`unknown`, `unknown`\> \| `undefined`\>
+
+---
+
+### getCommandIdMapping()
+
+> **getCommandIdMapping**(`clientId`): `Promise`\<`CommandIdMappingRecord` \| `undefined`\>
+
+Get a command ID mapping by client ID.
+
+#### Parameters
+
+##### clientId
+
+`string`
+
+#### Returns
+
+`Promise`\<`CommandIdMappingRecord` \| `undefined`\>
+
+---
+
+### getCommandIdMappingByServerId()
+
+> **getCommandIdMappingByServerId**(`serverId`): `Promise`\<`CommandIdMappingRecord` \| `undefined`\>
+
+Get a command ID mapping by server ID.
+
+#### Parameters
+
+##### serverId
+
+`string`
+
+#### Returns
+
+`Promise`\<`CommandIdMappingRecord` \| `undefined`\>
 
 ---
 
@@ -648,6 +714,24 @@ Save a new command.
 ##### command
 
 [`CommandRecord`](CommandRecord.md)
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
+### saveCommandIdMapping()
+
+> **saveCommandIdMapping**(`record`): `Promise`\<`void`\>
+
+Save a command ID mapping.
+
+#### Parameters
+
+##### record
+
+`CommandIdMappingRecord`
 
 #### Returns
 

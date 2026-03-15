@@ -1,6 +1,6 @@
 import type { RouteSectionProps } from '@solidjs/router'
 import { createSignal, For, onCleanup } from 'solid-js'
-import { useClient } from './bootstrap/cqrs-context'
+import { useClient } from './bootstrap/cqrs-context.js'
 
 export default function App(props: RouteSectionProps) {
   const client = useClient()

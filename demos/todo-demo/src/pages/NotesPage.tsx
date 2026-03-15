@@ -1,11 +1,11 @@
 import { createListQuery } from '@cqrs-toolkit/client-solid'
 import { createSignal, For, Show } from 'solid-js'
-import type { Note } from '../../shared/notes/types'
-import { useClient } from '../bootstrap/cqrs-context'
-import AddNote from '../components/AddNote'
-import NoteItem from '../components/NoteItem'
-import PageShell from '../components/PageShell'
-import { createEditNavigator } from '../primitives/createEditNavigator'
+import type { Note } from '../../shared/notes/types.js'
+import { useClient } from '../bootstrap/cqrs-context.js'
+import AddNote from '../components/AddNote.js'
+import NoteItem from '../components/NoteItem.js'
+import PageShell from '../components/PageShell.js'
+import { createEditNavigator } from '../primitives/createEditNavigator.js'
 
 export default function NotesPage() {
   const client = useClient()

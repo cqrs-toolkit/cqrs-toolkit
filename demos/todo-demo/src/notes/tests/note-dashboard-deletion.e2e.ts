@@ -1,4 +1,4 @@
-import { expect, test, url } from '../../e2e-fixtures'
+import { expect, test, url } from '../../e2e-fixtures.js'
 import {
   addNote,
   addTodo,
@@ -9,8 +9,8 @@ import {
   waitForDashNoteCount,
   waitForDashTodosReady,
   waitForNoteCount,
-} from '../../e2e-helpers'
-import { testNavigator } from '../../e2e-nav'
+} from '../../e2e-helpers.js'
+import { testNavigator } from '../../e2e-nav.js'
 
 const { Dashboard, Notes } = testNavigator
 

@@ -1,11 +1,11 @@
 import { createListQuery } from '@cqrs-toolkit/client-solid'
 import { createMemo, createSignal, For, Show } from 'solid-js'
-import type { Todo } from '../../shared/todos/types'
-import { useClient } from '../bootstrap/cqrs-context'
-import AddTodo from '../components/AddTodo'
-import PageShell from '../components/PageShell'
-import TodoItem from '../components/TodoItem'
-import { createEditNavigator } from '../primitives/createEditNavigator'
+import type { Todo } from '../../shared/todos/types.js'
+import { useClient } from '../bootstrap/cqrs-context.js'
+import AddTodo from '../components/AddTodo.js'
+import PageShell from '../components/PageShell.js'
+import TodoItem from '../components/TodoItem.js'
+import { createEditNavigator } from '../primitives/createEditNavigator.js'
 
 export default function TodosPage() {
   const client = useClient()

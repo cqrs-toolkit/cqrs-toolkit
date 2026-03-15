@@ -40,6 +40,14 @@ Command queue configuration.
 
 ---
 
+### handlerMetadata?
+
+> `optional` **handlerMetadata**: [`ICommandHandlerMetadata`](ICommandHandlerMetadata.md)
+
+Metadata lookup for command handler registrations (creates, revisionField).
+
+---
+
 ### onCommandResponse()?
 
 > `optional` **onCommandResponse**: (`command`, `response`) => `Promise`\<`void`\>

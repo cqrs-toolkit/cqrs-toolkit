@@ -1,5 +1,5 @@
 import { startSharedWorker } from '@cqrs-toolkit/client'
-import { cqrsConfig } from '../bootstrap/cqrs-config'
+import { cqrsConfig } from '../bootstrap/cqrs-config.js'
 
 // For token-based auth, override with a worker-compatible implementation:
 // startSharedWorker({ ...cqrsConfig, auth: workerAuthStrategy })

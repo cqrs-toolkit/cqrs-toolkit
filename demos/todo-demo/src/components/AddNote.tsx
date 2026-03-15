@@ -1,5 +1,5 @@
 import { createSignal } from 'solid-js'
-import { useClient } from '../bootstrap/cqrs-context'
+import { useClient } from '../bootstrap/cqrs-context.js'
 
 interface AddNoteProps {
   onError: (message: string | undefined) => void
@@ -63,7 +63,7 @@ export default function AddNote(props: AddNoteProps) {
         props.formRef?.(el)
       }}
       onSubmit={handleSubmit}
-      class="mb-6"
+      class={`add-form mb-6 ${editState() === 'saving' ? 'add-saving' : 'add-idle'}`}
     >
       <div class="flex gap-2">
         <input

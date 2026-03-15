@@ -86,6 +86,23 @@ export interface ReadModelRecord {
 }
 
 /**
+ * Command ID mapping record.
+ * Maps a client-generated temporary ID to server reconciliation data.
+ * Used to silently correct stale client IDs in command payloads when the UI
+ * hasn't re-rendered with the server-assigned data yet.
+ */
+export interface CommandIdMappingRecord {
+  /** Client-generated temporary aggregate ID */
+  clientId: string
+  /** Server-assigned aggregate ID */
+  serverId: string
+  /** JSON-serialized reconciliation data (revision, commandType, serverResponse) */
+  data: string
+  /** Timestamp when the mapping was created */
+  createdAt: number
+}
+
+/**
  * Query options for list operations.
  */
 export interface QueryOptions {
@@ -311,6 +328,33 @@ export interface IStorage {
    * Get the total count of read model records.
    */
   getReadModelCount(): Promise<number>
+
+  // Command ID mapping operations (create reconciliation)
+
+  /**
+   * Get a command ID mapping by client ID.
+   */
+  getCommandIdMapping(clientId: string): Promise<CommandIdMappingRecord | undefined>
+
+  /**
+   * Get a command ID mapping by server ID.
+   */
+  getCommandIdMappingByServerId(serverId: string): Promise<CommandIdMappingRecord | undefined>
+
+  /**
+   * Save a command ID mapping.
+   */
+  saveCommandIdMapping(record: CommandIdMappingRecord): Promise<void>
+
+  /**
+   * Delete command ID mappings older than a timestamp.
+   */
+  deleteCommandIdMappingsOlderThan(timestamp: number): Promise<void>
+
+  /**
+   * Delete all command ID mappings (e.g., on session clear).
+   */
+  deleteAllCommandIdMappings(): Promise<void>
 
   // Transaction support (optional)
   /**

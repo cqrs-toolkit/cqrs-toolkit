@@ -31,6 +31,7 @@ import type { IStorage } from '../../storage/IStorage.js'
 import { loadAndOpenDb } from '../../storage/LocalSqliteDb.js'
 import { SQLiteStorage } from '../../storage/SQLiteStorage.js'
 import type { TerminalCommandStatus } from '../../types/commands.js'
+import { createDomainExecutor } from '../../types/domain.js'
 import type {
   Collection,
   CommandRecord,
@@ -154,17 +155,25 @@ export class WorkerOrchestrator {
 
     // 10. Create CommandQueue with anticipated event handler and response handler
     let syncManagerRef: SyncManager
+
+    const anticipatedEventHandler = createAnticipatedEventHandler(
+      eventCache,
+      cacheManager,
+      eventProcessorRunner,
+      readModelStore,
+      config.collections,
+    )
+    eventProcessorRunner.setAnticipatedEventHandler(anticipatedEventHandler)
+
     const commandQueue = new CommandQueue({
       storage,
       eventBus,
-      anticipatedEventHandler: createAnticipatedEventHandler(
-        eventCache,
-        cacheManager,
-        eventProcessorRunner,
-        readModelStore,
-        config.collections,
-      ),
-      domainExecutor: config.domainExecutor,
+      anticipatedEventHandler,
+      ...(() => {
+        if (config.commandHandlers.length === 0) return {}
+        const executor = createDomainExecutor(config.commandHandlers)
+        return { domainExecutor: executor, handlerMetadata: executor }
+      })(),
       commandSender: config.commandSender,
       retryConfig: config.retry,
       retainTerminal: config.retainTerminal,
@@ -322,13 +331,13 @@ function createAnticipatedEventHandler(
       }
     },
 
-    async cleanup(commandId: string, terminalStatus: TerminalCommandStatus): Promise<void> {
+    async cleanup(commandId: string, _terminalStatus: TerminalCommandStatus): Promise<void> {
       await eventCache.deleteAnticipatedEvents(commandId)
 
       const tracked = anticipatedUpdates.get(commandId)
       anticipatedUpdates.delete(commandId)
 
-      if ((terminalStatus === 'failed' || terminalStatus === 'cancelled') && tracked) {
+      if (tracked) {
         for (const key of tracked) {
           const separatorIndex = key.indexOf(':')
           if (separatorIndex === -1) continue
@@ -337,6 +346,26 @@ function createAnticipatedEventHandler(
           await readModelStore.clearLocalChanges(collection, id)
         }
       }
+    },
+
+    async regenerate(commandId: string, newEvents: unknown[]): Promise<void> {
+      await eventCache.deleteAnticipatedEvents(commandId)
+      const tracked = anticipatedUpdates.get(commandId)
+      anticipatedUpdates.delete(commandId)
+      if (tracked) {
+        for (const key of tracked) {
+          const separatorIndex = key.indexOf(':')
+          if (separatorIndex === -1) continue
+          const collection = key.substring(0, separatorIndex)
+          const id = key.substring(separatorIndex + 1)
+          await readModelStore.clearLocalChanges(collection, id)
+        }
+      }
+      await this.cache(commandId, newEvents)
+    },
+
+    getTrackedEntries(commandId: string): string[] | undefined {
+      return anticipatedUpdates.get(commandId)
     },
 
     async clearAll(): Promise<void> {

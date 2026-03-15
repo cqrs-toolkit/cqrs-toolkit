@@ -8,7 +8,7 @@ import {
 import DedicatedWorkerUrl from '../workers/dedicated-worker?worker&url'
 import SharedWorkerUrl from '../workers/shared-worker?worker&url'
 import SqliteWorkerUrl from '../workers/sqlite-worker?worker&url'
-import { cqrsConfig } from './cqrs-config'
+import { cqrsConfig } from './cqrs-config.js'
 
 const VALID_MODES = new Set<ExecutionModeConfig>([
   'auto',

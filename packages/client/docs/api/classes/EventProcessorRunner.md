@@ -67,3 +67,22 @@ Events to process
 `Promise`\<[`ProcessEventResult`](../interfaces/ProcessEventResult.md)\>
 
 Aggregated result across all events
+
+---
+
+### setAnticipatedEventHandler()
+
+> **setAnticipatedEventHandler**(`handler`): `void`
+
+Set the anticipated event handler after construction (breaks circular dependency
+when the handler needs the runner and the runner needs the handler).
+
+#### Parameters
+
+##### handler
+
+`IAnticipatedEventHandler`
+
+#### Returns
+
+`void`

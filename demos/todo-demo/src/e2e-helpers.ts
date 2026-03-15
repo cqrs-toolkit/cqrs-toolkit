@@ -11,6 +11,9 @@ export async function assertMode(page: Page, expected: string): Promise<void> {
 export async function addTodo(page: Page, text: string): Promise<void> {
   await page.getByPlaceholder('What needs to be done?').fill(text)
   await page.getByRole('button', { name: 'Add' }).click()
+  // Wait for the submit to complete — the form transitions from add-saving to add-idle
+  // after the server confirms. This ensures the read model has a real server ID and revision.
+  await expect(page.locator('.add-form.add-idle')).toBeAttached()
 }
 
 export async function waitForTodoCount(page: Page, count: number): Promise<void> {
@@ -31,6 +34,9 @@ export async function addNote(page: Page, title: string, body?: string): Promise
     await page.getByPlaceholder('Body (optional)').fill(body)
   }
   await page.getByRole('button', { name: 'Add' }).click()
+  // Wait for the submit to complete — the form transitions from add-saving to add-idle
+  // after the server confirms.
+  await expect(page.locator('.add-form.add-idle')).toBeAttached()
   await expect(page.locator('.note-title', { hasText: title })).toBeVisible()
 }
 

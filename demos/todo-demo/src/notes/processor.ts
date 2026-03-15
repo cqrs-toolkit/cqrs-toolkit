@@ -4,8 +4,9 @@ import type {
   NoteCreatedEvent,
   NoteDeletedEvent,
   NoteTitleUpdatedEvent,
-} from '../../shared/notes/events'
-import type { Note } from '../../shared/notes/types'
+} from '../../shared/notes/events.js'
+import type { Note } from '../../shared/notes/types.js'
+import { addRevision } from '../processors/utils.js'
 
 export const noteProcessors: ProcessorRegistration[] = [
   {
@@ -15,18 +16,17 @@ export const noteProcessors: ProcessorRegistration[] = [
       id: data.id,
       update: {
         type: 'set',
-        data: {
+        data: addRevision<Note>(ctx, {
           id: data.id,
           title: data.title,
           body: data.body,
           createdAt: data.createdAt,
           updatedAt: data.createdAt,
-          latestRevision: String(ctx.revision),
-        } satisfies Note,
+        }),
       },
       isServerUpdate: ctx.persistence !== 'Anticipated',
     }),
-  },
+  } satisfies ProcessorRegistration<NoteCreatedEvent['data'], Note>,
   {
     eventTypes: 'NoteTitleUpdated',
     processor: (data: NoteTitleUpdatedEvent['data'], ctx) => ({
@@ -34,11 +34,10 @@ export const noteProcessors: ProcessorRegistration[] = [
       id: data.id,
       update: {
         type: 'merge',
-        data: {
+        data: addRevision<Partial<Note>>(ctx, {
           title: data.title,
           updatedAt: data.updatedAt,
-          latestRevision: String(ctx.revision),
-        },
+        }),
       },
       isServerUpdate: ctx.persistence !== 'Anticipated',
     }),
@@ -50,11 +49,10 @@ export const noteProcessors: ProcessorRegistration[] = [
       id: data.id,
       update: {
         type: 'merge',
-        data: {
+        data: addRevision<Partial<Note>>(ctx, {
           body: data.body,
           updatedAt: data.updatedAt,
-          latestRevision: String(ctx.revision),
-        },
+        }),
       },
       isServerUpdate: ctx.persistence !== 'Anticipated',
     }),

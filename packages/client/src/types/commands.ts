@@ -9,6 +9,7 @@ import {
   type Result,
   ValidationException,
 } from '@meticoeus/ddd-es'
+import type { CreateCommandConfig, PostProcessPlan } from './domain.js'
 import type { ValidationError } from './validation.js'
 
 /**
@@ -69,6 +70,12 @@ export interface CommandRecord<TPayload = unknown, TResponse = unknown> {
   error?: CommandError
   /** Server response on success */
   serverResponse?: TResponse
+  /** Post-processing instructions from the domain executor */
+  postProcess?: PostProcessPlan
+  /** Create command configuration (present only for commands that create aggregates) */
+  creates?: CreateCommandConfig
+  /** Payload field name that holds the revision (from handler registration) */
+  revisionField?: string
   /** Creation timestamp */
   createdAt: number
   /** Last update timestamp */

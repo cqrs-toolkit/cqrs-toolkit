@@ -1,11 +1,12 @@
-import type { ProcessorRegistration } from '@cqrs-toolkit/client'
+import { type ProcessorRegistration } from '@cqrs-toolkit/client'
 import type {
   TodoContentUpdatedEvent,
   TodoCreatedEvent,
   TodoDeletedEvent,
   TodoStatusChangedEvent,
-} from '../../shared/todos/events'
-import type { Todo } from '../../shared/todos/types'
+} from '../../shared/todos/events.js'
+import type { Todo } from '../../shared/todos/types.js'
+import { addRevision } from '../processors/utils.js'
 
 export const todoProcessors: ProcessorRegistration[] = [
   {
@@ -15,14 +16,13 @@ export const todoProcessors: ProcessorRegistration[] = [
       id: data.id,
       update: {
         type: 'set',
-        data: {
+        data: addRevision<Todo>(ctx, {
           id: data.id,
           content: data.content,
           status: data.status,
           createdAt: data.createdAt,
           updatedAt: data.createdAt,
-          latestRevision: String(ctx.revision),
-        } satisfies Todo,
+        }),
       },
       isServerUpdate: ctx.persistence !== 'Anticipated',
     }),
@@ -34,11 +34,10 @@ export const todoProcessors: ProcessorRegistration[] = [
       id: data.id,
       update: {
         type: 'merge',
-        data: {
+        data: addRevision<Partial<Todo>>(ctx, {
           content: data.content,
           updatedAt: data.updatedAt,
-          latestRevision: String(ctx.revision),
-        },
+        }),
       },
       isServerUpdate: ctx.persistence !== 'Anticipated',
     }),
@@ -50,11 +49,10 @@ export const todoProcessors: ProcessorRegistration[] = [
       id: data.id,
       update: {
         type: 'merge',
-        data: {
+        data: addRevision<Partial<Todo>>(ctx, {
           status: data.status,
           updatedAt: data.updatedAt,
-          latestRevision: String(ctx.revision),
-        },
+        }),
       },
       isServerUpdate: ctx.persistence !== 'Anticipated',
     }),

@@ -6,7 +6,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import type { CommandRecord } from '../../types/commands.js'
 import type { IDomainExecutor } from '../../types/domain.js'
-import { domainFailure, domainSuccess } from '../../types/domain.js'
+import {
+  autoRevision,
+  createDomainExecutor,
+  domainFailure,
+  domainSuccess,
+} from '../../types/domain.js'
+import { generateId } from '../../utils/uuid.js'
 import { EventBus } from '../events/EventBus.js'
 import type { IAnticipatedEventHandler } from './CommandQueue.js'
 import { CommandQueue } from './CommandQueue.js'
@@ -30,6 +36,8 @@ describe('CommandQueue', () => {
     anticipatedEventHandler = {
       cache: vi.fn().mockResolvedValue(undefined),
       cleanup: vi.fn().mockResolvedValue(undefined),
+      regenerate: vi.fn().mockResolvedValue(undefined),
+      getTrackedEntries: vi.fn().mockReturnValue(undefined),
       clearAll: vi.fn().mockResolvedValue(undefined),
     }
     commandQueue = new CommandQueue({ storage, eventBus, anticipatedEventHandler })
@@ -1040,6 +1048,893 @@ describe('CommandQueue', () => {
 
       const commands = await commandQueue.listCommands()
       expect(commands).toHaveLength(0)
+    })
+  })
+
+  describe('cross-aggregate parent-child reconciliation', () => {
+    // Handler registrations for two aggregate types
+    interface AnticipatedEvent {
+      type: string
+      data: Record<string, unknown>
+      streamId: string
+    }
+
+    function setupCrossAggregateQueue(senderResponses: Map<string, unknown>): {
+      queue: CommandQueue
+      sender: ICommandSender
+    } {
+      const executor = createDomainExecutor<AnticipatedEvent>([
+        {
+          commandType: 'CreateFolder',
+          creates: { eventType: 'FolderCreated', idStrategy: 'temporary' },
+          handler(payload) {
+            const { name } = payload as { name: string }
+            const id = generateId()
+            return domainSuccess([
+              {
+                type: 'FolderCreated',
+                data: { id, name },
+                streamId: `Folder-${id}`,
+              },
+            ])
+          },
+        },
+        {
+          commandType: 'CreateNote',
+          creates: { eventType: 'NoteCreated', idStrategy: 'temporary' },
+          parentRef: [{ field: 'parentId', fromCommand: 'CreateFolder' }],
+          handler(payload) {
+            const { parentId, title } = payload as { parentId: string; title: string }
+            const id = generateId()
+            return domainSuccess([
+              {
+                type: 'NoteCreated',
+                data: { id, parentId, title },
+                streamId: `Note-${id}`,
+              },
+            ])
+          },
+        },
+        {
+          commandType: 'UpdateNote',
+          revisionField: 'revision',
+          handler(payload) {
+            const { id, title } = payload as { id: string; title: string }
+            return domainSuccess([
+              {
+                type: 'NoteTitleUpdated',
+                data: { id, title },
+                streamId: `Note-${id}`,
+              },
+            ])
+          },
+        },
+        {
+          commandType: 'MoveNote',
+          revisionField: 'revision',
+          parentRef: [
+            { field: 'fromFolderId', fromCommand: 'CreateFolder' },
+            { field: 'toFolderId', fromCommand: 'CreateFolder' },
+          ],
+          handler(payload) {
+            const { id, fromFolderId, toFolderId } = payload as {
+              id: string
+              fromFolderId: string
+              toFolderId: string
+            }
+            return domainSuccess([
+              {
+                type: 'NoteMoved',
+                data: { id, fromFolderId, toFolderId },
+                streamId: `Note-${id}`,
+              },
+            ])
+          },
+        },
+      ])
+
+      const sender: ICommandSender = {
+        async send(command: CommandRecord) {
+          const response = senderResponses.get(command.type)
+          if (typeof response === 'function') return response(command)
+          if (response !== undefined) return response
+          return { id: 'default-id', nextExpectedRevision: '1', events: [] }
+        },
+      }
+
+      const queue = new CommandQueue({
+        storage,
+        eventBus,
+        anticipatedEventHandler,
+        domainExecutor: executor,
+        handlerMetadata: executor,
+        commandSender: sender,
+      })
+
+      return { queue, sender }
+    }
+
+    it('rewrites child payload when parent create succeeds', async () => {
+      const senderResponses = new Map<string, unknown>()
+      senderResponses.set('CreateFolder', {
+        id: 'folder-server-1',
+        nextExpectedRevision: '1',
+        events: [
+          {
+            id: 'evt-1',
+            type: 'FolderCreated',
+            streamId: 'Folder-server-1',
+            data: { id: 'folder-server-1', name: 'My Folder' },
+            revision: '1',
+            position: '1',
+          },
+        ],
+      })
+
+      const { queue } = setupCrossAggregateQueue(senderResponses)
+
+      // Enqueue parent create
+      const folderResult = await queue.enqueue({
+        type: 'CreateFolder',
+        payload: { name: 'My Folder' },
+      })
+      if (!folderResult.ok) throw new Error('Expected success')
+
+      // Get the client-generated folder ID from anticipated events
+      const folderClientId = (folderResult.value.anticipatedEvents[0] as AnticipatedEvent).data
+        .id as string
+
+      // Enqueue child create with explicit dependency and parent's client ID
+      const noteResult = await queue.enqueue({
+        type: 'CreateNote',
+        payload: { parentId: folderClientId, title: 'My Note' },
+        dependsOn: [folderResult.value.commandId],
+      })
+      if (!noteResult.ok) throw new Error('Expected success')
+
+      // Child should be blocked
+      let noteCmd = await storage.getCommand(noteResult.value.commandId)
+      expect(noteCmd?.status).toBe('blocked')
+
+      // Process the queue — folder command succeeds
+      queue.resume()
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      // Verify folder succeeded
+      const folderCmd = await storage.getCommand(folderResult.value.commandId)
+      expect(folderCmd?.status).toBe('succeeded')
+
+      // Verify note's payload was rewritten with server ID
+      noteCmd = await storage.getCommand(noteResult.value.commandId)
+      expect(noteCmd?.status).toBe('pending')
+      const notePayload = noteCmd?.payload as { parentId: string; title: string }
+      expect(notePayload.parentId).toBe('folder-server-1')
+      expect(notePayload.title).toBe('My Note')
+    })
+
+    it('does not change child own temp ID when parent succeeds', async () => {
+      const senderResponses = new Map<string, unknown>()
+      senderResponses.set('CreateFolder', {
+        id: 'folder-server-1',
+        nextExpectedRevision: '1',
+        events: [
+          {
+            id: 'evt-1',
+            type: 'FolderCreated',
+            streamId: 'Folder-server-1',
+            data: { id: 'folder-server-1', name: 'F' },
+            revision: '1',
+            position: '1',
+          },
+        ],
+      })
+
+      const { queue } = setupCrossAggregateQueue(senderResponses)
+
+      const folderResult = await queue.enqueue({
+        type: 'CreateFolder',
+        payload: { name: 'F' },
+      })
+      if (!folderResult.ok) throw new Error('Expected success')
+      const folderClientId = (folderResult.value.anticipatedEvents[0] as AnticipatedEvent).data
+        .id as string
+
+      const noteResult = await queue.enqueue({
+        type: 'CreateNote',
+        payload: { parentId: folderClientId, title: 'N' },
+        dependsOn: [folderResult.value.commandId],
+      })
+      if (!noteResult.ok) throw new Error('Expected success')
+      const noteClientId = (noteResult.value.anticipatedEvents[0] as AnticipatedEvent).data
+        .id as string
+
+      queue.resume()
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      // Note command was rewritten — parentId changed, but its own anticipated
+      // event should have regenerated with the same note client ID
+      expect(anticipatedEventHandler.regenerate).toHaveBeenCalled()
+
+      // The note's own ID should not have been changed by the folder's ID map
+      // (folder ID map only contains folder client→server, not note IDs)
+      const noteCmd = await storage.getCommand(noteResult.value.commandId)
+      const notePayload = noteCmd?.payload as { parentId: string; title: string }
+      // parentId was rewritten to server
+      expect(notePayload.parentId).toBe('folder-server-1')
+      // The note's own creates config means its client ID comes from anticipated events,
+      // not from payload.id. The note doesn't have an id in its payload for CreateNote.
+      // Its identity is tracked by the aggregate chain via its anticipated event data.id.
+      expect(noteClientId).not.toBe('folder-server-1')
+    })
+
+    it('chains A→B→C across aggregates', async () => {
+      const senderResponses = new Map<string, unknown>()
+      senderResponses.set('CreateFolder', {
+        id: 'folder-server-1',
+        nextExpectedRevision: '1',
+        events: [
+          {
+            id: 'evt-1',
+            type: 'FolderCreated',
+            streamId: 'Folder-server-1',
+            data: { id: 'folder-server-1', name: 'F' },
+            revision: '1',
+            position: '1',
+          },
+        ],
+      })
+      senderResponses.set('CreateNote', {
+        id: 'note-server-1',
+        nextExpectedRevision: '1',
+        events: [
+          {
+            id: 'evt-2',
+            type: 'NoteCreated',
+            streamId: 'Note-server-1',
+            data: { id: 'note-server-1', parentId: 'folder-server-1', title: 'N' },
+            revision: '1',
+            position: '2',
+          },
+        ],
+      })
+
+      const { queue } = setupCrossAggregateQueue(senderResponses)
+
+      // A: CreateFolder
+      const folderResult = await queue.enqueue({ type: 'CreateFolder', payload: { name: 'F' } })
+      if (!folderResult.ok) throw new Error('Expected success')
+      const folderClientId = (folderResult.value.anticipatedEvents[0] as AnticipatedEvent).data
+        .id as string
+
+      // B: CreateNote depends on A
+      const noteResult = await queue.enqueue({
+        type: 'CreateNote',
+        payload: { parentId: folderClientId, title: 'N' },
+        dependsOn: [folderResult.value.commandId],
+      })
+      if (!noteResult.ok) throw new Error('Expected success')
+      const noteClientId = (noteResult.value.anticipatedEvents[0] as AnticipatedEvent).data
+        .id as string
+
+      // C: UpdateNote depends on B
+      const updateResult = await queue.enqueue({
+        type: 'UpdateNote',
+        payload: { id: noteClientId, title: 'Updated', revision: autoRevision() },
+        dependsOn: [noteResult.value.commandId],
+      })
+      if (!updateResult.ok) throw new Error('Expected success')
+
+      // Process entire chain — each command triggers reprocessing after success
+      queue.resume()
+      // Allow enough cycles for A→B→C to complete sequentially
+      for (let i = 0; i < 5; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        await queue.processPendingCommands()
+      }
+
+      // A succeeded
+      const folderCmd = await storage.getCommand(folderResult.value.commandId)
+      expect(folderCmd?.status).toBe('succeeded')
+
+      // B succeeded — parentId was rewritten
+      const noteCmd = await storage.getCommand(noteResult.value.commandId)
+      expect(noteCmd?.status).toBe('succeeded')
+
+      // C's payload should have been rewritten with note's server ID
+      const updateCmd = await storage.getCommand(updateResult.value.commandId)
+      const updatePayload = updateCmd?.payload as { id: string; title: string }
+      expect(updatePayload.id).toBe('note-server-1')
+    })
+
+    it('ID mapping cache patches stale client ID at enqueue time', async () => {
+      const senderResponses = new Map<string, unknown>()
+      senderResponses.set('CreateFolder', {
+        id: 'folder-server-1',
+        nextExpectedRevision: '1',
+        events: [
+          {
+            id: 'evt-1',
+            type: 'FolderCreated',
+            streamId: 'Folder-server-1',
+            data: { id: 'folder-server-1', name: 'F' },
+            revision: '1',
+            position: '1',
+          },
+        ],
+      })
+
+      const { queue } = setupCrossAggregateQueue(senderResponses)
+
+      // Create folder and let it succeed
+      const folderResult = await queue.enqueue({ type: 'CreateFolder', payload: { name: 'F' } })
+      if (!folderResult.ok) throw new Error('Expected success')
+      const folderClientId = (folderResult.value.anticipatedEvents[0] as AnticipatedEvent).data
+        .id as string
+
+      queue.resume()
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      // Folder is now succeeded — mapping cache should have the mapping
+      const mapping = await storage.getCommandIdMapping(folderClientId)
+      expect(mapping).toBeDefined()
+
+      // Now enqueue a note with the STALE client ID (simulating UI race condition)
+      const noteResult = await queue.enqueue({
+        type: 'CreateNote',
+        payload: { parentId: folderClientId, title: 'Late Note' },
+      })
+      if (!noteResult.ok) throw new Error('Expected success')
+
+      // The payload should have been patched at enqueue time
+      const noteCmd = await storage.getCommand(noteResult.value.commandId)
+      const notePayload = noteCmd?.payload as { parentId: string; title: string }
+      expect(notePayload.parentId).toBe('folder-server-1')
+    })
+
+    it('ID mapping cache patches stale revision via server ID lookup', async () => {
+      const senderResponses = new Map<string, unknown>()
+      senderResponses.set('CreateFolder', {
+        id: 'folder-server-1',
+        nextExpectedRevision: '1',
+        events: [
+          {
+            id: 'evt-1',
+            type: 'FolderCreated',
+            streamId: 'Folder-server-1',
+            data: { id: 'folder-server-1', name: 'F' },
+            revision: '1',
+            position: '1',
+          },
+        ],
+      })
+
+      const { queue } = setupCrossAggregateQueue(senderResponses)
+
+      // Create and succeed
+      const folderResult = await queue.enqueue({ type: 'CreateFolder', payload: { name: 'F' } })
+      if (!folderResult.ok) throw new Error('Expected success')
+
+      queue.resume()
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      // Enqueue an UpdateNote with the CORRECT server ID but undefined revision fallback
+      // (simulating the race where UI has server ID but stale revision)
+      const updateResult = await queue.enqueue({
+        type: 'UpdateNote',
+        payload: { id: 'folder-server-1', title: 'Updated', revision: autoRevision() },
+      })
+      if (!updateResult.ok) throw new Error('Expected success')
+
+      // The autoRevision fallback should have been patched from the mapping cache
+      const updateCmd = await storage.getCommand(updateResult.value.commandId)
+      const payload = updateCmd?.payload as { id: string; revision: unknown }
+      // The revision should now have a fallback from the mapping
+      expect(payload.revision).toMatchObject({ __autoRevision: true, fallback: '1' })
+    })
+
+    it('parent ID propagates to commands deeper in child chain while they stay blocked', async () => {
+      const senderResponses = new Map<string, unknown>()
+      senderResponses.set('CreateFolder', {
+        id: 'folder-server-1',
+        nextExpectedRevision: '1',
+        events: [
+          {
+            id: 'evt-1',
+            type: 'FolderCreated',
+            streamId: 'Folder-server-1',
+            data: { id: 'folder-server-1', name: 'F' },
+            revision: '1',
+            position: '1',
+          },
+        ],
+      })
+
+      const { queue } = setupCrossAggregateQueue(senderResponses)
+
+      // A: CreateFolder
+      const folderResult = await queue.enqueue({ type: 'CreateFolder', payload: { name: 'F' } })
+      if (!folderResult.ok) throw new Error('Expected success')
+      const folderClientId = (folderResult.value.anticipatedEvents[0] as AnticipatedEvent).data
+        .id as string
+
+      // B: CreateNote depends on folder
+      const noteResult = await queue.enqueue({
+        type: 'CreateNote',
+        payload: { parentId: folderClientId, title: 'N' },
+        dependsOn: [folderResult.value.commandId],
+      })
+      if (!noteResult.ok) throw new Error('Expected success')
+      const noteClientId = (noteResult.value.anticipatedEvents[0] as AnticipatedEvent).data
+        .id as string
+
+      // C: MoveNote depends on note, references folder's client ID in fromFolderId
+      const moveResult = await queue.enqueue({
+        type: 'MoveNote',
+        payload: {
+          id: noteClientId,
+          fromFolderId: folderClientId,
+          toFolderId: 'existing-folder',
+          revision: autoRevision(),
+        },
+        dependsOn: [noteResult.value.commandId],
+      })
+      if (!moveResult.ok) throw new Error('Expected success')
+
+      // C starts blocked
+      let moveCmd = await storage.getCommand(moveResult.value.commandId)
+      expect(moveCmd?.status).toBe('blocked')
+
+      // Process — folder succeeds
+      queue.resume()
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      // B is unblocked (pending), C is still blocked behind B
+      const noteCmd = await storage.getCommand(noteResult.value.commandId)
+      expect(noteCmd?.status).toBe('pending')
+
+      moveCmd = await storage.getCommand(moveResult.value.commandId)
+      expect(moveCmd?.status).toBe('blocked')
+
+      // C's fromFolderId was rewritten to server ID (propagated through chain)
+      const movePayload = moveCmd?.payload as {
+        id: string
+        fromFolderId: string
+        toFolderId: string
+      }
+      expect(movePayload.fromFolderId).toBe('folder-server-1')
+      // toFolderId is an existing folder, unchanged
+      expect(movePayload.toFolderId).toBe('existing-folder')
+      // C's note id is still the client ID (note hasn't succeeded yet)
+      expect(movePayload.id).toBe(noteClientId)
+    })
+
+    it('MoveNote with two folder dependencies — each ID replaced by its own dependency', async () => {
+      let folderSendCount = 0
+      const senderResponses = new Map<string, unknown>()
+      senderResponses.set('CreateFolder', () => {
+        folderSendCount++
+        return {
+          id: `folder-server-${folderSendCount}`,
+          nextExpectedRevision: '1',
+          events: [
+            {
+              id: `evt-f${folderSendCount}`,
+              type: 'FolderCreated',
+              streamId: `Folder-server-${folderSendCount}`,
+              data: { id: `folder-server-${folderSendCount}`, name: 'F' },
+              revision: '1',
+              position: String(folderSendCount),
+            },
+          ],
+        }
+      })
+
+      const { queue } = setupCrossAggregateQueue(senderResponses)
+
+      // Create source folder (folder1)
+      const folder1Result = await queue.enqueue({
+        type: 'CreateFolder',
+        payload: { name: 'Source' },
+      })
+      if (!folder1Result.ok) throw new Error('Expected success')
+      const folder1ClientId = (folder1Result.value.anticipatedEvents[0] as AnticipatedEvent).data
+        .id as string
+
+      // Create target folder (folder2)
+      const folder2Result = await queue.enqueue({
+        type: 'CreateFolder',
+        payload: { name: 'Target' },
+      })
+      if (!folder2Result.ok) throw new Error('Expected success')
+      const folder2ClientId = (folder2Result.value.anticipatedEvents[0] as AnticipatedEvent).data
+        .id as string
+
+      // MoveNote depends on BOTH folders — fromFolderId and toFolderId each reference a different folder
+      const moveResult = await queue.enqueue({
+        type: 'MoveNote',
+        payload: {
+          id: 'existing-note-1',
+          fromFolderId: folder1ClientId,
+          toFolderId: folder2ClientId,
+          revision: autoRevision('3'),
+        },
+        dependsOn: [folder1Result.value.commandId, folder2Result.value.commandId],
+      })
+      if (!moveResult.ok) throw new Error('Expected success')
+
+      // MoveNote should be blocked by both folders
+      let moveCmd = await storage.getCommand(moveResult.value.commandId)
+      expect(moveCmd?.status).toBe('blocked')
+      expect(moveCmd?.blockedBy).toHaveLength(2)
+
+      // Process the queue — both folders succeed
+      queue.resume()
+      for (let i = 0; i < 5; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        await queue.processPendingCommands()
+      }
+
+      // Both folders succeeded
+      expect((await storage.getCommand(folder1Result.value.commandId))?.status).toBe('succeeded')
+      expect((await storage.getCommand(folder2Result.value.commandId))?.status).toBe('succeeded')
+
+      // MoveNote should have been unblocked and processed
+      moveCmd = await storage.getCommand(moveResult.value.commandId)
+      expect(['pending', 'sending', 'succeeded']).toContain(moveCmd?.status)
+
+      // Each folder ID was replaced independently by its own dependency's server ID
+      const movePayload = moveCmd?.payload as {
+        id: string
+        fromFolderId: string
+        toFolderId: string
+      }
+      expect(movePayload.fromFolderId).toBe('folder-server-1')
+      expect(movePayload.toFolderId).toBe('folder-server-2')
+      // The note ID (existing, not a client ID) is unchanged
+      expect(movePayload.id).toBe('existing-note-1')
+    })
+  })
+
+  describe('same-aggregate auto-chaining', () => {
+    interface AnticipatedEvent {
+      type: string
+      data: Record<string, unknown>
+      streamId: string
+    }
+
+    function setupItemQueue(senderResponses: Map<string, unknown>): CommandQueue {
+      const executor = createDomainExecutor<AnticipatedEvent>([
+        {
+          commandType: 'CreateItem',
+          creates: { eventType: 'ItemCreated', idStrategy: 'temporary' },
+          handler(payload) {
+            const { name } = payload as { name: string }
+            const id = generateId()
+            return domainSuccess([
+              { type: 'ItemCreated', data: { id, name }, streamId: `Item-${id}` },
+            ])
+          },
+        },
+        {
+          commandType: 'UpdateItem',
+          revisionField: 'revision',
+          handler(payload) {
+            const { id, title } = payload as { id: string; title: string }
+            return domainSuccess([
+              { type: 'ItemUpdated', data: { id, title }, streamId: `Item-${id}` },
+            ])
+          },
+        },
+        {
+          commandType: 'DeleteItem',
+          revisionField: 'revision',
+          handler(payload) {
+            const { id } = payload as { id: string }
+            return domainSuccess([{ type: 'ItemDeleted', data: { id }, streamId: `Item-${id}` }])
+          },
+        },
+      ])
+
+      const sender: ICommandSender = {
+        async send(command: CommandRecord) {
+          const response = senderResponses.get(command.type)
+          if (typeof response === 'function') return response(command)
+          if (response !== undefined) return response
+          return { id: 'default-id', nextExpectedRevision: '1', events: [] }
+        },
+      }
+
+      return new CommandQueue({
+        storage,
+        eventBus,
+        anticipatedEventHandler,
+        domainExecutor: executor,
+        handlerMetadata: executor,
+        commandSender: sender,
+      })
+    }
+
+    it('mutate auto-blocked behind create on same aggregate', async () => {
+      const queue = setupItemQueue(new Map())
+
+      const createResult = await queue.enqueue({
+        type: 'CreateItem',
+        payload: { name: 'Test' },
+      })
+      if (!createResult.ok) throw new Error('Expected success')
+      const clientId = (createResult.value.anticipatedEvents[0] as AnticipatedEvent).data
+        .id as string
+
+      const updateResult = await queue.enqueue({
+        type: 'UpdateItem',
+        payload: { id: clientId, title: 'New Title', revision: autoRevision() },
+      })
+      if (!updateResult.ok) throw new Error('Expected success')
+
+      const updateCmd = await storage.getCommand(updateResult.value.commandId)
+      expect(updateCmd?.status).toBe('blocked')
+      expect(updateCmd?.blockedBy).toContain(createResult.value.commandId)
+    })
+
+    it('create succeeds — mutate gets server ID and revision', async () => {
+      const responses = new Map<string, unknown>()
+      responses.set('CreateItem', {
+        id: 'server-1',
+        nextExpectedRevision: '1',
+        events: [
+          {
+            id: 'evt-1',
+            type: 'ItemCreated',
+            streamId: 'Item-server-1',
+            data: { id: 'server-1', name: 'Test' },
+            revision: '1',
+            position: '1',
+          },
+        ],
+      })
+      const queue = setupItemQueue(responses)
+
+      const createResult = await queue.enqueue({
+        type: 'CreateItem',
+        payload: { name: 'Test' },
+      })
+      if (!createResult.ok) throw new Error('Expected success')
+      const clientId = (createResult.value.anticipatedEvents[0] as AnticipatedEvent).data
+        .id as string
+
+      await queue.enqueue({
+        type: 'UpdateItem',
+        payload: { id: clientId, title: 'New', revision: autoRevision() },
+      })
+
+      queue.resume()
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      // Find the update command (by type since we don't know its ID easily)
+      const allCmds = await storage.getCommands()
+      const updateCmd = allCmds.find((c) => c.type === 'UpdateItem')
+      expect(updateCmd?.status).toBe('pending')
+      const payload = updateCmd?.payload as { id: string; title: string; revision: string }
+      expect(payload.id).toBe('server-1')
+      expect(payload.revision).toBe('1')
+    })
+
+    it('second mutate auto-blocked behind first on same aggregate', async () => {
+      const queue = setupItemQueue(new Map())
+
+      const update1 = await queue.enqueue({
+        type: 'UpdateItem',
+        payload: { id: 'existing-1', title: 'First', revision: autoRevision('1') },
+      })
+      if (!update1.ok) throw new Error('Expected success')
+
+      const delete1 = await queue.enqueue({
+        type: 'DeleteItem',
+        payload: { id: 'existing-1', revision: autoRevision('1') },
+      })
+      if (!delete1.ok) throw new Error('Expected success')
+
+      const deleteCmd = await storage.getCommand(delete1.value.commandId)
+      expect(deleteCmd?.status).toBe('blocked')
+      expect(deleteCmd?.blockedBy).toContain(update1.value.commandId)
+    })
+
+    it('mutate succeeds — next mutate gets updated revision', async () => {
+      const responses = new Map<string, unknown>()
+      responses.set('UpdateItem', {
+        id: 'existing-1',
+        nextExpectedRevision: '2',
+        events: [],
+      })
+      const queue = setupItemQueue(responses)
+
+      const update1 = await queue.enqueue({
+        type: 'UpdateItem',
+        payload: { id: 'existing-1', title: 'First', revision: autoRevision('1') },
+      })
+      if (!update1.ok) throw new Error('Expected success')
+
+      const delete1 = await queue.enqueue({
+        type: 'DeleteItem',
+        payload: { id: 'existing-1', revision: autoRevision('1') },
+      })
+      if (!delete1.ok) throw new Error('Expected success')
+
+      queue.resume()
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      const deleteCmd = await storage.getCommand(delete1.value.commandId)
+      expect(deleteCmd?.status).toBe('pending')
+      const payload = deleteCmd?.payload as { id: string; revision: string }
+      expect(payload.revision).toBe('2')
+    })
+
+    it('create → mutate → mutate full chain', async () => {
+      const responses = new Map<string, unknown>()
+      responses.set('CreateItem', {
+        id: 'server-1',
+        nextExpectedRevision: '1',
+        events: [
+          {
+            id: 'evt-1',
+            type: 'ItemCreated',
+            streamId: 'Item-server-1',
+            data: { id: 'server-1', name: 'X' },
+            revision: '1',
+            position: '1',
+          },
+        ],
+      })
+      responses.set('UpdateItem', {
+        id: 'server-1',
+        nextExpectedRevision: '2',
+        events: [],
+      })
+      responses.set('DeleteItem', {
+        id: 'server-1',
+        nextExpectedRevision: '3',
+        events: [],
+      })
+      const queue = setupItemQueue(responses)
+
+      const createResult = await queue.enqueue({
+        type: 'CreateItem',
+        payload: { name: 'X' },
+      })
+      if (!createResult.ok) throw new Error('Expected success')
+      const clientId = (createResult.value.anticipatedEvents[0] as AnticipatedEvent).data
+        .id as string
+
+      await queue.enqueue({
+        type: 'UpdateItem',
+        payload: { id: clientId, title: 'Updated', revision: autoRevision() },
+      })
+
+      await queue.enqueue({
+        type: 'DeleteItem',
+        payload: { id: clientId, revision: autoRevision() },
+      })
+
+      queue.resume()
+      for (let i = 0; i < 5; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        await queue.processPendingCommands()
+      }
+
+      const allCmds = await storage.getCommands()
+      const createCmd = allCmds.find((c) => c.type === 'CreateItem')
+      const updateCmd = allCmds.find((c) => c.type === 'UpdateItem')
+      const deleteCmd = allCmds.find((c) => c.type === 'DeleteItem')
+
+      expect(createCmd?.status).toBe('succeeded')
+      expect(updateCmd?.status).toBe('succeeded')
+      expect(deleteCmd?.status).toBe('succeeded')
+
+      // UpdateItem was sent with server ID and create's revision
+      const updatePayload = updateCmd?.payload as { id: string; revision: string }
+      expect(updatePayload.id).toBe('server-1')
+
+      // DeleteItem was sent with server ID and update's revision
+      const deletePayload = deleteCmd?.payload as { id: string; revision: string }
+      expect(deletePayload.id).toBe('server-1')
+    })
+
+    it('auto-revision fallback used when no chain exists', async () => {
+      let sentPayload: unknown
+      const responses = new Map<string, unknown>()
+      responses.set('UpdateItem', (cmd: CommandRecord) => {
+        sentPayload = cmd.payload
+        return { id: 'existing-1', nextExpectedRevision: '6', events: [] }
+      })
+      const queue = setupItemQueue(responses)
+
+      await queue.enqueue({
+        type: 'UpdateItem',
+        payload: { id: 'existing-1', title: 'Solo', revision: autoRevision('5') },
+      })
+
+      queue.resume()
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      // The revision sent to server should be the fallback '5'
+      const sent = sentPayload as { revision: string }
+      expect(sent.revision).toBe('5')
+    })
+
+    it('mapping cache patches stale client ID for same aggregate', async () => {
+      const responses = new Map<string, unknown>()
+      responses.set('CreateItem', {
+        id: 'server-1',
+        nextExpectedRevision: '1',
+        events: [
+          {
+            id: 'evt-1',
+            type: 'ItemCreated',
+            streamId: 'Item-server-1',
+            data: { id: 'server-1', name: 'X' },
+            revision: '1',
+            position: '1',
+          },
+        ],
+      })
+      const queue = setupItemQueue(responses)
+
+      // Create and succeed
+      const createResult = await queue.enqueue({ type: 'CreateItem', payload: { name: 'X' } })
+      if (!createResult.ok) throw new Error('Expected success')
+      const clientId = (createResult.value.anticipatedEvents[0] as AnticipatedEvent).data
+        .id as string
+
+      queue.resume()
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      // Enqueue with stale client ID (race condition)
+      const updateResult = await queue.enqueue({
+        type: 'UpdateItem',
+        payload: { id: clientId, title: 'Late', revision: autoRevision() },
+      })
+      if (!updateResult.ok) throw new Error('Expected success')
+
+      const updateCmd = await storage.getCommand(updateResult.value.commandId)
+      const payload = updateCmd?.payload as { id: string; revision: unknown }
+      expect(payload.id).toBe('server-1')
+      expect(payload.revision).toMatchObject({ __autoRevision: true, fallback: '1' })
+    })
+
+    it('mapping cache patches stale revision via server ID lookup', async () => {
+      const responses = new Map<string, unknown>()
+      responses.set('CreateItem', {
+        id: 'server-1',
+        nextExpectedRevision: '1',
+        events: [
+          {
+            id: 'evt-1',
+            type: 'ItemCreated',
+            streamId: 'Item-server-1',
+            data: { id: 'server-1', name: 'X' },
+            revision: '1',
+            position: '1',
+          },
+        ],
+      })
+      const queue = setupItemQueue(responses)
+
+      const createResult = await queue.enqueue({ type: 'CreateItem', payload: { name: 'X' } })
+      if (!createResult.ok) throw new Error('Expected success')
+
+      queue.resume()
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      // Enqueue with correct server ID but undefined revision (race condition)
+      const updateResult = await queue.enqueue({
+        type: 'UpdateItem',
+        payload: { id: 'server-1', title: 'Race', revision: autoRevision() },
+      })
+      if (!updateResult.ok) throw new Error('Expected success')
+
+      const updateCmd = await storage.getCommand(updateResult.value.commandId)
+      const payload = updateCmd?.payload as { id: string; revision: unknown }
+      expect(payload.revision).toMatchObject({ __autoRevision: true, fallback: '1' })
     })
   })
 })

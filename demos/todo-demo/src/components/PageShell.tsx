@@ -1,6 +1,6 @@
 import { A } from '@solidjs/router'
 import type { JSX } from 'solid-js'
-import { useClient } from '../bootstrap/cqrs-context'
+import { useClient } from '../bootstrap/cqrs-context.js'
 
 interface PageShellProps {
   title: string

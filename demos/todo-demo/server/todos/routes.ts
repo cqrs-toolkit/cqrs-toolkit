@@ -103,6 +103,7 @@ export function todoRoutes(
       const command = request.body
       const metadata: EventMetadata = {
         correlationId: (request.headers['x-request-id'] as string) ?? uuidv4(),
+        commandId: request.headers['x-command-id'] as string | undefined,
       }
 
       try {

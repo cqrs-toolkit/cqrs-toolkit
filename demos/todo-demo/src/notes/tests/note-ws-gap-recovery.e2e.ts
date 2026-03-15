@@ -1,12 +1,12 @@
-import type { CommandSuccessResponse } from '../../../shared/types'
-import { expect, test, url } from '../../e2e-fixtures'
+import type { CommandSuccessResponse } from '../../../shared/types.js'
+import { expect, test, url } from '../../e2e-fixtures.js'
 import {
   getDashNoteTexts,
   gotoWithWsSubscribed,
   waitForDashNoteCount,
   waitForWsDisconnected,
   waitForWsReconnection,
-} from '../../e2e-helpers'
+} from '../../e2e-helpers.js'
 
 const API = 'http://localhost:3001/api'
 

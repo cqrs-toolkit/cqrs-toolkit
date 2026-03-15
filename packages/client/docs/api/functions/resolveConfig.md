@@ -6,26 +6,16 @@
 
 # Function: resolveConfig()
 
-> **resolveConfig**\<`TCommand`, `TEvent`\>(`config`): [`ResolvedConfig`](../interfaces/ResolvedConfig.md)\<`TCommand`, `TEvent`\>
+> **resolveConfig**(`config`): [`ResolvedConfig`](../interfaces/ResolvedConfig.md)
 
 Resolve shared configuration with defaults.
-
-## Type Parameters
-
-### TCommand
-
-`TCommand`
-
-### TEvent
-
-`TEvent`
 
 ## Parameters
 
 ### config
 
-[`CqrsConfig`](../interfaces/CqrsConfig.md)\<`TCommand`, `TEvent`\>
+[`CqrsConfig`](../interfaces/CqrsConfig.md)
 
 ## Returns
 
-[`ResolvedConfig`](../interfaces/ResolvedConfig.md)\<`TCommand`, `TEvent`\>
+[`ResolvedConfig`](../interfaces/ResolvedConfig.md)

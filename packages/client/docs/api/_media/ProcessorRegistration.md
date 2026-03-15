@@ -20,7 +20,7 @@ This allows typed processors to be collected into heterogeneous arrays.
 
 ### TModel
 
-`TModel` _extends_ `object` = `Record`\<`string`, `unknown`\>
+`TModel` _extends_ `object` = `object`
 
 ## Properties
 

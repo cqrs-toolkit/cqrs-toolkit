@@ -6,7 +6,8 @@
 
 # Class: CommandQueue
 
-Command queue implementation.
+Command queue interface.
+Provides form-friendly async patterns for command handling.
 
 ## Implements
 

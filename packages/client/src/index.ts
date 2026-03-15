@@ -138,6 +138,7 @@ export {
   deriveId,
   generateId,
   retryWithBackoff,
+  serializeBigint,
   shouldRetry,
   sleep,
 } from './utils/index.js'

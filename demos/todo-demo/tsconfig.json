@@ -2,8 +2,8 @@
   "extends": "../../packages/tsconfig.strictness.json",
   "compilerOptions": {
     "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "jsx": "preserve",
     "jsxImportSource": "solid-js",
     "noEmit": true,

@@ -57,6 +57,8 @@ describe('SyncManager', () => {
     const anticipatedEventHandler: IAnticipatedEventHandler = {
       cache: vi.fn().mockResolvedValue(undefined),
       cleanup: vi.fn().mockResolvedValue(undefined),
+      regenerate: vi.fn().mockResolvedValue(undefined),
+      getTrackedEntries: vi.fn().mockReturnValue(undefined),
       clearAll: vi.fn().mockResolvedValue(undefined),
     }
 

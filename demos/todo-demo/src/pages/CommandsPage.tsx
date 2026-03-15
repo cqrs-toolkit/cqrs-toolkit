@@ -1,9 +1,9 @@
 import type { CommandRecord, CommandStatus } from '@cqrs-toolkit/client'
 import { createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
-import { useClient } from '../bootstrap/cqrs-context'
-import CommandItem from '../components/CommandItem'
-import PageShell from '../components/PageShell'
-import StatusFilter from '../components/StatusFilter'
+import { useClient } from '../bootstrap/cqrs-context.js'
+import CommandItem from '../components/CommandItem.js'
+import PageShell from '../components/PageShell.js'
+import StatusFilter from '../components/StatusFilter.js'
 
 const ALL_STATUSES = new Set<CommandStatus>([
   'pending',

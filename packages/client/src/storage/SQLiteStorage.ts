@@ -280,8 +280,9 @@ export class SQLiteStorage implements IStorage {
     await this.exec(
       `INSERT OR REPLACE INTO commands
        (command_id, service, type, payload, status, depends_on, blocked_by, attempts,
-        last_attempt_at, error, server_response, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        last_attempt_at, error, server_response, post_process, creates, revision_field,
+        created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         command.commandId,
         command.service,
@@ -294,6 +295,9 @@ export class SQLiteStorage implements IStorage {
         command.lastAttemptAt ?? null,
         command.error ? JSON.stringify(command.error) : null,
         command.serverResponse !== undefined ? JSON.stringify(command.serverResponse) : null,
+        command.postProcess ? JSON.stringify(command.postProcess) : null,
+        command.creates ? JSON.stringify(command.creates) : null,
+        command.revisionField ?? null,
         command.createdAt,
         command.updatedAt,
       ],
@@ -578,6 +582,63 @@ export class SQLiteStorage implements IStorage {
     return total
   }
 
+  // Command ID mapping operations
+
+  async getCommandIdMapping(
+    clientId: string,
+  ): Promise<import('./IStorage.js').CommandIdMappingRecord | undefined> {
+    this.assertInitialized()
+    const row = await this.queryOne<CommandIdMappingRow>(
+      'SELECT * FROM command_id_mappings WHERE client_id = ?',
+      [clientId],
+    )
+    if (!row) return undefined
+    return {
+      clientId: row.client_id,
+      serverId: row.server_id,
+      data: row.data,
+      createdAt: row.created_at,
+    }
+  }
+
+  async getCommandIdMappingByServerId(
+    serverId: string,
+  ): Promise<import('./IStorage.js').CommandIdMappingRecord | undefined> {
+    this.assertInitialized()
+    const row = await this.queryOne<CommandIdMappingRow>(
+      'SELECT * FROM command_id_mappings WHERE server_id = ?',
+      [serverId],
+    )
+    if (!row) return undefined
+    return {
+      clientId: row.client_id,
+      serverId: row.server_id,
+      data: row.data,
+      createdAt: row.created_at,
+    }
+  }
+
+  async saveCommandIdMapping(
+    record: import('./IStorage.js').CommandIdMappingRecord,
+  ): Promise<void> {
+    this.assertInitialized()
+    await this.exec(
+      `INSERT OR REPLACE INTO command_id_mappings (client_id, server_id, data, created_at)
+       VALUES (?, ?, ?, ?)`,
+      [record.clientId, record.serverId, record.data, record.createdAt],
+    )
+  }
+
+  async deleteCommandIdMappingsOlderThan(timestamp: number): Promise<void> {
+    this.assertInitialized()
+    await this.exec('DELETE FROM command_id_mappings WHERE created_at < ?', [timestamp])
+  }
+
+  async deleteAllCommandIdMappings(): Promise<void> {
+    this.assertInitialized()
+    await this.exec('DELETE FROM command_id_mappings')
+  }
+
   // Private helpers
 
   private rmTable(collection: string): string {
@@ -662,6 +723,9 @@ export class SQLiteStorage implements IStorage {
       lastAttemptAt: row.last_attempt_at ?? undefined,
       error: row.error ? JSON.parse(row.error) : undefined,
       serverResponse: row.server_response ? JSON.parse(row.server_response) : undefined,
+      postProcess: row.post_process ? JSON.parse(row.post_process) : undefined,
+      creates: row.creates ? JSON.parse(row.creates) : undefined,
+      revisionField: row.revision_field ?? undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }
@@ -731,6 +795,9 @@ interface CommandRow {
   last_attempt_at: number | null
   error: string | null
   server_response: string | null
+  post_process: string | null
+  creates: string | null
+  revision_field: string | null
   created_at: number
   updated_at: number
 }
@@ -745,6 +812,13 @@ interface EventRow {
   revision: string | null
   command_id: string | null
   cache_key: string
+  created_at: number
+}
+
+interface CommandIdMappingRow {
+  client_id: string
+  server_id: string
+  data: string
   created_at: number
 }
 

@@ -959,16 +959,30 @@ export class SyncManager {
    */
   private toParsedEvent(event: IPersistedEvent, cacheKey: string): ParsedEvent {
     const persistence = normalizeEventPersistence(event)
+    const commandId = this.extractCommandId(event)
     return {
       id: event.id,
       type: event.type,
       streamId: event.streamId,
       persistence,
       data: event.data,
+      commandId,
       revision: event.revision,
       position: event.position,
       cacheKey,
     }
+  }
+
+  /**
+   * Extract commandId from event metadata (server contract: metadata.commandId).
+   */
+  private extractCommandId(event: IPersistedEvent): string | undefined {
+    const metadata = event.metadata
+    if (typeof metadata !== 'object' || metadata === null) return undefined
+    if ('commandId' in metadata && typeof metadata.commandId === 'string') {
+      return metadata.commandId
+    }
+    return undefined
   }
 
   /**

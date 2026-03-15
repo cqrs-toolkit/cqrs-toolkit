@@ -1,5 +1,5 @@
 import { createSignal } from 'solid-js'
-import { useClient } from '../bootstrap/cqrs-context'
+import { useClient } from '../bootstrap/cqrs-context.js'
 
 interface AddTodoProps {
   onError: (message: string | undefined) => void
@@ -54,7 +54,7 @@ export default function AddTodo(props: AddTodoProps) {
         props.formRef?.(el)
       }}
       onSubmit={handleSubmit}
-      class="flex gap-2 mb-6"
+      class={`add-form flex gap-2 mb-6 ${editState() === 'saving' ? 'add-saving' : 'add-idle'}`}
     >
       <input
         ref={inputRef}

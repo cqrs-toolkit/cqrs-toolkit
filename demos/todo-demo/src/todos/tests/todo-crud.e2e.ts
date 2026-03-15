@@ -1,5 +1,5 @@
-import { expect, test, url } from '../../e2e-fixtures'
-import { addTodo, getTodoTexts, waitForTodoCount } from '../../e2e-helpers'
+import { expect, test, url } from '../../e2e-fixtures.js'
+import { addTodo, getTodoTexts, waitForTodoCount } from '../../e2e-helpers.js'
 
 test.beforeEach(async ({ request }) => {
   await request.post('http://localhost:3001/api/test/reset')

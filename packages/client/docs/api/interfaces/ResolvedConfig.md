@@ -4,23 +4,13 @@
 
 [@cqrs-toolkit/client](../globals.md) / ResolvedConfig
 
-# Interface: ResolvedConfig\<TCommand, TEvent\>
+# Interface: ResolvedConfig
 
 Resolved shared configuration with all defaults applied.
 
 ## Extends
 
-- `Required`\<`Omit`\<[`CqrsConfig`](CqrsConfig.md)\<`TCommand`, `TEvent`\>, `"domainExecutor"` \| `"commandSender"` \| `"workerSetup"` \| `"collections"` \| `"processors"`\>\>
-
-## Type Parameters
-
-### TCommand
-
-`TCommand` = `unknown`
-
-### TEvent
-
-`TEvent` = `unknown`
+- `Required`\<`Omit`\<[`CqrsConfig`](CqrsConfig.md), `"commandHandlers"` \| `"commandSender"` \| `"workerSetup"` \| `"collections"` \| `"processors"`\>\>
 
 ## Properties
 
@@ -56,6 +46,12 @@ Cache configuration.
 
 ---
 
+### commandHandlers
+
+> **commandHandlers**: [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`unknown`\>[]
+
+---
+
 ### commandSender?
 
 > `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)
@@ -74,12 +70,6 @@ Enable debug logging.
 
 ---
 
-### domainExecutor?
-
-> `optional` **domainExecutor**: [`IDomainExecutor`](IDomainExecutor.md)\<`TCommand`, `TEvent`\>
-
----
-
 ### network
 
 > **network**: [`NetworkConfig`](NetworkConfig.md)
@@ -94,7 +84,7 @@ Network configuration.
 
 ### processors
 
-> **processors**: [`ProcessorRegistration`](ProcessorRegistration.md)\<`unknown`, `Record`\<`string`, `unknown`\>\>[]
+> **processors**: [`ProcessorRegistration`](ProcessorRegistration.md)\<`unknown`, `object`\>[]
 
 ---
 

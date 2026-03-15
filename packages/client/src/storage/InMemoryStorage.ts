@@ -7,6 +7,7 @@ import type { CommandFilter, CommandRecord, CommandStatus } from '../types/comma
 import type {
   CacheKeyRecord,
   CachedEventRecord,
+  CommandIdMappingRecord,
   IStorage,
   QueryOptions,
   ReadModelRecord,
@@ -23,6 +24,8 @@ export class InMemoryStorage implements IStorage {
   private commands: Map<string, CommandRecord> = new Map()
   private cachedEvents: Map<string, CachedEventRecord> = new Map()
   private readModels: Map<string, ReadModelRecord> = new Map()
+  private commandIdMappingsByClientId: Map<string, CommandIdMappingRecord> = new Map()
+  private commandIdMappingsByServerId: Map<string, CommandIdMappingRecord> = new Map()
 
   private initialized = false
 
@@ -346,5 +349,36 @@ export class InMemoryStorage implements IStorage {
 
   async getReadModelCount(): Promise<number> {
     return this.readModels.size
+  }
+
+  // Command ID mapping operations
+
+  async getCommandIdMapping(clientId: string): Promise<CommandIdMappingRecord | undefined> {
+    return this.commandIdMappingsByClientId.get(clientId)
+  }
+
+  async getCommandIdMappingByServerId(
+    serverId: string,
+  ): Promise<CommandIdMappingRecord | undefined> {
+    return this.commandIdMappingsByServerId.get(serverId)
+  }
+
+  async saveCommandIdMapping(record: CommandIdMappingRecord): Promise<void> {
+    this.commandIdMappingsByClientId.set(record.clientId, record)
+    this.commandIdMappingsByServerId.set(record.serverId, record)
+  }
+
+  async deleteCommandIdMappingsOlderThan(timestamp: number): Promise<void> {
+    for (const [key, record] of this.commandIdMappingsByClientId) {
+      if (record.createdAt < timestamp) {
+        this.commandIdMappingsByClientId.delete(key)
+        this.commandIdMappingsByServerId.delete(record.serverId)
+      }
+    }
+  }
+
+  async deleteAllCommandIdMappings(): Promise<void> {
+    this.commandIdMappingsByClientId.clear()
+    this.commandIdMappingsByServerId.clear()
   }
 }

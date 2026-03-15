@@ -80,10 +80,7 @@ export interface ProcessorContext {
  * are assignable to `ProcessorRegistration[]` (bivariant parameter checking).
  * This allows typed processors to be collected into heterogeneous arrays.
  */
-export interface ProcessorRegistration<
-  TEvent = unknown,
-  TModel extends object = Record<string, unknown>,
-> {
+export interface ProcessorRegistration<TEvent = unknown, TModel extends object = object> {
   /** Event type(s) this processor handles */
   eventTypes: string | string[]
   /** The processor function */

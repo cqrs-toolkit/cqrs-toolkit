@@ -3,9 +3,9 @@ import { createListQuery } from '@cqrs-toolkit/client-solid'
 import { A } from '@solidjs/router'
 import { filter } from 'rxjs'
 import { createSignal, For, onCleanup, onMount, Show } from 'solid-js'
-import type { Note } from '../../shared/notes/types'
-import type { Todo } from '../../shared/todos/types'
-import { useClient } from '../bootstrap/cqrs-context'
+import type { Note } from '../../shared/notes/types.js'
+import type { Todo } from '../../shared/todos/types.js'
+import { useClient } from '../bootstrap/cqrs-context.js'
 
 type PanelState = 'loading' | 'ready' | 'error'
 

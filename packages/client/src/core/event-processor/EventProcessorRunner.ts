@@ -5,6 +5,7 @@
 
 import { logProvider } from '@meticoeus/ddd-es'
 import type { EventPersistence } from '../../types/events.js'
+import type { IAnticipatedEventHandler } from '../command-queue/CommandQueue.js'
 import type { EventBus } from '../events/EventBus.js'
 import type { ReadModelStore } from '../read-model-store/ReadModelStore.js'
 import { EventProcessorRegistry } from './EventProcessorRegistry.js'
@@ -22,6 +23,8 @@ export interface EventProcessorRunnerConfig {
   readModelStore: ReadModelStore
   eventBus: EventBus
   registry: EventProcessorRegistry
+  /** Anticipated event handler for create reconciliation. Optional — only needed with command handlers. */
+  anticipatedEventHandler?: IAnticipatedEventHandler
 }
 
 /**
@@ -54,11 +57,21 @@ export class EventProcessorRunner {
   private readonly readModelStore: ReadModelStore
   private readonly eventBus: EventBus
   private readonly registry: EventProcessorRegistry
+  private anticipatedEventHandler?: IAnticipatedEventHandler
 
   constructor(config: EventProcessorRunnerConfig) {
     this.readModelStore = config.readModelStore
     this.eventBus = config.eventBus
     this.registry = config.registry
+    this.anticipatedEventHandler = config.anticipatedEventHandler
+  }
+
+  /**
+   * Set the anticipated event handler after construction (breaks circular dependency
+   * when the handler needs the runner and the runner needs the handler).
+   */
+  setAnticipatedEventHandler(handler: IAnticipatedEventHandler): void {
+    this.anticipatedEventHandler = handler
   }
 
   /**
@@ -85,9 +98,28 @@ export class EventProcessorRunner {
       allResults.push(...result.results)
     }
 
+    // Check for create reconciliation: a permanent event replacing an anticipated create
+    // that used a different (client-generated) ID.
+    const reconciledEntries = await this.reconcileAnticipatedCreate(event, allResults)
+
     // Apply all results, tracking which actually modified data
     const modifiedByCollection = new Map<string, string[]>()
     const updatedIds: string[] = []
+
+    // Include reconciled (deleted) entries in the modified set so the UI refreshes
+    for (const entry of reconciledEntries) {
+      const separatorIndex = entry.indexOf(':')
+      if (separatorIndex === -1) continue
+      const collection = entry.substring(0, separatorIndex)
+      const id = entry.substring(separatorIndex + 1)
+      let ids = modifiedByCollection.get(collection)
+      if (!ids) {
+        ids = []
+        modifiedByCollection.set(collection, ids)
+      }
+      ids.push(id)
+      updatedIds.push(entry)
+    }
 
     for (const result of allResults) {
       const modified = await this.applyResult(result, event.cacheKey)
@@ -180,6 +212,60 @@ export class EventProcessorRunner {
         return model.data
       },
     }
+  }
+
+  /**
+   * Check if a permanent event is replacing an anticipated create with a different ID.
+   * If so, delete the old (client-ID) read model entry before the new (server-ID) entry is created.
+   *
+   * This ensures the UI never sees a duplicate — the old entry is removed and the new one is
+   * created atomically within a single processEvent call (one readmodel:updated emission).
+   *
+   * @returns Array of "collection:id" entries that were deleted (for inclusion in the notification).
+   */
+  private async reconcileAnticipatedCreate(
+    event: ParsedEvent,
+    processorResults: ProcessorResult[],
+  ): Promise<string[]> {
+    // Only reconcile non-anticipated events with a commandId
+    if (event.persistence === 'Anticipated') return []
+    if (!event.commandId) return []
+    if (!this.anticipatedEventHandler) return []
+
+    const tracked = this.anticipatedEventHandler.getTrackedEntries(event.commandId)
+    if (!tracked || tracked.length === 0) return []
+
+    const deletedEntries: string[] = []
+
+    // For each processor result, check if any tracked anticipated entry has a different ID
+    // in the same collection — this means the anticipated create used a client ID that
+    // differs from the server-assigned ID.
+    for (const result of processorResults) {
+      for (const entry of tracked) {
+        const separatorIndex = entry.indexOf(':')
+        if (separatorIndex === -1) continue
+        const trackedCollection = entry.substring(0, separatorIndex)
+        const trackedId = entry.substring(separatorIndex + 1)
+
+        if (trackedCollection === result.collection && trackedId !== result.id) {
+          // This is a create reconciliation: client ID → server ID
+          await this.readModelStore.delete(trackedCollection, trackedId)
+          deletedEntries.push(entry)
+
+          logProvider.log.debug(
+            {
+              commandId: event.commandId,
+              collection: trackedCollection,
+              clientId: trackedId,
+              serverId: result.id,
+            },
+            'Reconciled anticipated create: replaced client ID with server ID',
+          )
+        }
+      }
+    }
+
+    return deletedEntries
   }
 
   /**

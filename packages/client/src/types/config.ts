@@ -6,7 +6,7 @@ import type { IPersistedEvent } from '@meticoeus/ddd-es'
 import type { AuthStrategy } from '../core/auth.js'
 import type { ICommandSender } from '../core/command-queue/types.js'
 import type { ProcessorRegistration } from '../core/event-processor/types.js'
-import type { IDomainExecutor } from './domain.js'
+import type { CommandHandlerRegistration } from './domain.js'
 
 /**
  * Execution mode for the CQRS Client.
@@ -241,12 +241,13 @@ export interface Collection {
  * Contains all domain-level settings shared between the main thread and worker.
  * The consumer writes this once and imports it from both entry points.
  */
-export interface CqrsConfig<TCommand = unknown, TEvent = unknown> {
+export interface CqrsConfig {
   /**
-   * Domain executor for local command validation.
+   * Command handler registrations for local validation and optimistic updates.
+   * Each handler validates a command payload and produces anticipated events.
    * If not provided, commands are sent directly without local validation.
    */
-  domainExecutor?: IDomainExecutor<TCommand, TEvent>
+  commandHandlers?: CommandHandlerRegistration[]
 
   /**
    * Auth strategy for transport-level authentication.
@@ -316,10 +317,7 @@ export interface CqrsConfig<TCommand = unknown, TEvent = unknown> {
  * Extends the shared config with main-thread-only concerns:
  * mode selection and worker script URL.
  */
-export interface CqrsClientConfig<TCommand = unknown, TEvent = unknown> extends CqrsConfig<
-  TCommand,
-  TEvent
-> {
+export interface CqrsClientConfig extends CqrsConfig {
   /**
    * Execution mode.
    * Defaults to 'auto': SharedWorker > Dedicated Worker > Online-only
@@ -374,13 +372,13 @@ export const DEFAULT_CONFIG = {
 /**
  * Resolved shared configuration with all defaults applied.
  */
-export interface ResolvedConfig<TCommand = unknown, TEvent = unknown> extends Required<
+export interface ResolvedConfig extends Required<
   Omit<
-    CqrsConfig<TCommand, TEvent>,
-    'domainExecutor' | 'commandSender' | 'workerSetup' | 'collections' | 'processors'
+    CqrsConfig,
+    'commandHandlers' | 'commandSender' | 'workerSetup' | 'collections' | 'processors'
   >
 > {
-  domainExecutor?: IDomainExecutor<TCommand, TEvent>
+  commandHandlers: CommandHandlerRegistration[]
   commandSender?: ICommandSender
   workerSetup?: string[]
   collections: Collection[]
@@ -390,11 +388,9 @@ export interface ResolvedConfig<TCommand = unknown, TEvent = unknown> extends Re
 /**
  * Resolve shared configuration with defaults.
  */
-export function resolveConfig<TCommand, TEvent>(
-  config: CqrsConfig<TCommand, TEvent>,
-): ResolvedConfig<TCommand, TEvent> {
+export function resolveConfig(config: CqrsConfig): ResolvedConfig {
   return {
-    domainExecutor: config.domainExecutor,
+    commandHandlers: config.commandHandlers ?? [],
     commandSender: config.commandSender,
     auth: config.auth,
     network: {

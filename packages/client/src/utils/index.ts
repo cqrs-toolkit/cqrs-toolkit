@@ -3,6 +3,7 @@
  */
 
 export { assert } from './assert.js'
+export { serializeBigint } from './bigint.js'
 export {
   DEFAULT_RETRY_CONFIG,
   calculateBackoffDelay,

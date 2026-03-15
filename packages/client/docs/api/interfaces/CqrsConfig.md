@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / CqrsConfig
 
-# Interface: CqrsConfig\<TCommand, TEvent\>
+# Interface: CqrsConfig
 
 Shared CQRS configuration.
 
@@ -14,16 +14,6 @@ The consumer writes this once and imports it from both entry points.
 ## Extended by
 
 - [`CqrsClientConfig`](CqrsClientConfig.md)
-
-## Type Parameters
-
-### TCommand
-
-`TCommand` = `unknown`
-
-### TEvent
-
-`TEvent` = `unknown`
 
 ## Properties
 
@@ -53,6 +43,16 @@ Collection configurations.
 
 ---
 
+### commandHandlers?
+
+> `optional` **commandHandlers**: [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`unknown`\>[]
+
+Command handler registrations for local validation and optimistic updates.
+Each handler validates a command payload and produces anticipated events.
+If not provided, commands are sent directly without local validation.
+
+---
+
 ### commandSender?
 
 > `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)
@@ -70,15 +70,6 @@ Enable debug logging.
 
 ---
 
-### domainExecutor?
-
-> `optional` **domainExecutor**: [`IDomainExecutor`](IDomainExecutor.md)\<`TCommand`, `TEvent`\>
-
-Domain executor for local command validation.
-If not provided, commands are sent directly without local validation.
-
----
-
 ### network
 
 > **network**: [`NetworkConfig`](NetworkConfig.md)
@@ -89,7 +80,7 @@ Network configuration.
 
 ### processors?
 
-> `optional` **processors**: [`ProcessorRegistration`](ProcessorRegistration.md)\<`unknown`, `Record`\<`string`, `unknown`\>\>[]
+> `optional` **processors**: [`ProcessorRegistration`](ProcessorRegistration.md)\<`unknown`, `object`\>[]
 
 Event processors to register.
 Processors transform domain events into read model updates.

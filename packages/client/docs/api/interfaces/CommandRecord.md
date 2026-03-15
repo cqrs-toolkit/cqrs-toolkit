@@ -52,6 +52,14 @@ Creation timestamp
 
 ---
 
+### creates?
+
+> `optional` **creates**: [`CreateCommandConfig`](CreateCommandConfig.md)
+
+Create command configuration (present only for commands that create aggregates)
+
+---
+
 ### dependsOn
 
 > **dependsOn**: `string`[]
@@ -81,6 +89,22 @@ Timestamp of last send attempt
 > **payload**: `TPayload`
 
 Command payload
+
+---
+
+### postProcess?
+
+> `optional` **postProcess**: [`PostProcessPlan`](PostProcessPlan.md)
+
+Post-processing instructions from the domain executor
+
+---
+
+### revisionField?
+
+> `optional` **revisionField**: `string`
+
+Payload field name that holds the revision (from handler registration)
 
 ---
 

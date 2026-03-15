@@ -60,6 +60,7 @@ import type {
 } from './types/config.js'
 import { resolveConfig } from './types/config.js'
 import type { CqrsDevToolsHook, DebugStorageAPI } from './types/debug.js'
+import { createDomainExecutor } from './types/domain.js'
 import type { EventPersistence, LibraryEvent } from './types/events.js'
 import { assert } from './utils/assert.js'
 
@@ -401,17 +402,27 @@ async function createOnlineOnlyClient(
   // before SyncManager exists (queue starts paused, only processes after resume).
   let syncManagerRef: SyncManager
 
+  const anticipatedEventHandler = createAnticipatedEventHandler(
+    eventCache,
+    cacheManager,
+    eventProcessorRunner,
+    readModelStore,
+    resolved.collections,
+  )
+
+  // Wire the anticipated handler into the processor for create reconciliation.
+  // Breaks the circular dependency: handler needs runner, runner needs handler.
+  eventProcessorRunner.setAnticipatedEventHandler(anticipatedEventHandler)
+
   const commandQueue = new CommandQueue({
     storage,
     eventBus,
-    anticipatedEventHandler: createAnticipatedEventHandler(
-      eventCache,
-      cacheManager,
-      eventProcessorRunner,
-      readModelStore,
-      resolved.collections,
-    ),
-    domainExecutor: resolved.domainExecutor,
+    anticipatedEventHandler,
+    ...(() => {
+      if (resolved.commandHandlers.length === 0) return {}
+      const executor = createDomainExecutor(resolved.commandHandlers)
+      return { domainExecutor: executor, handlerMetadata: executor }
+    })(),
     commandSender: resolved.commandSender,
     retryConfig: resolved.retry,
     retainTerminal: resolved.retainTerminal,
@@ -691,15 +702,23 @@ function createAnticipatedEventHandler(
       }
     },
 
-    async cleanup(commandId: string, terminalStatus: TerminalCommandStatus): Promise<void> {
+    async cleanup(commandId: string, _terminalStatus: TerminalCommandStatus): Promise<void> {
       // Always delete anticipated events from EventCache
       await eventCache.deleteAnticipatedEvents(commandId)
 
       const tracked = anticipatedUpdates.get(commandId)
       anticipatedUpdates.delete(commandId)
 
-      // Revert read models on failure or cancellation
-      if ((terminalStatus === 'failed' || terminalStatus === 'cancelled') && tracked) {
+      // Clear local changes for all tracked entities on any terminal state.
+      // - Failure/cancellation: reverts optimistic updates to server baseline,
+      //   or deletes entries with no server baseline.
+      // - Success (update commands): setServerData already cleared hasLocalChanges
+      //   via three-way merge, so clearLocalChanges is a no-op.
+      // - Success (create commands with client-generated IDs): the anticipated
+      //   event created a read model with a client ID that differs from the
+      //   server-assigned ID. The entry has serverData === null, so
+      //   clearLocalChanges deletes the orphan.
+      if (tracked) {
         for (const key of tracked) {
           const separatorIndex = key.indexOf(':')
           if (separatorIndex === -1) continue
@@ -708,6 +727,28 @@ function createAnticipatedEventHandler(
           await readModelStore.clearLocalChanges(collection, id)
         }
       }
+    },
+
+    async regenerate(commandId: string, newEvents: unknown[]): Promise<void> {
+      // Clean up old anticipated events and read model entries
+      await eventCache.deleteAnticipatedEvents(commandId)
+      const tracked = anticipatedUpdates.get(commandId)
+      anticipatedUpdates.delete(commandId)
+      if (tracked) {
+        for (const key of tracked) {
+          const separatorIndex = key.indexOf(':')
+          if (separatorIndex === -1) continue
+          const collection = key.substring(0, separatorIndex)
+          const id = key.substring(separatorIndex + 1)
+          await readModelStore.clearLocalChanges(collection, id)
+        }
+      }
+      // Cache the new events (re-creates anticipated events and read model entries)
+      await this.cache(commandId, newEvents)
+    },
+
+    getTrackedEntries(commandId: string): string[] | undefined {
+      return anticipatedUpdates.get(commandId)
     },
 
     async clearAll(): Promise<void> {

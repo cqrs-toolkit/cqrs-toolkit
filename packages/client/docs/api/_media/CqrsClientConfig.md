@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / CqrsClientConfig
 
-# Interface: CqrsClientConfig\<TCommand, TEvent\>
+# Interface: CqrsClientConfig
 
 Main-thread CQRS Client configuration.
 
@@ -13,17 +13,7 @@ mode selection and worker script URL.
 
 ## Extends
 
-- [`CqrsConfig`](CqrsConfig.md)\<`TCommand`, `TEvent`\>
-
-## Type Parameters
-
-### TCommand
-
-`TCommand` = `unknown`
-
-### TEvent
-
-`TEvent` = `unknown`
+- [`CqrsConfig`](CqrsConfig.md)
 
 ## Properties
 
@@ -65,6 +55,20 @@ Collection configurations.
 
 ---
 
+### commandHandlers?
+
+> `optional` **commandHandlers**: [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`unknown`\>[]
+
+Command handler registrations for local validation and optimistic updates.
+Each handler validates a command payload and produces anticipated events.
+If not provided, commands are sent directly without local validation.
+
+#### Inherited from
+
+[`CqrsConfig`](CqrsConfig.md).[`commandHandlers`](CqrsConfig.md#commandhandlers)
+
+---
+
 ### commandSender?
 
 > `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)
@@ -87,19 +91,6 @@ Enable debug logging.
 #### Inherited from
 
 [`CqrsConfig`](CqrsConfig.md).[`debug`](CqrsConfig.md#debug)
-
----
-
-### domainExecutor?
-
-> `optional` **domainExecutor**: [`IDomainExecutor`](IDomainExecutor.md)\<`TCommand`, `TEvent`\>
-
-Domain executor for local command validation.
-If not provided, commands are sent directly without local validation.
-
-#### Inherited from
-
-[`CqrsConfig`](CqrsConfig.md).[`domainExecutor`](CqrsConfig.md#domainexecutor)
 
 ---
 
@@ -126,7 +117,7 @@ Network configuration.
 
 ### processors?
 
-> `optional` **processors**: [`ProcessorRegistration`](ProcessorRegistration.md)\<`unknown`, `Record`\<`string`, `unknown`\>\>[]
+> `optional` **processors**: [`ProcessorRegistration`](ProcessorRegistration.md)\<`unknown`, `object`\>[]
 
 Event processors to register.
 Processors transform domain events into read model updates.

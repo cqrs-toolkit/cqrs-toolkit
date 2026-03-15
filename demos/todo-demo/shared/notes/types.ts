@@ -8,7 +8,7 @@ export interface Note {
   readonly body: string
   readonly createdAt: string
   readonly updatedAt: string
-  readonly latestRevision: string
+  readonly latestRevision?: string | undefined
 }
 
 export interface ListNotesResponse {

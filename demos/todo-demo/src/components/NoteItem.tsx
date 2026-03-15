@@ -1,23 +1,25 @@
+import { autoRevision } from '@cqrs-toolkit/client'
 import { createSignal, Show } from 'solid-js'
-import type { Note } from '../../shared/notes/types'
-import { useClient } from '../bootstrap/cqrs-context'
+import type { Note } from '../../shared/notes/types.js'
+import { useClient } from '../bootstrap/cqrs-context.js'
+import { createMutationEditState } from './createMutationEditState.js'
 
 interface NoteItemProps {
   note: Note
   onError: (message: string | undefined) => void
 }
 
-type EditState = 'viewing' | 'editing' | 'saving'
-
 export default function NoteItem(props: NoteItemProps) {
   const client = useClient()
-  const [editState, setEditState] = createSignal<EditState>('viewing')
+  const { editState, setEditState, setMutation, isMutating, canEdit, canSave, canDelete } =
+    createMutationEditState()
   const [editTitle, setEditTitle] = createSignal('')
   const [editBody, setEditBody] = createSignal('')
   let editTitleRef: HTMLInputElement | undefined
   let liRef: HTMLLIElement | undefined
 
   function startEdit() {
+    if (!canEdit()) return
     setEditTitle(props.note.title)
     setEditBody(props.note.body)
     setEditState('editing')
@@ -25,7 +27,7 @@ export default function NoteItem(props: NoteItemProps) {
   }
 
   async function handleSave() {
-    if (editState() !== 'editing') return
+    if (!canSave()) return
 
     const trimmedTitle = editTitle().trim()
     if (trimmedTitle.length === 0) {
@@ -41,16 +43,20 @@ export default function NoteItem(props: NoteItemProps) {
       return
     }
 
-    setEditState('saving')
+    setMutation('saving-edit')
     props.onError(undefined)
 
     if (titleChanged) {
       const result = await client.submit({
         type: 'UpdateNoteTitle',
-        payload: { id: props.note.id, title: trimmedTitle, revision: props.note.latestRevision },
+        payload: {
+          id: props.note.id,
+          title: trimmedTitle,
+          revision: autoRevision(props.note.latestRevision),
+        },
       })
       if (!result.ok) {
-        setEditState('editing')
+        setMutation('idle')
         props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
         return
       }
@@ -59,19 +65,25 @@ export default function NoteItem(props: NoteItemProps) {
     if (bodyChanged) {
       const result = await client.submit({
         type: 'UpdateNoteBody',
-        payload: { id: props.note.id, body: editBody(), revision: props.note.latestRevision },
+        payload: {
+          id: props.note.id,
+          body: editBody(),
+          revision: autoRevision(props.note.latestRevision),
+        },
       })
       if (!result.ok) {
-        setEditState('editing')
+        setMutation('idle')
         props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
         return
       }
     }
 
+    setMutation('idle')
     setEditState('viewing')
   }
 
   function cancelEdit() {
+    if (isMutating()) return
     setEditState('viewing')
   }
 
@@ -111,12 +123,15 @@ export default function NoteItem(props: NoteItemProps) {
   }
 
   async function handleDelete() {
+    if (!canDelete()) return
     props.onError(undefined)
+    setMutation('deleting')
     const result = await client.submit({
       type: 'DeleteNote',
-      payload: { id: props.note.id, revision: props.note.latestRevision },
+      payload: { id: props.note.id, revision: autoRevision(props.note.latestRevision) },
     })
     if (!result.ok) {
+      setMutation('idle')
       props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
     }
   }
@@ -143,12 +158,14 @@ export default function NoteItem(props: NoteItemProps) {
                 <button
                   class="px-3 py-1 rounded bg-neutral-500 text-white hover:bg-neutral-600 text-sm cursor-pointer"
                   onClick={startEdit}
+                  disabled={isMutating()}
                 >
                   Edit
                 </button>
                 <button
                   class="px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700 text-sm cursor-pointer"
                   onClick={handleDelete}
+                  disabled={isMutating()}
                 >
                   Del
                 </button>
@@ -173,12 +190,13 @@ export default function NoteItem(props: NoteItemProps) {
               type="text"
               value={editTitle()}
               onInput={(e) => setEditTitle(e.currentTarget.value)}
-              disabled={editState() === 'saving'}
+              disabled={isMutating()}
             />
             <div class="flex gap-1">
               <button
                 class="cancel-edit p-1 rounded bg-neutral-500 text-white hover:bg-neutral-600 cursor-pointer"
                 onClick={cancelEdit}
+                disabled={isMutating()}
                 title="Cancel editing"
               >
                 <svg
@@ -198,6 +216,7 @@ export default function NoteItem(props: NoteItemProps) {
               <button
                 class="px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700 text-sm cursor-pointer"
                 onClick={handleDelete}
+                disabled={isMutating()}
               >
                 Del
               </button>
@@ -207,7 +226,7 @@ export default function NoteItem(props: NoteItemProps) {
             class="edit-input w-full px-1 py-0.5 rounded border border-indigo-500 dark:bg-neutral-800 text-sm focus:outline-none"
             value={editBody()}
             onInput={(e) => setEditBody(e.currentTarget.value)}
-            disabled={editState() === 'saving'}
+            disabled={isMutating()}
             rows={3}
           />
         </div>

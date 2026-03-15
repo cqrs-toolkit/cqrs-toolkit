@@ -9,12 +9,6 @@
 Post-processing plan for after server confirmation.
 Used for temp ID replacement, cleanup, etc.
 
-## Indexable
-
-\[`key`: `string`\]: `unknown`
-
-Additional plan-specific data
-
 ## Properties
 
 ### kind
@@ -29,4 +23,4 @@ Plan type identifier
 
 > `optional` **tempIds**: `Record`\<`string`, `string`\>
 
-Mapping of temporary IDs to placeholders
+Mapping of temporary IDs to field paths in event data
