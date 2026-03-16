@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/realtime](../README.md) / parseServerMessage
+[@cqrs-toolkit/realtime](../globals.md) / parseServerMessage
 
 # Function: parseServerMessage()
 

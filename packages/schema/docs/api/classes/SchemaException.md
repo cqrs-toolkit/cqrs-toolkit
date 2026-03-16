@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/schema](../README.md) / SchemaException
+[@cqrs-toolkit/schema](../globals.md) / SchemaException
 
 # Class: SchemaException
 

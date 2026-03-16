@@ -1,7 +1,3 @@
-**@cqrs-toolkit/schema**
-
----
-
 # @cqrs-toolkit/schema
 
 JSON Schema validation, `$id`/`$ref` linking, and runtime value hydration for event-sourced systems.
@@ -172,7 +168,7 @@ if (!result.ok) {
 
 ## API Reference
 
-Full API documentation is generated from source and available at [docs/api](_media/README.md).
+Full API documentation is generated from source and available at [docs/api](docs/api/README.md).
 
 ## License
 

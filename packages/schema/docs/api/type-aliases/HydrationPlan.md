@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/schema](../README.md) / HydrationPlan
+[@cqrs-toolkit/schema](../globals.md) / HydrationPlan
 
 # Type Alias: HydrationPlan
 

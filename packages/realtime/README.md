@@ -1,7 +1,3 @@
-**@cqrs-toolkit/realtime**
-
----
-
 # @cqrs-toolkit/realtime
 
 Canonical WebSocket message protocol types and serialization helpers for CQRS real-time event streaming.
@@ -157,7 +153,7 @@ Server-to-client parsing validates only the `type` discriminant — the client t
 
 ## API Reference
 
-Full API documentation is generated from source and available at [docs/api](_media/README.md).
+Full API documentation is generated from source and available at [docs/api](docs/api/README.md).
 
 ## License
 

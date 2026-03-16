@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/realtime](../README.md) / EventMessage
+[@cqrs-toolkit/realtime](../globals.md) / EventMessage
 
 # Interface: EventMessage
 

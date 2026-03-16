@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/client-solid](../README.md) / createItemQuery
+[@cqrs-toolkit/client-solid](../globals.md) / createItemQuery
 
 # Function: createItemQuery()
 

@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/schema](../README.md) / int64Visitor
+[@cqrs-toolkit/schema](../globals.md) / int64Visitor
 
 # Variable: int64Visitor
 

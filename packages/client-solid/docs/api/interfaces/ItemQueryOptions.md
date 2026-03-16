@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/client-solid](../README.md) / ItemQueryOptions
+[@cqrs-toolkit/client-solid](../globals.md) / ItemQueryOptions
 
 # Interface: ItemQueryOptions
 

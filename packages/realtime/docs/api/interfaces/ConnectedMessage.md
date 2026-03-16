@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/realtime](../README.md) / ConnectedMessage
+[@cqrs-toolkit/realtime](../globals.md) / ConnectedMessage
 
 # Interface: ConnectedMessage
 

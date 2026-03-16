@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/schema](../README.md) / SchemaRegistry
+[@cqrs-toolkit/schema](../globals.md) / SchemaRegistry
 
 # Class: SchemaRegistry
 

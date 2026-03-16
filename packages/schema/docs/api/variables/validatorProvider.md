@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/schema](../README.md) / validatorProvider
+[@cqrs-toolkit/schema](../globals.md) / validatorProvider
 
 # Variable: validatorProvider
 

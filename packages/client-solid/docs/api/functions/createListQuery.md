@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/client-solid](../README.md) / createListQuery
+[@cqrs-toolkit/client-solid](../globals.md) / createListQuery
 
 # Function: createListQuery()
 

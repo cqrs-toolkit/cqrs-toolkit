@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/schema](../README.md) / HydrationEnvelope
+[@cqrs-toolkit/schema](../globals.md) / HydrationEnvelope
 
 # Interface: HydrationEnvelope
 

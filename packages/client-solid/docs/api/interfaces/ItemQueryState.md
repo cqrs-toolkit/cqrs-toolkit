@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/client-solid](../README.md) / ItemQueryState
+[@cqrs-toolkit/client-solid](../globals.md) / ItemQueryState
 
 # Interface: ItemQueryState\<T\>
 

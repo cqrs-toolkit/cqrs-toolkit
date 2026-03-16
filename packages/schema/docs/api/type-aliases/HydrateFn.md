@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/schema](../README.md) / HydrateFn
+[@cqrs-toolkit/schema](../globals.md) / HydrateFn
 
 # Type Alias: HydrateFn()
 

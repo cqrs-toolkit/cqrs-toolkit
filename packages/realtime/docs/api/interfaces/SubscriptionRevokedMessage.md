@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/realtime](../README.md) / SubscriptionRevokedMessage
+[@cqrs-toolkit/realtime](../globals.md) / SubscriptionRevokedMessage
 
 # Interface: SubscriptionRevokedMessage
 

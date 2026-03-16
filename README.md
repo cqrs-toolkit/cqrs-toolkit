@@ -3,6 +3,15 @@
 Shared CQRS client and server utilities.
 TypeScript monorepo using npm workspaces.
 
+> [!WARNING]
+> **This project is in active pre-release development.**
+> The public API is unstable and subject to breaking changes without notice.
+> Do not use in production.
+>
+> The client-side SQLite schema is not yet finalized.
+> The initial migration may change before the first stable release, at which point normal migration behavior will apply.
+> Until then, upgrading the library may require clearing OPFS data in the browser to avoid schema mismatches.
+
 ## Prerequisites
 
 - Node.js >= 20.12.0

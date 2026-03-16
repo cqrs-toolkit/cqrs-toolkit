@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/realtime](../README.md) / ServerMessage
+[@cqrs-toolkit/realtime](../globals.md) / ServerMessage
 
 # Type Alias: ServerMessage
 

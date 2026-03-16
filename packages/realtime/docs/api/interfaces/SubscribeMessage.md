@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/realtime](../README.md) / SubscribeMessage
+[@cqrs-toolkit/realtime](../globals.md) / SubscribeMessage
 
 # Interface: SubscribeMessage
 

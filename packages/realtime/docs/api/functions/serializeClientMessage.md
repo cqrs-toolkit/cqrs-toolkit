@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/realtime](../README.md) / serializeClientMessage
+[@cqrs-toolkit/realtime](../globals.md) / serializeClientMessage
 
 # Function: serializeClientMessage()
 

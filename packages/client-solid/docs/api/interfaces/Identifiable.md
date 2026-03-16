@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/client-solid](../README.md) / Identifiable
+[@cqrs-toolkit/client-solid](../globals.md) / Identifiable
 
 # Interface: Identifiable
 

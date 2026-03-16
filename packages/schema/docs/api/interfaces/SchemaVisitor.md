@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/schema](../README.md) / SchemaVisitor
+[@cqrs-toolkit/schema](../globals.md) / SchemaVisitor
 
 # Interface: SchemaVisitor
 

@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/realtime](../README.md) / HeartbeatMessage
+[@cqrs-toolkit/realtime](../globals.md) / HeartbeatMessage
 
 # Interface: HeartbeatMessage
 

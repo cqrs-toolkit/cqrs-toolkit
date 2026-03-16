@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/realtime](../README.md) / UnsubscribedMessage
+[@cqrs-toolkit/realtime](../globals.md) / UnsubscribedMessage
 
 # Interface: UnsubscribedMessage
 

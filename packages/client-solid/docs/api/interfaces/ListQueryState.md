@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/client-solid](../README.md) / ListQueryState
+[@cqrs-toolkit/client-solid](../globals.md) / ListQueryState
 
 # Interface: ListQueryState\<T\>
 

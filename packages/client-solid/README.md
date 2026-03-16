@@ -1,10 +1,6 @@
-**@cqrs-toolkit/client-solid**
-
----
-
 # @cqrs-toolkit/client-solid
 
-SolidJS reactive primitives for [`@cqrs-toolkit/client`](_media/README.md).
+SolidJS reactive primitives for [`@cqrs-toolkit/client`](../client/README.md).
 Provides `createListQuery` and `createItemQuery` -- thin wrappers that bridge the client's query manager into SolidJS stores with fine-grained reactivity.
 
 ## Install

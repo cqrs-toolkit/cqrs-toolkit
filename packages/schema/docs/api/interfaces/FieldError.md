@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/schema](../README.md) / FieldError
+[@cqrs-toolkit/schema](../globals.md) / FieldError
 
 # Interface: FieldError
 
