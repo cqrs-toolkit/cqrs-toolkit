@@ -6,7 +6,7 @@ import type {
   NoteTitleUpdatedEvent,
 } from '../../shared/notes/events.js'
 import type { Note } from '../../shared/notes/types.js'
-import { addRevision } from '../processors/utils.js'
+import { addRevision } from '../domain-utils/processors.js'
 
 export const noteProcessors: ProcessorRegistration[] = [
   {

@@ -43,6 +43,7 @@ import { autoRevision, isAutoRevision } from '../../types/domain.js'
 import type { ValidationError } from '../../types/validation.js'
 import { calculateBackoffDelay, shouldRetry } from '../../utils/retry.js'
 import { generateId } from '../../utils/uuid.js'
+import type { ParsedEvent } from '../event-processor/EventProcessorRunner.js'
 import type { EventBus } from '../events/EventBus.js'
 import type { ICommandQueue, ICommandSender } from './types.js'
 import { CommandSendError } from './types.js'
@@ -61,6 +62,8 @@ export interface IAnticipatedEventHandler {
   regenerate(commandId: string, newEvents: unknown[]): Promise<void>
   /** Get tracked read model entries for a command (e.g., ["todos:client-abc"]). */
   getTrackedEntries(commandId: string): string[] | undefined
+  /** Get anticipated events for a stream, excluding a specific command's events. For re-applying overlays during reconciliation. */
+  getAnticipatedEventsForStream(streamId: string, excludeCommandId: string): Promise<ParsedEvent[]>
   /** Clear all tracking state (in-memory only — storage cleanup handled by session cascade). */
   clearAll(): Promise<void>
 }
@@ -81,6 +84,8 @@ export interface CommandQueueConfig {
   onCommandResponse?: (command: CommandRecord, response: unknown) => Promise<void>
   /** When true, terminal commands are retained in storage instead of being cleaned up. */
   retainTerminal?: boolean
+  /** TTL for command ID mappings in milliseconds. Default: 5 minutes. */
+  commandIdMappingTtl?: number
 }
 
 /**
@@ -88,9 +93,24 @@ export interface CommandQueueConfig {
  */
 const DEFAULT_WAIT_TIMEOUT = 30000
 
+/** Default TTL for command ID mappings: 5 minutes. */
+const DEFAULT_COMMAND_ID_MAPPING_TTL = 5 * 60 * 1000
+
+/** Minimum interval between TTL cleanup runs: 1 hour. */
+const MAPPING_CLEANUP_INTERVAL = 60 * 60 * 1000
+
 /**
  * Command queue implementation.
  */
+/**
+ * Entry in the ID map produced when a create command with temporary ID succeeds.
+ */
+interface IdMapEntry {
+  serverId: string
+  /** The command type that produced this ID (e.g., 'CreateFolder'). Used for parentRef verification. */
+  commandType: string
+}
+
 /**
  * Tracks the command chain for a single aggregate.
  * Used to auto-chain commands targeting the same aggregate.
@@ -113,6 +133,7 @@ export class CommandQueue implements ICommandQueue {
   private readonly defaultService: string
   private readonly onCommandResponse?: (command: CommandRecord, response: unknown) => Promise<void>
   private readonly retainTerminal: boolean
+  private readonly commandIdMappingTtl: number
 
   private readonly commandEvents = new Subject<CommandEvent>()
   private readonly destroy$ = new Subject<void>()
@@ -125,6 +146,7 @@ export class CommandQueue implements ICommandQueue {
    */
   private readonly aggregateChains = new Map<string, AggregateChain>()
 
+  private lastMappingCleanup = 0
   private _paused = true
   private processingPromise: Promise<void> | undefined
   private _pendingReprocess = false
@@ -142,6 +164,7 @@ export class CommandQueue implements ICommandQueue {
     this.defaultService = config.defaultService ?? 'default'
     this.onCommandResponse = config.onCommandResponse
     this.retainTerminal = config.retainTerminal ?? false
+    this.commandIdMappingTtl = config.commandIdMappingTtl ?? DEFAULT_COMMAND_ID_MAPPING_TTL
 
     this.events$ = this.commandEvents.asObservable().pipe(share(), takeUntil(this.destroy$))
   }
@@ -487,11 +510,11 @@ export class CommandQueue implements ICommandQueue {
       // chain with the server ID. They stay blocked (waiting for their direct dependency
       // to resolve their revision), but get the correct server ID immediately.
       if (Object.keys(idMap).length > 0) {
-        await this.rewriteAggregateChainIds(idMap)
+        await this.rewriteCommandsWithStaleIds(idMap)
       }
 
       // Unblock direct dependents and resolve revision for the next command in chain
-      await this.unblockDependentCommands(succeededCommand, idMap)
+      await this.unblockDependentCommands(succeededCommand)
 
       this.eventBus.emit('command:completed', {
         commandId: current.commandId,
@@ -537,10 +560,7 @@ export class CommandQueue implements ICommandQueue {
     }
   }
 
-  private async unblockDependentCommands(
-    parentCommand: CommandRecord,
-    idMap: Record<string, string>,
-  ): Promise<void> {
+  private async unblockDependentCommands(parentCommand: CommandRecord): Promise<void> {
     const blockedCommands = await this.storage.getCommandsBlockedBy(parentCommand.commandId)
     if (blockedCommands.length === 0) return
 
@@ -550,10 +570,9 @@ export class CommandQueue implements ICommandQueue {
     for (const blocked of blockedCommands) {
       const newBlockedBy = blocked.blockedBy.filter((id) => id !== parentCommand.commandId)
 
-      // Rewrite payload if there are ID or revision substitutions to make
-      if (Object.keys(idMap).length > 0 || parentRevision !== undefined) {
-        await this.rewriteDependentCommand(blocked, idMap, parentRevision)
-      }
+      // Resolve AUTO_REVISION with the parent's revision
+      // (ID replacement is already handled by rewriteCommandsWithStaleIds)
+      await this.resolveDependentRevision(blocked, parentRevision)
 
       if (newBlockedBy.length === 0 && blocked.status === 'blocked') {
         // No longer blocked
@@ -566,31 +585,54 @@ export class CommandQueue implements ICommandQueue {
   }
 
   /**
-   * Rewrite the ID in all non-terminal commands whose payload contains a stale client ID.
-   * Called when a create with temporary ID succeeds — cascades the server ID to the entire
-   * aggregate chain regardless of dependency depth. Only rewrites ID, not revision.
+   * Rewrite stale client IDs in all non-terminal commands using targeted field-level replacement.
+   *
+   * Same-aggregate: replaces `payload.id` if it matches a client ID in the map.
+   * Cross-aggregate: replaces `parentRef` fields, verified against `fromCommand`.
+   *
+   * Called when a create with temporary ID succeeds — cascades the server ID to
+   * all affected commands regardless of dependency depth. Only rewrites IDs, not revision.
    */
-  private async rewriteAggregateChainIds(idMap: Record<string, string>): Promise<void> {
+  private async rewriteCommandsWithStaleIds(idMap: Record<string, IdMapEntry>): Promise<void> {
     const allCommands = await this.storage.getCommandsByStatus(['pending', 'blocked', 'sending'])
 
     for (const command of allCommands) {
-      let payloadJson = JSON.stringify(command.payload)
+      if (typeof command.payload !== 'object' || command.payload === null) continue
+
+      const registration = this.handlerMetadata?.getRegistration(command.type)
+      const payload = { ...(command.payload as Record<string, unknown>) }
       let changed = false
 
-      for (const [clientId, serverId] of Object.entries(idMap)) {
-        if (payloadJson.includes(clientId)) {
-          payloadJson = payloadJson.replaceAll(clientId, serverId)
+      // Same-aggregate: replace payload.id if it matches a stale client ID
+      if (!registration?.creates && typeof payload.id === 'string') {
+        const entry = idMap[payload.id]
+        if (entry !== undefined) {
+          payload.id = entry.serverId
+          changed = true
+        }
+      }
+
+      // Cross-aggregate: replace parentRef fields, verified against fromCommand
+      if (registration?.parentRef) {
+        for (const ref of registration.parentRef) {
+          const fieldValue = payload[ref.field]
+          if (typeof fieldValue !== 'string') continue
+
+          const entry = idMap[fieldValue]
+          if (entry === undefined) continue
+          if (entry.commandType !== ref.fromCommand) continue
+
+          payload[ref.field] = entry.serverId
           changed = true
         }
       }
 
       if (changed) {
-        const newPayload: unknown = JSON.parse(payloadJson)
-        await this.storage.updateCommand(command.commandId, { payload: newPayload })
+        await this.storage.updateCommand(command.commandId, { payload })
 
         // Regenerate anticipated events with the correct server ID
         if (this.domainExecutor) {
-          const result = this.domainExecutor.execute({ type: command.type, payload: newPayload })
+          const result = this.domainExecutor.execute({ type: command.type, payload })
           if (result.ok) {
             try {
               await this.anticipatedEventHandler.regenerate(
@@ -600,7 +642,7 @@ export class CommandQueue implements ICommandQueue {
             } catch (err) {
               logProvider.log.error(
                 { err, commandId: command.commandId },
-                'Failed to regenerate anticipated events during chain ID rewrite',
+                'Failed to regenerate anticipated events during stale ID rewrite',
               )
             }
           }
@@ -610,14 +652,24 @@ export class CommandQueue implements ICommandQueue {
   }
 
   /**
+   * Clean up stale ID mappings. Runs on session start and at most once per hour.
+   */
+  private async cleanupStaleMappings(): Promise<void> {
+    const now = Date.now()
+    if (now - this.lastMappingCleanup < MAPPING_CLEANUP_INTERVAL) return
+    this.lastMappingCleanup = now
+    await this.storage.deleteCommandIdMappingsOlderThan(now - this.commandIdMappingTtl)
+  }
+
+  /**
    * Reconcile create command IDs: build the clientId→serverId map, update aggregate chains,
    * and persist the mapping for race condition handling.
    *
    * Called unconditionally when any command succeeds. Returns a non-empty map only for
    * create commands with temporary IDs.
    */
-  private async reconcileCreateIds(command: CommandRecord): Promise<Record<string, string>> {
-    const map: Record<string, string> = {}
+  private async reconcileCreateIds(command: CommandRecord): Promise<Record<string, IdMapEntry>> {
+    const map: Record<string, IdMapEntry> = {}
     if (!command.creates || command.creates.idStrategy !== 'temporary') return map
     if (!command.serverResponse) return map
 
@@ -629,7 +681,7 @@ export class CommandQueue implements ICommandQueue {
     // Find the client temp ID from the aggregate chain tracking
     for (const [clientId, chain] of this.aggregateChains) {
       if (chain.createCommandId === command.commandId && clientId !== serverId) {
-        map[clientId] = serverId
+        map[clientId] = { serverId, commandType: command.type }
 
         // Update the chain to use the server ID
         this.aggregateChains.delete(clientId)
@@ -681,44 +733,22 @@ export class CommandQueue implements ICommandQueue {
   }
 
   /**
-   * Rewrite a dependent command's payload after its dependency succeeded.
-   * Replaces temp IDs with server IDs and resolves AUTO_REVISION.
+   * Resolve AUTO_REVISION in a dependent command's payload after its dependency succeeded.
+   * ID replacement is handled by rewriteCommandsWithStaleIds — this only handles revision.
    */
-  private async rewriteDependentCommand(
+  private async resolveDependentRevision(
     command: CommandRecord,
-    idMap: Record<string, string>,
     parentRevision: string | undefined,
   ): Promise<void> {
-    let payloadJson = JSON.stringify(command.payload)
-    let changed = false
+    if (command.revisionField === undefined || parentRevision === undefined) return
 
-    // Replace all temp IDs with server IDs via string replacement.
-    // UUIDs are globally unique so false positives are essentially impossible.
-    for (const [clientId, serverId] of Object.entries(idMap)) {
-      if (payloadJson.includes(clientId)) {
-        payloadJson = payloadJson.replaceAll(clientId, serverId)
-        changed = true
-      }
-    }
+    const payload = command.payload
+    if (typeof payload !== 'object' || payload === null) return
+    if (!(command.revisionField in payload)) return
+    if (!isAutoRevision((payload as Record<string, unknown>)[command.revisionField])) return
 
-    // Resolve AUTO_REVISION if this command has a revisionField and the value is the marker
-    if (command.revisionField && parentRevision !== undefined) {
-      const payload = changed ? JSON.parse(payloadJson) : command.payload
-      if (
-        typeof payload === 'object' &&
-        payload !== null &&
-        command.revisionField in payload &&
-        isAutoRevision((payload as Record<string, unknown>)[command.revisionField])
-      ) {
-        ;(payload as Record<string, unknown>)[command.revisionField] = parentRevision
-        payloadJson = JSON.stringify(payload)
-        changed = true
-      }
-    }
-
-    if (!changed) return
-
-    const newPayload: unknown = JSON.parse(payloadJson)
+    const newPayload = { ...(payload as Record<string, unknown>) }
+    newPayload[command.revisionField] = parentRevision
 
     // Update the command record with the rewritten payload
     await this.storage.updateCommand(command.commandId, { payload: newPayload })
@@ -1103,6 +1133,8 @@ export class CommandQueue implements ICommandQueue {
     await this.reset()
     await this.anticipatedEventHandler.clearAll()
     await this.storage.deleteAllCommands()
+    await this.storage.deleteAllCommandIdMappings()
+    this.aggregateChains.clear()
     logProvider.log.debug('Command queue cleared')
   }
 
@@ -1133,6 +1165,10 @@ export class CommandQueue implements ICommandQueue {
   resume(): void {
     this._paused = false
     logProvider.log.debug('Command queue resumed')
+    // Clean up stale ID mappings on session start
+    this.cleanupStaleMappings().catch((err) => {
+      logProvider.log.error({ err }, 'Failed to cleanup stale ID mappings on resume')
+    })
     // Trigger processing
     this.processPendingCommands().catch((err) => {
       logProvider.log.error({ err }, 'Failed to process pending commands on resume')

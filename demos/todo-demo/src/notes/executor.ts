@@ -6,18 +6,15 @@ import {
   domainFailure,
   domainSuccess,
   generateId,
-  isAutoRevision,
   type CommandHandlerRegistration,
-  type ValidationError,
 } from '@cqrs-toolkit/client'
+import { MUTATE_CONFIG, requireNonEmpty } from '../domain-utils/executors.js'
 
 interface AnticipatedEvent {
   type: string
   data: Record<string, unknown>
   streamId: string
 }
-
-const mutateConfig = { revisionField: 'revision' as const }
 
 export const noteHandlers: CommandHandlerRegistration<AnticipatedEvent>[] = [
   {
@@ -39,7 +36,7 @@ export const noteHandlers: CommandHandlerRegistration<AnticipatedEvent>[] = [
     },
   },
   {
-    ...mutateConfig,
+    ...MUTATE_CONFIG,
     commandType: 'UpdateNoteTitle',
     handler(payload) {
       const errors = requireNonEmpty(payload, 'id', 'title')
@@ -55,7 +52,7 @@ export const noteHandlers: CommandHandlerRegistration<AnticipatedEvent>[] = [
     },
   },
   {
-    ...mutateConfig,
+    ...MUTATE_CONFIG,
     commandType: 'UpdateNoteBody',
     handler(payload) {
       const errors = requireNonEmpty(payload, 'id')
@@ -71,7 +68,7 @@ export const noteHandlers: CommandHandlerRegistration<AnticipatedEvent>[] = [
     },
   },
   {
-    ...mutateConfig,
+    ...MUTATE_CONFIG,
     commandType: 'DeleteNote',
     handler(payload) {
       const errors = requireNonEmpty(payload, 'id')
@@ -81,25 +78,3 @@ export const noteHandlers: CommandHandlerRegistration<AnticipatedEvent>[] = [
     },
   },
 ]
-
-// ---------------------------------------------------------------------------
-// Validation helpers
-// ---------------------------------------------------------------------------
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
-}
-
-function requireNonEmpty(payload: unknown, ...fields: string[]): ValidationError[] {
-  if (!isObject(payload)) return [{ path: '', message: 'Invalid payload' }]
-  const errors: ValidationError[] = []
-  for (const field of fields) {
-    const value = payload[field]
-    // Skip AUTO_REVISION markers — the library resolves these before send
-    if (isAutoRevision(value)) continue
-    if (typeof value !== 'string' || value.length === 0) {
-      errors.push({ path: field, message: `${field} must not be empty` })
-    }
-  }
-  return errors
-}

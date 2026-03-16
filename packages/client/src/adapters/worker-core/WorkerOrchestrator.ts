@@ -368,6 +368,28 @@ function createAnticipatedEventHandler(
       return anticipatedUpdates.get(commandId)
     },
 
+    async getAnticipatedEventsForStream(
+      streamId: string,
+      excludeCommandId: string,
+    ): Promise<ParsedEvent[]> {
+      const allEvents = await eventCache.getEventsByStream(streamId)
+      const parsed: ParsedEvent[] = []
+      for (const record of allEvents) {
+        if (record.persistence !== 'Anticipated') continue
+        if (record.commandId === excludeCommandId) continue
+        parsed.push({
+          id: record.id,
+          type: record.type,
+          streamId: record.streamId,
+          persistence: 'Anticipated',
+          data: typeof record.data === 'string' ? JSON.parse(record.data) : record.data,
+          commandId: record.commandId ?? undefined,
+          cacheKey: record.cacheKey,
+        })
+      }
+      return parsed
+    },
+
     async clearAll(): Promise<void> {
       anticipatedUpdates.clear()
     },

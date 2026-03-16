@@ -6,7 +6,7 @@ import type {
   TodoStatusChangedEvent,
 } from '../../shared/todos/events.js'
 import type { Todo } from '../../shared/todos/types.js'
-import { addRevision } from '../processors/utils.js'
+import { addRevision } from '../domain-utils/processors.js'
 
 export const todoProcessors: ProcessorRegistration[] = [
   {

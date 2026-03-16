@@ -6,11 +6,10 @@ import {
   domainFailure,
   domainSuccess,
   generateId,
-  isAutoRevision,
   type CommandHandlerRegistration,
-  type ValidationError,
 } from '@cqrs-toolkit/client'
 import type { TodoStatus } from '../../shared/todos/types.js'
+import { MUTATE_CONFIG, isObject, requireNonEmpty } from '../domain-utils/executors.js'
 
 interface AnticipatedEvent {
   type: string
@@ -19,8 +18,6 @@ interface AnticipatedEvent {
 }
 
 const VALID_STATUSES: readonly TodoStatus[] = ['pending', 'in_progress', 'completed']
-
-const mutateConfig = { revisionField: 'revision' as const }
 
 export const todoHandlers: CommandHandlerRegistration<AnticipatedEvent>[] = [
   {
@@ -42,7 +39,7 @@ export const todoHandlers: CommandHandlerRegistration<AnticipatedEvent>[] = [
     },
   },
   {
-    ...mutateConfig,
+    ...MUTATE_CONFIG,
     commandType: 'UpdateTodoContent',
     handler(payload) {
       const errors = requireNonEmpty(payload, 'id', 'content')
@@ -58,7 +55,7 @@ export const todoHandlers: CommandHandlerRegistration<AnticipatedEvent>[] = [
     },
   },
   {
-    ...mutateConfig,
+    ...MUTATE_CONFIG,
     commandType: 'ChangeTodoStatus',
     handler(payload) {
       const errors = requireNonEmpty(payload, 'id')
@@ -80,7 +77,7 @@ export const todoHandlers: CommandHandlerRegistration<AnticipatedEvent>[] = [
     },
   },
   {
-    ...mutateConfig,
+    ...MUTATE_CONFIG,
     commandType: 'DeleteTodo',
     handler(payload) {
       const errors = requireNonEmpty(payload, 'id')
@@ -90,25 +87,3 @@ export const todoHandlers: CommandHandlerRegistration<AnticipatedEvent>[] = [
     },
   },
 ]
-
-// ---------------------------------------------------------------------------
-// Validation helpers
-// ---------------------------------------------------------------------------
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
-}
-
-function requireNonEmpty(payload: unknown, ...fields: string[]): ValidationError[] {
-  if (!isObject(payload)) return [{ path: '', message: 'Invalid payload' }]
-  const errors: ValidationError[] = []
-  for (const field of fields) {
-    const value = payload[field]
-    // Skip AUTO_REVISION markers — the library resolves these before send
-    if (isAutoRevision(value)) continue
-    if (typeof value !== 'string' || value.length === 0) {
-      errors.push({ path: field, message: `${field} must not be empty` })
-    }
-  }
-  return errors
-}

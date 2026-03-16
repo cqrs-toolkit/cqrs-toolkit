@@ -99,15 +99,16 @@ export class EventProcessorRunner {
     }
 
     // Check for create reconciliation: a permanent event replacing an anticipated create
-    // that used a different (client-generated) ID.
-    const reconciledEntries = await this.reconcileAnticipatedCreate(event, allResults)
+    // that used a different (client-generated) ID. This copies anticipated overlays from
+    // the old stream, deletes the old entry, and prepares overlays for re-application.
+    const reconciliation = await this.reconcileAnticipatedCreate(event, allResults)
 
     // Apply all results, tracking which actually modified data
     const modifiedByCollection = new Map<string, string[]>()
     const updatedIds: string[] = []
 
     // Include reconciled (deleted) entries in the modified set so the UI refreshes
-    for (const entry of reconciledEntries) {
+    for (const entry of reconciliation.deletedEntries) {
       const separatorIndex = entry.indexOf(':')
       if (separatorIndex === -1) continue
       const collection = entry.substring(0, separatorIndex)
@@ -132,6 +133,25 @@ export class EventProcessorRunner {
           modifiedByCollection.set(result.collection, ids)
         }
         ids.push(result.id)
+      }
+    }
+
+    // Re-apply anticipated overlays from dependent commands onto the new server-ID entry.
+    // These were copied from the old stream before deletion, with client IDs replaced.
+    for (const overlay of reconciliation.overlayEvents) {
+      const overlayResult = await this.processOverlayEvent(overlay)
+      for (const id of overlayResult.updatedIds) {
+        updatedIds.push(id)
+        const separatorIndex = id.indexOf(':')
+        if (separatorIndex === -1) continue
+        const collection = id.substring(0, separatorIndex)
+        const entryId = id.substring(separatorIndex + 1)
+        let ids = modifiedByCollection.get(collection)
+        if (!ids) {
+          ids = []
+          modifiedByCollection.set(collection, ids)
+        }
+        ids.push(entryId)
       }
     }
 
@@ -216,30 +236,32 @@ export class EventProcessorRunner {
 
   /**
    * Check if a permanent event is replacing an anticipated create with a different ID.
-   * If so, delete the old (client-ID) read model entry before the new (server-ID) entry is created.
+   * If so:
+   * 1. Copy anticipated overlay events from the old stream (excluding the create event)
+   * 2. Transform them: replace client IDs with server IDs in data and streamId
+   * 3. Delete the old (client-ID) read model entry
+   * 4. Return the transformed overlays for re-application after applyResult
    *
-   * This ensures the UI never sees a duplicate — the old entry is removed and the new one is
-   * created atomically within a single processEvent call (one readmodel:updated emission).
-   *
-   * @returns Array of "collection:id" entries that were deleted (for inclusion in the notification).
+   * This ensures the UI never sees a duplicate or loses overlays — everything happens
+   * atomically within a single processEvent call (one readmodel:updated emission).
    */
   private async reconcileAnticipatedCreate(
     event: ParsedEvent,
     processorResults: ProcessorResult[],
-  ): Promise<string[]> {
+  ): Promise<{ deletedEntries: string[]; overlayEvents: ParsedEvent[] }> {
+    const empty = { deletedEntries: [], overlayEvents: [] }
+
     // Only reconcile non-anticipated events with a commandId
-    if (event.persistence === 'Anticipated') return []
-    if (!event.commandId) return []
-    if (!this.anticipatedEventHandler) return []
+    if (event.persistence === 'Anticipated') return empty
+    if (!event.commandId) return empty
+    if (!this.anticipatedEventHandler) return empty
 
     const tracked = this.anticipatedEventHandler.getTrackedEntries(event.commandId)
-    if (!tracked || tracked.length === 0) return []
+    if (!tracked || tracked.length === 0) return empty
 
     const deletedEntries: string[] = []
+    const overlayEvents: ParsedEvent[] = []
 
-    // For each processor result, check if any tracked anticipated entry has a different ID
-    // in the same collection — this means the anticipated create used a client ID that
-    // differs from the server-assigned ID.
     for (const result of processorResults) {
       for (const entry of tracked) {
         const separatorIndex = entry.indexOf(':')
@@ -247,25 +269,70 @@ export class EventProcessorRunner {
         const trackedCollection = entry.substring(0, separatorIndex)
         const trackedId = entry.substring(separatorIndex + 1)
 
-        if (trackedCollection === result.collection && trackedId !== result.id) {
-          // This is a create reconciliation: client ID → server ID
-          await this.readModelStore.delete(trackedCollection, trackedId)
-          deletedEntries.push(entry)
+        if (trackedCollection !== result.collection || trackedId === result.id) continue
 
-          logProvider.log.debug(
-            {
-              commandId: event.commandId,
-              collection: trackedCollection,
-              clientId: trackedId,
-              serverId: result.id,
-            },
-            'Reconciled anticipated create: replaced client ID with server ID',
-          )
+        // This is a create reconciliation: client ID → server ID.
+
+        // Step 1: Copy anticipated events from the old stream (excluding create command's events)
+        const oldStreamEvents = await this.anticipatedEventHandler.getAnticipatedEventsForStream(
+          event.streamId.replace(result.id, trackedId), // Derive old stream ID
+          event.commandId,
+        )
+
+        // Step 2: Transform — replace client IDs with server IDs
+        for (const oldEvent of oldStreamEvents) {
+          let dataJson = JSON.stringify(oldEvent.data)
+          dataJson = dataJson.replaceAll(trackedId, result.id)
+          overlayEvents.push({
+            ...oldEvent,
+            streamId: oldEvent.streamId.replaceAll(trackedId, result.id),
+            data: JSON.parse(dataJson),
+          })
         }
+
+        // Step 3: Delete old entry
+        await this.readModelStore.delete(trackedCollection, trackedId)
+        deletedEntries.push(entry)
+
+        logProvider.log.debug(
+          {
+            commandId: event.commandId,
+            collection: trackedCollection,
+            clientId: trackedId,
+            serverId: result.id,
+            overlayCount: oldStreamEvents.length,
+          },
+          'Reconciled anticipated create: replaced client ID with server ID',
+        )
       }
     }
 
-    return deletedEntries
+    return { deletedEntries, overlayEvents }
+  }
+
+  /**
+   * Process an overlay event (anticipated event being re-applied after reconciliation).
+   * Runs the event through processors and applies results, but does NOT emit notifications.
+   */
+  private async processOverlayEvent(event: ParsedEvent): Promise<ProcessEventResult> {
+    const processors = this.registry.getProcessors(event.type, event.persistence)
+    if (processors.length === 0) return { updatedIds: [], invalidated: false }
+
+    const context = this.createContext(event)
+    const allResults: ProcessorResult[] = []
+
+    for (const processor of processors) {
+      const result = await this.runProcessor(processor, event, context)
+      allResults.push(...result.results)
+    }
+
+    const updatedIds: string[] = []
+    for (const result of allResults) {
+      await this.applyResult(result, event.cacheKey)
+      updatedIds.push(`${result.collection}:${result.id}`)
+    }
+
+    return { updatedIds, invalidated: false }
   }
 
   /**

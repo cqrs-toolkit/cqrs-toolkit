@@ -16,6 +16,14 @@ Command queue configuration.
 
 ---
 
+### commandIdMappingTtl?
+
+> `optional` **commandIdMappingTtl**: `number`
+
+TTL for command ID mappings in milliseconds. Default: 5 minutes.
+
+---
+
 ### commandSender?
 
 > `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)
