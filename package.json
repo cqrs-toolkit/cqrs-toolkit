@@ -53,5 +53,8 @@
     "**/*.{ts,tsx}": [
       "npx prettier --write"
     ]
+  },
+  "dependencies": {
+    "fastify": "^5.8.2"
   }
 }

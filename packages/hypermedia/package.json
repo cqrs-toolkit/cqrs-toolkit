@@ -1,0 +1,54 @@
+{
+  "name": "@cqrs-toolkit/hypermedia",
+  "version": "0.1.0",
+  "description": "CQRS-aware Hydra API documentation types, IRI templates, HAL rendering, content negotiation, and embed planning",
+  "keywords": [
+    "cqrs",
+    "hypermedia",
+    "hal",
+    "hydra",
+    "hateoas"
+  ],
+  "license": "MIT",
+  "author": "Ontel, LLC",
+  "main": "dist/src/index.js",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    },
+    "./server": {
+      "types": "./dist/src/server/index.d.ts",
+      "import": "./dist/src/server/index.js"
+    },
+    "./builder": {
+      "types": "./dist/src/builder/index.d.ts",
+      "import": "./dist/src/builder/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "compile": "tsc -p tsconfig.json --noEmit",
+    "docs": "typedoc",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "moderndash": "^3.12.0"
+  },
+  "devDependencies": {
+    "@cqrs-toolkit/schema": "^0.1.0",
+    "@types/json-schema": "^7.0.15"
+  },
+  "peerDependencies": {
+    "@meticoeus/ddd-es": ">=0.7.2",
+    "@cqrs-toolkit/schema": ">=0.1.0",
+    "ajv": ">=8.0.0",
+    "fastify": ">=5.0.0"
+  }
+}
