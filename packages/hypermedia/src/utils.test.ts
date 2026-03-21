@@ -6,7 +6,6 @@ import {
   deriveRequestedProfilesRaw,
   hasExplicitReadProfileRaw,
   hasExplicitWriteProfileRaw,
-  parseVersionFromUrn,
   semverDesc,
   uriTemplatePathToColon,
 } from './utils.js'
@@ -239,16 +238,6 @@ describe('utils', () => {
 
     it('does not convert query expansion vars', () => {
       expect(uriTemplatePathToColon('/api/items{?q}')).toBe('/api/items{?q}')
-    })
-  })
-
-  describe('parseVersionFromUrn', () => {
-    it('extracts version from standard URN', () => {
-      expect(parseVersionFromUrn('urn:command:chat.RenameRoom:1.0.0')).toBe('1.0.0')
-    })
-
-    it('asserts on empty URN', () => {
-      expect(() => parseVersionFromUrn('')).toThrow()
     })
   })
 

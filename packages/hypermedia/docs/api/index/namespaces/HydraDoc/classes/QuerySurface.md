@@ -60,6 +60,20 @@ Non-templated canonical href (override or derived)
 
 `` `/${string}` ``
 
+---
+
+### path
+
+#### Get Signature
+
+> **get** **path**(): `string`
+
+Converts hrefBase from RFC 6570 syntax to Fastify colon parameters syntax
+
+##### Returns
+
+`string`
+
 ## Methods
 
 ### toHalCollectionLinks()

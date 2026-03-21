@@ -10,7 +10,7 @@
 
 ### headers
 
-> **headers**: `Record`\<`string`, `string` \| `undefined`\>
+> **headers**: `Record`\<`string`, `string` \| `string`[] \| `undefined`\>
 
 ---
 

@@ -110,12 +110,14 @@ export function singleVersionDef(): HydraDoc.CommandsDef<never> {
       {
         id: 'urn:command:test.CreateItem:1.0.0',
         stableId: 'test.CreateItem',
+        version: '1.0.0',
         dispatch: 'create',
         schema: CREATE_SCHEMA,
       },
       {
         id: 'urn:command:test.RenameItem:1.0.0',
         stableId: 'test.RenameItem',
+        version: '1.0.0',
         dispatch: 'command',
         commandType: 'rename',
         schema: RENAME_SCHEMA,
@@ -135,6 +137,7 @@ export function multiVersionDef(): HydraDoc.CommandsDef<never> {
       {
         id: 'urn:command:test.RenameItem:1.0.0',
         stableId: 'test.RenameItem',
+        version: '1.0.0',
         dispatch: 'command',
         commandType: 'rename',
         adapt: (data: unknown) => {
@@ -146,6 +149,7 @@ export function multiVersionDef(): HydraDoc.CommandsDef<never> {
       {
         id: 'urn:command:test.RenameItem:2.0.0',
         stableId: 'test.RenameItem',
+        version: '2.0.0',
         dispatch: 'command',
         commandType: 'rename',
         schema: RENAME_V2_SCHEMA,
@@ -153,6 +157,7 @@ export function multiVersionDef(): HydraDoc.CommandsDef<never> {
       {
         id: 'urn:command:test.CreateItem:1.0.0',
         stableId: 'test.CreateItem',
+        version: '1.0.0',
         dispatch: 'create',
         schema: CREATE_SCHEMA,
       },
@@ -171,6 +176,7 @@ export function hydrationDef(): HydraDoc.CommandsDef<never> {
       {
         id: 'urn:command:test.UpdateItem:1.0.0',
         stableId: 'test.UpdateItem',
+        version: '1.0.0',
         dispatch: 'command',
         commandType: 'update',
         schema: REVISION_SCHEMA,

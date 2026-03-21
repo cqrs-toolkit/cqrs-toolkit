@@ -33,6 +33,36 @@ describe('buildHydraApiDocumentation', () => {
     })
   })
 
+  describe('command identity', () => {
+    it('renders svc:stableId on command capabilities', () => {
+      const result = buildWithSchema()
+      const cmd = findCommand(result, 'urn:command:test.RenameItem:1.0.0')
+      expect(cmd['svc:stableId']).toBe('test.RenameItem')
+    })
+
+    it('renders schema:version on command capabilities', () => {
+      const result = buildWithSchema()
+      const cmd = findCommand(result, 'urn:command:test.RenameItem:1.0.0')
+      expect(cmd['schema:version']).toBe('1.0.0')
+    })
+
+    it('renders correct version for each command in a multi-version group', () => {
+      const result = buildMultiVersion()
+      const v1 = findCommand(result, 'urn:command:test.RenameItem:1.0.0')
+      const v2 = findCommand(result, 'urn:command:test.RenameItem:2.0.0')
+      expect(v1['svc:stableId']).toBe('test.RenameItem')
+      expect(v1['schema:version']).toBe('1.0.0')
+      expect(v2['svc:stableId']).toBe('test.RenameItem')
+      expect(v2['schema:version']).toBe('2.0.0')
+    })
+
+    it('includes svc:stableId context entry', () => {
+      const result = buildWithSchema()
+      const ctx = result.jsonld['@context']
+      expect(ctx['svc:stableId']).toEqual({})
+    })
+  })
+
   describe('schema output', () => {
     it('produces svc:jsonSchema IRI for commands with schema', () => {
       const result = buildWithSchema()
@@ -162,6 +192,7 @@ describe('buildHydraApiDocumentation', () => {
                 {
                   id: 'urn:command:test.RenameItem:1.0.0',
                   stableId: 'test.RenameItem',
+                  version: '1.0.0',
                   dispatch: 'command',
                   commandType: 'rename',
                   schema: schemaWithoutId,
@@ -190,6 +221,7 @@ function buildWithSchema(): BuildResult {
           {
             id: 'urn:command:test.RenameItem:1.0.0',
             stableId: 'test.RenameItem',
+            version: '1.0.0',
             dispatch: 'command',
             commandType: 'rename',
             schema: RENAME_SCHEMA,
@@ -197,6 +229,7 @@ function buildWithSchema(): BuildResult {
           {
             id: 'urn:command:test.CreateItem:1.0.0',
             stableId: 'test.CreateItem',
+            version: '1.0.0',
             dispatch: 'create',
             schema: CREATE_SCHEMA,
           },
@@ -222,6 +255,7 @@ function buildWithoutSchema(): BuildResult {
           {
             id: 'urn:command:test.RenameItem:1.0.0',
             stableId: 'test.RenameItem',
+            version: '1.0.0',
             dispatch: 'command',
             commandType: 'rename',
             // no schema
@@ -248,6 +282,7 @@ function buildMultiVersion(): BuildResult {
           {
             id: 'urn:command:test.RenameItem:1.0.0',
             stableId: 'test.RenameItem',
+            version: '1.0.0',
             dispatch: 'command',
             commandType: 'rename',
             schema: RENAME_SCHEMA,
@@ -256,6 +291,7 @@ function buildMultiVersion(): BuildResult {
           {
             id: 'urn:command:test.RenameItem:2.0.0',
             stableId: 'test.RenameItem',
+            version: '2.0.0',
             dispatch: 'command',
             commandType: 'rename',
             schema: RENAME_SCHEMA_V2,
@@ -285,6 +321,7 @@ function buildWithCollision(): BuildResult {
             {
               id: 'urn:command:test.RenameItem:1.0.0',
               stableId: 'test.RenameItem',
+              version: '1.0.0',
               dispatch: 'command',
               commandType: 'rename',
               schema: RENAME_SCHEMA,
@@ -305,6 +342,7 @@ function buildWithCollision(): BuildResult {
             {
               id: 'urn:command:test.RenameThing:1.0.0',
               stableId: 'test.RenameThing',
+              version: '1.0.0',
               dispatch: 'command',
               commandType: 'rename',
               schema: RENAME_SCHEMA,
@@ -362,6 +400,7 @@ function buildWithCollisionDifferentInstances(): BuildResult {
             {
               id: 'urn:command:test.RenameItem:1.0.0',
               stableId: 'test.RenameItem',
+              version: '1.0.0',
               dispatch: 'command',
               commandType: 'rename',
               schema: schemaA,
@@ -382,6 +421,7 @@ function buildWithCollisionDifferentInstances(): BuildResult {
             {
               id: 'urn:command:test.RenameThing:1.0.0',
               stableId: 'test.RenameThing',
+              version: '1.0.0',
               dispatch: 'command',
               commandType: 'rename',
               schema: schemaB,
@@ -433,6 +473,7 @@ function buildWithCustomSchema(schema: JSONSchema7): BuildResult {
           {
             id: 'urn:command:test.RenameItem:1.0.0',
             stableId: 'test.RenameItem',
+            version: '1.0.0',
             dispatch: 'command',
             commandType: 'rename',
             schema,

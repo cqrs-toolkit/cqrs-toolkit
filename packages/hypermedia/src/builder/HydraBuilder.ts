@@ -252,6 +252,7 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
     'svc:dispatch': {},
     'svc:method': {},
     'svc:commandType': {},
+    'svc:stableId': {},
     'svc:surface': {},
     'svc:name': {},
     'svc:jsonSchema': { '@type': '@id' },
@@ -389,6 +390,8 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
       'svc:supportedCommand': cmds.commands.map((c) => ({
         '@id': c.id,
         '@type': 'svc:CommandCapability',
+        'svc:stableId': c.stableId,
+        'schema:version': c.version,
         ...(c.deprecated ? { 'schema:deprecated': true } : {}),
         ...(c.dispatch ? { 'svc:dispatch': c.dispatch } : {}),
         ...(c.commandType ? { 'svc:commandType': c.commandType } : {}),

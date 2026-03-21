@@ -1,6 +1,6 @@
 {
   "name": "@cqrs-toolkit/hypermedia",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "CQRS-aware Hydra API documentation types, IRI templates, HAL rendering, content negotiation, and embed planning",
   "keywords": [
     "cqrs",

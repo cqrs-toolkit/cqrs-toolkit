@@ -13,6 +13,8 @@ export {
   toUpstreamException,
 } from './exceptions.js'
 export { Hypermedia } from './format.js'
+export { hydraLinkHeader } from './hydraLinkHeader.js'
+export type { HydraLinkHeaderOptions } from './hydraLinkHeader.js'
 export {
   MetaInclude,
   addCountsToResourceDescriptor,

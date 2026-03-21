@@ -103,3 +103,11 @@ JSON Schema describing the request body for this command version.
 Version-independent identifier that groups multiple versions of the same
 logical command together. Used by the command surface to determine which
 version is "latest" and to route old payloads through adapters.
+
+---
+
+### version
+
+> **version**: `string`
+
+Semantic version of this command capability (e.g. '1.0.0').

@@ -4,7 +4,7 @@ import { FastifyReply } from 'fastify'
 import { JSONSchema7 } from 'json-schema'
 import assert from 'node:assert'
 import { HydraDoc } from '../HydraDoc.js'
-import { parseVersionFromUrn, semverDesc, type ReqLike } from '../utils.js'
+import { semverDesc, type ReqLike } from '../utils.js'
 import { ProfileNegotiator, ProfileSpec, RepliedValue } from './ProfileNegotiator.js'
 
 // ---------- Public types ----------
@@ -78,7 +78,7 @@ export class CommandPlanner {
     const groupLatest: LatestVersionCap[] = []
     for (const cap of allCaps) {
       assert(cap.stableId, `CommandPlanner: capability ${cap.id} is missing stableId`)
-      const version = parseVersionFromUrn(cap.id)
+      const version = cap.version
       const vc: VersionedCapability = { cap, version, urn: cap.id }
       allSpecs.push(vc)
 

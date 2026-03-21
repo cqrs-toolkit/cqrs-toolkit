@@ -37,6 +37,7 @@ describe('CommandPlanner', () => {
                 {
                   id: 'urn:command:test.Foo:1.0.0',
                   stableId: '',
+                  version: '1.0.0',
                   dispatch: 'command',
                   commandType: 'foo',
                   schema: RENAME_SCHEMA,
@@ -62,6 +63,7 @@ describe('CommandPlanner', () => {
                 {
                   id: 'urn:command:test.Foo:1.0.0',
                   stableId: 'test.Foo',
+                  version: '1.0.0',
                   dispatch: 'command',
                   commandType: 'foo',
                   // no schema
@@ -87,6 +89,7 @@ describe('CommandPlanner', () => {
                 {
                   id: 'urn:command:test.Foo:1.0.0',
                   stableId: 'test.Foo',
+                  version: '1.0.0',
                   dispatch: 'command',
                   commandType: 'foo',
                   // missing adapt
@@ -94,6 +97,7 @@ describe('CommandPlanner', () => {
                 {
                   id: 'urn:command:test.Foo:2.0.0',
                   stableId: 'test.Foo',
+                  version: '2.0.0',
                   dispatch: 'command',
                   commandType: 'foo',
                   schema: RENAME_SCHEMA,
@@ -119,6 +123,7 @@ describe('CommandPlanner', () => {
                 {
                   id: 'urn:command:test.Foo:1.0.0',
                   stableId: 'test.Foo',
+                  version: '1.0.0',
                   dispatch: 'command',
                   commandType: 'foo',
                   schema: RENAME_SCHEMA,
@@ -126,6 +131,7 @@ describe('CommandPlanner', () => {
                 {
                   id: 'urn:command:test.Bar:1.0.0',
                   stableId: 'test.Foo',
+                  version: '1.0.0',
                   dispatch: 'command',
                   commandType: 'bar',
                   schema: RENAME_SCHEMA,

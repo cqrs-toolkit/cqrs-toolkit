@@ -112,4 +112,4 @@ Present only for custom-endpoint commands.
 
 > `readonly` **version**: `string`
 
-Semver version parsed from the command id URN.
+Semantic version of this command capability.

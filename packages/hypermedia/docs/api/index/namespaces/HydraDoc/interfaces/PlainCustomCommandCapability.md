@@ -149,3 +149,15 @@ Explicit surface for rare commands that use a bespoke endpoint.
 
 When present, this surface is the command's invocation contract.
 There is no fallback to a shared dispatch surface.
+
+---
+
+### version
+
+> **version**: `string`
+
+Semantic version of this command capability (e.g. '1.0.0').
+
+#### Inherited from
+
+[`BaseCommandCapability`](BaseCommandCapability.md).[`version`](BaseCommandCapability.md#version)

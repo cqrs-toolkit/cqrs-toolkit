@@ -155,3 +155,15 @@ version is "latest" and to route old payloads through adapters.
 > `optional` **surface**: `undefined`
 
 Disallow custom surface on common capabilities.
+
+---
+
+### version
+
+> **version**: `string`
+
+Semantic version of this command capability (e.g. '1.0.0').
+
+#### Inherited from
+
+[`BaseCommandCapability`](BaseCommandCapability.md).[`version`](BaseCommandCapability.md#version)

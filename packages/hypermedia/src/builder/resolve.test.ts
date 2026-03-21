@@ -224,6 +224,7 @@ function buildSimple(): BuildResult {
           {
             id: 'urn:command:test.RenameItem:1.0.0',
             stableId: 'test.RenameItem',
+            version: '1.0.0',
             dispatch: 'command',
             commandType: 'rename',
             schema: RENAME_SCHEMA,
@@ -262,6 +263,7 @@ function buildWithCustomSchema(schema: JSONSchema7): BuildResult {
           {
             id: 'urn:command:test.RenameItem:1.0.0',
             stableId: 'test.RenameItem',
+            version: '1.0.0',
             dispatch: 'command',
             commandType: 'rename',
             schema,

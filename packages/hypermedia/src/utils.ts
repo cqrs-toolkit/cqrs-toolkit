@@ -187,15 +187,6 @@ function dedupe<T>(arr: T[]): T[] {
   return out
 }
 
-/** Parse the trailing version segment from a versioned URN. */
-export function parseVersionFromUrn(urn: string): string {
-  // urn:command:chat.RenameRoom:1.0.0 → 1.0.0
-  const parts = urn.split(':')
-  const version = parts[parts.length - 1]
-  assert(version, `parseVersionFromUrn: could not parse version from URN: ${urn}`)
-  return version
-}
-
 // Utility: convert RFC6570 path vars `{param}` → colon params `:param`
 // (Assumes `path` has no query-expansion suffix; Surface.hrefBase already strips `{?...}`.)
 export function uriTemplatePathToColon(path: string): string {

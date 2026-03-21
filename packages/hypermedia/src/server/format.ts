@@ -5,8 +5,9 @@ import type { HypermediaTypes } from '../types.js'
 export namespace Hypermedia {
   const MT_HAL = 'application/hal+json'
 
-  function wantsHAL(acceptHeader?: string): boolean {
-    const a = (acceptHeader || '').toLowerCase()
+  function wantsHAL(acceptHeader?: string | string[]): boolean {
+    const raw = Array.isArray(acceptHeader) ? acceptHeader.join(', ') : acceptHeader
+    const a = (raw || '').toLowerCase()
     if (!a || a.includes('*/*')) return true
     return a.includes(MT_HAL)
   }
@@ -154,7 +155,7 @@ export namespace Hypermedia {
   }
 
   export interface Request {
-    headers: Record<string, string | undefined>
+    headers: Record<string, string | string[] | undefined>
     query?: Querystring
   }
 

@@ -29,6 +29,7 @@
 
 - [CommandDispatchExtractor](interfaces/CommandDispatchExtractor.md)
 - [EmbedPlannerOptions](interfaces/EmbedPlannerOptions.md)
+- [HydraLinkHeaderOptions](interfaces/HydraLinkHeaderOptions.md)
 - [IncludeMetaCollectionSchema](interfaces/IncludeMetaCollectionSchema.md)
 - [NegotiatedProfile](interfaces/NegotiatedProfile.md)
 - [ProfileSpec](interfaces/ProfileSpec.md)
@@ -48,6 +49,7 @@
 
 ## Variables
 
+- [hydraLinkHeader](variables/hydraLinkHeader.md)
 - [includeMetaCollectionList](variables/includeMetaCollectionList.md)
 - [includeMetaCollectionSchema](variables/includeMetaCollectionSchema.md)
 

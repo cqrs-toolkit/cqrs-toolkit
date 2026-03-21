@@ -4,7 +4,6 @@ import {
   assertNoQueryExpansionInTemplate,
   buildTemplateIri,
   deriveQueryVarsFromMappings,
-  parseVersionFromUrn,
   semverDesc,
   uriTemplatePathToColon,
 } from './utils.js'
@@ -137,6 +136,9 @@ export namespace HydraDoc {
      * version is "latest" and to route old payloads through adapters.
      */
     stableId: string
+
+    /** Semantic version of this command capability (e.g. '1.0.0'). */
+    version: string
 
     /** JSON Schema describing the request body for this command version. */
     schema?: JSONSchema7
@@ -464,7 +466,6 @@ export namespace HydraDoc {
 
   interface CommandCapabilityEnvelope<Ext extends string> {
     readonly cap: PlainCommandCapability<Ext>
-    readonly version: string
     isLatest: boolean
   }
 
@@ -487,7 +488,7 @@ export namespace HydraDoc {
     /** JSON Schema describing the request body for this command version. */
     readonly schema?: JSONSchema7
 
-    /** Semver version parsed from the command id URN. */
+    /** Semantic version of this command capability. */
     readonly version: string
 
     /** True if this is the latest (highest semver) version within its stableId group. */
@@ -508,7 +509,7 @@ export namespace HydraDoc {
       this.deprecated = plain.deprecated ?? false
       this.stableId = plain.stableId
       this.schema = plain.schema
-      this.version = envelope.version
+      this.version = plain.version
       this.isLatest = envelope.isLatest
       this.adapt = plain.adapt
       this.hydrate = plain.hydrate
@@ -558,10 +559,8 @@ export namespace HydraDoc {
 
       this.surfaces = plain.surfaces.map((s) => new CommandSurface<Ext>(s))
 
-      // Wrap each plain command in an envelope with parsed version
       const envelopes: CommandCapabilityEnvelope<Ext>[] = plain.commands.map((c) => ({
         cap: c,
-        version: parseVersionFromUrn(c.id),
         isLatest: false,
       }))
 
@@ -577,7 +576,7 @@ export namespace HydraDoc {
         group.push(env)
       }
       for (const group of groups.values()) {
-        group.sort((a, b) => semverDesc(a.version, b.version))
+        group.sort((a, b) => semverDesc(a.cap.version, b.cap.version))
         const latest = group[0]
         assert(latest, 'CommandsDef: empty stableId group (unreachable)')
         latest.isLatest = true
@@ -664,6 +663,11 @@ export namespace HydraDoc {
     /** Non-templated canonical href (override or derived) */
     get hrefBase(): `/${string}` {
       return (this._hrefBase ??= this.href ?? this.template.baseHref())
+    }
+
+    /** Converts hrefBase from RFC 6570 syntax to Fastify colon parameters syntax */
+    get path(): string {
+      return uriTemplatePathToColon(this.hrefBase)
     }
 
     toHalCollectionLinks() {
