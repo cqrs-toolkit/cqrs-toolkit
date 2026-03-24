@@ -4,5 +4,6 @@ import './styles/panel.css'
 
 const root = document.getElementById('root')
 if (root) {
+  root.textContent = ''
   render(() => <App />, root)
 }
