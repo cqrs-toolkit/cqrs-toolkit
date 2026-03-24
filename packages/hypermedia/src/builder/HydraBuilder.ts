@@ -310,7 +310,7 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
 
       schemaSource.set(path, c.schema)
       schemas.set(path, {
-        content: JSON.stringify(stableOrder(c.schema), null, 2),
+        content: renderJson(c.schema),
         isLatest: c.isLatest,
       })
     }
@@ -320,12 +320,12 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
   for (const [id, schema] of registry.getCommonSchemas()) {
     const path = `schemas/${id.replaceAll(':', '/')}.json`
     schemas.set(path, {
-      content: JSON.stringify(stableOrder(schema), null, 2),
+      content: renderJson(schema),
       isLatest: true,
     })
   }
 
-  const content = JSON.stringify(stableOrder(jsonld), null, 2)
+  const content = renderJson(jsonld)
 
   return { jsonld, content, warnings, schemas }
 
@@ -436,4 +436,8 @@ export function stableOrder(v: unknown): unknown {
     return out
   }
   return v
+}
+
+function renderJson(value: unknown): string {
+  return JSON.stringify(stableOrder(value), null, 2) + '\n'
 }
