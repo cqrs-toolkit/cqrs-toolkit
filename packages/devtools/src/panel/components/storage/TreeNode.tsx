@@ -52,12 +52,10 @@ export const TreeNode: Component<TreeNodeProps> = (props) => {
         </Show>
         <span class="tree-node-label">{props.node.label}</span>
       </div>
-      <Show when={hasChildren()}>
-        <div style={{ display: isExpanded() ? 'contents' : 'none' }}>
-          <For each={props.node.children}>
-            {(child) => <TreeNode node={child} depth={props.depth + 1} />}
-          </For>
-        </div>
+      <Show when={hasChildren() && isExpanded()}>
+        <For each={props.node.children}>
+          {(child) => <TreeNode node={child} depth={props.depth + 1} />}
+        </For>
       </Show>
     </>
   )

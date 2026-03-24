@@ -30,16 +30,26 @@ interface TreeViewProps {
 
 export const TreeView: Component<TreeViewProps> = (props) => {
   let containerRef: HTMLDivElement | undefined
+  let focusFromMouse = false
 
   function focusContainer(): void {
     containerRef?.focus()
   }
 
+  function handleMouseDown(): void {
+    focusFromMouse = true
+  }
+
   function handleFocus(): void {
-    // Skip if a click handler already set the selection
+    // Click handlers manage their own selection — only restore on keyboard focus (Tab)
+    if (focusFromMouse) {
+      focusFromMouse = false
+      return
+    }
+
     if (props.store.selectedNode() !== undefined) return
 
-    // Restore last selected or select first visible
+    // Restore last selected node if it's still visible
     const last = props.store.lastSelectedNode()
     if (last !== undefined) {
       const visible = props.store.visibleList()
@@ -48,10 +58,8 @@ export const TreeView: Component<TreeViewProps> = (props) => {
         return
       }
     }
-    const first = props.store.visibleList()[0]
-    if (first !== undefined) {
-      props.store.selectNode(first)
-    }
+
+    // Nothing to restore — first arrow key press will select first visible
   }
 
   function handleBlur(e: FocusEvent): void {
@@ -191,6 +199,7 @@ export const TreeView: Component<TreeViewProps> = (props) => {
         class="tree-view"
         ref={containerRef}
         tabindex="0"
+        onMouseDown={handleMouseDown}
         onFocus={handleFocus}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
