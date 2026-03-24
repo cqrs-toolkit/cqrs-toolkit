@@ -1,13 +1,19 @@
+import { Err, Ok, ValidationException } from '@meticoeus/ddd-es'
 import { describe, expect, it } from 'vitest'
-import type { CommandHandlerRegistration } from './domain.js'
+import type { IQueryManager } from '../core/query-manager/types.js'
+import type { CommandHandlerRegistration, HandlerContext } from './domain.js'
 import { createDomainExecutor, domainFailure, domainSuccess } from './domain.js'
+
+const mockQueryManager = {} as unknown as IQueryManager
+
+const INITIALIZING: HandlerContext = { phase: 'initializing' }
 
 describe('createDomainExecutor', () => {
   const registrations: CommandHandlerRegistration[] = [
     {
       commandType: 'CreateTodo',
-      handler(payload) {
-        return domainSuccess([{ type: 'TodoCreated', data: payload, streamId: 'Todo-1' }])
+      handler(data) {
+        return domainSuccess([{ type: 'TodoCreated', data, streamId: 'Todo-1' }])
       },
     },
     {
@@ -18,10 +24,13 @@ describe('createDomainExecutor', () => {
     },
   ]
 
-  it('dispatches to the correct handler by command type', () => {
+  it('dispatches to the correct handler by command type', async () => {
     const executor = createDomainExecutor(registrations)
 
-    const result = executor.execute({ type: 'CreateTodo', payload: { content: 'test' } })
+    const result = await executor.execute(
+      { type: 'CreateTodo', data: { content: 'test' } },
+      INITIALIZING,
+    )
 
     expect(result.ok).toBe(true)
     if (result.ok) {
@@ -31,29 +40,49 @@ describe('createDomainExecutor', () => {
     }
   })
 
-  it('passes payload to handler, not the full command', () => {
+  it('passes data and context to handler', async () => {
+    let receivedContext: HandlerContext | undefined
     const executor = createDomainExecutor([
       {
         commandType: 'Test',
-        handler(payload) {
-          // If the full command were passed, payload would have `type` and `payload` keys
-          return domainSuccess([{ received: payload }])
+        handler(data, context) {
+          receivedContext = context
+          return domainSuccess([{ received: data }])
         },
       },
     ])
 
-    const result = executor.execute({ type: 'Test', payload: { field: 'value' } })
+    const result = await executor.execute({ type: 'Test', data: { field: 'value' } }, INITIALIZING)
 
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.value.anticipatedEvents).toEqual([{ received: { field: 'value' } }])
     }
+    expect(receivedContext).toEqual(INITIALIZING)
   })
 
-  it('returns validation failure for unregistered command type', () => {
+  it('passes updating context with entityId to handler', async () => {
+    let receivedContext: HandlerContext | undefined
+    const executor = createDomainExecutor([
+      {
+        commandType: 'Test',
+        handler(_data, context) {
+          receivedContext = context
+          return domainSuccess([])
+        },
+      },
+    ])
+
+    const updatingContext: HandlerContext = { phase: 'updating', entityId: 'entity-123' }
+    await executor.execute({ type: 'Test', data: {} }, updatingContext)
+
+    expect(receivedContext).toEqual({ phase: 'updating', entityId: 'entity-123' })
+  })
+
+  it('returns validation failure for unregistered command type', async () => {
     const executor = createDomainExecutor(registrations)
 
-    const result = executor.execute({ type: 'UnknownCommand', payload: {} })
+    const result = await executor.execute({ type: 'UnknownCommand', data: {} }, INITIALIZING)
 
     expect(result.ok).toBe(false)
     if (!result.ok) {
@@ -74,7 +103,7 @@ describe('createDomainExecutor', () => {
     )
   })
 
-  it('propagates handler validation failures', () => {
+  it('propagates handler validation failures', async () => {
     const executor = createDomainExecutor([
       {
         commandType: 'Validate',
@@ -84,11 +113,89 @@ describe('createDomainExecutor', () => {
       },
     ])
 
-    const result = executor.execute({ type: 'Validate', payload: {} })
+    const result = await executor.execute({ type: 'Validate', data: {} }, INITIALIZING)
 
     expect(result.ok).toBe(false)
     if (!result.ok) {
       expect(result.error.details).toEqual([{ path: 'name', message: 'name must not be empty' }])
     }
+  })
+
+  it('skips validation phases on regeneration', async () => {
+    let validateCalled = false
+    let validateAsyncCalled = false
+    const executor = createDomainExecutor([
+      {
+        commandType: 'Test',
+        validate() {
+          validateCalled = true
+          return Ok({ validated: true })
+        },
+        async validateAsync() {
+          validateAsyncCalled = true
+          return Ok({ asyncValidated: true })
+        },
+        handler() {
+          return domainSuccess([])
+        },
+      },
+    ])
+
+    const updatingContext: HandlerContext = { phase: 'updating', entityId: 'e-1' }
+    await executor.execute({ type: 'Test', data: {} }, updatingContext)
+
+    expect(validateCalled).toBe(false)
+    expect(validateAsyncCalled).toBe(false)
+  })
+
+  it('runs validateAsync and rejects on failure', async () => {
+    const executor = createDomainExecutor(
+      [
+        {
+          commandType: 'Test',
+          async validateAsync() {
+            return Err(
+              new ValidationException(undefined, [
+                { path: 'name', message: 'Name already exists' },
+              ]),
+            )
+          },
+          handler() {
+            return domainSuccess([])
+          },
+        },
+      ],
+      { queryManager: mockQueryManager },
+    )
+
+    const result = await executor.execute({ type: 'Test', data: {} }, INITIALIZING)
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error.details).toEqual([{ path: 'name', message: 'Name already exists' }])
+    }
+  })
+
+  it('passes transformed data through validateAsync to handler', async () => {
+    let handlerData: unknown
+    const executor = createDomainExecutor(
+      [
+        {
+          commandType: 'Test',
+          async validateAsync(data) {
+            return Ok({ ...(data as object), enriched: true })
+          },
+          handler(data) {
+            handlerData = data
+            return domainSuccess([])
+          },
+        },
+      ],
+      { queryManager: mockQueryManager },
+    )
+
+    await executor.execute({ type: 'Test', data: { original: true } }, INITIALIZING)
+
+    expect(handlerData).toEqual({ original: true, enriched: true })
   })
 })

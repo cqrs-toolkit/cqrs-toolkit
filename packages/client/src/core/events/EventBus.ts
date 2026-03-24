@@ -4,7 +4,7 @@
  */
 
 import { Observable, Subject, filter, share } from 'rxjs'
-import type { LibraryEvent, LibraryEventPayloads, LibraryEventType } from '../../types/events.js'
+import type { LibraryEvent, LibraryEventData, LibraryEventType } from '../../types/events.js'
 
 /**
  * Event bus for library-level events.
@@ -34,12 +34,12 @@ export class EventBus {
    * Emit a library event.
    *
    * @param type - Event type
-   * @param payload - Event payload
+   * @param data - Event data
    */
-  emit<T extends LibraryEventType>(type: T, payload: LibraryEventPayloads[T]): void {
+  emit<T extends LibraryEventType>(type: T, data: LibraryEventData[T]): void {
     const event: LibraryEvent<T> = {
       type,
-      payload,
+      data,
       timestamp: Date.now(),
     }
     this.subject.next(event)
@@ -51,13 +51,13 @@ export class EventBus {
    * on the envelope so consumers can distinguish debug events.
    *
    * @param type - Event type
-   * @param payload - Event payload
+   * @param data - Event data
    */
-  emitDebug<T extends LibraryEventType>(type: T, payload: LibraryEventPayloads[T]): void {
+  emitDebug<T extends LibraryEventType>(type: T, data: LibraryEventData[T]): void {
     if (!this.debug) return
     const event: LibraryEvent<T> = {
       type,
-      payload,
+      data,
       timestamp: Date.now(),
       debug: true,
     }

@@ -6,7 +6,7 @@ import type { IPersistedEvent } from '@meticoeus/ddd-es'
 import type { AuthStrategy } from '../core/auth.js'
 import type { ICommandSender } from '../core/command-queue/types.js'
 import type { ProcessorRegistration } from '../core/event-processor/types.js'
-import type { CommandHandlerRegistration } from './domain.js'
+import type { CommandHandlerRegistration, SchemaValidator } from './domain.js'
 
 /**
  * Execution mode for the CQRS Client.
@@ -241,13 +241,21 @@ export interface Collection {
  * Contains all domain-level settings shared between the main thread and worker.
  * The consumer writes this once and imports it from both entry points.
  */
-export interface CqrsConfig {
+export interface CqrsConfig<TSchema = unknown> {
+  /**
+   * Schema validator implementation for structural validation.
+   * Required if any command handler registration has a `schema` property.
+   * The generic `TSchema` enforces that the validator and all registrations
+   * agree on the schema type (JSONSchema7, z.ZodType, etc.).
+   */
+  schemaValidator?: SchemaValidator<TSchema>
+
   /**
    * Command handler registrations for local validation and optimistic updates.
-   * Each handler validates a command payload and produces anticipated events.
+   * Each handler validates command data and produces anticipated events.
    * If not provided, commands are sent directly without local validation.
    */
-  commandHandlers?: CommandHandlerRegistration[]
+  commandHandlers?: CommandHandlerRegistration<any, TSchema>[]
 
   /**
    * Auth strategy for transport-level authentication.
@@ -317,7 +325,7 @@ export interface CqrsConfig {
  * Extends the shared config with main-thread-only concerns:
  * mode selection and worker script URL.
  */
-export interface CqrsClientConfig extends CqrsConfig {
+export interface CqrsClientConfig<TSchema = unknown> extends CqrsConfig<TSchema> {
   /**
    * Execution mode.
    * Defaults to 'auto': SharedWorker > Dedicated Worker > Online-only
@@ -375,11 +383,17 @@ export const DEFAULT_CONFIG = {
 export interface ResolvedConfig extends Required<
   Omit<
     CqrsConfig,
-    'commandHandlers' | 'commandSender' | 'workerSetup' | 'collections' | 'processors'
+    | 'commandHandlers'
+    | 'commandSender'
+    | 'schemaValidator'
+    | 'workerSetup'
+    | 'collections'
+    | 'processors'
   >
 > {
   commandHandlers: CommandHandlerRegistration[]
   commandSender?: ICommandSender
+  schemaValidator?: SchemaValidator<unknown>
   workerSetup?: string[]
   collections: Collection[]
   processors: ProcessorRegistration[]
@@ -392,6 +406,7 @@ export function resolveConfig(config: CqrsConfig): ResolvedConfig {
   return {
     commandHandlers: config.commandHandlers ?? [],
     commandSender: config.commandSender,
+    schemaValidator: config.schemaValidator,
     auth: config.auth,
     network: {
       ...DEFAULT_CONFIG.network,

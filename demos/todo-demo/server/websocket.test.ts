@@ -1,3 +1,4 @@
+import type { CommandSuccessResponse } from '@cqrs-toolkit/demo-base/common/shared'
 import type {
   ConnectedMessage,
   EventMessage,
@@ -8,7 +9,6 @@ import type {
 import type { FastifyInstance } from 'fastify'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { WebSocket } from 'ws'
-import type { CommandSuccessResponse } from '../shared/types.js'
 import { createApp } from './bootstrap.js'
 import { matchesTopic, SubscriptionRegistry } from './websocket.js'
 
@@ -211,7 +211,7 @@ describe('WebSocket integration', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/todos/commands',
-      payload: { type: 'CreateTodo', payload: { content: 'WebSocket test' } },
+      payload: { type: 'CreateTodo', data: { content: 'WebSocket test' } },
     })
     const body = res.json<CommandSuccessResponse>()
 
@@ -237,7 +237,7 @@ describe('WebSocket integration', () => {
     await app.inject({
       method: 'POST',
       url: '/api/todos/commands',
-      payload: { type: 'CreateTodo', payload: { content: 'Should not arrive' } },
+      payload: { type: 'CreateTodo', data: { content: 'Should not arrive' } },
     })
 
     // Should timeout waiting — no event should arrive
@@ -255,7 +255,7 @@ describe('WebSocket integration', () => {
     await app.inject({
       method: 'POST',
       url: '/api/todos/commands',
-      payload: { type: 'CreateTodo', payload: { content: 'Global test' } },
+      payload: { type: 'CreateTodo', data: { content: 'Global test' } },
     })
 
     const eventMsg = await waitForMessage<EventMessage>(socket)

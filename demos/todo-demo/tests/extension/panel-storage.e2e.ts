@@ -124,7 +124,7 @@ async function switchToStorageWithTables(page: import('@playwright/test').Page):
   }
 
   // Wait for the tree to render
-  await expect(page.locator('.storage-tree-name').first()).toBeVisible()
+  await expect(page.locator('.tree-node-row').first()).toBeVisible()
 }
 
 // ---------------------------------------------------------------------------
@@ -160,8 +160,8 @@ test.describe('Layer 2: Panel Storage Tab', () => {
   test('table tree renders from sqlite_master query response', async ({ mockPanelPage: page }) => {
     await switchToStorageWithTables(page)
 
-    await expect(page.locator('.storage-tree-name')).toHaveCount(3)
-    await expect(page.locator('.storage-tree-name').first()).toContainText('commands')
+    await expect(page.locator('.tree-node-row')).toHaveCount(3)
+    await expect(page.locator('.tree-node-row').first()).toContainText('commands')
   })
 
   test('expand table shows Schema action', async ({ mockPanelPage: page }) => {
@@ -169,18 +169,18 @@ test.describe('Layer 2: Panel Storage Tab', () => {
 
     // Click arrow to expand
     await page
-      .locator('.storage-tree-name', { hasText: 'commands' })
-      .locator('.storage-tree-arrow')
+      .locator('.tree-node-row', { hasText: 'commands' })
+      .locator('.tree-node-arrow')
       .click()
 
-    await expect(page.locator('.storage-tree-action')).toContainText('Schema')
+    await expect(page.locator('.tree-node-row', { hasText: 'Schema' })).toBeVisible()
   })
 
   test('double-click table name sends SQL request', async ({ mockPanelPage: page }) => {
     await switchToStorageWithTables(page)
 
     // Double-click to open table
-    await page.locator('.storage-tree-name', { hasText: 'commands' }).dblclick()
+    await page.locator('.tree-node-row', { hasText: 'commands' }).dblclick()
 
     // Should have sent a COUNT query and a SELECT query
     const outgoing = await getOutgoing(page)
@@ -200,7 +200,7 @@ test.describe('Layer 2: Panel Storage Tab', () => {
     await switchToStorageWithTables(page)
 
     // Double-click to open table
-    await page.locator('.storage-tree-name', { hasText: 'commands' }).dblclick()
+    await page.locator('.tree-node-row', { hasText: 'commands' }).dblclick()
 
     // Respond to count query
     await page.waitForTimeout(100)
@@ -228,7 +228,7 @@ test.describe('Layer 2: Panel Storage Tab', () => {
     await switchToStorageWithTables(page)
 
     // Double-click to open table
-    await page.locator('.storage-tree-name', { hasText: 'commands' }).dblclick()
+    await page.locator('.tree-node-row', { hasText: 'commands' }).dblclick()
 
     // Respond to queries
     await page.waitForTimeout(100)
@@ -259,7 +259,7 @@ test.describe('Layer 2: Panel Storage Tab', () => {
     await expect(page.locator('.storage-tab-btn.active')).toContainText('Query')
 
     // Double-click to open a table tab
-    await page.locator('.storage-tree-name', { hasText: 'commands' }).dblclick()
+    await page.locator('.tree-node-row', { hasText: 'commands' }).dblclick()
 
     // Respond to queries
     await page.waitForTimeout(100)
@@ -285,7 +285,7 @@ test.describe('Layer 2: Panel Storage Tab', () => {
     await switchToStorageWithTables(page)
 
     // Open a table tab
-    await page.locator('.storage-tree-name', { hasText: 'commands' }).dblclick()
+    await page.locator('.tree-node-row', { hasText: 'commands' }).dblclick()
 
     await page.waitForTimeout(100)
     let req = await getLastStorageRequest(page)
@@ -422,15 +422,144 @@ test.describe('Layer 2: Panel Storage Tab', () => {
 
     // Expand table
     await page
-      .locator('.storage-tree-name', { hasText: 'commands' })
-      .locator('.storage-tree-arrow')
+      .locator('.tree-node-row', { hasText: 'commands' })
+      .locator('.tree-node-arrow')
       .click()
 
     // Double-click Schema
-    await page.locator('.storage-tree-action', { hasText: 'Schema' }).dblclick()
+    await page.locator('.tree-node-row', { hasText: 'Schema' }).dblclick()
 
     // DDL tab should be visible
     await expect(page.locator('.storage-tab-btn', { hasText: 'DDL: commands' })).toBeVisible()
     await expect(page.locator('.storage-ddl-viewer')).toBeVisible()
+  })
+})
+
+test.describe('tree keyboard navigation', () => {
+  async function selectTreeNode(
+    page: import('@playwright/test').Page,
+    text: string,
+  ): Promise<void> {
+    await page.locator('.tree-node-row', { hasText: text }).click()
+  }
+
+  test('click selects node, click again deselects', async ({ mockPanelPage: page }) => {
+    await switchToStorageWithTables(page)
+
+    await selectTreeNode(page, 'commands')
+    await expect(page.locator('.tree-node-row', { hasText: 'commands' })).toHaveClass(/selected/)
+
+    await selectTreeNode(page, 'commands')
+    await expect(page.locator('.tree-node-row', { hasText: 'commands' })).not.toHaveClass(
+      /selected/,
+    )
+  })
+
+  test('arrow down navigates between table nodes', async ({ mockPanelPage: page }) => {
+    await switchToStorageWithTables(page)
+
+    await selectTreeNode(page, 'commands')
+    await page.keyboard.press('ArrowDown')
+    await expect(page.locator('.tree-node-row', { hasText: 'cache_keys' })).toHaveClass(/selected/)
+  })
+
+  test('arrow up navigates between table nodes', async ({ mockPanelPage: page }) => {
+    await switchToStorageWithTables(page)
+
+    await selectTreeNode(page, 'cache_keys')
+    await page.keyboard.press('ArrowUp')
+    await expect(page.locator('.tree-node-row', { hasText: 'commands' })).toHaveClass(/selected/)
+  })
+
+  test('arrow right expands collapsed node', async ({ mockPanelPage: page }) => {
+    await switchToStorageWithTables(page)
+
+    await selectTreeNode(page, 'commands')
+    await page.keyboard.press('ArrowRight')
+    await expect(page.locator('.tree-node-row', { hasText: 'commands' })).toHaveClass(/selected/)
+    await expect(page.locator('.tree-node-row', { hasText: 'Schema' })).toBeVisible()
+  })
+
+  test('arrow left collapses expanded node', async ({ mockPanelPage: page }) => {
+    await switchToStorageWithTables(page)
+
+    await selectTreeNode(page, 'commands')
+    await page.keyboard.press('ArrowRight')
+    await expect(page.locator('.tree-node-row', { hasText: 'Schema' })).toBeVisible()
+
+    await page.keyboard.press('ArrowLeft')
+    await expect(page.locator('.tree-node-row', { hasText: 'Schema' })).not.toBeVisible()
+  })
+
+  test('arrow right on expanded node selects first child', async ({ mockPanelPage: page }) => {
+    await switchToStorageWithTables(page)
+
+    await selectTreeNode(page, 'commands')
+    await page.keyboard.press('ArrowRight')
+    await page.keyboard.press('ArrowRight')
+    await expect(page.locator('.tree-node-row', { hasText: 'Schema' })).toHaveClass(/selected/)
+  })
+
+  test('arrow left on child moves to parent', async ({ mockPanelPage: page }) => {
+    await switchToStorageWithTables(page)
+
+    await selectTreeNode(page, 'commands')
+    await page.keyboard.press('ArrowRight')
+    await page.keyboard.press('ArrowRight')
+    await expect(page.locator('.tree-node-row', { hasText: 'Schema' })).toHaveClass(/selected/)
+
+    await page.keyboard.press('ArrowLeft')
+    await expect(page.locator('.tree-node-row', { hasText: 'commands' })).toHaveClass(/selected/)
+  })
+
+  test('arrow down skips collapsed children', async ({ mockPanelPage: page }) => {
+    await switchToStorageWithTables(page)
+
+    await selectTreeNode(page, 'commands')
+    await page.keyboard.press('ArrowDown')
+    await expect(page.locator('.tree-node-row', { hasText: 'cache_keys' })).toHaveClass(/selected/)
+  })
+
+  test('enter activates selected node', async ({ mockPanelPage: page }) => {
+    await switchToStorageWithTables(page)
+
+    await selectTreeNode(page, 'commands')
+    await page.keyboard.press('Enter')
+
+    const outgoing = await getOutgoing(page)
+    const storageRequests = outgoing.filter(
+      (m) =>
+        typeof m === 'object' &&
+        m !== null &&
+        (m as Record<string, unknown>)['type'] === 'cqrs-devtools-request-storage',
+    )
+    // At least the sqlite_master request + the enter-triggered request
+    expect(storageRequests.length).toBeGreaterThanOrEqual(2)
+  })
+
+  test('home selects first node', async ({ mockPanelPage: page }) => {
+    await switchToStorageWithTables(page)
+
+    await selectTreeNode(page, 'cache_keys')
+    await page.keyboard.press('Home')
+    await expect(page.locator('.tree-node-row', { hasText: 'commands' })).toHaveClass(/selected/)
+  })
+
+  test('end selects last visible node', async ({ mockPanelPage: page }) => {
+    await switchToStorageWithTables(page)
+
+    await selectTreeNode(page, 'commands')
+    await page.keyboard.press('End')
+    await expect(page.locator('.tree-node-row', { hasText: 'read_models' })).toHaveClass(/selected/)
+  })
+
+  test('escape blurs tree', async ({ mockPanelPage: page }) => {
+    await switchToStorageWithTables(page)
+
+    await selectTreeNode(page, 'commands')
+    await expect(page.locator('.tree-node-row', { hasText: 'commands' })).toHaveClass(/selected/)
+
+    await page.keyboard.press('Escape')
+    await expect(page.locator('.tree-node-row.selected')).toHaveCount(0)
   })
 })

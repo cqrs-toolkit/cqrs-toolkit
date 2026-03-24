@@ -20,7 +20,7 @@ export interface SerializedCommandRecord {
   commandId: string
   service: string
   type: string
-  payload: unknown
+  data: unknown
   status: CommandStatus
   dependsOn: string[]
   blockedBy: string[]
@@ -34,7 +34,7 @@ export interface SerializedCommandRecord {
 
 export interface SanitizedEvent {
   type: string
-  payload: Record<string, unknown>
+  data: Record<string, unknown>
   timestamp: number
 }
 
@@ -74,7 +74,7 @@ export function makeCommand(
     commandId: id,
     service: 'todos',
     type: 'CreateTodo',
-    payload: { text: 'Test todo' },
+    data: { text: 'Test todo' },
     status: 'pending',
     dependsOn: [],
     blockedBy: [],
@@ -96,8 +96,8 @@ export function makeBufferDump(overrides: Partial<BufferDumpMessage> = {}): Buff
   }
 }
 
-export function makeEvent(type: string, payload: Record<string, unknown>): SanitizedEvent {
-  return { type, payload, timestamp: Date.now() }
+export function makeEvent(type: string, data: Record<string, unknown>): SanitizedEvent {
+  return { type, data, timestamp: Date.now() }
 }
 
 // ---------------------------------------------------------------------------
@@ -110,4 +110,28 @@ export async function switchTab(page: Page, tabName: string): Promise<void> {
 
   // Click the tab button with the matching text
   await page.locator('.tab-btn', { hasText: tabName }).click()
+}
+
+// ---------------------------------------------------------------------------
+// Multi-select / chip-select interaction helpers
+// ---------------------------------------------------------------------------
+
+export async function toggleMultiSelectOption(
+  page: Page,
+  selector: string,
+  option: string,
+): Promise<void> {
+  const container = page.locator(selector)
+
+  await container.locator('.multi-select-btn').click()
+  await container.locator('.multi-select-item', { hasText: option }).click()
+  await container.locator('.multi-select-close').click()
+}
+
+export async function toggleChipOption(page: Page, selector: string, chip: string): Promise<void> {
+  const container = page.locator(selector)
+
+  await container.locator('.multi-select-btn').click()
+  await container.locator('.filter-chip', { hasText: chip }).click()
+  await container.locator('.multi-select-close').click()
 }

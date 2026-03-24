@@ -7,6 +7,7 @@ import { ReadModelsTab } from './components/read-models/ReadModelsTab.js'
 import { StorageTab } from './components/storage/StorageTab.js'
 import { SyncTab } from './components/sync/SyncTab.js'
 import { TabBar, type TabName } from './components/TabBar.js'
+import { downloadJson } from './downloadJson.js'
 import { createCacheStore } from './stores/cache.js'
 import { createCommandsStore } from './stores/commands.js'
 import { createConnectionStore } from './stores/connection.js'
@@ -60,7 +61,7 @@ export const App: Component = () => {
             store={commandsStore}
             onRetry={(id) => connection.sendAction('retry', id)}
             onCancel={(id) => connection.sendAction('cancel', id)}
-            onRefresh={() => connection.requestCommandSnapshot()}
+            onExport={() => downloadJson(commandsStore.exportJson(), 'commands')}
             onClear={() => {
               connection.clearBuffer()
               commandsStore.clear()
@@ -69,6 +70,7 @@ export const App: Component = () => {
         ) : activeTab() === 'Events' ? (
           <EventsTab
             store={eventsStore}
+            onExport={() => downloadJson(eventsStore.exportJson(), 'events')}
             onClear={() => {
               connection.clearBuffer()
               eventsStore.clear()
@@ -77,6 +79,7 @@ export const App: Component = () => {
         ) : activeTab() === 'Cache' ? (
           <CacheTab
             store={cacheStore}
+            onExport={() => downloadJson(cacheStore.exportJson(), 'cache')}
             onClear={() => {
               connection.clearBuffer()
               cacheStore.clear()
@@ -85,6 +88,7 @@ export const App: Component = () => {
         ) : activeTab() === 'Read Models' ? (
           <ReadModelsTab
             store={readModelsStore}
+            onExport={() => downloadJson(readModelsStore.exportJson(), 'read-models')}
             onClear={() => {
               connection.clearBuffer()
               readModelsStore.clear()
@@ -93,6 +97,7 @@ export const App: Component = () => {
         ) : activeTab() === 'Sync' ? (
           <SyncTab
             store={syncStore}
+            onExport={() => downloadJson(syncStore.exportJson(), 'sync')}
             onClear={() => {
               connection.clearBuffer()
               syncStore.clear()

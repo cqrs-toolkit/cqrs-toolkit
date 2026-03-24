@@ -6,7 +6,7 @@
 
 # Interface: DomainExecutionSuccess\<TEvent\>
 
-Successful domain execution payload.
+Successful domain execution data.
 
 ## Type Parameters
 

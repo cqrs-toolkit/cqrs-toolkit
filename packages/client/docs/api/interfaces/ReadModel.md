@@ -16,6 +16,14 @@ Read model with metadata.
 
 ## Properties
 
+### \_clientMetadata?
+
+> `optional` **\_clientMetadata**: [`ClientMetadata`](ClientMetadata.md)
+
+Client-side identity tracking metadata. Undefined for server-seeded entries.
+
+---
+
 ### collection
 
 > **collection**: `string`

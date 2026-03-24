@@ -11,7 +11,10 @@ import {
   type Result,
   ValidationException,
 } from '@meticoeus/ddd-es'
+import type { IAnticipatedEvent } from '../core/command-lifecycle/AnticipatedEventShape.js'
+import type { IQueryManager } from '../core/query-manager/types.js'
 import { assert } from '../utils/assert.js'
+import { generateId } from '../utils/uuid.js'
 import type { ValidationError } from './validation.js'
 
 /**
@@ -80,7 +83,7 @@ export interface CreateCommandConfig {
 }
 
 /**
- * Successful domain execution payload.
+ * Successful domain execution data.
  */
 export interface DomainExecutionSuccess<TEvent> {
   /** Events to apply optimistically */
@@ -97,6 +100,68 @@ export type DomainExecutionResult<TEvent> = Result<
   ValidationException<ValidationError[]>
 >
 
+// ---------------------------------------------------------------------------
+// Handler context
+// ---------------------------------------------------------------------------
+
+/**
+ * Context for the first execution of a command handler.
+ */
+export interface InitializingContext {
+  /** First execution for this command. */
+  phase: 'initializing'
+  /** URL path template values from the command envelope. */
+  path?: unknown
+}
+
+/**
+ * Context for re-execution after dependency data changed (e.g., parent ID resolved).
+ */
+export interface UpdatingContext {
+  /** Re-execution after dependency data changed. */
+  phase: 'updating'
+  /** The entity ID established during initial execution. Create handlers should reuse this
+   *  instead of generating a new ID. */
+  entityId: string
+  /** URL path template values from the command envelope. */
+  path?: unknown
+}
+
+/**
+ * Context passed to command handlers.
+ *
+ * Discriminated union on `phase`. During `'updating'`, `entityId` is always present —
+ * create handlers use it to preserve identity stability across regeneration.
+ */
+export type HandlerContext = InitializingContext | UpdatingContext
+
+/**
+ * Generate or reuse an entity ID based on handler context.
+ *
+ * During initial execution, generates a new random UUID.
+ * During regeneration, returns the entity ID from the original execution.
+ *
+ * @param context - The handler context
+ * @returns A stable entity ID
+ */
+export function createEntityId(context: HandlerContext): string {
+  return context.phase === 'initializing' ? generateId() : context.entityId
+}
+
+// ---------------------------------------------------------------------------
+// Async validation context
+// ---------------------------------------------------------------------------
+
+/**
+ * Context provided to `validateAsync` handlers.
+ * Gives access to the local read model for business rule checks
+ * (name uniqueness, permission lookups, etc.).
+ */
+export interface AsyncValidationContext {
+  /** Query the local read model store. */
+  queryManager: IQueryManager
+}
+
 /**
  * Domain executor interface - consumer implements this.
  * The library is agnostic to how validation is performed internally.
@@ -106,18 +171,17 @@ export type DomainExecutionResult<TEvent> = Result<
  */
 export interface IDomainExecutor<TCommand = unknown, TEvent = unknown> {
   /**
-   * Execute a command and produce anticipated events.
-   * Validation happens here - return errors if command is invalid.
+   * Execute a command through the validation pipeline and produce anticipated events.
    *
-   * This method must be:
-   * - Pure: no side effects
-   * - Deterministic: same input always produces same output
-   * - Synchronous: no async operations
+   * On initial execution (`'initializing'`), runs all validation phases
+   * (schema, validate, validateAsync) before the handler.
+   * On regeneration (`'updating'`), skips validation and runs the handler directly.
    *
    * @param command - The command to execute
+   * @param context - Execution context (phase and entity ID for regeneration)
    * @returns Success with anticipated events, or failure with validation errors
    */
-  execute(command: TCommand): DomainExecutionResult<TEvent>
+  execute(command: TCommand, context: HandlerContext): Promise<DomainExecutionResult<TEvent>>
 }
 
 /**
@@ -156,36 +220,84 @@ export function domainFailure(errors: ValidationError[]): DomainExecutionResult<
 }
 
 // ---------------------------------------------------------------------------
+// Schema validation
+// ---------------------------------------------------------------------------
+
+/**
+ * Pluggable schema validator.
+ *
+ * Consumer provides a single implementation that knows how to validate their
+ * chosen schema type (JSON Schema via AJV, Zod, etc.). Configured once on
+ * `CqrsConfig.schemaValidator`.
+ *
+ * Each validation phase that succeeds may transform the data (coercion,
+ * normalization). The transformed output replaces the command data for
+ * subsequent phases and is persisted to `CommandRecord.data`.
+ */
+export interface SchemaValidator<TSchema> {
+  validate(schema: TSchema, data: unknown): Result<unknown, ValidationException<ValidationError[]>>
+}
+
+// ---------------------------------------------------------------------------
 // Registration-based domain executor
 // ---------------------------------------------------------------------------
 
 /**
  * Registration for a single command handler.
  *
- * Uses method syntax for `handler` so that registrations with specific
- * payload types are assignable to `CommandHandlerRegistration[]`
+ * Command handling pipeline (all phases except `handler` are optional):
+ *
+ * 1. `schema` — structural validation via the configured `SchemaValidator`.
+ *    The library calls the validator automatically. No consumer code needed.
+ * 2. `validate` — custom sync validation for rules the schema can't express
+ *    (cross-field constraints, enum membership, etc.). Like `zod.refine()`.
+ * 3. `handler` — event generation from validated data. Will be migrated to
+ *    `generateEvents` in a future phase.
+ *
+ * Phases 1-2 only run on initial execution (`'initializing'`), not on
+ * regeneration (`'updating'`). Each phase may transform the data; the
+ * transformed output is passed to subsequent phases and persisted.
+ *
+ * Schema validation is opt-in. Consumers can validate in their own UI forms
+ * before submitting, use the `validate` step, or rely on schema validation.
+ *
+ * Uses method syntax for `handler` and `validate` so that registrations with
+ * specific data types are assignable to `CommandHandlerRegistration[]`
  * (bivariant parameter checking — same pattern as ProcessorRegistration).
+ *
+ * @template TEvent - Anticipated event type produced by the handler.
+ * @template TSchema - Schema type for structural validation (JSONSchema7, z.ZodType, etc.).
  */
-export interface CommandHandlerRegistration<TEvent = unknown> {
+export interface CommandHandlerRegistration<
+  TEvent extends IAnticipatedEvent = IAnticipatedEvent,
+  TSchema = unknown,
+> {
   /** Command type this handler processes */
   commandType: string
-  /** Validate payload and produce anticipated events */
-  handler(payload: unknown): DomainExecutionResult<TEvent>
+  /** Phase 1: structural schema validation (library-driven). */
+  schema?: TSchema
+  /** Phase 2: custom sync validation for rules the schema can't cover. */
+  validate?(data: unknown): Result<unknown, ValidationException<ValidationError[]>>
+  /** Phase 3: async validation querying local data (permissions, name conflicts, etc.). */
+  validateAsync?(
+    data: unknown,
+    context: AsyncValidationContext,
+  ): Promise<Result<unknown, ValidationException<ValidationError[]>>>
+  /** Phase 4: produce anticipated events from validated data. */
+  handler(data: unknown, context: HandlerContext): DomainExecutionResult<TEvent>
   /** If this command creates a new aggregate, configure how to extract the server ID. */
   creates?: CreateCommandConfig
-  /** Payload field name that holds the revision for optimistic concurrency. Absent for creates. */
-  revisionField?: string
-  /** Cross-aggregate parent references. Each entry maps a payload field to the command that produces the ID. */
+  /** Cross-aggregate parent references. Each entry maps a data field to the command that produces the ID. */
   parentRef?: ParentRefConfig[]
 }
 
 /**
- * Configuration for a cross-aggregate parent reference in a command payload.
- * Tells the library which payload field contains a parent aggregate's ID and
+ * Configuration for a cross-aggregate parent reference in a command data.
+ * Tells the library which data field contains a parent aggregate's ID and
  * which create command type produces that ID.
  */
 export interface ParentRefConfig {
-  /** Field name in the payload that contains the parent aggregate ID (e.g., 'parentId', 'folderId'). */
+  /** Field name in the data that contains the parent aggregate ID (e.g., 'parentId', 'folderId'). */
   field: string
   /** Command type that produces this ID. The library uses that command's `creates` config for ID extraction. */
   fromCommand: string
@@ -193,10 +305,20 @@ export interface ParentRefConfig {
 
 /**
  * Metadata lookup for command handler registrations.
- * Allows the CommandQueue to access creates/revisionField config by command type.
+ * Allows the CommandQueue to access creates config by command type.
  */
 export interface ICommandHandlerMetadata {
   getRegistration(commandType: string): CommandHandlerRegistration | undefined
+}
+
+/**
+ * Options for `createDomainExecutor`.
+ */
+export interface CreateDomainExecutorOptions<TSchema = unknown> {
+  /** Schema validator implementation. Required if any registration has a `schema`. */
+  schemaValidator?: SchemaValidator<TSchema>
+  /** Query manager for async validation phase. Required if any registration has `validateAsync`. */
+  queryManager?: IQueryManager
 }
 
 /**
@@ -206,12 +328,19 @@ export interface ICommandHandlerMetadata {
  * Asserts no duplicate command types — a duplicate means a config wiring bug.
  * Unknown command types at runtime return a validation failure.
  *
+ * The executor runs validation phases (schema, validate) before the handler
+ * on initial execution. On regeneration, validation is skipped — data was
+ * already validated and transformed during initial execution.
+ *
  * Returns both the executor and a metadata lookup for registration config.
  */
-export function createDomainExecutor<TEvent = unknown>(
+export function createDomainExecutor<TEvent extends IAnticipatedEvent = IAnticipatedEvent>(
   registrations: CommandHandlerRegistration<TEvent>[],
+  options?: CreateDomainExecutorOptions,
 ): IDomainExecutor<unknown, TEvent> & ICommandHandlerMetadata {
   const registrationMap = new Map<string, CommandHandlerRegistration<TEvent>>()
+  const schemaValidator = options?.schemaValidator
+  const queryManager = options?.queryManager
 
   for (const reg of registrations) {
     assert(
@@ -222,13 +351,44 @@ export function createDomainExecutor<TEvent = unknown>(
   }
 
   return {
-    execute(command: unknown): DomainExecutionResult<TEvent> {
-      const { type, payload } = command as { type: string; payload: unknown }
+    async execute(
+      command: unknown,
+      context: HandlerContext,
+    ): Promise<DomainExecutionResult<TEvent>> {
+      const { type, data } = command as { type: string; data: unknown }
       const reg = registrationMap.get(type)
       if (!reg) {
         return domainFailure([{ path: 'type', message: `Unknown command type: ${type}` }])
       }
-      return reg.handler(payload)
+
+      let currentData = data
+
+      // Validation phases only run on initial execution, not regeneration.
+      // During regeneration, data was already validated and transformed.
+      if (context.phase === 'initializing') {
+        // Phase 1: schema validation
+        if (reg.schema !== undefined && schemaValidator) {
+          const schemaResult = schemaValidator.validate(reg.schema, currentData)
+          if (!schemaResult.ok) return schemaResult
+          currentData = schemaResult.value
+        }
+
+        // Phase 2: custom sync validation
+        if (reg.validate) {
+          const validateResult = reg.validate(currentData)
+          if (!validateResult.ok) return validateResult
+          currentData = validateResult.value
+        }
+
+        // Phase 3: async validation (queries local read model)
+        if (reg.validateAsync && queryManager) {
+          const asyncResult = await reg.validateAsync(currentData, { queryManager })
+          if (!asyncResult.ok) return asyncResult
+          currentData = asyncResult.value
+        }
+      }
+
+      return reg.handler(currentData, context)
     },
 
     getRegistration(commandType: string): CommandHandlerRegistration | undefined {

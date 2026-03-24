@@ -5,7 +5,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import type { CommandRecord } from '../../types/commands.js'
-import type { IDomainExecutor } from '../../types/domain.js'
+import type { HandlerContext, IDomainExecutor } from '../../types/domain.js'
 import {
   autoRevision,
   createDomainExecutor,
@@ -48,7 +48,7 @@ describe('CommandQueue', () => {
     it('enqueues a command and returns success', async () => {
       const result = await commandQueue.enqueue({
         type: 'CreateTodo',
-        payload: { title: 'Test todo' },
+        data: { title: 'Test todo' },
       })
 
       expect(result.ok).toBe(true)
@@ -60,7 +60,7 @@ describe('CommandQueue', () => {
 
     it('uses provided commandId', async () => {
       const result = await commandQueue.enqueue(
-        { type: 'CreateTodo', payload: {} },
+        { type: 'CreateTodo', data: {} },
         { commandId: 'custom-id-123' },
       )
 
@@ -73,7 +73,7 @@ describe('CommandQueue', () => {
     it('saves command to storage', async () => {
       const result = await commandQueue.enqueue({
         type: 'CreateTodo',
-        payload: { title: 'Test' },
+        data: { title: 'Test' },
         service: 'todo-service',
       })
 
@@ -82,7 +82,7 @@ describe('CommandQueue', () => {
       const stored = await storage.getCommand(result.value.commandId)
       expect(stored).toMatchObject({
         type: 'CreateTodo',
-        payload: { title: 'Test' },
+        data: { title: 'Test' },
         service: 'todo-service',
         status: 'pending',
       })
@@ -92,7 +92,7 @@ describe('CommandQueue', () => {
       const events: unknown[] = []
       commandQueue.events$.subscribe((e) => events.push(e))
 
-      await commandQueue.enqueue({ type: 'CreateTodo', payload: {} })
+      await commandQueue.enqueue({ type: 'CreateTodo', data: {} })
 
       expect(events).toHaveLength(1)
       expect(events[0]).toMatchObject({
@@ -106,7 +106,7 @@ describe('CommandQueue', () => {
       const events: unknown[] = []
       eventBus.on('command:enqueued').subscribe((e) => events.push(e))
 
-      await commandQueue.enqueue({ type: 'CreateTodo', payload: {} })
+      await commandQueue.enqueue({ type: 'CreateTodo', data: {} })
 
       expect(events).toHaveLength(1)
     })
@@ -134,7 +134,7 @@ describe('CommandQueue', () => {
 
       const result = await commandQueue.enqueue({
         type: 'CreateTodo',
-        payload: { title: '' },
+        data: { title: '' },
       })
 
       expect(result.ok).toBe(false)
@@ -152,7 +152,7 @@ describe('CommandQueue', () => {
 
       const result = await commandQueue.enqueue({
         type: 'CreateTodo',
-        payload: { title: 'Test' },
+        data: { title: 'Test' },
       })
 
       expect(result.ok).toBe(true)
@@ -171,7 +171,7 @@ describe('CommandQueue', () => {
       )
 
       const result = await commandQueue.enqueue(
-        { type: 'CreateTodo', payload: { title: '' } },
+        { type: 'CreateTodo', data: { title: '' } },
         { skipValidation: true },
       )
 
@@ -183,13 +183,13 @@ describe('CommandQueue', () => {
   describe('enqueue with dependencies', () => {
     it('marks command as blocked when it has unresolved dependencies', async () => {
       // First command
-      const first = await commandQueue.enqueue({ type: 'First', payload: {} })
+      const first = await commandQueue.enqueue({ type: 'First', data: {} })
       if (!first.ok) throw new Error('Expected success')
 
       // Second command depends on first
       const second = await commandQueue.enqueue({
         type: 'Second',
-        payload: {},
+        data: {},
         dependsOn: [first.value.commandId],
       })
 
@@ -206,7 +206,7 @@ describe('CommandQueue', () => {
         commandId: 'cmd-1',
         service: 'test',
         type: 'First',
-        payload: {},
+        data: {},
         status: 'succeeded',
         dependsOn: [],
         blockedBy: [],
@@ -220,7 +220,7 @@ describe('CommandQueue', () => {
       // Second command depends on first (which is already completed)
       const second = await commandQueue.enqueue({
         type: 'Second',
-        payload: {},
+        data: {},
         dependsOn: ['cmd-1'],
       })
 
@@ -238,7 +238,7 @@ describe('CommandQueue', () => {
         commandId: 'cmd-1',
         service: 'test',
         type: 'Test',
-        payload: {},
+        data: {},
         status: 'succeeded',
         dependsOn: [],
         blockedBy: [],
@@ -263,7 +263,7 @@ describe('CommandQueue', () => {
         commandId: 'cmd-1',
         service: 'test',
         type: 'Test',
-        payload: {},
+        data: {},
         status: 'failed',
         dependsOn: [],
         blockedBy: [],
@@ -293,7 +293,7 @@ describe('CommandQueue', () => {
     })
 
     it('times out if command does not complete', async () => {
-      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
       if (!result.ok) throw new Error('Expected success')
 
       const completionResult = await commandQueue.waitForCompletion(result.value.commandId, {
@@ -304,7 +304,7 @@ describe('CommandQueue', () => {
     })
 
     it('waits for command to complete', async () => {
-      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
       if (!result.ok) throw new Error('Expected success')
 
       // Simulate completion in background
@@ -346,7 +346,7 @@ describe('CommandQueue', () => {
 
       const result = await commandQueue.enqueueAndWait({
         type: 'CreateUser',
-        payload: { email: 'invalid' },
+        data: { email: 'invalid' },
       })
 
       expect(result.ok).toBe(false)
@@ -360,12 +360,12 @@ describe('CommandQueue', () => {
   describe('commandEvents$', () => {
     it('filters events to specific command', async () => {
       const events: unknown[] = []
-      const result1 = await commandQueue.enqueue({ type: 'First', payload: {} })
+      const result1 = await commandQueue.enqueue({ type: 'First', data: {} })
       if (!result1.ok) throw new Error('Expected success')
 
       commandQueue.commandEvents$(result1.value.commandId).subscribe((e) => events.push(e))
 
-      await commandQueue.enqueue({ type: 'Second', payload: {} })
+      await commandQueue.enqueue({ type: 'Second', data: {} })
 
       // Only the first command event was already emitted before subscribing
       // New events for second command should not appear
@@ -375,7 +375,7 @@ describe('CommandQueue', () => {
 
   describe('cancelCommand', () => {
     it('cancels a pending command', async () => {
-      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
       if (!result.ok) throw new Error('Expected success')
 
       await commandQueue.cancelCommand(result.value.commandId)
@@ -393,7 +393,7 @@ describe('CommandQueue', () => {
         commandId: 'cmd-1',
         service: 'test',
         type: 'Test',
-        payload: {},
+        data: {},
         status: 'succeeded',
         dependsOn: [],
         blockedBy: [],
@@ -408,7 +408,7 @@ describe('CommandQueue', () => {
     })
 
     it('emits cancelled event', async () => {
-      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
       if (!result.ok) throw new Error('Expected success')
 
       const events: unknown[] = []
@@ -423,6 +423,26 @@ describe('CommandQueue', () => {
         previousStatus: 'pending',
       })
     })
+
+    it('emits command:status-changed to library event bus', async () => {
+      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
+      if (!result.ok) throw new Error('Expected success')
+
+      const events: unknown[] = []
+      eventBus.on('command:status-changed').subscribe((e) => events.push(e))
+
+      await commandQueue.cancelCommand(result.value.commandId)
+
+      expect(events).toHaveLength(1)
+      expect(events[0]).toMatchObject({
+        type: 'command:status-changed',
+        data: {
+          commandId: result.value.commandId,
+          status: 'cancelled',
+          previousStatus: 'pending',
+        },
+      })
+    })
   })
 
   describe('retryCommand', () => {
@@ -431,7 +451,7 @@ describe('CommandQueue', () => {
         commandId: 'cmd-1',
         service: 'test',
         type: 'Test',
-        payload: {},
+        data: {},
         status: 'failed',
         dependsOn: [],
         blockedBy: [],
@@ -451,7 +471,7 @@ describe('CommandQueue', () => {
     })
 
     it('throws when command is not failed', async () => {
-      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
       if (!result.ok) throw new Error('Expected success')
 
       await expect(commandQueue.retryCommand(result.value.commandId)).rejects.toThrow(
@@ -477,7 +497,7 @@ describe('CommandQueue', () => {
     })
 
     it('processes pending commands when resumed', async () => {
-      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
       if (!result.ok) throw new Error('Expected success')
 
       commandQueue.resume()
@@ -491,7 +511,7 @@ describe('CommandQueue', () => {
     })
 
     it('does not process commands when paused', async () => {
-      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
       if (!result.ok) throw new Error('Expected success')
 
       // Queue starts paused
@@ -506,7 +526,7 @@ describe('CommandQueue', () => {
         .mockRejectedValueOnce(new CommandSendError('Network error', 'NETWORK', true))
         .mockResolvedValueOnce({ id: '123' })
 
-      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
       if (!result.ok) throw new Error('Expected success')
 
       commandQueue.resume()
@@ -525,7 +545,7 @@ describe('CommandQueue', () => {
         new CommandSendError('Network error', 'NETWORK', true),
       )
 
-      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
       if (!result.ok) throw new Error('Expected success')
 
       commandQueue.resume()
@@ -544,7 +564,7 @@ describe('CommandQueue', () => {
         new CommandSendError('Validation error', 'VALIDATION', false),
       )
 
-      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
       if (!result.ok) throw new Error('Expected success')
 
       commandQueue.resume()
@@ -557,12 +577,12 @@ describe('CommandQueue', () => {
     })
 
     it('unblocks dependent commands on success', async () => {
-      const first = await commandQueue.enqueue({ type: 'First', payload: {} })
+      const first = await commandQueue.enqueue({ type: 'First', data: {} })
       if (!first.ok) throw new Error('Expected success')
 
       const second = await commandQueue.enqueue({
         type: 'Second',
-        payload: {},
+        data: {},
         dependsOn: [first.value.commandId],
       })
       if (!second.ok) throw new Error('Expected success')
@@ -594,7 +614,7 @@ describe('CommandQueue', () => {
       // Let resume's empty processing pass complete before enqueuing
       await new Promise((resolve) => setTimeout(resolve, 0))
 
-      const first = await commandQueue.enqueue({ type: 'First', payload: {} })
+      const first = await commandQueue.enqueue({ type: 'First', data: {} })
       if (!first.ok) throw new Error('Expected success')
 
       // First command is now in-flight (send is blocked)
@@ -602,7 +622,7 @@ describe('CommandQueue', () => {
       expect(commandSender.send).toHaveBeenCalledTimes(1)
 
       // Enqueue a second command while the first is still processing
-      const second = await commandQueue.enqueue({ type: 'Second', payload: {} })
+      const second = await commandQueue.enqueue({ type: 'Second', data: {} })
       if (!second.ok) throw new Error('Expected success')
 
       // Complete the first send — this should trigger reprocessing of the second
@@ -624,10 +644,10 @@ describe('CommandQueue', () => {
         .mockResolvedValue({ id: '2' })
 
       // Enqueue both commands while paused so they are in the same batch
-      const first = await commandQueue.enqueue({ type: 'First', payload: {} })
+      const first = await commandQueue.enqueue({ type: 'First', data: {} })
       if (!first.ok) throw new Error('Expected success')
 
-      const second = await commandQueue.enqueue({ type: 'Second', payload: {} })
+      const second = await commandQueue.enqueue({ type: 'Second', data: {} })
       if (!second.ok) throw new Error('Expected success')
 
       // Resume — processing snapshots both commands
@@ -664,7 +684,7 @@ describe('CommandQueue', () => {
         new CommandSendError('Network error', 'NETWORK', true),
       )
 
-      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
       if (!result.ok) throw new Error('Expected success')
 
       commandQueue.resume()
@@ -689,7 +709,7 @@ describe('CommandQueue', () => {
         () => new Promise((resolve) => (resolveSend = resolve)),
       )
 
-      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
       if (!result.ok) throw new Error('Expected success')
 
       commandQueue.resume()
@@ -718,12 +738,12 @@ describe('CommandQueue', () => {
     it('cancels dependent commands on failure', async () => {
       vi.mocked(commandSender.send).mockRejectedValue(new CommandSendError('Error', 'ERROR', false))
 
-      const first = await commandQueue.enqueue({ type: 'First', payload: {} })
+      const first = await commandQueue.enqueue({ type: 'First', data: {} })
       if (!first.ok) throw new Error('Expected success')
 
       const second = await commandQueue.enqueue({
         type: 'Second',
-        payload: {},
+        data: {},
         dependsOn: [first.value.commandId],
       })
       if (!second.ok) throw new Error('Expected success')
@@ -741,8 +761,8 @@ describe('CommandQueue', () => {
 
   describe('listCommands', () => {
     it('returns all commands', async () => {
-      await commandQueue.enqueue({ type: 'First', payload: {} })
-      await commandQueue.enqueue({ type: 'Second', payload: {} })
+      await commandQueue.enqueue({ type: 'First', data: {} })
+      await commandQueue.enqueue({ type: 'Second', data: {} })
 
       const commands = await commandQueue.listCommands()
 
@@ -750,8 +770,8 @@ describe('CommandQueue', () => {
     })
 
     it('filters by status', async () => {
-      await commandQueue.enqueue({ type: 'First', payload: {} })
-      const second = await commandQueue.enqueue({ type: 'Second', payload: {} })
+      await commandQueue.enqueue({ type: 'First', data: {} })
+      const second = await commandQueue.enqueue({ type: 'Second', data: {} })
       if (!second.ok) throw new Error('Expected success')
 
       await commandQueue.cancelCommand(second.value.commandId)
@@ -816,19 +836,23 @@ describe('CommandQueue', () => {
 
       const result = await commandQueue.enqueue({
         type: 'CreateTodo',
-        payload: { title: 'Test' },
+        data: { title: 'Test' },
       })
 
       if (!result.ok) throw new Error('Expected success')
 
       expect(anticipatedEventHandler.cache).toHaveBeenCalledTimes(1)
-      expect(anticipatedEventHandler.cache).toHaveBeenCalledWith(result.value.commandId, events)
+      expect(anticipatedEventHandler.cache).toHaveBeenCalledWith(
+        result.value.commandId,
+        events,
+        undefined,
+      )
     })
 
     it('does not call cache() when domain executor is not configured', async () => {
       commandQueue = new CommandQueue({ storage, eventBus, anticipatedEventHandler })
 
-      await commandQueue.enqueue({ type: 'CreateTodo', payload: {} })
+      await commandQueue.enqueue({ type: 'CreateTodo', data: {} })
 
       expect(anticipatedEventHandler.cache).not.toHaveBeenCalled()
     })
@@ -836,7 +860,7 @@ describe('CommandQueue', () => {
     it('does not call cache() when anticipated events array is empty', async () => {
       vi.mocked(domainExecutor.execute).mockReturnValue(domainSuccess([]))
 
-      await commandQueue.enqueue({ type: 'CreateTodo', payload: {} })
+      await commandQueue.enqueue({ type: 'CreateTodo', data: {} })
 
       expect(anticipatedEventHandler.cache).not.toHaveBeenCalled()
     })
@@ -848,7 +872,7 @@ describe('CommandQueue', () => {
 
       const result = await commandQueue.enqueue({
         type: 'CreateTodo',
-        payload: { title: 'Test' },
+        data: { title: 'Test' },
       })
 
       expect(result.ok).toBe(true)
@@ -875,7 +899,7 @@ describe('CommandQueue', () => {
     })
 
     it('calls cleanup() when command succeeds', async () => {
-      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
       if (!result.ok) throw new Error('Expected success')
 
       commandQueue.resume()
@@ -892,7 +916,7 @@ describe('CommandQueue', () => {
         new CommandSendError('Validation error', 'VALIDATION', false),
       )
 
-      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
       if (!result.ok) throw new Error('Expected success')
 
       commandQueue.resume()
@@ -902,7 +926,7 @@ describe('CommandQueue', () => {
     })
 
     it('calls cleanup() when command is cancelled', async () => {
-      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
       if (!result.ok) throw new Error('Expected success')
 
       await commandQueue.cancelCommand(result.value.commandId)
@@ -916,12 +940,12 @@ describe('CommandQueue', () => {
     it('calls cleanup() for cascaded cancellations', async () => {
       vi.mocked(commandSender.send).mockRejectedValue(new CommandSendError('Error', 'ERROR', false))
 
-      const first = await commandQueue.enqueue({ type: 'First', payload: {} })
+      const first = await commandQueue.enqueue({ type: 'First', data: {} })
       if (!first.ok) throw new Error('Expected success')
 
       const second = await commandQueue.enqueue({
         type: 'Second',
-        payload: {},
+        data: {},
         dependsOn: [first.value.commandId],
       })
       if (!second.ok) throw new Error('Expected success')
@@ -942,7 +966,7 @@ describe('CommandQueue', () => {
         .mockRejectedValueOnce(new CommandSendError('Network error', 'NETWORK', true))
         .mockResolvedValueOnce({ id: '123' })
 
-      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
       if (!result.ok) throw new Error('Expected success')
 
       commandQueue.resume()
@@ -981,7 +1005,7 @@ describe('CommandQueue', () => {
         retryConfig: { maxAttempts: 3, initialDelay: 500 },
       })
 
-      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
       if (!result.ok) throw new Error('Expected success')
 
       commandQueue.resume()
@@ -1012,7 +1036,7 @@ describe('CommandQueue', () => {
         commandSender,
       })
 
-      const result = await commandQueue.enqueue({ type: 'Test', payload: {} })
+      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
       if (!result.ok) throw new Error('Expected success')
 
       commandQueue.resume()
@@ -1039,8 +1063,8 @@ describe('CommandQueue', () => {
   describe('clearAll', () => {
     it('pauses the queue, clears anticipated tracking, and deletes all commands', async () => {
       commandQueue.resume()
-      await commandQueue.enqueue({ type: 'First', payload: {} })
-      await commandQueue.enqueue({ type: 'Second', payload: {} })
+      await commandQueue.enqueue({ type: 'First', data: {} })
+      await commandQueue.enqueue({ type: 'Second', data: {} })
 
       await commandQueue.clearAll()
 
@@ -1068,9 +1092,9 @@ describe('CommandQueue', () => {
         {
           commandType: 'CreateFolder',
           creates: { eventType: 'FolderCreated', idStrategy: 'temporary' },
-          handler(payload) {
-            const { name } = payload as { name: string }
-            const id = generateId()
+          handler(data, context: HandlerContext) {
+            const { name } = data as { name: string }
+            const id = context.phase === 'updating' ? context.entityId : generateId()
             return domainSuccess([
               {
                 type: 'FolderCreated',
@@ -1084,9 +1108,9 @@ describe('CommandQueue', () => {
           commandType: 'CreateNote',
           creates: { eventType: 'NoteCreated', idStrategy: 'temporary' },
           parentRef: [{ field: 'parentId', fromCommand: 'CreateFolder' }],
-          handler(payload) {
-            const { parentId, title } = payload as { parentId: string; title: string }
-            const id = generateId()
+          handler(data, context: HandlerContext) {
+            const { parentId, title } = data as { parentId: string; title: string }
+            const id = context.phase === 'updating' ? context.entityId : generateId()
             return domainSuccess([
               {
                 type: 'NoteCreated',
@@ -1098,9 +1122,8 @@ describe('CommandQueue', () => {
         },
         {
           commandType: 'UpdateNote',
-          revisionField: 'revision',
-          handler(payload) {
-            const { id, title } = payload as { id: string; title: string }
+          handler(data, _context: HandlerContext) {
+            const { id, title } = data as { id: string; title: string }
             return domainSuccess([
               {
                 type: 'NoteTitleUpdated',
@@ -1112,13 +1135,12 @@ describe('CommandQueue', () => {
         },
         {
           commandType: 'MoveNote',
-          revisionField: 'revision',
           parentRef: [
             { field: 'fromFolderId', fromCommand: 'CreateFolder' },
             { field: 'toFolderId', fromCommand: 'CreateFolder' },
           ],
-          handler(payload) {
-            const { id, fromFolderId, toFolderId } = payload as {
+          handler(data, _context: HandlerContext) {
+            const { id, fromFolderId, toFolderId } = data as {
               id: string
               fromFolderId: string
               toFolderId: string
@@ -1155,7 +1177,69 @@ describe('CommandQueue', () => {
       return { queue, sender }
     }
 
-    it('rewrites child payload when parent create succeeds', async () => {
+    it('regenerating child create after parent succeeds preserves the original client ID', async () => {
+      const senderResponses = new Map<string, unknown>()
+      senderResponses.set('CreateFolder', {
+        id: 'folder-server-1',
+        nextExpectedRevision: '1',
+        events: [
+          {
+            id: 'evt-1',
+            type: 'FolderCreated',
+            streamId: 'Folder-server-1',
+            data: { id: 'folder-server-1', name: 'F' },
+            revision: '1',
+            position: '1',
+          },
+        ],
+      })
+
+      const { queue } = setupCrossAggregateQueue(senderResponses)
+
+      // Enqueue parent create
+      const folderResult = await queue.enqueue({
+        type: 'CreateFolder',
+        data: { name: 'F' },
+      })
+      if (!folderResult.ok) throw new Error('Expected success')
+      const folderClientId = (folderResult.value.anticipatedEvents[0] as AnticipatedEvent).data
+        .id as string
+
+      // Enqueue child create with dependency on parent
+      const noteResult = await queue.enqueue({
+        type: 'CreateNote',
+        data: { parentId: folderClientId, title: 'N' },
+        dependsOn: [folderResult.value.commandId],
+      })
+      if (!noteResult.ok) throw new Error('Expected success')
+
+      // Capture the original client ID from the child's anticipated events
+      const originalNoteClientId = (noteResult.value.anticipatedEvents[0] as AnticipatedEvent).data
+        .id as string
+
+      // Process — folder succeeds, triggers regeneration of note's anticipated events
+      queue.resume()
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      // Find the regenerate call for the note command
+      const regenerateCalls = vi.mocked(anticipatedEventHandler.regenerate).mock.calls
+      const noteRegenerateCall = regenerateCalls.find(
+        (call) => call[0] === noteResult.value.commandId,
+      )
+      expect(noteRegenerateCall).toBeDefined()
+
+      // Extract the NoteCreated event from the regenerated anticipated events
+      const regeneratedEvents = noteRegenerateCall![1] as AnticipatedEvent[]
+      const noteCreatedEvent = regeneratedEvents.find((e) => e.type === 'NoteCreated')
+      expect(noteCreatedEvent).toBeDefined()
+
+      // The entity ID must be the SAME as the original — not a new random ID
+      expect(noteCreatedEvent!.data.id).toBe(originalNoteClientId)
+      // The parentId should have been updated to the server ID
+      expect(noteCreatedEvent!.data.parentId).toBe('folder-server-1')
+    })
+
+    it('rewrites child data when parent create succeeds', async () => {
       const senderResponses = new Map<string, unknown>()
       senderResponses.set('CreateFolder', {
         id: 'folder-server-1',
@@ -1177,7 +1261,7 @@ describe('CommandQueue', () => {
       // Enqueue parent create
       const folderResult = await queue.enqueue({
         type: 'CreateFolder',
-        payload: { name: 'My Folder' },
+        data: { name: 'My Folder' },
       })
       if (!folderResult.ok) throw new Error('Expected success')
 
@@ -1188,7 +1272,7 @@ describe('CommandQueue', () => {
       // Enqueue child create with explicit dependency and parent's client ID
       const noteResult = await queue.enqueue({
         type: 'CreateNote',
-        payload: { parentId: folderClientId, title: 'My Note' },
+        data: { parentId: folderClientId, title: 'My Note' },
         dependsOn: [folderResult.value.commandId],
       })
       if (!noteResult.ok) throw new Error('Expected success')
@@ -1205,12 +1289,12 @@ describe('CommandQueue', () => {
       const folderCmd = await storage.getCommand(folderResult.value.commandId)
       expect(folderCmd?.status).toBe('succeeded')
 
-      // Verify note's payload was rewritten with server ID
+      // Verify note's data was rewritten with server ID
       noteCmd = await storage.getCommand(noteResult.value.commandId)
       expect(noteCmd?.status).toBe('pending')
-      const notePayload = noteCmd?.payload as { parentId: string; title: string }
-      expect(notePayload.parentId).toBe('folder-server-1')
-      expect(notePayload.title).toBe('My Note')
+      const notedata = noteCmd?.data as { parentId: string; title: string }
+      expect(notedata.parentId).toBe('folder-server-1')
+      expect(notedata.title).toBe('My Note')
     })
 
     it('does not change child own temp ID when parent succeeds', async () => {
@@ -1234,7 +1318,7 @@ describe('CommandQueue', () => {
 
       const folderResult = await queue.enqueue({
         type: 'CreateFolder',
-        payload: { name: 'F' },
+        data: { name: 'F' },
       })
       if (!folderResult.ok) throw new Error('Expected success')
       const folderClientId = (folderResult.value.anticipatedEvents[0] as AnticipatedEvent).data
@@ -1242,7 +1326,7 @@ describe('CommandQueue', () => {
 
       const noteResult = await queue.enqueue({
         type: 'CreateNote',
-        payload: { parentId: folderClientId, title: 'N' },
+        data: { parentId: folderClientId, title: 'N' },
         dependsOn: [folderResult.value.commandId],
       })
       if (!noteResult.ok) throw new Error('Expected success')
@@ -1259,11 +1343,11 @@ describe('CommandQueue', () => {
       // The note's own ID should not have been changed by the folder's ID map
       // (folder ID map only contains folder client→server, not note IDs)
       const noteCmd = await storage.getCommand(noteResult.value.commandId)
-      const notePayload = noteCmd?.payload as { parentId: string; title: string }
+      const notedata = noteCmd?.data as { parentId: string; title: string }
       // parentId was rewritten to server
-      expect(notePayload.parentId).toBe('folder-server-1')
+      expect(notedata.parentId).toBe('folder-server-1')
       // The note's own creates config means its client ID comes from anticipated events,
-      // not from payload.id. The note doesn't have an id in its payload for CreateNote.
+      // not from data.id. The note doesn't have an id in its data for CreateNote.
       // Its identity is tracked by the aggregate chain via its anticipated event data.id.
       expect(noteClientId).not.toBe('folder-server-1')
     })
@@ -1302,7 +1386,7 @@ describe('CommandQueue', () => {
       const { queue } = setupCrossAggregateQueue(senderResponses)
 
       // A: CreateFolder
-      const folderResult = await queue.enqueue({ type: 'CreateFolder', payload: { name: 'F' } })
+      const folderResult = await queue.enqueue({ type: 'CreateFolder', data: { name: 'F' } })
       if (!folderResult.ok) throw new Error('Expected success')
       const folderClientId = (folderResult.value.anticipatedEvents[0] as AnticipatedEvent).data
         .id as string
@@ -1310,7 +1394,7 @@ describe('CommandQueue', () => {
       // B: CreateNote depends on A
       const noteResult = await queue.enqueue({
         type: 'CreateNote',
-        payload: { parentId: folderClientId, title: 'N' },
+        data: { parentId: folderClientId, title: 'N' },
         dependsOn: [folderResult.value.commandId],
       })
       if (!noteResult.ok) throw new Error('Expected success')
@@ -1320,7 +1404,8 @@ describe('CommandQueue', () => {
       // C: UpdateNote depends on B
       const updateResult = await queue.enqueue({
         type: 'UpdateNote',
-        payload: { id: noteClientId, title: 'Updated', revision: autoRevision() },
+        data: { id: noteClientId, title: 'Updated' },
+        revision: autoRevision(),
         dependsOn: [noteResult.value.commandId],
       })
       if (!updateResult.ok) throw new Error('Expected success')
@@ -1341,10 +1426,10 @@ describe('CommandQueue', () => {
       const noteCmd = await storage.getCommand(noteResult.value.commandId)
       expect(noteCmd?.status).toBe('succeeded')
 
-      // C's payload should have been rewritten with note's server ID
+      // C's data should have been rewritten with note's server ID
       const updateCmd = await storage.getCommand(updateResult.value.commandId)
-      const updatePayload = updateCmd?.payload as { id: string; title: string }
-      expect(updatePayload.id).toBe('note-server-1')
+      const updatedata = updateCmd?.data as { id: string; title: string }
+      expect(updatedata.id).toBe('note-server-1')
     })
 
     it('ID mapping cache patches stale client ID at enqueue time', async () => {
@@ -1367,7 +1452,7 @@ describe('CommandQueue', () => {
       const { queue } = setupCrossAggregateQueue(senderResponses)
 
       // Create folder and let it succeed
-      const folderResult = await queue.enqueue({ type: 'CreateFolder', payload: { name: 'F' } })
+      const folderResult = await queue.enqueue({ type: 'CreateFolder', data: { name: 'F' } })
       if (!folderResult.ok) throw new Error('Expected success')
       const folderClientId = (folderResult.value.anticipatedEvents[0] as AnticipatedEvent).data
         .id as string
@@ -1382,14 +1467,14 @@ describe('CommandQueue', () => {
       // Now enqueue a note with the STALE client ID (simulating UI race condition)
       const noteResult = await queue.enqueue({
         type: 'CreateNote',
-        payload: { parentId: folderClientId, title: 'Late Note' },
+        data: { parentId: folderClientId, title: 'Late Note' },
       })
       if (!noteResult.ok) throw new Error('Expected success')
 
-      // The payload should have been patched at enqueue time
+      // The data should have been patched at enqueue time
       const noteCmd = await storage.getCommand(noteResult.value.commandId)
-      const notePayload = noteCmd?.payload as { parentId: string; title: string }
-      expect(notePayload.parentId).toBe('folder-server-1')
+      const notedata = noteCmd?.data as { parentId: string; title: string }
+      expect(notedata.parentId).toBe('folder-server-1')
     })
 
     it('ID mapping cache patches stale revision via server ID lookup', async () => {
@@ -1412,7 +1497,7 @@ describe('CommandQueue', () => {
       const { queue } = setupCrossAggregateQueue(senderResponses)
 
       // Create and succeed
-      const folderResult = await queue.enqueue({ type: 'CreateFolder', payload: { name: 'F' } })
+      const folderResult = await queue.enqueue({ type: 'CreateFolder', data: { name: 'F' } })
       if (!folderResult.ok) throw new Error('Expected success')
 
       queue.resume()
@@ -1422,15 +1507,15 @@ describe('CommandQueue', () => {
       // (simulating the race where UI has server ID but stale revision)
       const updateResult = await queue.enqueue({
         type: 'UpdateNote',
-        payload: { id: 'folder-server-1', title: 'Updated', revision: autoRevision() },
+        data: { id: 'folder-server-1', title: 'Updated' },
+        revision: autoRevision(),
       })
       if (!updateResult.ok) throw new Error('Expected success')
 
       // The autoRevision fallback should have been patched from the mapping cache
       const updateCmd = await storage.getCommand(updateResult.value.commandId)
-      const payload = updateCmd?.payload as { id: string; revision: unknown }
       // The revision should now have a fallback from the mapping
-      expect(payload.revision).toMatchObject({ __autoRevision: true, fallback: '1' })
+      expect(updateCmd?.revision).toMatchObject({ __autoRevision: true, fallback: '1' })
     })
 
     it('parent ID propagates to commands deeper in child chain while they stay blocked', async () => {
@@ -1453,7 +1538,7 @@ describe('CommandQueue', () => {
       const { queue } = setupCrossAggregateQueue(senderResponses)
 
       // A: CreateFolder
-      const folderResult = await queue.enqueue({ type: 'CreateFolder', payload: { name: 'F' } })
+      const folderResult = await queue.enqueue({ type: 'CreateFolder', data: { name: 'F' } })
       if (!folderResult.ok) throw new Error('Expected success')
       const folderClientId = (folderResult.value.anticipatedEvents[0] as AnticipatedEvent).data
         .id as string
@@ -1461,7 +1546,7 @@ describe('CommandQueue', () => {
       // B: CreateNote depends on folder
       const noteResult = await queue.enqueue({
         type: 'CreateNote',
-        payload: { parentId: folderClientId, title: 'N' },
+        data: { parentId: folderClientId, title: 'N' },
         dependsOn: [folderResult.value.commandId],
       })
       if (!noteResult.ok) throw new Error('Expected success')
@@ -1471,12 +1556,12 @@ describe('CommandQueue', () => {
       // C: MoveNote depends on note, references folder's client ID in fromFolderId
       const moveResult = await queue.enqueue({
         type: 'MoveNote',
-        payload: {
+        data: {
           id: noteClientId,
           fromFolderId: folderClientId,
           toFolderId: 'existing-folder',
-          revision: autoRevision(),
         },
+        revision: autoRevision(),
         dependsOn: [noteResult.value.commandId],
       })
       if (!moveResult.ok) throw new Error('Expected success')
@@ -1497,16 +1582,16 @@ describe('CommandQueue', () => {
       expect(moveCmd?.status).toBe('blocked')
 
       // C's fromFolderId was rewritten to server ID (propagated through chain)
-      const movePayload = moveCmd?.payload as {
+      const movedata = moveCmd?.data as {
         id: string
         fromFolderId: string
         toFolderId: string
       }
-      expect(movePayload.fromFolderId).toBe('folder-server-1')
+      expect(movedata.fromFolderId).toBe('folder-server-1')
       // toFolderId is an existing folder, unchanged
-      expect(movePayload.toFolderId).toBe('existing-folder')
+      expect(movedata.toFolderId).toBe('existing-folder')
       // C's note id is still the client ID (note hasn't succeeded yet)
-      expect(movePayload.id).toBe(noteClientId)
+      expect(movedata.id).toBe(noteClientId)
     })
 
     it('MoveNote with two folder dependencies — each ID replaced by its own dependency', async () => {
@@ -1535,7 +1620,7 @@ describe('CommandQueue', () => {
       // Create source folder (folder1)
       const folder1Result = await queue.enqueue({
         type: 'CreateFolder',
-        payload: { name: 'Source' },
+        data: { name: 'Source' },
       })
       if (!folder1Result.ok) throw new Error('Expected success')
       const folder1ClientId = (folder1Result.value.anticipatedEvents[0] as AnticipatedEvent).data
@@ -1544,7 +1629,7 @@ describe('CommandQueue', () => {
       // Create target folder (folder2)
       const folder2Result = await queue.enqueue({
         type: 'CreateFolder',
-        payload: { name: 'Target' },
+        data: { name: 'Target' },
       })
       if (!folder2Result.ok) throw new Error('Expected success')
       const folder2ClientId = (folder2Result.value.anticipatedEvents[0] as AnticipatedEvent).data
@@ -1553,12 +1638,12 @@ describe('CommandQueue', () => {
       // MoveNote depends on BOTH folders — fromFolderId and toFolderId each reference a different folder
       const moveResult = await queue.enqueue({
         type: 'MoveNote',
-        payload: {
+        data: {
           id: 'existing-note-1',
           fromFolderId: folder1ClientId,
           toFolderId: folder2ClientId,
-          revision: autoRevision('3'),
         },
+        revision: autoRevision('3'),
         dependsOn: [folder1Result.value.commandId, folder2Result.value.commandId],
       })
       if (!moveResult.ok) throw new Error('Expected success')
@@ -1584,15 +1669,15 @@ describe('CommandQueue', () => {
       expect(['pending', 'sending', 'succeeded']).toContain(moveCmd?.status)
 
       // Each folder ID was replaced independently by its own dependency's server ID
-      const movePayload = moveCmd?.payload as {
+      const movedata = moveCmd?.data as {
         id: string
         fromFolderId: string
         toFolderId: string
       }
-      expect(movePayload.fromFolderId).toBe('folder-server-1')
-      expect(movePayload.toFolderId).toBe('folder-server-2')
+      expect(movedata.fromFolderId).toBe('folder-server-1')
+      expect(movedata.toFolderId).toBe('folder-server-2')
       // The note ID (existing, not a client ID) is unchanged
-      expect(movePayload.id).toBe('existing-note-1')
+      expect(movedata.id).toBe('existing-note-1')
     })
   })
 
@@ -1608,9 +1693,9 @@ describe('CommandQueue', () => {
         {
           commandType: 'CreateItem',
           creates: { eventType: 'ItemCreated', idStrategy: 'temporary' },
-          handler(payload) {
-            const { name } = payload as { name: string }
-            const id = generateId()
+          handler(data, context: HandlerContext) {
+            const { name } = data as { name: string }
+            const id = context.phase === 'updating' ? context.entityId : generateId()
             return domainSuccess([
               { type: 'ItemCreated', data: { id, name }, streamId: `Item-${id}` },
             ])
@@ -1618,9 +1703,8 @@ describe('CommandQueue', () => {
         },
         {
           commandType: 'UpdateItem',
-          revisionField: 'revision',
-          handler(payload) {
-            const { id, title } = payload as { id: string; title: string }
+          handler(data, _context: HandlerContext) {
+            const { id, title } = data as { id: string; title: string }
             return domainSuccess([
               { type: 'ItemUpdated', data: { id, title }, streamId: `Item-${id}` },
             ])
@@ -1628,9 +1712,8 @@ describe('CommandQueue', () => {
         },
         {
           commandType: 'DeleteItem',
-          revisionField: 'revision',
-          handler(payload) {
-            const { id } = payload as { id: string }
+          handler(data, _context: HandlerContext) {
+            const { id } = data as { id: string }
             return domainSuccess([{ type: 'ItemDeleted', data: { id }, streamId: `Item-${id}` }])
           },
         },
@@ -1660,7 +1743,7 @@ describe('CommandQueue', () => {
 
       const createResult = await queue.enqueue({
         type: 'CreateItem',
-        payload: { name: 'Test' },
+        data: { name: 'Test' },
       })
       if (!createResult.ok) throw new Error('Expected success')
       const clientId = (createResult.value.anticipatedEvents[0] as AnticipatedEvent).data
@@ -1668,7 +1751,8 @@ describe('CommandQueue', () => {
 
       const updateResult = await queue.enqueue({
         type: 'UpdateItem',
-        payload: { id: clientId, title: 'New Title', revision: autoRevision() },
+        data: { id: clientId, title: 'New Title' },
+        revision: autoRevision(),
       })
       if (!updateResult.ok) throw new Error('Expected success')
 
@@ -1697,7 +1781,7 @@ describe('CommandQueue', () => {
 
       const createResult = await queue.enqueue({
         type: 'CreateItem',
-        payload: { name: 'Test' },
+        data: { name: 'Test' },
       })
       if (!createResult.ok) throw new Error('Expected success')
       const clientId = (createResult.value.anticipatedEvents[0] as AnticipatedEvent).data
@@ -1705,7 +1789,8 @@ describe('CommandQueue', () => {
 
       await queue.enqueue({
         type: 'UpdateItem',
-        payload: { id: clientId, title: 'New', revision: autoRevision() },
+        data: { id: clientId, title: 'New' },
+        revision: autoRevision(),
       })
 
       queue.resume()
@@ -1715,9 +1800,9 @@ describe('CommandQueue', () => {
       const allCmds = await storage.getCommands()
       const updateCmd = allCmds.find((c) => c.type === 'UpdateItem')
       expect(updateCmd?.status).toBe('pending')
-      const payload = updateCmd?.payload as { id: string; title: string; revision: string }
-      expect(payload.id).toBe('server-1')
-      expect(payload.revision).toBe('1')
+      const data = updateCmd?.data as { id: string; title: string }
+      expect(data.id).toBe('server-1')
+      expect(updateCmd?.revision).toBe('1')
     })
 
     it('second mutate auto-blocked behind first on same aggregate', async () => {
@@ -1725,13 +1810,15 @@ describe('CommandQueue', () => {
 
       const update1 = await queue.enqueue({
         type: 'UpdateItem',
-        payload: { id: 'existing-1', title: 'First', revision: autoRevision('1') },
+        data: { id: 'existing-1', title: 'First' },
+        revision: autoRevision('1'),
       })
       if (!update1.ok) throw new Error('Expected success')
 
       const delete1 = await queue.enqueue({
         type: 'DeleteItem',
-        payload: { id: 'existing-1', revision: autoRevision('1') },
+        data: { id: 'existing-1' },
+        revision: autoRevision('1'),
       })
       if (!delete1.ok) throw new Error('Expected success')
 
@@ -1751,13 +1838,15 @@ describe('CommandQueue', () => {
 
       const update1 = await queue.enqueue({
         type: 'UpdateItem',
-        payload: { id: 'existing-1', title: 'First', revision: autoRevision('1') },
+        data: { id: 'existing-1', title: 'First' },
+        revision: autoRevision('1'),
       })
       if (!update1.ok) throw new Error('Expected success')
 
       const delete1 = await queue.enqueue({
         type: 'DeleteItem',
-        payload: { id: 'existing-1', revision: autoRevision('1') },
+        data: { id: 'existing-1' },
+        revision: autoRevision('1'),
       })
       if (!delete1.ok) throw new Error('Expected success')
 
@@ -1766,8 +1855,7 @@ describe('CommandQueue', () => {
 
       const deleteCmd = await storage.getCommand(delete1.value.commandId)
       expect(deleteCmd?.status).toBe('pending')
-      const payload = deleteCmd?.payload as { id: string; revision: string }
-      expect(payload.revision).toBe('2')
+      expect(deleteCmd?.revision).toBe('2')
     })
 
     it('create → mutate → mutate full chain', async () => {
@@ -1800,7 +1888,7 @@ describe('CommandQueue', () => {
 
       const createResult = await queue.enqueue({
         type: 'CreateItem',
-        payload: { name: 'X' },
+        data: { name: 'X' },
       })
       if (!createResult.ok) throw new Error('Expected success')
       const clientId = (createResult.value.anticipatedEvents[0] as AnticipatedEvent).data
@@ -1808,12 +1896,14 @@ describe('CommandQueue', () => {
 
       await queue.enqueue({
         type: 'UpdateItem',
-        payload: { id: clientId, title: 'Updated', revision: autoRevision() },
+        data: { id: clientId, title: 'Updated' },
+        revision: autoRevision(),
       })
 
       await queue.enqueue({
         type: 'DeleteItem',
-        payload: { id: clientId, revision: autoRevision() },
+        data: { id: clientId },
+        revision: autoRevision(),
       })
 
       queue.resume()
@@ -1832,34 +1922,34 @@ describe('CommandQueue', () => {
       expect(deleteCmd?.status).toBe('succeeded')
 
       // UpdateItem was sent with server ID and create's revision
-      const updatePayload = updateCmd?.payload as { id: string; revision: string }
-      expect(updatePayload.id).toBe('server-1')
+      const updatedata = updateCmd?.data as { id: string }
+      expect(updatedata.id).toBe('server-1')
 
       // DeleteItem was sent with server ID and update's revision
-      const deletePayload = deleteCmd?.payload as { id: string; revision: string }
-      expect(deletePayload.id).toBe('server-1')
+      const deletedata = deleteCmd?.data as { id: string }
+      expect(deletedata.id).toBe('server-1')
     })
 
     it('auto-revision fallback used when no chain exists', async () => {
-      let sentPayload: unknown
+      let sentCommand: CommandRecord | undefined
       const responses = new Map<string, unknown>()
       responses.set('UpdateItem', (cmd: CommandRecord) => {
-        sentPayload = cmd.payload
+        sentCommand = cmd
         return { id: 'existing-1', nextExpectedRevision: '6', events: [] }
       })
       const queue = setupItemQueue(responses)
 
       await queue.enqueue({
         type: 'UpdateItem',
-        payload: { id: 'existing-1', title: 'Solo', revision: autoRevision('5') },
+        data: { id: 'existing-1', title: 'Solo' },
+        revision: autoRevision('5'),
       })
 
       queue.resume()
       await new Promise((resolve) => setTimeout(resolve, 50))
 
       // The revision sent to server should be the fallback '5'
-      const sent = sentPayload as { revision: string }
-      expect(sent.revision).toBe('5')
+      expect(sentCommand?.revision).toBe('5')
     })
 
     it('mapping cache patches stale client ID for same aggregate', async () => {
@@ -1881,7 +1971,7 @@ describe('CommandQueue', () => {
       const queue = setupItemQueue(responses)
 
       // Create and succeed
-      const createResult = await queue.enqueue({ type: 'CreateItem', payload: { name: 'X' } })
+      const createResult = await queue.enqueue({ type: 'CreateItem', data: { name: 'X' } })
       if (!createResult.ok) throw new Error('Expected success')
       const clientId = (createResult.value.anticipatedEvents[0] as AnticipatedEvent).data
         .id as string
@@ -1892,14 +1982,15 @@ describe('CommandQueue', () => {
       // Enqueue with stale client ID (race condition)
       const updateResult = await queue.enqueue({
         type: 'UpdateItem',
-        payload: { id: clientId, title: 'Late', revision: autoRevision() },
+        data: { id: clientId, title: 'Late' },
+        revision: autoRevision(),
       })
       if (!updateResult.ok) throw new Error('Expected success')
 
       const updateCmd = await storage.getCommand(updateResult.value.commandId)
-      const payload = updateCmd?.payload as { id: string; revision: unknown }
-      expect(payload.id).toBe('server-1')
-      expect(payload.revision).toMatchObject({ __autoRevision: true, fallback: '1' })
+      const data = updateCmd?.data as { id: string }
+      expect(data.id).toBe('server-1')
+      expect(updateCmd?.revision).toMatchObject({ __autoRevision: true, fallback: '1' })
     })
 
     it('mapping cache patches stale revision via server ID lookup', async () => {
@@ -1920,7 +2011,7 @@ describe('CommandQueue', () => {
       })
       const queue = setupItemQueue(responses)
 
-      const createResult = await queue.enqueue({ type: 'CreateItem', payload: { name: 'X' } })
+      const createResult = await queue.enqueue({ type: 'CreateItem', data: { name: 'X' } })
       if (!createResult.ok) throw new Error('Expected success')
 
       queue.resume()
@@ -1929,13 +2020,13 @@ describe('CommandQueue', () => {
       // Enqueue with correct server ID but undefined revision (race condition)
       const updateResult = await queue.enqueue({
         type: 'UpdateItem',
-        payload: { id: 'server-1', title: 'Race', revision: autoRevision() },
+        data: { id: 'server-1', title: 'Race' },
+        revision: autoRevision(),
       })
       if (!updateResult.ok) throw new Error('Expected success')
 
       const updateCmd = await storage.getCommand(updateResult.value.commandId)
-      const payload = updateCmd?.payload as { id: string; revision: unknown }
-      expect(payload.revision).toMatchObject({ __autoRevision: true, fallback: '1' })
+      expect(updateCmd?.revision).toMatchObject({ __autoRevision: true, fallback: '1' })
     })
   })
 })

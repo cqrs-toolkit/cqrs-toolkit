@@ -1,0 +1,12 @@
+{
+  "$id": "urn:schema:demo.ChangeTodoStatusData:1.0.0",
+  "additionalProperties": false,
+  "properties": {
+    "status": {
+      "enum": ["pending", "in_progress", "completed"],
+      "type": "string"
+    }
+  },
+  "required": ["status"],
+  "type": "object"
+}

@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@cqrs-toolkit/client": "*",
+    "@cqrs-toolkit/demo-base": "*",
     "@cqrs-toolkit/client-solid": "*",
     "@cqrs-toolkit/realtime": "*",
     "@meticoeus/ddd-es": "^0.7.2",

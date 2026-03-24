@@ -1,10 +1,9 @@
-import { createListQuery } from '@cqrs-toolkit/client-solid'
+import { autoRevision } from '@cqrs-toolkit/client'
+import { createListQuery, useClient } from '@cqrs-toolkit/client-solid'
+import { AddTodo, TodoItem } from '@cqrs-toolkit/demo-base/todos/components'
+import type { Todo } from '@cqrs-toolkit/demo-base/todos/shared'
 import { createMemo, createSignal, For, Show } from 'solid-js'
-import type { Todo } from '../../shared/todos/types.js'
-import { useClient } from '../bootstrap/cqrs-context.js'
-import AddTodo from '../components/AddTodo.js'
 import PageShell from '../components/PageShell.js'
-import TodoItem from '../components/TodoItem.js'
 import { createEditNavigator } from '../primitives/createEditNavigator.js'
 
 export default function TodosPage() {
@@ -28,7 +27,11 @@ export default function TodosPage() {
       </Show>
 
       <div ref={nav.containerRef}>
-        <AddTodo onError={setError} formRef={nav.headerRef} />
+        <AddTodo
+          onSubmitCreate={(p) => client.submit({ type: 'CreateTodo', data: p })}
+          onError={setError}
+          formRef={nav.headerRef}
+        />
 
         <Show when={query.loading}>
           <p class="text-center text-neutral-400 py-8">Loading...</p>
@@ -39,7 +42,35 @@ export default function TodosPage() {
         </Show>
 
         <ul ref={nav.listRef} class="space-y-2 p-0">
-          <For each={sortedTodos()}>{(todo) => <TodoItem todo={todo} onError={setError} />}</For>
+          <For each={sortedTodos()}>
+            {(todo) => (
+              <TodoItem
+                todo={todo}
+                onSubmitChangeStatus={(p) =>
+                  client.submit({
+                    type: 'ChangeTodoStatus',
+                    data: { id: p.id, status: p.status },
+                    revision: autoRevision(p.revision.fallback),
+                  })
+                }
+                onSubmitUpdateContent={(p) =>
+                  client.submit({
+                    type: 'UpdateTodoContent',
+                    data: { id: p.id, content: p.content },
+                    revision: autoRevision(p.revision.fallback),
+                  })
+                }
+                onSubmitDelete={(p) =>
+                  client.submit({
+                    type: 'DeleteTodo',
+                    data: { id: p.id },
+                    revision: autoRevision(p.revision.fallback),
+                  })
+                }
+                onError={setError}
+              />
+            )}
+          </For>
         </ul>
       </div>
     </PageShell>

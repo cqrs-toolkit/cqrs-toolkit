@@ -3,12 +3,12 @@
  * Provides a convenient wrapper for TestScheduler.
  */
 
-import assert from 'node:assert'
 import { RunHelpers, TestScheduler } from 'rxjs/testing'
+import { expect } from 'vitest'
 
 /**
  * Create a marble test function.
- * Uses node:assert's deepStrictEqual for comparison.
+ * Provides a convenient wrapper for TestScheduler.
  *
  * @param fn - Test function that receives RunHelpers
  * @returns Function to be used as test body
@@ -23,9 +23,7 @@ import { RunHelpers, TestScheduler } from 'rxjs/testing'
  */
 export function marbleTest(fn: (helpers: RunHelpers) => void): () => void {
   return () => {
-    const testScheduler = new TestScheduler((actual, expected) =>
-      assert.deepEqual(actual, expected),
-    )
+    const testScheduler = new TestScheduler((actual, expected) => expect(actual).toEqual(expected))
     testScheduler.run((helpers) => fn(helpers))
   }
 }

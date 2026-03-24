@@ -3,6 +3,8 @@
  */
 
 import { createSignal } from 'solid-js'
+import type { TreeStore } from './tree.js'
+import { createTreeStore } from './tree.js'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -61,8 +63,7 @@ export interface StorageStore {
   // Table tree
   tables: () => TableInfo[]
   schema: () => Record<string, string[]>
-  expandedTable: () => string | undefined
-  toggleTable: (name: string) => void
+  treeStore: TreeStore
   loadTables: (exec: ExecFn) => Promise<void>
   unavailable: () => boolean
 
@@ -107,7 +108,7 @@ const QUERY_TAB: StorageTabQuery = { type: 'query', id: 'query', label: 'Query' 
 
 export function createStorageStore(): StorageStore {
   const [tables, setTables] = createSignal<TableInfo[]>([])
-  const [expandedTable, setExpandedTable] = createSignal<string | undefined>()
+  const treeStore = createTreeStore()
   const [unavailable, setUnavailable] = createSignal(false)
 
   const [tabs, setTabs] = createSignal<StorageTab[]>([QUERY_TAB])
@@ -151,14 +152,11 @@ export function createStorageStore(): StorageStore {
         }),
       )
       setTables(tableInfos)
+      treeStore.reconcile(tableInfos.map((t) => t.name))
       setUnavailable(false)
     } catch {
       setUnavailable(true)
     }
-  }
-
-  function toggleTable(name: string): void {
-    setExpandedTable(expandedTable() === name ? undefined : name)
   }
 
   function closeTab(id: string): void {
@@ -374,8 +372,7 @@ export function createStorageStore(): StorageStore {
   return {
     tables,
     schema,
-    expandedTable,
-    toggleTable,
+    treeStore,
     loadTables,
     unavailable,
 

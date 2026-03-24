@@ -6,6 +6,7 @@ import {
   makeCommand,
   makeEvent,
   resetIdCounter,
+  toggleChipOption,
 } from './panel-helpers.js'
 
 // ---------------------------------------------------------------------------
@@ -97,20 +98,20 @@ test.describe('Layer 2: Panel Commands Tab', () => {
     await expect(page.locator('.command-row')).toHaveCount(3)
 
     // Toggle off 'pending' chip
-    await page.locator('.filter-chip', { hasText: 'pending' }).click()
+    await toggleChipOption(page, '.status-selector', 'pending')
 
     // Only 2 rows visible
     await expect(page.locator('.command-row')).toHaveCount(2)
 
     // Toggle 'pending' back on
-    await page.locator('.filter-chip', { hasText: 'pending' }).click()
+    await toggleChipOption(page, '.status-selector', 'pending')
     await expect(page.locator('.command-row')).toHaveCount(3)
   })
 
   test('row click shows detail', async ({ mockPanelPage: page }) => {
     const cmd = makeCommand({
       type: 'CreateTodo',
-      payload: { text: 'My todo' },
+      data: { text: 'My todo' },
     })
     await sendToPanel(
       page,
@@ -126,7 +127,7 @@ test.describe('Layer 2: Panel Commands Tab', () => {
     // Should show the command type
     await expect(page.locator('.command-detail')).toContainText('CreateTodo')
 
-    // Should show payload JSON
+    // Should show data JSON
     await expect(page.locator('.detail-json')).toContainText('My todo')
   })
 
@@ -229,22 +230,5 @@ test.describe('Layer 2: Panel Commands Tab', () => {
         (m as Record<string, unknown>)['type'] === 'panel-clear',
     )
     expect(clearMsg).toBeDefined()
-  })
-
-  test('refresh button', async ({ mockPanelPage: page }) => {
-    await sendToPanel(page, makeBufferDump({ config: MOCK_CONFIG, role: 'leader' }))
-
-    // Click Refresh
-    await page.locator('.toolbar-btn', { hasText: 'Refresh' }).click()
-
-    // Outgoing should have request-command-snapshot
-    const outgoing = await getOutgoing(page)
-    const refreshMsg = outgoing.find(
-      (m) =>
-        typeof m === 'object' &&
-        m !== null &&
-        (m as Record<string, unknown>)['type'] === 'cqrs-devtools-request-command-snapshot',
-    )
-    expect(refreshMsg).toBeDefined()
   })
 })

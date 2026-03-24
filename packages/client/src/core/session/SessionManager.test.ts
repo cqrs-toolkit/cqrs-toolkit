@@ -108,7 +108,7 @@ describe('SessionManager', () => {
 
       expect(events).toHaveLength(1)
       expect(events[0]).toMatchObject({
-        payload: { userId: 'user-1', isNew: true },
+        data: { userId: 'user-1', isNew: true },
       })
     })
 
@@ -128,7 +128,7 @@ describe('SessionManager', () => {
 
       expect(events).toHaveLength(1)
       expect(events[0]).toMatchObject({
-        payload: { userId: 'user-1', isNew: false },
+        data: { userId: 'user-1', isNew: false },
       })
     })
 
@@ -215,7 +215,7 @@ describe('SessionManager', () => {
 
       expect(events).toHaveLength(1)
       expect(events[0]).toMatchObject({
-        payload: { reason: 'explicit' },
+        data: { reason: 'explicit' },
       })
     })
 

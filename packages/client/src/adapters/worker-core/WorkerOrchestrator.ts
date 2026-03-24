@@ -11,14 +11,13 @@
  * - Mode C: startSharedWorker manages RemoteSqliteDb and passes it in
  */
 
-import { logProvider } from '@meticoeus/ddd-es'
 import type { Subscription } from 'rxjs'
 import { CacheManager } from '../../core/cache-manager/CacheManager.js'
-import type { IAnticipatedEventHandler } from '../../core/command-queue/CommandQueue.js'
+import { createAnticipatedEventHandler } from '../../core/command-lifecycle/createAnticipatedEventHandler.js'
+import { createCommandResponseHandler } from '../../core/command-lifecycle/createCommandResponseHandler.js'
 import { CommandQueue } from '../../core/command-queue/CommandQueue.js'
 import { EventCache } from '../../core/event-cache/EventCache.js'
 import { EventProcessorRegistry } from '../../core/event-processor/EventProcessorRegistry.js'
-import type { ParsedEvent } from '../../core/event-processor/EventProcessorRunner.js'
 import { EventProcessorRunner } from '../../core/event-processor/EventProcessorRunner.js'
 import { EventBus } from '../../core/events/EventBus.js'
 import { QueryManager } from '../../core/query-manager/QueryManager.js'
@@ -30,14 +29,8 @@ import type { ISqliteDb } from '../../storage/ISqliteDb.js'
 import type { IStorage } from '../../storage/IStorage.js'
 import { loadAndOpenDb } from '../../storage/LocalSqliteDb.js'
 import { SQLiteStorage } from '../../storage/SQLiteStorage.js'
-import type { TerminalCommandStatus } from '../../types/commands.js'
 import { createDomainExecutor } from '../../types/domain.js'
-import type {
-  Collection,
-  CommandRecord,
-  EventPersistence,
-  ResolvedConfig,
-} from '../../types/index.js'
+import type { ResolvedConfig } from '../../types/index.js'
 import { probeOpfs } from './probeOpfs.js'
 import { registerCacheManagerMethods } from './registerCacheManagerMethods.js'
 import { registerCommandQueueMethods } from './registerCommandQueueMethods.js'
@@ -113,7 +106,7 @@ export class WorkerOrchestrator {
     const eventBus = new EventBus()
     this.eventBus = eventBus
     this.eventBroadcastSub = eventBus.events$.subscribe((event) => {
-      this.messageHandler.broadcastEvent(event.type, event.payload, event.debug)
+      this.messageHandler.broadcastEvent(event.type, event.data, event.debug)
     })
 
     // 4. Create SessionManager
@@ -165,13 +158,23 @@ export class WorkerOrchestrator {
     )
     eventProcessorRunner.setAnticipatedEventHandler(anticipatedEventHandler)
 
+    const queryManager = new QueryManager({
+      eventBus,
+      cacheManager,
+      readModelStore,
+    })
+    this.queryManager = queryManager
+
     const commandQueue = new CommandQueue({
       storage,
       eventBus,
       anticipatedEventHandler,
       ...(() => {
         if (config.commandHandlers.length === 0) return {}
-        const executor = createDomainExecutor(config.commandHandlers)
+        const executor = createDomainExecutor(config.commandHandlers, {
+          schemaValidator: config.schemaValidator,
+          queryManager,
+        })
         return { domainExecutor: executor, handlerMetadata: executor }
       })(),
       commandSender: config.commandSender,
@@ -184,14 +187,6 @@ export class WorkerOrchestrator {
       ),
     })
     this.commandQueue = commandQueue
-
-    // 11. Create QueryManager
-    const queryManager = new QueryManager({
-      eventBus,
-      cacheManager,
-      readModelStore,
-    })
-    this.queryManager = queryManager
 
     // 12. Create SyncManager
     const syncManager = new SyncManager({
@@ -212,9 +207,9 @@ export class WorkerOrchestrator {
 
     // 13. Subscribe to cache:evicted for cross-component cleanup
     this.evictionSub = eventBus.on('cache:evicted').subscribe((event) => {
-      const streamIds = eventCache.clearByCacheKey(event.payload.cacheKey)
+      const streamIds = eventCache.clearByCacheKey(event.data.cacheKey)
       syncManager.clearKnownRevisions(streamIds)
-      queryManager.releaseForCacheKey(event.payload.cacheKey)
+      queryManager.releaseForCacheKey(event.data.cacheKey)
     })
 
     // 14. Register RPC methods for all components
@@ -256,225 +251,5 @@ export class WorkerOrchestrator {
     this.eventBroadcastSub?.unsubscribe()
     this.eventBus?.complete()
     await this.storage?.close()
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Anticipated event handling (same logic as createCqrsClient.ts)
-// ---------------------------------------------------------------------------
-
-interface AnticipatedEventShape {
-  type: string
-  data: unknown
-  streamId: string
-}
-
-function isAnticipatedEventShape(value: unknown): value is AnticipatedEventShape {
-  if (typeof value !== 'object' || value === null) return false
-  return (
-    'type' in value &&
-    typeof value.type === 'string' &&
-    'data' in value &&
-    'streamId' in value &&
-    typeof value.streamId === 'string'
-  )
-}
-
-function createAnticipatedEventHandler(
-  eventCache: EventCache,
-  cacheManager: CacheManager,
-  eventProcessorRunner: EventProcessorRunner,
-  readModelStore: ReadModelStore,
-  collections: Collection[],
-): IAnticipatedEventHandler {
-  const anticipatedUpdates = new Map<string, string[]>()
-
-  return {
-    async cache(commandId: string, events: unknown[]): Promise<void> {
-      const updatedIds: string[] = []
-
-      for (const raw of events) {
-        if (!isAnticipatedEventShape(raw)) continue
-
-        const collection = collections.find((c) => c.matchesStream(raw.streamId))
-        if (!collection) {
-          logProvider.log.warn(
-            { streamId: raw.streamId, commandId },
-            'Could not derive collection from streamId in anticipated event',
-          )
-          continue
-        }
-
-        const cacheKey = await cacheManager.acquire(collection.name)
-
-        const eventId = await eventCache.cacheAnticipatedEvent(
-          { type: raw.type, data: raw.data, streamId: raw.streamId, commandId },
-          { cacheKey, commandId },
-        )
-
-        const parsed: ParsedEvent = {
-          id: eventId,
-          type: raw.type,
-          streamId: raw.streamId,
-          persistence: 'Anticipated',
-          data: raw.data,
-          commandId,
-          cacheKey,
-        }
-
-        const result = await eventProcessorRunner.processEvent(parsed)
-        updatedIds.push(...result.updatedIds)
-      }
-
-      if (updatedIds.length > 0) {
-        anticipatedUpdates.set(commandId, updatedIds)
-      }
-    },
-
-    async cleanup(commandId: string, _terminalStatus: TerminalCommandStatus): Promise<void> {
-      await eventCache.deleteAnticipatedEvents(commandId)
-
-      const tracked = anticipatedUpdates.get(commandId)
-      anticipatedUpdates.delete(commandId)
-
-      if (tracked) {
-        for (const key of tracked) {
-          const separatorIndex = key.indexOf(':')
-          if (separatorIndex === -1) continue
-          const collection = key.substring(0, separatorIndex)
-          const id = key.substring(separatorIndex + 1)
-          await readModelStore.clearLocalChanges(collection, id)
-        }
-      }
-    },
-
-    async regenerate(commandId: string, newEvents: unknown[]): Promise<void> {
-      await eventCache.deleteAnticipatedEvents(commandId)
-      const tracked = anticipatedUpdates.get(commandId)
-      anticipatedUpdates.delete(commandId)
-      if (tracked) {
-        for (const key of tracked) {
-          const separatorIndex = key.indexOf(':')
-          if (separatorIndex === -1) continue
-          const collection = key.substring(0, separatorIndex)
-          const id = key.substring(separatorIndex + 1)
-          await readModelStore.clearLocalChanges(collection, id)
-        }
-      }
-      await this.cache(commandId, newEvents)
-    },
-
-    getTrackedEntries(commandId: string): string[] | undefined {
-      return anticipatedUpdates.get(commandId)
-    },
-
-    async getAnticipatedEventsForStream(
-      streamId: string,
-      excludeCommandId: string,
-    ): Promise<ParsedEvent[]> {
-      const allEvents = await eventCache.getEventsByStream(streamId)
-      const parsed: ParsedEvent[] = []
-      for (const record of allEvents) {
-        if (record.persistence !== 'Anticipated') continue
-        if (record.commandId === excludeCommandId) continue
-        parsed.push({
-          id: record.id,
-          type: record.type,
-          streamId: record.streamId,
-          persistence: 'Anticipated',
-          data: typeof record.data === 'string' ? JSON.parse(record.data) : record.data,
-          commandId: record.commandId ?? undefined,
-          cacheKey: record.cacheKey,
-        })
-      }
-      return parsed
-    },
-
-    async clearAll(): Promise<void> {
-      anticipatedUpdates.clear()
-    },
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Command response event processing (same logic as createCqrsClient.ts)
-// ---------------------------------------------------------------------------
-
-interface ResponseEvent {
-  id: string
-  type: string
-  streamId: string
-  data: unknown
-  persistence?: EventPersistence
-  revision: string
-  position: string
-}
-
-function hasResponseEvents(response: unknown): response is { events: ResponseEvent[] } {
-  if (typeof response !== 'object' || response === null) return false
-  if (!('events' in response)) return false
-  return Array.isArray(response.events)
-}
-
-function isResponseEvent(value: unknown): value is ResponseEvent {
-  if (typeof value !== 'object' || value === null) return false
-  return (
-    'id' in value &&
-    typeof value.id === 'string' &&
-    'type' in value &&
-    typeof value.type === 'string' &&
-    'streamId' in value &&
-    typeof value.streamId === 'string' &&
-    'data' in value &&
-    'revision' in value &&
-    typeof value.revision === 'string' &&
-    'position' in value &&
-    typeof value.position === 'string'
-  )
-}
-
-function createCommandResponseHandler(
-  getSyncManager: () => SyncManager,
-  cacheManager: CacheManager,
-  collections: Collection[],
-): (command: CommandRecord, response: unknown) => Promise<void> {
-  return async (command: CommandRecord, response: unknown) => {
-    if (!hasResponseEvents(response)) return
-
-    const events = response.events
-    if (events.length === 0) return
-
-    const parsedEvents: ParsedEvent[] = []
-
-    for (const raw of events) {
-      if (!isResponseEvent(raw)) continue
-
-      const collection = collections.find((c) => c.matchesStream(raw.streamId))
-      if (!collection) {
-        logProvider.log.warn(
-          { streamId: raw.streamId, commandId: command.commandId },
-          'Could not derive collection from streamId in command response',
-        )
-        continue
-      }
-
-      const cacheKey = await cacheManager.acquire(collection.name)
-
-      parsedEvents.push({
-        id: raw.id,
-        type: raw.type,
-        streamId: raw.streamId,
-        persistence: raw.persistence ?? 'Permanent',
-        data: raw.data,
-        commandId: command.commandId,
-        revision: BigInt(raw.revision),
-        position: BigInt(raw.position),
-        cacheKey,
-      })
-    }
-
-    if (parsedEvents.length > 0) {
-      await getSyncManager().processResponseEvents(parsedEvents)
-    }
   }
 }

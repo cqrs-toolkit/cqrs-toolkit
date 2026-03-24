@@ -1,7 +1,7 @@
+import type { CommandSuccessResponse } from '@cqrs-toolkit/demo-base/common/shared'
+import type { Todo } from '@cqrs-toolkit/demo-base/todos/shared'
 import type { FastifyInstance } from 'fastify'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import type { Todo } from '../../shared/todos/types.js'
-import type { CommandSuccessResponse } from '../../shared/types.js'
 import { createApp } from '../bootstrap.js'
 
 let app: FastifyInstance
@@ -21,7 +21,7 @@ describe('POST /api/todos/commands', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/todos/commands',
-        payload: { type: 'CreateTodo', payload: { content: 'Buy milk' } },
+        payload: { type: 'CreateTodo', data: { content: 'Buy milk' } },
       })
 
       expect(res.statusCode).toBe(200)
@@ -40,18 +40,18 @@ describe('POST /api/todos/commands', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/todos/commands',
-        payload: { type: 'CreateTodo', payload: { content: '' } },
+        payload: { type: 'CreateTodo', data: { content: '' } },
       })
 
       expect(res.statusCode).toBe(400)
-      expect(res.json()).toMatchObject({ message: 'Invalid payload' })
+      expect(res.json()).toMatchObject({ message: 'Invalid data' })
     })
 
     it('rejects missing content field', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/todos/commands',
-        payload: { type: 'CreateTodo', payload: {} },
+        payload: { type: 'CreateTodo', data: {} },
       })
 
       expect(res.statusCode).toBe(400)
@@ -67,7 +67,8 @@ describe('POST /api/todos/commands', () => {
         url: '/api/todos/commands',
         payload: {
           type: 'UpdateTodoContent',
-          payload: { id: todoId, content: 'Updated content', revision: nextExpectedRevision },
+          data: { id: todoId, content: 'Updated content' },
+          revision: nextExpectedRevision,
         },
       })
 
@@ -83,7 +84,8 @@ describe('POST /api/todos/commands', () => {
         url: '/api/todos/commands',
         payload: {
           type: 'UpdateTodoContent',
-          payload: { id: 'nonexistent', content: 'x', revision: '0' },
+          data: { id: 'nonexistent', content: 'x' },
+          revision: '0',
         },
       })
 
@@ -101,7 +103,8 @@ describe('POST /api/todos/commands', () => {
         url: '/api/todos/commands',
         payload: {
           type: 'ChangeTodoStatus',
-          payload: { id: todoId, status: 'in_progress', revision: nextExpectedRevision },
+          data: { id: todoId, status: 'in_progress' },
+          revision: nextExpectedRevision,
         },
       })
 
@@ -119,7 +122,8 @@ describe('POST /api/todos/commands', () => {
         url: '/api/todos/commands',
         payload: {
           type: 'ChangeTodoStatus',
-          payload: { id: todoId, status: 'invalid', revision: nextExpectedRevision },
+          data: { id: todoId, status: 'invalid' },
+          revision: nextExpectedRevision,
         },
       })
 
@@ -132,7 +136,8 @@ describe('POST /api/todos/commands', () => {
         url: '/api/todos/commands',
         payload: {
           type: 'ChangeTodoStatus',
-          payload: { id: 'nonexistent', status: 'completed', revision: '0' },
+          data: { id: 'nonexistent', status: 'completed' },
+          revision: '0',
         },
       })
 
@@ -149,7 +154,8 @@ describe('POST /api/todos/commands', () => {
         url: '/api/todos/commands',
         payload: {
           type: 'DeleteTodo',
-          payload: { id: todoId, revision: nextExpectedRevision },
+          data: { id: todoId },
+          revision: nextExpectedRevision,
         },
       })
 
@@ -166,7 +172,7 @@ describe('POST /api/todos/commands', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/todos/commands',
-        payload: { type: 'DeleteTodo', payload: { id: 'nonexistent', revision: '0' } },
+        payload: { type: 'DeleteTodo', data: { id: 'nonexistent' }, revision: '0' },
       })
 
       expect(res.statusCode).toBe(404)
@@ -177,7 +183,7 @@ describe('POST /api/todos/commands', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/todos/commands',
-      payload: { type: 'FlyToMoon', payload: {} },
+      payload: { type: 'FlyToMoon', data: {} },
     })
 
     expect(res.statusCode).toBe(400)
@@ -253,7 +259,8 @@ describe('GET /api/todos/:id/events', () => {
       url: '/api/todos/commands',
       payload: {
         type: 'ChangeTodoStatus',
-        payload: { id: todoId, status: 'completed', revision: nextExpectedRevision },
+        data: { id: todoId, status: 'completed' },
+        revision: nextExpectedRevision,
       },
     })
 
@@ -295,7 +302,7 @@ async function createTodoOn(instance: FastifyInstance, content: string): Promise
   const res = await instance.inject({
     method: 'POST',
     url: '/api/todos/commands',
-    payload: { type: 'CreateTodo', payload: { content } },
+    payload: { type: 'CreateTodo', data: { content } },
   })
   const body = res.json<CommandSuccessResponse>()
   return { id: body.id, nextExpectedRevision: body.nextExpectedRevision }

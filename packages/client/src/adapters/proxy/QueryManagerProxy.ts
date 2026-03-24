@@ -69,9 +69,9 @@ export class QueryManagerProxy implements IQueryManager {
       filter(
         (event) =>
           event.eventName === 'readmodel:updated' &&
-          (event.payload as { collection: string }).collection === collection,
+          (event.data as { collection: string }).collection === collection,
       ),
-      map((event) => (event.payload as { ids: string[] }).ids),
+      map((event) => (event.data as { ids: string[] }).ids),
       takeUntil(this.destroy$),
     )
   }
@@ -81,8 +81,8 @@ export class QueryManagerProxy implements IQueryManager {
       filter(
         (event) =>
           event.eventName === 'readmodel:updated' &&
-          (event.payload as { collection: string }).collection === collection &&
-          (event.payload as { ids: string[] }).ids.includes(id),
+          (event.data as { collection: string }).collection === collection &&
+          (event.data as { ids: string[] }).ids.includes(id),
       ),
       startWith(undefined),
       switchMap(() =>

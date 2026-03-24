@@ -20,6 +20,9 @@ export { detectMode } from './core/detectMode.js'
 // Types
 export * from './types/index.js'
 
+// Anticipated event shape
+export type { IAnticipatedEvent } from './core/command-lifecycle/AnticipatedEventShape.js'
+
 // Storage
 export {
   InMemoryStorage,
@@ -31,6 +34,7 @@ export {
 export type {
   CacheKeyRecord,
   CachedEventRecord,
+  ClientMetadata,
   ISqliteDb,
   IStorage,
   LoadAndOpenDbConfig,

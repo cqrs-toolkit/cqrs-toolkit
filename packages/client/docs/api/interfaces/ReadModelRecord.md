@@ -10,6 +10,18 @@ Read model record.
 
 ## Properties
 
+### \_clientMetadata
+
+> **\_clientMetadata**: [`ClientMetadata`](ClientMetadata.md) \| `null`
+
+Client-side identity tracking metadata.
+Set when an anticipated event creates a read model entry from a command
+with `creates.idStrategy === 'temporary'`. Persists through reconciliation
+so the Solid query primitive can maintain stable references.
+Null for server-seeded entries and non-create commands.
+
+---
+
 ### cacheKey
 
 > **cacheKey**: `string`

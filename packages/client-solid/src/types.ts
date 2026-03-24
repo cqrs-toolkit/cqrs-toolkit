@@ -26,6 +26,14 @@ export interface ItemQueryOptions {
 }
 
 /**
+ * A client ID → server ID mapping from a recent ID reconciliation.
+ */
+export interface ReconciledId {
+  readonly clientId: string
+  readonly serverId: string
+}
+
+/**
  * Reactive state returned by `createListQuery`.
  */
 export interface ListQueryState<T extends Identifiable> {
@@ -34,6 +42,20 @@ export interface ListQueryState<T extends Identifiable> {
   readonly total: number
   readonly hasLocalChanges: boolean
   readonly error: unknown
+  /**
+   * Recent ID reconciliations for this collection.
+   * Contains entries where a client-generated temp ID was replaced by a server ID.
+   * Consumers holding entity IDs in signals can react to maintain stable references:
+   *
+   * ```ts
+   * createEffect(() => {
+   *   for (const { clientId, serverId } of query.reconciled) {
+   *     if (selectedId() === clientId) setSelectedId(serverId)
+   *   }
+   * })
+   * ```
+   */
+  readonly reconciled: readonly ReconciledId[]
 }
 
 /**
@@ -44,4 +66,11 @@ export interface ItemQueryState<T extends Identifiable> {
   readonly loading: boolean
   readonly hasLocalChanges: boolean
   readonly error: unknown
+  /**
+   * Set when the item query detects that the tracked ID was reconciled
+   * (client temp ID replaced by server ID). The query transparently follows
+   * the new ID — consumers holding the old ID externally can react to update
+   * their references.
+   */
+  readonly reconciledId: ReconciledId | undefined
 }

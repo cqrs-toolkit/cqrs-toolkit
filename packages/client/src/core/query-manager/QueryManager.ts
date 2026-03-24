@@ -75,7 +75,9 @@ export class QueryManager implements IQueryManager {
 
     return {
       data: model?.data,
-      meta: model ? { id: model.id, updatedAt: model.updatedAt } : undefined,
+      meta: model
+        ? { id: model.id, updatedAt: model.updatedAt, clientId: model._clientMetadata?.clientId }
+        : undefined,
       hasLocalChanges: model?.hasLocalChanges ?? false,
       cacheKey,
     }
@@ -106,7 +108,9 @@ export class QueryManager implements IQueryManager {
       const model = models.get(id)
       results.set(id, {
         data: model?.data,
-        meta: model ? { id: model.id, updatedAt: model.updatedAt } : undefined,
+        meta: model
+          ? { id: model.id, updatedAt: model.updatedAt, clientId: model._clientMetadata?.clientId }
+          : undefined,
         hasLocalChanges: model?.hasLocalChanges ?? false,
         cacheKey,
       })
@@ -138,7 +142,11 @@ export class QueryManager implements IQueryManager {
 
     return {
       data: models.map((m) => m.data),
-      meta: models.map((m) => ({ id: m.id, updatedAt: m.updatedAt })),
+      meta: models.map((m) => ({
+        id: m.id,
+        updatedAt: m.updatedAt,
+        clientId: m._clientMetadata?.clientId,
+      })),
       total,
       hasLocalChanges: models.some((m) => m.hasLocalChanges),
       cacheKey,
@@ -154,8 +162,8 @@ export class QueryManager implements IQueryManager {
    */
   watchCollection(collection: string): Observable<string[]> {
     return this.eventBus.on('readmodel:updated').pipe(
-      filter((event) => event.payload.collection === collection),
-      map((event) => event.payload.ids),
+      filter((event) => event.data.collection === collection),
+      map((event) => event.data.ids),
       takeUntil(this.destroy$),
     )
   }
@@ -169,7 +177,7 @@ export class QueryManager implements IQueryManager {
    */
   watchById<T>(collection: string, id: string): Observable<T | undefined> {
     return this.eventBus.on('readmodel:updated').pipe(
-      filter((event) => event.payload.collection === collection && event.payload.ids.includes(id)),
+      filter((event) => event.data.collection === collection && event.data.ids.includes(id)),
       startWith(undefined),
       switchMap(() =>
         from(this.readModelStore.getById<T>(collection, id)).pipe(

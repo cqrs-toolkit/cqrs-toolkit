@@ -30,9 +30,6 @@ export const MSG_ACTIVATE = 'cqrs-devtools-activate'
 /** Content script tells hook to stop subscribing. */
 export const MSG_DEACTIVATE = 'cqrs-devtools-deactivate'
 
-/** Request a fresh command snapshot. */
-export const MSG_REQUEST_COMMAND_SNAPSHOT = 'cqrs-devtools-request-command-snapshot'
-
 /** Execute a command action (retry/cancel). */
 export const MSG_ACTION = 'cqrs-devtools-action'
 

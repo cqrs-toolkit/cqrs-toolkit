@@ -3,8 +3,9 @@ import { Show } from 'solid-js'
 import { getPanelWidth, setPanelWidth } from '../../panelWidths.js'
 import type { EventsStore } from '../../stores/events.js'
 import { useContainerWidth } from '../../useContainerWidth.js'
+import { ChipSelect } from '../ChipSelect.js'
 import { DragHandle } from '../DragHandle.js'
-import { PersistenceFilterChips } from '../PersistenceFilterChips.js'
+import { MultiSelect } from '../MultiSelect.js'
 import { VirtualScroller } from '../VirtualScroller.js'
 import { EventDetail } from './EventDetail.js'
 import { EventRow } from './EventRow.js'
@@ -15,6 +16,7 @@ const EVENTS_MIN_WIDTH = '480px'
 
 interface EventsTabProps {
   store: EventsStore
+  onExport: () => void
   onClear: () => void
 }
 
@@ -27,50 +29,40 @@ export const EventsTab: Component<EventsTabProps> = (props) => {
 
   let startWidth = 0
 
-  function handleExport(): void {
-    const json = props.store.exportJson()
-    const blob = new Blob([json], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `events-${Date.now()}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
   return (
     <>
       <div class="events-toolbar">
-        <PersistenceFilterChips
-          active={props.store.persistenceFilter()}
-          onToggle={(v) => props.store.togglePersistenceFilter(v)}
+        <ChipSelect
+          class="persistence-selector"
+          label="Persistence"
+          values={['Permanent', 'Stateful', 'Anticipated']}
+          selected={props.store.persistenceFilter()}
+          onToggle={(v) =>
+            props.store.togglePersistenceFilter(v as 'Permanent' | 'Stateful' | 'Anticipated')
+          }
+          onSelectAll={() => props.store.selectAllPersistence()}
+          onClear={() => props.store.clearPersistence()}
+          colorVar="persistence"
+        />
+        <MultiSelect
+          class="type-selector"
+          label="Type"
+          values={props.store.seenEventTypes()}
+          selected={props.store.typeFilter()}
+          onToggle={(v) => props.store.toggleTypeFilter(v)}
+          onSelectAll={() => props.store.selectAllTypes()}
+          onClear={() => props.store.clearTypeFilter()}
         />
         <div class="toolbar-filter">
           <input
             class="toolbar-input"
             type="text"
-            placeholder="Filter type..."
-            value={props.store.typeFilter()}
-            onInput={(e) => props.store.setTypeFilter(e.currentTarget.value)}
-            list="event-types-list"
+            placeholder="Filter stream..."
+            value={props.store.streamFilter()}
+            onInput={(e) => props.store.setStreamFilter(e.currentTarget.value)}
           />
-          <datalist id="event-types-list">
-            {props.store.seenEventTypes().map((t) => (
-              <option value={t} />
-            ))}
-          </datalist>
         </div>
-        <select
-          class="toolbar-select"
-          value={props.store.streamFilter()}
-          onChange={(e) => props.store.setStreamFilter(e.currentTarget.value)}
-        >
-          <option value="">All streams</option>
-          {props.store.seenStreamIds().map((s) => (
-            <option value={s}>{s.slice(0, 16)}</option>
-          ))}
-        </select>
-        <button class="toolbar-btn" onClick={handleExport}>
+        <button class="toolbar-btn" onClick={() => props.onExport()}>
           Export
         </button>
         <button class="toolbar-btn" onClick={() => props.onClear()}>

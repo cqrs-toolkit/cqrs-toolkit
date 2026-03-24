@@ -31,12 +31,12 @@ export class ConnectivityProxy implements IConnectivity {
       const current = this.state$.getValue()
       switch (event.eventName) {
         case 'connectivity:changed': {
-          const payload = event.payload as { online: boolean }
+          const data = event.data as { online: boolean }
           this.state$.next({
             ...current,
-            network: payload.online ? 'online' : 'offline',
-            serverReachable: payload.online ? 'yes' : 'no',
-            lastContact: payload.online ? Date.now() : current.lastContact,
+            network: data.online ? 'online' : 'offline',
+            serverReachable: data.online ? 'yes' : 'no',
+            lastContact: data.online ? Date.now() : current.lastContact,
           })
           break
         }

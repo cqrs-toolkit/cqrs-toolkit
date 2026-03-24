@@ -30,7 +30,7 @@ export const SyncDetail: Component<SyncDetailProps> = (props) => {
 
       <div class="detail-section">
         <h4>Payload</h4>
-        <pre class="detail-json">{formatJson(props.entry.payload)}</pre>
+        <pre class="detail-json">{formatJson(props.entry.data)}</pre>
       </div>
     </div>
   )

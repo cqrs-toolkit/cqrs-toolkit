@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / CqrsClientConfig
 
-# Interface: CqrsClientConfig
+# Interface: CqrsClientConfig\<TSchema\>
 
 Main-thread CQRS Client configuration.
 
@@ -13,7 +13,13 @@ mode selection and worker script URL.
 
 ## Extends
 
-- [`CqrsConfig`](CqrsConfig.md)
+- [`CqrsConfig`](CqrsConfig.md)\<`TSchema`\>
+
+## Type Parameters
+
+### TSchema
+
+`TSchema` = `unknown`
 
 ## Properties
 
@@ -57,10 +63,10 @@ Collection configurations.
 
 ### commandHandlers?
 
-> `optional` **commandHandlers**: [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`unknown`\>[]
+> `optional` **commandHandlers**: [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`any`, `TSchema`\>[]
 
 Command handler registrations for local validation and optimistic updates.
-Each handler validates a command payload and produces anticipated events.
+Each handler validates command data and produces anticipated events.
 If not provided, commands are sent directly without local validation.
 
 #### Inherited from
@@ -149,6 +155,21 @@ Retry configuration for commands.
 #### Inherited from
 
 [`CqrsConfig`](CqrsConfig.md).[`retry`](CqrsConfig.md#retry)
+
+---
+
+### schemaValidator?
+
+> `optional` **schemaValidator**: [`SchemaValidator`](SchemaValidator.md)\<`TSchema`\>
+
+Schema validator implementation for structural validation.
+Required if any command handler registration has a `schema` property.
+The generic `TSchema` enforces that the validator and all registrations
+agree on the schema type (JSONSchema7, z.ZodType, etc.).
+
+#### Inherited from
+
+[`CqrsConfig`](CqrsConfig.md).[`schemaValidator`](CqrsConfig.md#schemavalidator)
 
 ---
 

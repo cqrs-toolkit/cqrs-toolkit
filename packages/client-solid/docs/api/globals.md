@@ -15,8 +15,11 @@ SolidJS reactive primitives for @cqrs-toolkit/client.
 - [ItemQueryState](interfaces/ItemQueryState.md)
 - [ListQueryOptions](interfaces/ListQueryOptions.md)
 - [ListQueryState](interfaces/ListQueryState.md)
+- [ReconciledId](interfaces/ReconciledId.md)
 
 ## Functions
 
+- [CqrsProvider](functions/CqrsProvider.md)
 - [createItemQuery](functions/createItemQuery.md)
 - [createListQuery](functions/createListQuery.md)
+- [useClient](functions/useClient.md)

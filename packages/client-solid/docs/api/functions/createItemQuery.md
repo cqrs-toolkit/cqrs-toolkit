@@ -15,6 +15,10 @@ by the target ID, and refetches on matching updates.
 The `id` parameter is an accessor, so it re-subscribes when the ID changes
 (e.g., route param changes).
 
+Handles ID reconciliation transparently: if the tracked client ID was replaced
+by a server-assigned ID, the query follows the new ID automatically and exposes
+the mapping via `reconciledId`.
+
 ## Type Parameters
 
 ### T
@@ -51,4 +55,4 @@ Query options (scope)
 
 [`ItemQueryState`](../interfaces/ItemQueryState.md)\<`T`\>
 
-Reactive store with data, loading, hasLocalChanges, error
+Reactive store with data, loading, hasLocalChanges, error, reconciledId

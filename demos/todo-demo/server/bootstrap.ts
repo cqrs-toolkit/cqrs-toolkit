@@ -4,15 +4,17 @@
  * Returns a configured Fastify instance ready for .listen() or .inject().
  */
 
+import { DemoEventStore } from '@cqrs-toolkit/demo-base/common/server'
+import type { CommandResponse } from '@cqrs-toolkit/demo-base/common/shared'
+import { NotebookRepository, NotebookService } from '@cqrs-toolkit/demo-base/notebooks/server'
+import { NoteRepository } from '@cqrs-toolkit/demo-base/notes/server'
+import { TodoRepository } from '@cqrs-toolkit/demo-base/todos/server'
 import websocket from '@fastify/websocket'
 import { logProvider } from '@meticoeus/ddd-es'
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify'
-import type { CommandResponse } from '../shared/types.js'
-import { DemoEventStore } from './event-store.js'
-import { NoteRepository } from './notes/repository.js'
+import { notebookRoutes } from './notebooks/routes.js'
 import { noteRoutes } from './notes/routes.js'
 import { FakeUserStore, sessionRoutes } from './session/routes.js'
-import { TodoRepository } from './todos/repository.js'
 import { todoRoutes } from './todos/routes.js'
 import { websocketPlugin } from './websocket.js'
 
@@ -27,6 +29,7 @@ export interface AppContext {
   eventStore: DemoEventStore
   todoRepo: TodoRepository
   noteRepo: NoteRepository
+  notebookRepo: NotebookRepository
   userStore: FakeUserStore
 }
 
@@ -43,6 +46,8 @@ export function createApp(options?: { logLevel?: string }): AppContext {
   const eventStore = new DemoEventStore()
   const todoRepo = new TodoRepository(eventStore)
   const noteRepo = new NoteRepository(eventStore)
+  const notebookRepo = new NotebookRepository(eventStore)
+  const notebookService = new NotebookService(notebookRepo, noteRepo)
   const userStore = new FakeUserStore()
 
   // --- Request deduplication cache ---
@@ -105,18 +110,19 @@ export function createApp(options?: { logLevel?: string }): AppContext {
 
     api.register(sessionRoutes(userStore), { prefix: '/auth' })
     api.register(todoRoutes(eventStore, todoRepo))
-    api.register(noteRoutes(eventStore, noteRepo))
+    api.register(notebookRoutes(eventStore, notebookRepo, notebookService))
+    api.register(noteRoutes(eventStore, noteRepo, notebookRepo))
 
-    api.addHook('onSend', async (request, reply, payload) => {
-      if (request.method === 'POST' && typeof payload === 'string') {
+    api.addHook('onSend', async (request, reply, data) => {
+      if (request.method === 'POST' && typeof data === 'string') {
         try {
-          const response = JSON.parse(payload) as CommandResponse
+          const response = JSON.parse(data) as CommandResponse
           cacheResponse(request, reply, response)
         } catch {
           // Not JSON, skip caching
         }
       }
-      return payload
+      return data
     })
 
     api.get('/health', async () => {
@@ -127,6 +133,7 @@ export function createApp(options?: { logLevel?: string }): AppContext {
       eventStore.clear()
       todoRepo.clear()
       noteRepo.clear()
+      notebookRepo.clear()
       userStore.clear()
       responseCache.clear()
       wsControl.resume()
@@ -150,5 +157,5 @@ export function createApp(options?: { logLevel?: string }): AppContext {
   app.register(wsPlugin)
   app.register(apiRoutes, { prefix: '/api' })
 
-  return { app, eventStore, todoRepo, noteRepo, userStore }
+  return { app, eventStore, todoRepo, noteRepo, notebookRepo, userStore }
 }

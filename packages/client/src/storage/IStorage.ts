@@ -66,6 +66,20 @@ export interface CachedEventRecord {
 }
 
 /**
+ * Client-side metadata for read model identity tracking.
+ *
+ * Persists the original client-generated temp ID through ID reconciliation
+ * so the UI can maintain stable entity references (selection, URLs) when the
+ * server assigns a different permanent ID.
+ */
+export interface ClientMetadata {
+  /** Original client-generated temp ID, set at anticipated-event creation time. */
+  clientId: string
+  /** Timestamp when the server ID replaced the client ID. Undefined until reconciliation. */
+  reconciledAt?: number
+}
+
+/**
  * Read model record.
  */
 export interface ReadModelRecord {
@@ -83,6 +97,14 @@ export interface ReadModelRecord {
   hasLocalChanges: boolean
   /** Last update timestamp */
   updatedAt: number
+  /**
+   * Client-side identity tracking metadata.
+   * Set when an anticipated event creates a read model entry from a command
+   * with `creates.idStrategy === 'temporary'`. Persists through reconciliation
+   * so the Solid query primitive can maintain stable references.
+   * Null for server-seeded entries and non-create commands.
+   */
+  _clientMetadata: ClientMetadata | null
 }
 
 /**

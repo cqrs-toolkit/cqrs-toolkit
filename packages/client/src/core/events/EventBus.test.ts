@@ -18,7 +18,7 @@ describe('EventBus', () => {
     expect(events).toHaveLength(1)
     expect(events[0]).toMatchObject({
       type: 'session:changed',
-      payload: { userId: 'user-1', isNew: true },
+      data: { userId: 'user-1', isNew: true },
     })
   })
 

@@ -35,12 +35,14 @@ import { EnqueueAndWaitException, isTerminalStatus } from '../../types/commands.
 import type { RetryConfig } from '../../types/config.js'
 import type {
   DomainExecutionResult,
+  HandlerContext,
   ICommandHandlerMetadata,
   IDomainExecutor,
   ParentRefConfig,
 } from '../../types/domain.js'
 import { autoRevision, isAutoRevision } from '../../types/domain.js'
 import type { ValidationError } from '../../types/validation.js'
+import { assert } from '../../utils/assert.js'
 import { calculateBackoffDelay, shouldRetry } from '../../utils/retry.js'
 import { generateId } from '../../utils/uuid.js'
 import type { ParsedEvent } from '../event-processor/EventProcessorRunner.js'
@@ -54,11 +56,19 @@ import { CommandSendError } from './types.js'
  * implementation coordinates EventCache, CacheManager, EventProcessorRunner, and collection routing.
  */
 export interface IAnticipatedEventHandler {
-  /** Cache anticipated events in EventCache and send through event processor pipeline. */
-  cache(commandId: string, events: unknown[]): Promise<void>
+  /**
+   * Cache anticipated events in EventCache and send through event processor pipeline.
+   *
+   * @param commandId - Command that produced these events
+   * @param events - Anticipated events to cache
+   * @param clientId - For creates with temporary ID: the client-generated entity ID.
+   *   When provided, sets `_clientMetadata` on the created read model entries so the
+   *   original ID can be tracked through server ID reconciliation.
+   */
+  cache(commandId: string, events: unknown[], clientId?: string): Promise<void>
   /** Clean up anticipated events when command reaches terminal state. Clears local changes for tracked entries. */
   cleanup(commandId: string, terminalStatus: TerminalCommandStatus): Promise<void>
-  /** Replace anticipated events for a command (used when payload is rewritten after a dependency succeeds). */
+  /** Replace anticipated events for a command (used when data is rewritten after a dependency succeeds). */
   regenerate(commandId: string, newEvents: unknown[]): Promise<void>
   /** Get tracked read model entries for a command (e.g., ["todos:client-abc"]). */
   getTrackedEntries(commandId: string): string[] | undefined
@@ -76,7 +86,7 @@ export interface CommandQueueConfig {
   eventBus: EventBus
   anticipatedEventHandler: IAnticipatedEventHandler
   domainExecutor?: IDomainExecutor
-  /** Metadata lookup for command handler registrations (creates, revisionField). */
+  /** Metadata lookup for command handler registrations (creates config). */
   handlerMetadata?: ICommandHandlerMetadata
   commandSender?: ICommandSender
   retryConfig?: RetryConfig
@@ -142,7 +152,7 @@ export class CommandQueue implements ICommandQueue {
 
   /**
    * In-memory tracking of command chains per aggregate.
-   * Key is the aggregate ID (client-generated for creates, payload.id for mutates).
+   * Key is the aggregate ID (client-generated for creates, data.id for mutates).
    */
   private readonly aggregateChains = new Map<string, AggregateChain>()
 
@@ -169,8 +179,8 @@ export class CommandQueue implements ICommandQueue {
     this.events$ = this.commandEvents.asObservable().pipe(share(), takeUntil(this.destroy$))
   }
 
-  async enqueue<TPayload, TEvent>(
-    command: EnqueueCommand<TPayload>,
+  async enqueue<TData, TEvent>(
+    command: EnqueueCommand<TData>,
     options?: EnqueueOptions,
   ): Promise<EnqueueResult<TEvent>> {
     const commandId = options?.commandId ?? generateId()
@@ -193,7 +203,11 @@ export class CommandQueue implements ICommandQueue {
       // TEvent-compatible anticipated events. TypeScript cannot verify this without
       // making CommandQueue generic in TEvent, which would propagate through the
       // entire client factory.
-      const result = this.domainExecutor.execute(patchedCommand) as DomainExecutionResult<TEvent>
+      const initialContext: HandlerContext = { phase: 'initializing', path: command.path }
+      const result = (await this.domainExecutor.execute(
+        patchedCommand,
+        initialContext,
+      )) as DomainExecutionResult<TEvent>
 
       if (!result.ok) {
         return Err(result.error)
@@ -208,7 +222,7 @@ export class CommandQueue implements ICommandQueue {
     const autoDeps = this.detectAggregateDependencies(
       commandId,
       patchedCommand.type,
-      patchedCommand.payload,
+      patchedCommand.data,
       anticipatedEvents,
       registration,
     )
@@ -227,18 +241,19 @@ export class CommandQueue implements ICommandQueue {
     const initialStatus: CommandStatus = blockedBy.length > 0 ? 'blocked' : 'pending'
 
     // Create command record
-    const record: CommandRecord<TPayload> = {
+    const record: CommandRecord<TData> = {
       commandId,
       service: command.service ?? this.defaultService,
       type: command.type,
-      payload: patchedCommand.payload,
+      data: patchedCommand.data,
+      path: command.path,
       status: initialStatus,
       dependsOn: allDeps,
       blockedBy,
       attempts: 0,
       postProcess,
       creates: registration?.creates,
-      revisionField: registration?.revisionField,
+      revision: patchedCommand.revision,
       createdAt: now,
       updatedAt: now,
     }
@@ -248,8 +263,15 @@ export class CommandQueue implements ICommandQueue {
 
     // Cache anticipated events for optimistic updates
     if (anticipatedEvents.length > 0) {
+      // For creates with temporary IDs, pass the client-generated entity ID so
+      // _clientMetadata can be set on the read model entry for identity tracking.
+      const clientId =
+        registration?.creates?.idStrategy === 'temporary'
+          ? this.extractAggregateIdFromEvents(anticipatedEvents, registration.creates.eventType)
+          : undefined
+
       try {
-        await this.anticipatedEventHandler.cache(commandId, anticipatedEvents)
+        await this.anticipatedEventHandler.cache(commandId, anticipatedEvents, clientId)
       } catch (err) {
         logProvider.log.error(
           { err, commandId },
@@ -308,11 +330,11 @@ export class CommandQueue implements ICommandQueue {
     return firstValueFrom(race(terminalEvent$, timeout$))
   }
 
-  async enqueueAndWait<TPayload, TEvent, TResponse>(
-    command: EnqueueCommand<TPayload>,
+  async enqueueAndWait<TData, TEvent, TResponse>(
+    command: EnqueueCommand<TData>,
     options?: EnqueueAndWaitOptions,
   ): Promise<EnqueueAndWaitResult<TResponse>> {
-    const enqueueResult = await this.enqueue<TPayload, TEvent>(command, options)
+    const enqueueResult = await this.enqueue<TData, TEvent>(command, options)
 
     if (!enqueueResult.ok) {
       const errors: ValidationError[] = enqueueResult.error.details ?? []
@@ -468,7 +490,7 @@ export class CommandQueue implements ICommandQueue {
       correlationId,
       service: current.service,
       type: current.type,
-      payload: current.payload,
+      data: current.data,
     })
 
     // Resolve AUTO_REVISION before sending — the server must never see the marker.
@@ -587,7 +609,7 @@ export class CommandQueue implements ICommandQueue {
   /**
    * Rewrite stale client IDs in all non-terminal commands using targeted field-level replacement.
    *
-   * Same-aggregate: replaces `payload.id` if it matches a client ID in the map.
+   * Same-aggregate: replaces `data.id` if it matches a client ID in the map.
    * Cross-aggregate: replaces `parentRef` fields, verified against `fromCommand`.
    *
    * Called when a create with temporary ID succeeds — cascades the server ID to
@@ -597,17 +619,17 @@ export class CommandQueue implements ICommandQueue {
     const allCommands = await this.storage.getCommandsByStatus(['pending', 'blocked', 'sending'])
 
     for (const command of allCommands) {
-      if (typeof command.payload !== 'object' || command.payload === null) continue
+      if (typeof command.data !== 'object' || command.data === null) continue
 
       const registration = this.handlerMetadata?.getRegistration(command.type)
-      const payload = { ...(command.payload as Record<string, unknown>) }
+      const data = { ...(command.data as Record<string, unknown>) }
       let changed = false
 
-      // Same-aggregate: replace payload.id if it matches a stale client ID
-      if (!registration?.creates && typeof payload.id === 'string') {
-        const entry = idMap[payload.id]
+      // Same-aggregate: replace data.id if it matches a stale client ID
+      if (!registration?.creates && typeof data.id === 'string') {
+        const entry = idMap[data.id]
         if (entry !== undefined) {
-          payload.id = entry.serverId
+          data.id = entry.serverId
           changed = true
         }
       }
@@ -615,24 +637,25 @@ export class CommandQueue implements ICommandQueue {
       // Cross-aggregate: replace parentRef fields, verified against fromCommand
       if (registration?.parentRef) {
         for (const ref of registration.parentRef) {
-          const fieldValue = payload[ref.field]
+          const fieldValue = data[ref.field]
           if (typeof fieldValue !== 'string') continue
 
           const entry = idMap[fieldValue]
           if (entry === undefined) continue
           if (entry.commandType !== ref.fromCommand) continue
 
-          payload[ref.field] = entry.serverId
+          data[ref.field] = entry.serverId
           changed = true
         }
       }
 
       if (changed) {
-        await this.storage.updateCommand(command.commandId, { payload })
+        await this.storage.updateCommand(command.commandId, { data })
 
         // Regenerate anticipated events with the correct server ID
         if (this.domainExecutor) {
-          const result = this.domainExecutor.execute({ type: command.type, payload })
+          const context = this.buildUpdatingContext(command, data)
+          const result = await this.domainExecutor.execute({ type: command.type, data }, context)
           if (result.ok) {
             try {
               await this.anticipatedEventHandler.regenerate(
@@ -692,7 +715,7 @@ export class CommandQueue implements ICommandQueue {
 
         // Persist the mapping for race condition handling.
         // When the UI still has stale client IDs or stale revisions,
-        // future enqueue calls will find this mapping and patch the payload silently.
+        // future enqueue calls will find this mapping and patch the data silently.
         await this.storage.saveCommandIdMapping({
           clientId,
           serverId,
@@ -733,29 +756,27 @@ export class CommandQueue implements ICommandQueue {
   }
 
   /**
-   * Resolve AUTO_REVISION in a dependent command's payload after its dependency succeeded.
+   * Resolve AUTO_REVISION in a dependent command after its dependency succeeded.
    * ID replacement is handled by rewriteCommandsWithStaleIds — this only handles revision.
    */
   private async resolveDependentRevision(
     command: CommandRecord,
     parentRevision: string | undefined,
   ): Promise<void> {
-    if (command.revisionField === undefined || parentRevision === undefined) return
+    if (command.revision === undefined || parentRevision === undefined) return
+    if (!isAutoRevision(command.revision)) return
 
-    const payload = command.payload
-    if (typeof payload !== 'object' || payload === null) return
-    if (!(command.revisionField in payload)) return
-    if (!isAutoRevision((payload as Record<string, unknown>)[command.revisionField])) return
-
-    const newPayload = { ...(payload as Record<string, unknown>) }
-    newPayload[command.revisionField] = parentRevision
-
-    // Update the command record with the rewritten payload
-    await this.storage.updateCommand(command.commandId, { payload: newPayload })
+    // Update the command record with the resolved revision
+    await this.storage.updateCommand(command.commandId, { revision: parentRevision })
 
     // Re-run the domain executor to produce fresh anticipated events with correct IDs
     if (this.domainExecutor) {
-      const result = this.domainExecutor.execute({ type: command.type, payload: newPayload })
+      const data = command.data as Record<string, unknown>
+      const context = this.buildUpdatingContext(command, data)
+      const result = await this.domainExecutor.execute(
+        { type: command.type, data: command.data },
+        context,
+      )
       if (result.ok) {
         try {
           await this.anticipatedEventHandler.regenerate(
@@ -765,7 +786,7 @@ export class CommandQueue implements ICommandQueue {
         } catch (err) {
           logProvider.log.error(
             { err, commandId: command.commandId },
-            'Failed to regenerate anticipated events after payload rewrite',
+            'Failed to regenerate anticipated events after data rewrite',
           )
         }
       }
@@ -791,36 +812,45 @@ export class CommandQueue implements ICommandQueue {
   }
 
   /**
-   * Patch a command's payload using the ID mapping cache.
+   * Patch a command's data using the ID mapping cache.
    *
    * Handles three cases:
-   * 1. payload.id is a stale client ID → replace with server ID + patch revision (same-aggregate)
-   * 2. payload.id is the correct server ID but revision is stale → patch revision only
-   * 3. payload[parentRef.field] is a stale parent client ID → replace with server ID (cross-aggregate)
+   * 1. data.id is a stale client ID → replace with server ID + patch revision (same-aggregate)
+   * 2. data.id is the correct server ID but revision is stale → patch revision only
+   * 3. data[parentRef.field] is a stale parent client ID → replace with server ID (cross-aggregate)
    */
-  private async patchFromIdMappingCache<TPayload>(
-    command: EnqueueCommand<TPayload>,
+  private async patchFromIdMappingCache<TData>(
+    command: EnqueueCommand<TData>,
     registration:
       | {
           creates?: CommandRecord['creates']
-          revisionField?: string
           parentRef?: ParentRefConfig[]
         }
       | undefined,
-  ): Promise<EnqueueCommand<TPayload>> {
-    if (typeof command.payload !== 'object' || command.payload === null) return command
+  ): Promise<EnqueueCommand<TData>> {
+    if (typeof command.data !== 'object' || command.data === null) return command
 
-    let patchedPayload = command.payload
+    let patchedPayload = command.data
+    let patchedRevision = command.revision
     let changed = false
 
-    // Same-aggregate: check payload.id (only for mutate commands, not creates)
+    // Same-aggregate: check data.id (only for mutate commands, not creates)
     if (!registration?.creates) {
-      const payloadId = this.extractPayloadId(command.payload)
+      const payloadId = this.extractPayloadId(command.data)
       if (typeof payloadId === 'string') {
-        const result = await this.patchIdField(patchedPayload, payloadId, registration)
+        const result = await this.patchIdField(patchedPayload, payloadId)
         if (result !== undefined) {
-          patchedPayload = result
+          patchedPayload = result.data
           changed = true
+
+          // Patch autoRevision fallback if the revision is undefined/stale
+          if (
+            isAutoRevision(patchedRevision) &&
+            patchedRevision.fallback === undefined &&
+            result.revision !== undefined
+          ) {
+            patchedRevision = autoRevision(result.revision)
+          }
         }
       }
     }
@@ -852,18 +882,17 @@ export class CommandQueue implements ICommandQueue {
       }
     }
 
-    return changed ? { ...command, payload: patchedPayload } : command
+    return changed ? { ...command, data: patchedPayload, revision: patchedRevision } : command
   }
 
   /**
-   * Try to patch payload.id from the mapping cache (same-aggregate).
-   * Returns the patched payload if a mapping was found, undefined otherwise.
+   * Try to patch data.id from the mapping cache (same-aggregate).
+   * Returns the patched data and the mapping's revision if a mapping was found, undefined otherwise.
    */
-  private async patchIdField<TPayload>(
-    payload: TPayload,
+  private async patchIdField<TData>(
+    data: TData,
     payloadId: string,
-    registration: { revisionField?: string } | undefined,
-  ): Promise<TPayload | undefined> {
+  ): Promise<{ data: TData; revision: string | undefined } | undefined> {
     // Try lookup by client ID first, then by server ID
     const byClientId = await this.storage.getCommandIdMapping(payloadId)
     const byServerId =
@@ -874,13 +903,13 @@ export class CommandQueue implements ICommandQueue {
     if (mapping === undefined) return undefined
 
     const mappingData = JSON.parse(mapping.data) as { revision?: string }
-    let patchedPayload = payload
+    let patchedPayload = data
 
-    // Case 1: payload has stale client ID → replace with server ID
+    // Case 1: data has stale client ID → replace with server ID
     if (byClientId !== undefined) {
-      let payloadJson = JSON.stringify(payload)
+      let payloadJson = JSON.stringify(data)
       payloadJson = payloadJson.replaceAll(payloadId, mapping.serverId)
-      patchedPayload = JSON.parse(payloadJson) as TPayload
+      patchedPayload = JSON.parse(payloadJson) as TData
 
       logProvider.log.debug(
         { clientId: payloadId, serverId: mapping.serverId },
@@ -888,58 +917,34 @@ export class CommandQueue implements ICommandQueue {
       )
     }
 
-    // Patch autoRevision fallback if the revision is undefined/stale
-    if (
-      registration?.revisionField !== undefined &&
-      typeof patchedPayload === 'object' &&
-      patchedPayload !== null &&
-      mappingData.revision !== undefined
-    ) {
-      const revisionValue = (patchedPayload as Record<string, unknown>)[registration.revisionField]
-      if (isAutoRevision(revisionValue) && revisionValue.fallback === undefined) {
-        ;(patchedPayload as Record<string, unknown>)[registration.revisionField] = autoRevision(
-          mappingData.revision,
-        )
-      }
-    }
-
-    return patchedPayload
+    return { data: patchedPayload, revision: mappingData.revision }
   }
 
   /**
-   * Resolve AUTO_REVISION markers in a command's payload before sending to the server.
-   * Returns a new command record with the resolved payload (or the original if no resolution needed).
+   * Resolve AUTO_REVISION marker in a command's revision before sending to the server.
+   * Returns a new command record with the resolved revision (or the original if no resolution needed).
    */
   private resolveAutoRevisionForSend(command: CommandRecord): CommandRecord {
-    if (!command.revisionField) return command
-
-    const payload = command.payload
-    if (typeof payload !== 'object' || payload === null) return command
-    if (!(command.revisionField in payload)) return command
-
-    const revisionValue = (payload as Record<string, unknown>)[command.revisionField]
-    if (!isAutoRevision(revisionValue)) return command
+    if (!isAutoRevision(command.revision)) return command
 
     // Use the fallback revision from the marker (the read model revision the consumer passed)
-    const resolvedPayload = { ...(payload as Record<string, unknown>) }
-    resolvedPayload[command.revisionField] = revisionValue.fallback
-    return { ...command, payload: resolvedPayload }
+    return { ...command, revision: command.revision.fallback }
   }
 
   /**
    * Detect same-aggregate dependencies and update the aggregate chain tracker.
    *
    * For create commands: extract the aggregate ID from anticipated events and start a new chain.
-   * For mutate commands: read payload.id and chain after the latest command on that aggregate.
+   * For mutate commands: read data.id and chain after the latest command on that aggregate.
    *
    * @returns Array of auto-generated dependency command IDs (may be empty).
    */
   private detectAggregateDependencies<TEvent>(
     commandId: string,
     commandType: string,
-    payload: unknown,
+    data: unknown,
     anticipatedEvents: TEvent[],
-    registration: { creates?: CommandRecord['creates']; revisionField?: string } | undefined,
+    registration: { creates?: CommandRecord['creates'] } | undefined,
   ): string[] {
     if (!registration) return []
 
@@ -966,8 +971,8 @@ export class CommandQueue implements ICommandQueue {
         })
       }
     } else {
-      // Mutate command: read payload.id to find the aggregate
-      const aggregateId = this.extractPayloadId(payload)
+      // Mutate command: read data.id to find the aggregate
+      const aggregateId = this.extractPayloadId(data)
 
       if (typeof aggregateId === 'string') {
         const chain = this.aggregateChains.get(aggregateId)
@@ -1002,11 +1007,38 @@ export class CommandQueue implements ICommandQueue {
   }
 
   /**
-   * Extract the aggregate ID from a command payload (ddd-es convention: always `id`).
+   * Look up the original entity ID for a pending create command from the aggregate chain.
+   * Returns the aggregate chain key where createCommandId matches.
    */
-  private extractPayloadId(payload: unknown): string | undefined {
-    if (typeof payload !== 'object' || payload === null) return undefined
-    if ('id' in payload && typeof payload.id === 'string') return payload.id
+  private getOriginalCreateId(commandId: string): string | undefined {
+    for (const [aggregateId, chain] of this.aggregateChains) {
+      if (chain.createCommandId === commandId) return aggregateId
+    }
+    return undefined
+  }
+
+  /**
+   * Build the HandlerContext for a re-execution (regeneration) of a command.
+   * For create commands, the entity ID comes from the aggregate chain.
+   * For mutate commands, the entity ID comes from data.id.
+   */
+  private buildUpdatingContext(
+    command: CommandRecord,
+    data: Record<string, unknown>,
+  ): HandlerContext {
+    const entityId = command.creates
+      ? this.getOriginalCreateId(command.commandId)
+      : (data.id as string | undefined)
+    assert(typeof entityId === 'string', 'Cannot build updating context without entity ID')
+    return { phase: 'updating', entityId, path: command.path }
+  }
+
+  /**
+   * Extract the aggregate ID from a command data (ddd-es convention: always `id`).
+   */
+  private extractPayloadId(data: unknown): string | undefined {
+    if (typeof data !== 'object' || data === null) return undefined
+    if ('id' in data && typeof data.id === 'string') return data.id
     return undefined
   }
 
@@ -1045,6 +1077,11 @@ export class CommandQueue implements ICommandQueue {
         'Command status changed',
       )
       this.emitCommandEvent('status-changed', updatedCommand, previousStatus)
+      this.eventBus.emit('command:status-changed', {
+        commandId: command.commandId,
+        status: newStatus,
+        previousStatus,
+      })
     }
 
     return updatedCommand
@@ -1177,6 +1214,23 @@ export class CommandQueue implements ICommandQueue {
 
   isPaused(): boolean {
     return this._paused
+  }
+
+  async getCommandEntities(commandId: string, collection?: string): Promise<string[]> {
+    const tracked = this.anticipatedEventHandler.getTrackedEntries(commandId)
+    if (!tracked) return []
+
+    const ids: string[] = []
+    for (const key of tracked) {
+      const separatorIndex = key.indexOf(':')
+      if (separatorIndex === -1) continue
+      const entryCollection = key.substring(0, separatorIndex)
+      const id = key.substring(separatorIndex + 1)
+      if (collection === undefined || entryCollection === collection) {
+        ids.push(id)
+      }
+    }
+    return ids
   }
 
   /**

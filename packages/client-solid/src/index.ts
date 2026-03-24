@@ -6,6 +6,7 @@
  * @packageDocumentation
  */
 
+export { CqrsProvider, useClient } from './context.js'
 export { createItemQuery } from './createItemQuery.js'
 export { createListQuery } from './createListQuery.js'
 export type {
@@ -14,4 +15,5 @@ export type {
   ItemQueryState,
   ListQueryOptions,
   ListQueryState,
+  ReconciledId,
 } from './types.js'

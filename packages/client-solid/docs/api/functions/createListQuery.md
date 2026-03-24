@@ -15,6 +15,11 @@ and refetches on each update.
 Uses `createStore` + `reconcile` for fine-grained reactivity and
 stable `<For>` identity.
 
+When an entity's ID is reconciled (client temp ID → server ID), the store
+pre-mutates existing items so `reconcile()` preserves Solid store identity.
+The `reconciled` field exposes these mappings for consumers holding entity
+IDs in external signals (selection state, URL params).
+
 ## Type Parameters
 
 ### T
@@ -45,4 +50,4 @@ Query options (scope, limit, offset)
 
 [`ListQueryState`](../interfaces/ListQueryState.md)\<`T`\>
 
-Reactive store with items, loading, total, hasLocalChanges, error
+Reactive store with items, loading, total, hasLocalChanges, error, reconciled

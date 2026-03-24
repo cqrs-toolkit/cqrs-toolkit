@@ -16,17 +16,17 @@ Typed library event.
 
 ## Properties
 
+### data
+
+> **data**: [`LibraryEventData`](LibraryEventData.md)\[`T`\]
+
+---
+
 ### debug?
 
 > `optional` **debug**: `boolean`
 
 Whether this event is a debug-only event (emitted via `emitDebug()`).
-
----
-
-### payload
-
-> **payload**: [`LibraryEventPayloads`](LibraryEventPayloads.md)\[`T`\]
 
 ---
 

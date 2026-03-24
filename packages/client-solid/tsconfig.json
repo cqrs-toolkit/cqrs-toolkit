@@ -1,10 +1,13 @@
 {
   "extends": "../tsconfig.common.json",
   "compilerOptions": {
-    "types": ["vitest/importMeta"],
     "baseUrl": ".",
     "rootDir": ".",
-    "outDir": "dist"
+    "outDir": "dist",
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
+    "emitDeclarationOnly": true,
+    "noEmit": false
   },
-  "include": ["package.json", "src/index.ts", "src/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
 }

@@ -303,6 +303,15 @@ If an export name would collide with another import, the export itself should ha
 
 The only acceptable use of `as` is for external libraries where you don't control the export name (e.g., `import { v4 as uuid } from 'uuid'`).
 
+### Private Field Naming
+
+Do not prefix private fields with `_` unless the class exposes a public getter for the same name.
+The `_` prefix signals "private mutable, public readonly" — a field like `private _name` paired with `get name()`.
+A purely private field with no getter is just `private name`.
+
+For interfaces that leak private context for pragmatism, use the `__` (double underscore) prefix with JSDoc comments explaining the field's purpose.
+See `packages/hypermedia/src/hal.ts` `__collectionContext` for an example.
+
 ### Function Style
 
 Prefer `function` declarations over arrow functions.

@@ -13,7 +13,7 @@
  * @packageDocumentation
  */
 
-import { Err, Ok, logProvider } from '@meticoeus/ddd-es'
+import { Err, Ok } from '@meticoeus/ddd-es'
 import type { Observable } from 'rxjs'
 import type {
   AdapterStatus,
@@ -27,13 +27,13 @@ import { SharedWorkerAdapter } from './adapters/shared-worker/SharedWorkerAdapte
 import { OpfsUnavailableException } from './adapters/worker-core/probeOpfs.js'
 import { CacheManager } from './core/cache-manager/CacheManager.js'
 import type { ICacheManager } from './core/cache-manager/types.js'
-import type { IAnticipatedEventHandler } from './core/command-queue/CommandQueue.js'
+import { createAnticipatedEventHandler } from './core/command-lifecycle/createAnticipatedEventHandler.js'
+import { createCommandResponseHandler } from './core/command-lifecycle/createCommandResponseHandler.js'
 import { CommandQueue } from './core/command-queue/CommandQueue.js'
 import type { ICommandQueue } from './core/command-queue/types.js'
 import { detectMode, readModeCache, writeModeCache } from './core/detectMode.js'
 import { EventCache } from './core/event-cache/EventCache.js'
 import { EventProcessorRegistry } from './core/event-processor/EventProcessorRegistry.js'
-import type { ParsedEvent } from './core/event-processor/EventProcessorRunner.js'
 import { EventProcessorRunner } from './core/event-processor/EventProcessorRunner.js'
 import { QueryManager } from './core/query-manager/QueryManager.js'
 import { StableRefQueryManager } from './core/query-manager/StableRefQueryManager.js'
@@ -43,16 +43,13 @@ import type { IConnectivity } from './core/sync-manager/ConnectivityManager.js'
 import type { CollectionSyncStatus } from './core/sync-manager/SyncManager.js'
 import { SyncManager } from './core/sync-manager/SyncManager.js'
 import type {
-  CommandRecord,
   EnqueueCommand,
   SubmitOptions,
   SubmitResult,
   SubmitSuccess,
-  TerminalCommandStatus,
 } from './types/commands.js'
 import { SubmitException } from './types/commands.js'
 import type {
-  Collection,
   CqrsClientConfig,
   ExecutionMode,
   ExecutionModeConfig,
@@ -61,7 +58,7 @@ import type {
 import { resolveConfig } from './types/config.js'
 import type { CqrsDevToolsHook, DebugStorageAPI } from './types/debug.js'
 import { createDomainExecutor } from './types/domain.js'
-import type { EventPersistence, LibraryEvent } from './types/events.js'
+import type { LibraryEvent } from './types/events.js'
 import { assert } from './utils/assert.js'
 
 /**
@@ -95,7 +92,7 @@ export interface CqrsClientSyncManager {
  *
  * All fields are available immediately — the client is fully initialized at construction time.
  */
-export class CqrsClient {
+export class CqrsClient<TCommand extends EnqueueCommand = EnqueueCommand> {
   /** Cache manager for cache key lifecycle and eviction. */
   readonly cacheManager: ICacheManager
   /** Command queue for enqueuing and tracking commands. */
@@ -139,8 +136,8 @@ export class CqrsClient {
    * - Found + succeeded → returns cached success immediately
    * - Found + failed/cancelled, or not found → fresh enqueue
    */
-  async submit<TPayload, TResponse>(
-    command: EnqueueCommand<TPayload>,
+  async submit<TResponse = unknown>(
+    command: TCommand,
     options?: SubmitOptions,
   ): Promise<SubmitResult<TResponse>> {
     let commandId = options?.commandId
@@ -242,6 +239,19 @@ export class CqrsClient {
     }
   }
 
+  /**
+   * Get entity IDs that were created or updated by a command's anticipated events.
+   *
+   * @param commandId - The command ID (from SubmitSuccess.commandId)
+   * @param collection - Optional collection filter. When provided, only returns
+   *   entities from that collection.
+   * @returns Array of entity IDs. Empty if the command has no tracked entries
+   *   (e.g., already reached terminal state and was cleaned up).
+   */
+  async getCommandEntities(commandId: string, collection?: string): Promise<string[]> {
+    return this.commandQueue.getCommandEntities(commandId, collection)
+  }
+
   /** Observable of all library events. */
   get events$(): Observable<LibraryEvent> {
     return this.adapter.events$
@@ -291,7 +301,7 @@ export class CqrsClient {
  *       const res = await fetch('/api/commands', {
  *         method: 'POST',
  *         headers: { 'Content-Type': 'application/json' },
- *         body: JSON.stringify({ type: command.type, payload: command.payload }),
+ *         body: JSON.stringify({ type: command.type, data: command.data }),
  *       })
  *       if (!res.ok) throw new Error(`Command failed: ${res.status}`)
  *       return res.json()
@@ -414,13 +424,22 @@ async function createOnlineOnlyClient(
   // Breaks the circular dependency: handler needs runner, runner needs handler.
   eventProcessorRunner.setAnticipatedEventHandler(anticipatedEventHandler)
 
+  const queryManager = new QueryManager({
+    eventBus,
+    cacheManager,
+    readModelStore,
+  })
+
   const commandQueue = new CommandQueue({
     storage,
     eventBus,
     anticipatedEventHandler,
     ...(() => {
       if (resolved.commandHandlers.length === 0) return {}
-      const executor = createDomainExecutor(resolved.commandHandlers)
+      const executor = createDomainExecutor(resolved.commandHandlers, {
+        schemaValidator: resolved.schemaValidator,
+        queryManager,
+      })
       return { domainExecutor: executor, handlerMetadata: executor }
     })(),
     commandSender: resolved.commandSender,
@@ -431,12 +450,6 @@ async function createOnlineOnlyClient(
       cacheManager,
       resolved.collections,
     ),
-  })
-
-  const queryManager = new QueryManager({
-    eventBus,
-    cacheManager,
-    readModelStore,
   })
 
   const stableQueryManager = new StableRefQueryManager(queryManager)
@@ -458,9 +471,9 @@ async function createOnlineOnlyClient(
 
   // Subscribe to cache:evicted for cross-component cleanup
   const evictionSubscription = eventBus.on('cache:evicted').subscribe((event) => {
-    const streamIds = eventCache.clearByCacheKey(event.payload.cacheKey)
+    const streamIds = eventCache.clearByCacheKey(event.data.cacheKey)
     syncManager.clearKnownRevisions(streamIds)
-    queryManager.releaseForCacheKey(event.payload.cacheKey)
+    queryManager.releaseForCacheKey(event.data.cacheKey)
   })
 
   // Build sync manager facade
@@ -610,275 +623,5 @@ function createAdapterForMode(
         workerUrl,
         requestTimeout: config.network.timeout,
       })
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Anticipated event handling
-// ---------------------------------------------------------------------------
-
-/**
- * Shape of an anticipated event produced by the domain executor.
- */
-interface AnticipatedEventShape {
-  type: string
-  data: unknown
-  streamId: string
-}
-
-/**
- * Type guard: does a value look like an anticipated event with required fields?
- */
-function isAnticipatedEventShape(value: unknown): value is AnticipatedEventShape {
-  if (typeof value !== 'object' || value === null) return false
-  return (
-    'type' in value &&
-    typeof value.type === 'string' &&
-    'data' in value &&
-    'streamId' in value &&
-    typeof value.streamId === 'string'
-  )
-}
-
-/**
- * Build the `IAnticipatedEventHandler` wired into the CommandQueue.
- *
- * For each valid anticipated event, finds the matching collection via matchesStream,
- * acquires a cache key, stores via EventCache, then sends through the event processor
- * pipeline with `persistence: 'Anticipated'`.
- *
- * Tracks which entities were updated by each command's anticipated events. On failure
- * or cancellation, reverts those read models to their server baseline.
- */
-function createAnticipatedEventHandler(
-  eventCache: EventCache,
-  cacheManager: CacheManager,
-  eventProcessorRunner: EventProcessorRunner,
-  readModelStore: ReadModelStore,
-  collections: Collection[],
-): IAnticipatedEventHandler {
-  /** commandId → ["collection:id", ...] tracking which entities were optimistically updated. */
-  const anticipatedUpdates = new Map<string, string[]>()
-
-  return {
-    async cache(commandId: string, events: unknown[]): Promise<void> {
-      const updatedIds: string[] = []
-
-      for (const raw of events) {
-        if (!isAnticipatedEventShape(raw)) continue
-
-        const collection = collections.find((c) => c.matchesStream(raw.streamId))
-        if (!collection) {
-          logProvider.log.warn(
-            { streamId: raw.streamId, commandId },
-            'Could not derive collection from streamId in anticipated event',
-          )
-          continue
-        }
-
-        const cacheKey = await cacheManager.acquire(collection.name)
-
-        const eventId = await eventCache.cacheAnticipatedEvent(
-          { type: raw.type, data: raw.data, streamId: raw.streamId, commandId },
-          { cacheKey, commandId },
-        )
-
-        const parsed: ParsedEvent = {
-          id: eventId,
-          type: raw.type,
-          streamId: raw.streamId,
-          persistence: 'Anticipated',
-          data: raw.data,
-          commandId,
-          cacheKey,
-        }
-
-        const result = await eventProcessorRunner.processEvent(parsed)
-        updatedIds.push(...result.updatedIds)
-      }
-
-      if (updatedIds.length > 0) {
-        anticipatedUpdates.set(commandId, updatedIds)
-      }
-    },
-
-    async cleanup(commandId: string, _terminalStatus: TerminalCommandStatus): Promise<void> {
-      // Always delete anticipated events from EventCache
-      await eventCache.deleteAnticipatedEvents(commandId)
-
-      const tracked = anticipatedUpdates.get(commandId)
-      anticipatedUpdates.delete(commandId)
-
-      // Clear local changes for all tracked entities on any terminal state.
-      // - Failure/cancellation: reverts optimistic updates to server baseline,
-      //   or deletes entries with no server baseline.
-      // - Success (update commands): setServerData already cleared hasLocalChanges
-      //   via three-way merge, so clearLocalChanges is a no-op.
-      // - Success (create commands with client-generated IDs): the anticipated
-      //   event created a read model with a client ID that differs from the
-      //   server-assigned ID. The entry has serverData === null, so
-      //   clearLocalChanges deletes the orphan.
-      if (tracked) {
-        for (const key of tracked) {
-          const separatorIndex = key.indexOf(':')
-          if (separatorIndex === -1) continue
-          const collection = key.substring(0, separatorIndex)
-          const id = key.substring(separatorIndex + 1)
-          await readModelStore.clearLocalChanges(collection, id)
-        }
-      }
-    },
-
-    async regenerate(commandId: string, newEvents: unknown[]): Promise<void> {
-      // Clean up old anticipated events and read model entries
-      await eventCache.deleteAnticipatedEvents(commandId)
-      const tracked = anticipatedUpdates.get(commandId)
-      anticipatedUpdates.delete(commandId)
-      if (tracked) {
-        for (const key of tracked) {
-          const separatorIndex = key.indexOf(':')
-          if (separatorIndex === -1) continue
-          const collection = key.substring(0, separatorIndex)
-          const id = key.substring(separatorIndex + 1)
-          await readModelStore.clearLocalChanges(collection, id)
-        }
-      }
-      // Cache the new events (re-creates anticipated events and read model entries)
-      await this.cache(commandId, newEvents)
-    },
-
-    getTrackedEntries(commandId: string): string[] | undefined {
-      return anticipatedUpdates.get(commandId)
-    },
-
-    async getAnticipatedEventsForStream(
-      streamId: string,
-      excludeCommandId: string,
-    ): Promise<ParsedEvent[]> {
-      const allEvents = await eventCache.getEventsByStream(streamId)
-      const events = allEvents.filter((e) => e.persistence === 'Anticipated')
-      const parsed: ParsedEvent[] = []
-      for (const record of events) {
-        if (record.commandId === excludeCommandId) continue
-        parsed.push({
-          id: record.id,
-          type: record.type,
-          streamId: record.streamId,
-          persistence: 'Anticipated',
-          data: typeof record.data === 'string' ? JSON.parse(record.data) : record.data,
-          commandId: record.commandId ?? undefined,
-          cacheKey: record.cacheKey,
-        })
-      }
-      return parsed
-    },
-
-    async clearAll(): Promise<void> {
-      anticipatedUpdates.clear()
-    },
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Command response event processing
-// ---------------------------------------------------------------------------
-
-/**
- * Shape of an individual event inside a command response.
- */
-interface ResponseEvent {
-  id: string
-  type: string
-  streamId: string
-  data: unknown
-  persistence?: EventPersistence
-  revision: string
-  position: string
-}
-
-/**
- * Type guard: does the response carry an `events` array with the fields we need?
- */
-function hasResponseEvents(response: unknown): response is { events: ResponseEvent[] } {
-  if (typeof response !== 'object' || response === null) return false
-  if (!('events' in response)) return false
-  return Array.isArray(response.events)
-}
-
-/**
- * Type guard for an individual response event object.
- */
-function isResponseEvent(value: unknown): value is ResponseEvent {
-  if (typeof value !== 'object' || value === null) return false
-  return (
-    'id' in value &&
-    typeof value.id === 'string' &&
-    'type' in value &&
-    typeof value.type === 'string' &&
-    'streamId' in value &&
-    typeof value.streamId === 'string' &&
-    'data' in value &&
-    'revision' in value &&
-    typeof value.revision === 'string' &&
-    'position' in value &&
-    typeof value.position === 'string'
-  )
-}
-
-/**
- * Build the `onCommandResponse` callback wired into the CommandQueue.
- *
- * For each valid event in the response, finds the matching collection via
- * matchesStream, acquires a cache key, converts to ParsedEvent, and routes
- * through SyncManager.processResponseEvents() for gap-aware processing and
- * WS dedup.
- *
- * Uses a lazy SyncManager reference because CommandQueue is created before
- * SyncManager. The lazy ref is safe because onCommandResponse is never called
- * before SyncManager exists (queue starts paused, only processes after resume).
- */
-function createCommandResponseHandler(
-  getSyncManager: () => SyncManager,
-  cacheManager: CacheManager,
-  collections: Collection[],
-): (command: CommandRecord, response: unknown) => Promise<void> {
-  return async (command: CommandRecord, response: unknown) => {
-    if (!hasResponseEvents(response)) return
-
-    const events = response.events
-    if (events.length === 0) return
-
-    const parsedEvents: ParsedEvent[] = []
-
-    for (const raw of events) {
-      if (!isResponseEvent(raw)) continue
-
-      const collection = collections.find((c) => c.matchesStream(raw.streamId))
-      if (!collection) {
-        logProvider.log.warn(
-          { streamId: raw.streamId, commandId: command.commandId },
-          'Could not derive collection from streamId in command response',
-        )
-        continue
-      }
-
-      const cacheKey = await cacheManager.acquire(collection.name)
-
-      parsedEvents.push({
-        id: raw.id,
-        type: raw.type,
-        streamId: raw.streamId,
-        persistence: raw.persistence ?? 'Permanent',
-        data: raw.data,
-        commandId: command.commandId,
-        revision: BigInt(raw.revision),
-        position: BigInt(raw.position),
-        cacheKey,
-      })
-    }
-
-    if (parsedEvents.length > 0) {
-      await getSyncManager().processResponseEvents(parsedEvents)
-    }
   }
 }

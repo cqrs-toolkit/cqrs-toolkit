@@ -1,5 +1,5 @@
 import { expect, getOutgoing, sendToPanel, test } from './fixtures.js'
-import { makeEvent, switchTab } from './panel-helpers.js'
+import { makeEvent, switchTab, toggleMultiSelectOption } from './panel-helpers.js'
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -100,14 +100,14 @@ test.describe('Layer 2: Panel Cache Tab', () => {
 
     await expect(page.locator('.cache-row')).toHaveCount(2)
 
-    // Filter by 'todos' collection using the select dropdown
-    await page.locator('.toolbar-select').selectOption('todos')
+    // Filter by 'todos' collection using the multi-select dropdown
+    await toggleMultiSelectOption(page, '.collection-selector', 'todos')
 
     await expect(page.locator('.cache-row')).toHaveCount(1)
     await expect(page.locator('.cache-col-collection')).toContainText('todos')
 
-    // Reset filter
-    await page.locator('.toolbar-select').selectOption('')
+    // Reset filter by deselecting 'todos'
+    await toggleMultiSelectOption(page, '.collection-selector', 'todos')
     await expect(page.locator('.cache-row')).toHaveCount(2)
   })
 

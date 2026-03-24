@@ -6,7 +6,7 @@
 
 # Interface: EnqueueSuccess\<TEvent\>
 
-Successful enqueue payload.
+Successful enqueue data.
 
 ## Type Parameters
 

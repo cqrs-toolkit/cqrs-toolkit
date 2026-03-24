@@ -1,0 +1,54 @@
+{
+  "name": "@cqrs-toolkit/demo-base",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared code for CQRS toolkit demos",
+  "license": "MIT",
+  "author": "Ontel, LLC",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./commands/components": "./src/commands/components/index.ts",
+    "./common/components": "./src/common/components/index.ts",
+    "./common/server": "./src/common/server/index.ts",
+    "./common/shared": "./src/common/shared/index.ts",
+    "./notebooks/components": "./src/notebooks/components/index.ts",
+    "./notebooks/server": "./src/notebooks/server/index.ts",
+    "./notebooks/shared": "./src/notebooks/shared/index.ts",
+    "./notes/components": "./src/notes/components/index.ts",
+    "./notes/server": "./src/notes/server/index.ts",
+    "./notes/shared": "./src/notes/shared/index.ts",
+    "./todos/components": "./src/todos/components/index.ts",
+    "./todos/server": "./src/todos/server/index.ts",
+    "./todos/shared": "./src/todos/shared/index.ts"
+  },
+  "imports": {
+    "#commands/components": "./src/commands/components/index.ts",
+    "#common/components": "./src/common/components/index.ts",
+    "#common/server": "./src/common/server/index.ts",
+    "#common/shared": "./src/common/shared/index.ts",
+    "#notebooks/components": "./src/notebooks/components/index.ts",
+    "#notebooks/server": "./src/notebooks/server/index.ts",
+    "#notebooks/shared": "./src/notebooks/shared/index.ts",
+    "#notes/components": "./src/notes/components/index.ts",
+    "#notes/server": "./src/notes/server/index.ts",
+    "#notes/shared": "./src/notes/shared/index.ts",
+    "#todos/components": "./src/todos/components/index.ts",
+    "#todos/server": "./src/todos/server/index.ts",
+    "#todos/shared": "./src/todos/shared/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "compile": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@cqrs-toolkit/client": "*",
+    "@cqrs-toolkit/client-solid": "*",
+    "@cqrs-toolkit/realtime": "*",
+    "@meticoeus/ddd-es": "^0.7.2",
+    "ajv": "^8.0.0"
+  },
+  "devDependencies": {
+    "solid-js": "^1.9.0"
+  }
+}

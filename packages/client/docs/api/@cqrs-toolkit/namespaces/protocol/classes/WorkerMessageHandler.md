@@ -42,7 +42,7 @@ Get the worker instance ID.
 
 ### broadcastEvent()
 
-> **broadcastEvent**(`eventName`, `payload`, `debug?`): `void`
+> **broadcastEvent**(`eventName`, `data`, `debug?`): `void`
 
 Broadcast an event to all connected windows.
 
@@ -54,11 +54,11 @@ Broadcast an event to all connected windows.
 
 Event name
 
-##### payload
+##### data
 
 `unknown`
 
-Event payload
+Event data
 
 ##### debug?
 

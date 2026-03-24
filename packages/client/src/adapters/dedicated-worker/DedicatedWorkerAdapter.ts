@@ -162,7 +162,7 @@ export class DedicatedWorkerAdapter implements IWorkerAdapter {
         map(
           (event: EventMessage): LibraryEvent => ({
             type: event.eventName as LibraryEvent['type'],
-            payload: event.payload as LibraryEvent['payload'],
+            data: event.data as LibraryEvent['data'],
             timestamp: Date.now(),
             debug: event.debug,
           }),

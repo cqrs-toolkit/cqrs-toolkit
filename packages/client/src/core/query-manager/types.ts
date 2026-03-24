@@ -23,6 +23,8 @@ export interface QueryOptions extends ReadModelQueryOptions {
 export interface ItemMeta {
   readonly id: string
   readonly updatedAt: number
+  /** Original client-generated temp ID. Present when the entity was created from a temp-ID create command. */
+  readonly clientId?: string
 }
 
 /**

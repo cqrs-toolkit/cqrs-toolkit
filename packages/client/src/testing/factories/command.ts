@@ -11,15 +11,15 @@ import { generateId } from '../../utils/uuid.js'
  * @param overrides - Optional field overrides
  * @returns Command record
  */
-export function createTestCommand<TPayload = unknown, TResponse = unknown>(
-  overrides: Partial<CommandRecord<TPayload, TResponse>> = {},
-): CommandRecord<TPayload, TResponse> {
+export function createTestCommand<TData = unknown, TResponse = unknown>(
+  overrides: Partial<CommandRecord<TData, TResponse>> = {},
+): CommandRecord<TData, TResponse> {
   const now = Date.now()
   return {
     commandId: generateId(),
     service: 'test-service',
     type: 'TestCommand',
-    payload: {} as TPayload,
+    data: {} as TData,
     status: 'pending' as CommandStatus,
     dependsOn: [],
     blockedBy: [],
@@ -33,18 +33,18 @@ export function createTestCommand<TPayload = unknown, TResponse = unknown>(
 /**
  * Create a pending command.
  */
-export function createPendingCommand<TPayload = unknown>(
-  overrides: Partial<CommandRecord<TPayload>> = {},
-): CommandRecord<TPayload> {
+export function createPendingCommand<TData = unknown>(
+  overrides: Partial<CommandRecord<TData>> = {},
+): CommandRecord<TData> {
   return createTestCommand({ status: 'pending', ...overrides })
 }
 
 /**
  * Create a sending command.
  */
-export function createSendingCommand<TPayload = unknown>(
-  overrides: Partial<CommandRecord<TPayload>> = {},
-): CommandRecord<TPayload> {
+export function createSendingCommand<TData = unknown>(
+  overrides: Partial<CommandRecord<TData>> = {},
+): CommandRecord<TData> {
   return createTestCommand({
     status: 'sending',
     attempts: 1,
@@ -56,10 +56,10 @@ export function createSendingCommand<TPayload = unknown>(
 /**
  * Create a succeeded command.
  */
-export function createSucceededCommand<TPayload = unknown, TResponse = unknown>(
+export function createSucceededCommand<TData = unknown, TResponse = unknown>(
   response: TResponse,
-  overrides: Partial<CommandRecord<TPayload, TResponse>> = {},
-): CommandRecord<TPayload, TResponse> {
+  overrides: Partial<CommandRecord<TData, TResponse>> = {},
+): CommandRecord<TData, TResponse> {
   return createTestCommand({
     status: 'succeeded',
     attempts: 1,
@@ -72,10 +72,10 @@ export function createSucceededCommand<TPayload = unknown, TResponse = unknown>(
 /**
  * Create a failed command.
  */
-export function createFailedCommand<TPayload = unknown>(
+export function createFailedCommand<TData = unknown>(
   error: CommandRecord['error'],
-  overrides: Partial<CommandRecord<TPayload>> = {},
-): CommandRecord<TPayload> {
+  overrides: Partial<CommandRecord<TData>> = {},
+): CommandRecord<TData> {
   return createTestCommand({
     status: 'failed',
     attempts: 1,

@@ -27,16 +27,13 @@ Event type produced by the executor
 
 ### execute()
 
-> **execute**(`command`): [`DomainExecutionResult`](../type-aliases/DomainExecutionResult.md)\<`TEvent`\>
+> **execute**(`command`, `context`): `Promise`\<[`DomainExecutionResult`](../type-aliases/DomainExecutionResult.md)\<`TEvent`\>\>
 
-Execute a command and produce anticipated events.
-Validation happens here - return errors if command is invalid.
+Execute a command through the validation pipeline and produce anticipated events.
 
-This method must be:
-
-- Pure: no side effects
-- Deterministic: same input always produces same output
-- Synchronous: no async operations
+On initial execution (`'initializing'`), runs all validation phases
+(schema, validate, validateAsync) before the handler.
+On regeneration (`'updating'`), skips validation and runs the handler directly.
 
 #### Parameters
 
@@ -46,8 +43,14 @@ This method must be:
 
 The command to execute
 
+##### context
+
+[`HandlerContext`](../type-aliases/HandlerContext.md)
+
+Execution context (phase and entity ID for regeneration)
+
 #### Returns
 
-[`DomainExecutionResult`](../type-aliases/DomainExecutionResult.md)\<`TEvent`\>
+`Promise`\<[`DomainExecutionResult`](../type-aliases/DomainExecutionResult.md)\<`TEvent`\>\>
 
 Success with anticipated events, or failure with validation errors

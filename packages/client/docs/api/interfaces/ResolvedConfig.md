@@ -10,7 +10,7 @@ Resolved shared configuration with all defaults applied.
 
 ## Extends
 
-- `Required`\<`Omit`\<[`CqrsConfig`](CqrsConfig.md), `"commandHandlers"` \| `"commandSender"` \| `"workerSetup"` \| `"collections"` \| `"processors"`\>\>
+- `Required`\<`Omit`\<[`CqrsConfig`](CqrsConfig.md), `"commandHandlers"` \| `"commandSender"` \| `"schemaValidator"` \| `"workerSetup"` \| `"collections"` \| `"processors"`\>\>
 
 ## Properties
 
@@ -48,7 +48,7 @@ Cache configuration.
 
 ### commandHandlers
 
-> **commandHandlers**: [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`unknown`\>[]
+> **commandHandlers**: [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<[`IAnticipatedEvent`](IAnticipatedEvent.md)\<`string`, `AggregateEventData`\>, `unknown`\>[]
 
 ---
 
@@ -109,6 +109,12 @@ Retry configuration for commands.
 #### Inherited from
 
 [`CqrsClientConfig`](CqrsClientConfig.md).[`retry`](CqrsClientConfig.md#retry)
+
+---
+
+### schemaValidator?
+
+> `optional` **schemaValidator**: [`SchemaValidator`](SchemaValidator.md)\<`unknown`\>
 
 ---
 

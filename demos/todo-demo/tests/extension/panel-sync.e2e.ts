@@ -1,5 +1,5 @@
 import { expect, getOutgoing, sendToPanel, test } from './fixtures.js'
-import { makeEvent, switchTab } from './panel-helpers.js'
+import { makeEvent, switchTab, toggleMultiSelectOption } from './panel-helpers.js'
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -139,14 +139,14 @@ test.describe('Layer 2: Panel Sync Tab', () => {
 
     await expect(page.locator('.sync-row')).toHaveCount(2)
 
-    // Filter by 'sync' — should match 'sync-started' but not 'connectivity-changed'
-    await page.locator('.toolbar-input').fill('sync')
+    // Filter to show only 'sync-started' type using the multi-select dropdown
+    await toggleMultiSelectOption(page, '.type-selector', 'sync-started')
 
     await expect(page.locator('.sync-row')).toHaveCount(1)
     await expect(page.locator('.sync-col-type')).toContainText('sync-started')
 
-    // Clear filter
-    await page.locator('.toolbar-input').fill('')
+    // Reset filter by deselecting 'sync-started'
+    await toggleMultiSelectOption(page, '.type-selector', 'sync-started')
     await expect(page.locator('.sync-row')).toHaveCount(2)
   })
 
@@ -163,7 +163,7 @@ test.describe('Layer 2: Panel Sync Tab', () => {
     await expect(page.locator('.sync-detail')).toBeVisible()
     // Should show the sync type
     await expect(page.locator('.sync-detail')).toContainText('sync-started')
-    // Should show the payload JSON
+    // Should show the data JSON
     await expect(page.locator('.detail-json')).toContainText('todos')
   })
 

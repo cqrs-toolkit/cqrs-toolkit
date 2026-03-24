@@ -18,7 +18,6 @@ import type {
   MSG_EVENT,
   MSG_PANEL_CLEAR,
   MSG_PANEL_CONNECT,
-  MSG_REQUEST_COMMAND_SNAPSHOT,
   MSG_REQUEST_STORAGE,
   MSG_STORAGE_RESPONSE,
 } from './constants.js'
@@ -72,11 +71,6 @@ export interface ActivateMessage {
 
 export interface DeactivateMessage {
   type: typeof MSG_DEACTIVATE
-  source: 'cqrs-content'
-}
-
-export interface RequestCommandSnapshotMessage {
-  type: typeof MSG_REQUEST_COMMAND_SNAPSHOT
   source: 'cqrs-content'
 }
 
@@ -139,7 +133,6 @@ export type HookMessage =
 export type ContentToHookMessage =
   | ActivateMessage
   | DeactivateMessage
-  | RequestCommandSnapshotMessage
   | ActionMessage
   | RequestStorageMessage
 
@@ -147,7 +140,6 @@ export type ContentToHookMessage =
 export type PanelToBackgroundMessage =
   | PanelConnectMessage
   | PanelClearMessage
-  | RequestCommandSnapshotMessage
   | ActionMessage
   | RequestStorageMessage
 
@@ -169,7 +161,7 @@ export type BackgroundToPanelMessage =
  */
 export interface SanitizedEvent {
   type: string
-  payload: Record<string, unknown>
+  data: Record<string, unknown>
   timestamp: number
   debug?: boolean
 }

@@ -1,0 +1,608 @@
+{
+  "@context": {
+    "demo": "urn:vocab:demo#",
+    "hydra": "http://www.w3.org/ns/hydra/core#",
+    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "schema": "https://schema.org/",
+    "svc": "urn:vocab:svc#",
+    "svc:commandSurfaces": {
+      "@container": "@set"
+    },
+    "svc:commandType": {},
+    "svc:commands": {},
+    "svc:dispatch": {},
+    "svc:formats": {
+      "@container": "@set"
+    },
+    "svc:jsonSchema": {
+      "@type": "@id"
+    },
+    "svc:method": {},
+    "svc:name": {},
+    "svc:profile": {
+      "@type": "@id"
+    },
+    "svc:representation": {
+      "@container": "@set"
+    },
+    "svc:stableId": {},
+    "svc:supportedCommand": {
+      "@container": "@set"
+    },
+    "svc:surface": {}
+  },
+  "@id": "urn:apidoc",
+  "@type": "hydra:ApiDocumentation",
+  "hydra:entrypoint": {
+    "@id": "urn:entrypoint"
+  },
+  "hydra:supportedClass": [
+    {
+      "@id": "demo:Todo",
+      "@type": "hydra:Class",
+      "svc:commands": {
+        "@type": "svc:Commands",
+        "svc:commandSurfaces": [
+          {
+            "@type": "svc:CommandSurface",
+            "svc:dispatch": "create",
+            "svc:method": "POST",
+            "svc:template": {
+              "@id": "#demo-todo-mut-create",
+              "@type": "hydra:IriTemplate",
+              "hydra:mapping": [],
+              "hydra:template": "/api/todos"
+            }
+          },
+          {
+            "@type": "svc:CommandSurface",
+            "svc:dispatch": "command",
+            "svc:method": "POST",
+            "svc:template": {
+              "@id": "#demo-todo-mut-command",
+              "@type": "hydra:IriTemplate",
+              "hydra:mapping": [
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "demo:todoId",
+                  "hydra:required": true,
+                  "hydra:variable": "id"
+                }
+              ],
+              "hydra:template": "/api/todos/{id}/command"
+            }
+          }
+        ],
+        "svc:supportedCommand": [
+          {
+            "@id": "urn:command:demo.CreateTodo:1.0.0",
+            "@type": "svc:CommandCapability",
+            "schema:version": "1.0.0",
+            "svc:dispatch": "create",
+            "svc:jsonSchema": "urn:schema:demo.CreateTodo:1.0.0",
+            "svc:stableId": "demo.CreateTodo"
+          },
+          {
+            "@id": "urn:command:demo.UpdateTodoContent:1.0.0",
+            "@type": "svc:CommandCapability",
+            "schema:version": "1.0.0",
+            "svc:commandType": "updateContent",
+            "svc:dispatch": "command",
+            "svc:jsonSchema": "urn:schema:demo.UpdateTodoContent:1.0.0",
+            "svc:stableId": "demo.UpdateTodoContent"
+          },
+          {
+            "@id": "urn:command:demo.ChangeTodoStatus:1.0.0",
+            "@type": "svc:CommandCapability",
+            "schema:version": "1.0.0",
+            "svc:commandType": "changeStatus",
+            "svc:dispatch": "command",
+            "svc:jsonSchema": "urn:schema:demo.ChangeTodoStatus:1.0.0",
+            "svc:stableId": "demo.ChangeTodoStatus"
+          },
+          {
+            "@id": "urn:command:demo.DeleteTodo:1.0.0",
+            "@type": "svc:CommandCapability",
+            "schema:version": "1.0.0",
+            "svc:commandType": "delete",
+            "svc:dispatch": "command",
+            "svc:jsonSchema": "urn:schema:demo.DeleteTodo:1.0.0",
+            "svc:stableId": "demo.DeleteTodo"
+          }
+        ]
+      },
+      "svc:representation": [
+        {
+          "@id": "#demo-todo-v1_0_0",
+          "@type": "svc:Representation",
+          "schema:version": "1.0.0",
+          "svc:aggregateEvents": {
+            "@type": "svc:Surface",
+            "svc:formats": [
+              "application/json",
+              "application/hal+json"
+            ],
+            "svc:profile": {
+              "@id": "urn:profile:demo.TodoEvent:1.0.0"
+            },
+            "svc:template": {
+              "@id": "#demo-todo-aggregate-events-v1_0_0",
+              "@type": "hydra:IriTemplate",
+              "hydra:mapping": [
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "svc:limit",
+                  "hydra:variable": "limit"
+                },
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "svc:afterPosition",
+                  "hydra:variable": "afterPosition"
+                }
+              ],
+              "hydra:template": "/api/events/todos{?limit,afterPosition}"
+            }
+          },
+          "svc:collection": {
+            "@type": "svc:Surface",
+            "svc:formats": [
+              "application/json",
+              "application/hal+json"
+            ],
+            "svc:profile": {
+              "@id": "urn:profile:demo.TodoCollection:1.0.0"
+            },
+            "svc:template": {
+              "@id": "#demo-todo-collection-v1_0_0",
+              "@type": "hydra:IriTemplate",
+              "hydra:mapping": [
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "svc:cursor",
+                  "hydra:variable": "cursor"
+                },
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "svc:limit",
+                  "hydra:variable": "limit"
+                }
+              ],
+              "hydra:template": "/api/todos{?cursor,limit}"
+            }
+          },
+          "svc:itemEvents": {
+            "@type": "svc:Surface",
+            "svc:formats": [
+              "application/json",
+              "application/hal+json"
+            ],
+            "svc:profile": {
+              "@id": "urn:profile:demo.TodoItemEvent:1.0.0"
+            },
+            "svc:template": {
+              "@id": "#demo-todo-item-events-v1_0_0",
+              "@type": "hydra:IriTemplate",
+              "hydra:mapping": [
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "demo:todoId",
+                  "hydra:required": true,
+                  "hydra:variable": "id"
+                },
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "svc:limit",
+                  "hydra:variable": "limit"
+                },
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "svc:afterPosition",
+                  "hydra:variable": "afterPosition"
+                }
+              ],
+              "hydra:template": "/api/todos/{id}/events{?limit,afterPosition}"
+            }
+          },
+          "svc:resource": {
+            "@type": "svc:Surface",
+            "svc:formats": [
+              "application/json",
+              "application/hal+json"
+            ],
+            "svc:profile": {
+              "@id": "urn:profile:demo.Todo:1.0.0"
+            },
+            "svc:template": {
+              "@id": "#demo-todo-resource-v1_0_0",
+              "@type": "hydra:IriTemplate",
+              "hydra:mapping": [
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "demo:todoId",
+                  "hydra:required": true,
+                  "hydra:variable": "id"
+                }
+              ],
+              "hydra:template": "/api/todos/{id}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "@id": "demo:Note",
+      "@type": "hydra:Class",
+      "svc:commands": {
+        "@type": "svc:Commands",
+        "svc:commandSurfaces": [
+          {
+            "@type": "svc:CommandSurface",
+            "svc:dispatch": "create",
+            "svc:method": "POST",
+            "svc:template": {
+              "@id": "#demo-note-mut-create",
+              "@type": "hydra:IriTemplate",
+              "hydra:mapping": [],
+              "hydra:template": "/api/notes"
+            }
+          },
+          {
+            "@type": "svc:CommandSurface",
+            "svc:dispatch": "command",
+            "svc:method": "POST",
+            "svc:template": {
+              "@id": "#demo-note-mut-command",
+              "@type": "hydra:IriTemplate",
+              "hydra:mapping": [
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "demo:noteId",
+                  "hydra:required": true,
+                  "hydra:variable": "id"
+                }
+              ],
+              "hydra:template": "/api/notes/{id}/command"
+            }
+          }
+        ],
+        "svc:supportedCommand": [
+          {
+            "@id": "urn:command:demo.CreateNote:1.0.0",
+            "@type": "svc:CommandCapability",
+            "schema:version": "1.0.0",
+            "svc:dispatch": "create",
+            "svc:jsonSchema": "urn:schema:demo.CreateNote:1.0.0",
+            "svc:stableId": "demo.CreateNote"
+          },
+          {
+            "@id": "urn:command:demo.UpdateNoteTitle:1.0.0",
+            "@type": "svc:CommandCapability",
+            "schema:version": "1.0.0",
+            "svc:commandType": "updateTitle",
+            "svc:dispatch": "command",
+            "svc:jsonSchema": "urn:schema:demo.UpdateNoteTitle:1.0.0",
+            "svc:stableId": "demo.UpdateNoteTitle"
+          },
+          {
+            "@id": "urn:command:demo.UpdateNoteBody:1.0.0",
+            "@type": "svc:CommandCapability",
+            "schema:version": "1.0.0",
+            "svc:commandType": "updateBody",
+            "svc:dispatch": "command",
+            "svc:jsonSchema": "urn:schema:demo.UpdateNoteBody:1.0.0",
+            "svc:stableId": "demo.UpdateNoteBody"
+          },
+          {
+            "@id": "urn:command:demo.DeleteNote:1.0.0",
+            "@type": "svc:CommandCapability",
+            "schema:version": "1.0.0",
+            "svc:commandType": "delete",
+            "svc:dispatch": "command",
+            "svc:jsonSchema": "urn:schema:demo.DeleteNote:1.0.0",
+            "svc:stableId": "demo.DeleteNote"
+          }
+        ]
+      },
+      "svc:representation": [
+        {
+          "@id": "#demo-note-v1_0_0",
+          "@type": "svc:Representation",
+          "schema:version": "1.0.0",
+          "svc:aggregateEvents": {
+            "@type": "svc:Surface",
+            "svc:formats": [
+              "application/json",
+              "application/hal+json"
+            ],
+            "svc:profile": {
+              "@id": "urn:profile:demo.NoteEvent:1.0.0"
+            },
+            "svc:template": {
+              "@id": "#demo-note-aggregate-events-v1_0_0",
+              "@type": "hydra:IriTemplate",
+              "hydra:mapping": [
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "svc:limit",
+                  "hydra:variable": "limit"
+                },
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "svc:afterPosition",
+                  "hydra:variable": "afterPosition"
+                }
+              ],
+              "hydra:template": "/api/events/notes{?limit,afterPosition}"
+            }
+          },
+          "svc:collection": {
+            "@type": "svc:Surface",
+            "svc:formats": [
+              "application/json",
+              "application/hal+json"
+            ],
+            "svc:profile": {
+              "@id": "urn:profile:demo.NoteCollection:1.0.0"
+            },
+            "svc:template": {
+              "@id": "#demo-note-collection-v1_0_0",
+              "@type": "hydra:IriTemplate",
+              "hydra:mapping": [
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "svc:cursor",
+                  "hydra:variable": "cursor"
+                },
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "svc:limit",
+                  "hydra:variable": "limit"
+                }
+              ],
+              "hydra:template": "/api/notes{?cursor,limit}"
+            }
+          },
+          "svc:itemEvents": {
+            "@type": "svc:Surface",
+            "svc:formats": [
+              "application/json",
+              "application/hal+json"
+            ],
+            "svc:profile": {
+              "@id": "urn:profile:demo.NoteItemEvent:1.0.0"
+            },
+            "svc:template": {
+              "@id": "#demo-note-item-events-v1_0_0",
+              "@type": "hydra:IriTemplate",
+              "hydra:mapping": [
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "demo:noteId",
+                  "hydra:required": true,
+                  "hydra:variable": "id"
+                },
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "svc:limit",
+                  "hydra:variable": "limit"
+                },
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "svc:afterPosition",
+                  "hydra:variable": "afterPosition"
+                }
+              ],
+              "hydra:template": "/api/notes/{id}/events{?limit,afterPosition}"
+            }
+          },
+          "svc:resource": {
+            "@type": "svc:Surface",
+            "svc:formats": [
+              "application/json",
+              "application/hal+json"
+            ],
+            "svc:profile": {
+              "@id": "urn:profile:demo.Note:1.0.0"
+            },
+            "svc:template": {
+              "@id": "#demo-note-resource-v1_0_0",
+              "@type": "hydra:IriTemplate",
+              "hydra:mapping": [
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "demo:noteId",
+                  "hydra:required": true,
+                  "hydra:variable": "id"
+                }
+              ],
+              "hydra:template": "/api/notes/{id}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "@id": "demo:Notebook",
+      "@type": "hydra:Class",
+      "svc:commands": {
+        "@type": "svc:Commands",
+        "svc:commandSurfaces": [
+          {
+            "@type": "svc:CommandSurface",
+            "svc:dispatch": "create",
+            "svc:method": "POST",
+            "svc:template": {
+              "@id": "#demo-notebook-mut-create",
+              "@type": "hydra:IriTemplate",
+              "hydra:mapping": [],
+              "hydra:template": "/api/notebooks"
+            }
+          },
+          {
+            "@type": "svc:CommandSurface",
+            "svc:dispatch": "command",
+            "svc:method": "POST",
+            "svc:template": {
+              "@id": "#demo-notebook-mut-command",
+              "@type": "hydra:IriTemplate",
+              "hydra:mapping": [
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "demo:notebookId",
+                  "hydra:required": true,
+                  "hydra:variable": "id"
+                }
+              ],
+              "hydra:template": "/api/notebooks/{id}/command"
+            }
+          }
+        ],
+        "svc:supportedCommand": [
+          {
+            "@id": "urn:command:demo.CreateNotebook:1.0.0",
+            "@type": "svc:CommandCapability",
+            "schema:version": "1.0.0",
+            "svc:dispatch": "create",
+            "svc:jsonSchema": "urn:schema:demo.CreateNotebook:1.0.0",
+            "svc:stableId": "demo.CreateNotebook"
+          },
+          {
+            "@id": "urn:command:demo.UpdateNotebookName:1.0.0",
+            "@type": "svc:CommandCapability",
+            "schema:version": "1.0.0",
+            "svc:commandType": "updateName",
+            "svc:dispatch": "command",
+            "svc:jsonSchema": "urn:schema:demo.UpdateNotebookName:1.0.0",
+            "svc:stableId": "demo.UpdateNotebookName"
+          },
+          {
+            "@id": "urn:command:demo.DeleteNotebook:1.0.0",
+            "@type": "svc:CommandCapability",
+            "schema:version": "1.0.0",
+            "svc:commandType": "delete",
+            "svc:dispatch": "command",
+            "svc:jsonSchema": "urn:schema:demo.DeleteNotebook:1.0.0",
+            "svc:stableId": "demo.DeleteNotebook"
+          }
+        ]
+      },
+      "svc:representation": [
+        {
+          "@id": "#demo-notebook-v1_0_0",
+          "@type": "svc:Representation",
+          "schema:version": "1.0.0",
+          "svc:aggregateEvents": {
+            "@type": "svc:Surface",
+            "svc:formats": [
+              "application/json",
+              "application/hal+json"
+            ],
+            "svc:profile": {
+              "@id": "urn:profile:demo.NotebookEvent:1.0.0"
+            },
+            "svc:template": {
+              "@id": "#demo-notebook-aggregate-events-v1_0_0",
+              "@type": "hydra:IriTemplate",
+              "hydra:mapping": [
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "svc:limit",
+                  "hydra:variable": "limit"
+                },
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "svc:afterPosition",
+                  "hydra:variable": "afterPosition"
+                }
+              ],
+              "hydra:template": "/api/events/notebooks{?limit,afterPosition}"
+            }
+          },
+          "svc:collection": {
+            "@type": "svc:Surface",
+            "svc:formats": [
+              "application/json",
+              "application/hal+json"
+            ],
+            "svc:profile": {
+              "@id": "urn:profile:demo.NotebookCollection:1.0.0"
+            },
+            "svc:template": {
+              "@id": "#demo-notebook-collection-v1_0_0",
+              "@type": "hydra:IriTemplate",
+              "hydra:mapping": [
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "svc:cursor",
+                  "hydra:variable": "cursor"
+                },
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "svc:limit",
+                  "hydra:variable": "limit"
+                }
+              ],
+              "hydra:template": "/api/notebooks{?cursor,limit}"
+            }
+          },
+          "svc:itemEvents": {
+            "@type": "svc:Surface",
+            "svc:formats": [
+              "application/json",
+              "application/hal+json"
+            ],
+            "svc:profile": {
+              "@id": "urn:profile:demo.NotebookItemEvent:1.0.0"
+            },
+            "svc:template": {
+              "@id": "#demo-notebook-item-events-v1_0_0",
+              "@type": "hydra:IriTemplate",
+              "hydra:mapping": [
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "demo:notebookId",
+                  "hydra:required": true,
+                  "hydra:variable": "id"
+                },
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "svc:limit",
+                  "hydra:variable": "limit"
+                },
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "svc:afterPosition",
+                  "hydra:variable": "afterPosition"
+                }
+              ],
+              "hydra:template": "/api/notebooks/{id}/events{?limit,afterPosition}"
+            }
+          },
+          "svc:resource": {
+            "@type": "svc:Surface",
+            "svc:formats": [
+              "application/json",
+              "application/hal+json"
+            ],
+            "svc:profile": {
+              "@id": "urn:profile:demo.Notebook:1.0.0"
+            },
+            "svc:template": {
+              "@id": "#demo-notebook-resource-v1_0_0",
+              "@type": "hydra:IriTemplate",
+              "hydra:mapping": [
+                {
+                  "@type": "hydra:IriTemplateMapping",
+                  "hydra:property": "demo:notebookId",
+                  "hydra:required": true,
+                  "hydra:variable": "id"
+                }
+              ],
+              "hydra:template": "/api/notebooks/{id}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

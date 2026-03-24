@@ -6,15 +6,15 @@
 
 # Function: createSucceededCommand()
 
-> **createSucceededCommand**\<`TPayload`, `TResponse`\>(`response`, `overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TPayload`, `TResponse`\>
+> **createSucceededCommand**\<`TData`, `TResponse`\>(`response`, `overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TData`, `TResponse`\>
 
 Create a succeeded command.
 
 ## Type Parameters
 
-### TPayload
+### TData
 
-`TPayload` = `unknown`
+`TData` = `unknown`
 
 ### TResponse
 
@@ -28,8 +28,8 @@ Create a succeeded command.
 
 ### overrides?
 
-`Partial`\<[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TPayload`, `TResponse`\>\> = `{}`
+`Partial`\<[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TData`, `TResponse`\>\> = `{}`
 
 ## Returns
 
-[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TPayload`, `TResponse`\>
+[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TData`, `TResponse`\>

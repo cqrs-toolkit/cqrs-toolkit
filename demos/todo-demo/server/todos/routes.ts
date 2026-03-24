@@ -2,6 +2,22 @@
  * Todo API routes — thin wiring between HTTP and aggregate/repository.
  */
 
+import type { DemoEventStore } from '@cqrs-toolkit/demo-base/common/server'
+import type { CommandResponse, CommandSuccessResponse } from '@cqrs-toolkit/demo-base/common/shared'
+import {
+  TodoAggregate,
+  type TodoRepository,
+  type TodoServerEvent,
+} from '@cqrs-toolkit/demo-base/todos/server'
+import {
+  type ListTodosResponse,
+  type Todo,
+  type TodoCommand,
+  changeTodoStatusPayloadSchema,
+  createTodoPayloadSchema,
+  deleteTodoPayloadSchema,
+  updateTodoContentPayloadSchema,
+} from '@cqrs-toolkit/demo-base/todos/shared'
 import {
   EventExistenceRevision,
   type EventMetadata,
@@ -12,18 +28,6 @@ import {
 import { Ajv } from 'ajv'
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
 import { v4 as uuidv4 } from 'uuid'
-import type { TodoCommand } from '../../shared/todos/commands.js'
-import {
-  changeTodoStatusPayloadSchema,
-  createTodoPayloadSchema,
-  deleteTodoPayloadSchema,
-  updateTodoContentPayloadSchema,
-} from '../../shared/todos/commands.js'
-import type { ListTodosResponse, Todo } from '../../shared/todos/types.js'
-import type { CommandResponse, CommandSuccessResponse } from '../../shared/types.js'
-import type { DemoEventStore } from '../event-store.js'
-import { TodoAggregate, type TodoServerEvent } from './aggregate.js'
-import type { TodoRepository } from './repository.js'
 
 const ajv = new Ajv()
 
@@ -97,7 +101,7 @@ export function todoRoutes(
     })
 
     app.post<{
-      Body: TodoCommand
+      Body: TodoCommand & { revision?: string }
       Reply: CommandResponse
     }>('/todos/commands', async (request, reply) => {
       const command = request.body
@@ -109,13 +113,13 @@ export function todoRoutes(
       try {
         switch (command.type) {
           case 'CreateTodo': {
-            if (!validateCreateTodo(command.payload)) {
+            if (!validateCreateTodo(command.data)) {
               reply.code(400)
-              return { message: 'Invalid payload', details: validateCreateTodo.errors }
+              return { message: 'Invalid data', details: validateCreateTodo.errors }
             }
             const id = uuidv4()
             const aggregate = new TodoAggregate()
-            aggregate.create(command.payload, id, metadata)
+            aggregate.create(command.data, id, metadata)
             const result = await todoRepo.save(aggregate, EventExistenceRevision.NoStream)
             if (!result.ok) {
               reply.code(result.error.code ?? 500)
@@ -129,64 +133,76 @@ export function todoRoutes(
           }
 
           case 'UpdateTodoContent': {
-            if (!validateUpdateTodoContent(command.payload)) {
+            if (!validateUpdateTodoContent(command.data)) {
               reply.code(400)
-              return { message: 'Invalid payload', details: validateUpdateTodoContent.errors }
+              return { message: 'Invalid data', details: validateUpdateTodoContent.errors }
             }
-            const aggregate = await todoRepo.getById(command.payload.id)
+            if (typeof command.revision !== 'string') {
+              reply.code(400)
+              return { message: 'revision is required' }
+            }
+            const aggregate = await todoRepo.getById(command.data.id)
             if (!aggregate) {
               reply.code(404)
-              return { message: 'Todo not found', details: { id: command.payload.id } }
+              return { message: 'Todo not found', details: { id: command.data.id } }
             }
-            const expectedRevision = BigInt(command.payload.revision)
-            aggregate.updateContent(command.payload, metadata)
+            const expectedRevision = BigInt(command.revision)
+            aggregate.updateContent(command.data, metadata)
             const result = await todoRepo.save(aggregate, expectedRevision)
             if (!result.ok) {
               reply.code(result.error.code ?? 500)
               return { message: result.error.message }
             }
             return toCommandSuccess(
-              command.payload.id,
+              command.data.id,
               result.value.nextExpectedRevision,
               result.value.events ?? [],
             )
           }
 
           case 'ChangeTodoStatus': {
-            if (!validateChangeTodoStatus(command.payload)) {
+            if (!validateChangeTodoStatus(command.data)) {
               reply.code(400)
-              return { message: 'Invalid payload', details: validateChangeTodoStatus.errors }
+              return { message: 'Invalid data', details: validateChangeTodoStatus.errors }
             }
-            const aggregate = await todoRepo.getById(command.payload.id)
+            if (typeof command.revision !== 'string') {
+              reply.code(400)
+              return { message: 'revision is required' }
+            }
+            const aggregate = await todoRepo.getById(command.data.id)
             if (!aggregate) {
               reply.code(404)
-              return { message: 'Todo not found', details: { id: command.payload.id } }
+              return { message: 'Todo not found', details: { id: command.data.id } }
             }
-            const expectedRevision = BigInt(command.payload.revision)
-            aggregate.changeStatus(command.payload, metadata)
+            const expectedRevision = BigInt(command.revision)
+            aggregate.changeStatus(command.data, metadata)
             const result = await todoRepo.save(aggregate, expectedRevision)
             if (!result.ok) {
               reply.code(result.error.code ?? 500)
               return { message: result.error.message }
             }
             return toCommandSuccess(
-              command.payload.id,
+              command.data.id,
               result.value.nextExpectedRevision,
               result.value.events ?? [],
             )
           }
 
           case 'DeleteTodo': {
-            if (!validateDeleteTodo(command.payload)) {
+            if (!validateDeleteTodo(command.data)) {
               reply.code(400)
-              return { message: 'Invalid payload', details: validateDeleteTodo.errors }
+              return { message: 'Invalid data', details: validateDeleteTodo.errors }
             }
-            const aggregate = await todoRepo.getById(command.payload.id)
+            if (typeof command.revision !== 'string') {
+              reply.code(400)
+              return { message: 'revision is required' }
+            }
+            const aggregate = await todoRepo.getById(command.data.id)
             if (!aggregate) {
               reply.code(404)
-              return { message: 'Todo not found', details: { id: command.payload.id } }
+              return { message: 'Todo not found', details: { id: command.data.id } }
             }
-            const expectedRevision = BigInt(command.payload.revision)
+            const expectedRevision = BigInt(command.revision)
             aggregate.markDeleted(metadata)
             const result = await todoRepo.save(aggregate, expectedRevision)
             if (!result.ok) {
@@ -194,7 +210,7 @@ export function todoRoutes(
               return { message: result.error.message }
             }
             return toCommandSuccess(
-              command.payload.id,
+              command.data.id,
               result.value.nextExpectedRevision,
               result.value.events ?? [],
             )

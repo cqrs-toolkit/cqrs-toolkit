@@ -24,9 +24,9 @@ export interface AnticipatedEventMeta {
 /**
  * Anticipated event produced by local command execution.
  */
-export interface AnticipatedEvent<TPayload = unknown> {
+export interface AnticipatedEvent<TData = unknown> {
   type: string
-  data: TPayload
+  data: TData
   streamId: string
   id: string
   createdAt: number
@@ -71,9 +71,9 @@ export type LibraryEventType =
   | 'command:response'
 
 /**
- * Library event payload types.
+ * Library event data types.
  */
-export interface LibraryEventPayloads {
+export interface LibraryEventData {
   'session:changed': { userId: string; isNew: boolean }
   'session:destroyed': { reason: 'user-changed' | 'explicit' | 'storage-error' }
   'connectivity:changed': { online: boolean }
@@ -113,7 +113,7 @@ export interface LibraryEventPayloads {
     correlationId: string
     service: string
     type: string
-    payload: unknown
+    data: unknown
   }
   'command:response': { commandId: string; correlationId: string; response: unknown }
 }
@@ -123,7 +123,7 @@ export interface LibraryEventPayloads {
  */
 export interface LibraryEvent<T extends LibraryEventType = LibraryEventType> {
   type: T
-  payload: LibraryEventPayloads[T]
+  data: LibraryEventData[T]
   timestamp: number
   /** Whether this event is a debug-only event (emitted via `emitDebug()`). */
   debug?: boolean

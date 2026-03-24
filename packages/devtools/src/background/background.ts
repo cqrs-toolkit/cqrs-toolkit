@@ -15,7 +15,6 @@ import {
   MSG_EVENT,
   MSG_PANEL_CLEAR,
   MSG_PANEL_CONNECT,
-  MSG_REQUEST_COMMAND_SNAPSHOT,
   MSG_REQUEST_STORAGE,
   MSG_STORAGE_RESPONSE,
   PORT_CONTENT_SCRIPT,
@@ -158,16 +157,6 @@ function handlePanelConnect(port: chrome.runtime.Port): void {
       case MSG_PANEL_CLEAR: {
         if (panelTabId !== undefined) {
           buffers.clear(panelTabId)
-        }
-        break
-      }
-
-      case MSG_REQUEST_COMMAND_SNAPSHOT: {
-        if (panelTabId !== undefined) {
-          const contentPort = ports.getContentPort(panelTabId)
-          if (contentPort) {
-            contentPort.postMessage({ type: MSG_REQUEST_COMMAND_SNAPSHOT })
-          }
         }
         break
       }

@@ -31,8 +31,8 @@ export interface ICommandQueue {
    * @param options - Optional enqueue options
    * @returns Enqueue result with validation status
    */
-  enqueue<TPayload, TEvent>(
-    command: EnqueueCommand<TPayload>,
+  enqueue<TData, TEvent>(
+    command: EnqueueCommand<TData>,
     options?: EnqueueOptions,
   ): Promise<EnqueueResult<TEvent>>
 
@@ -56,8 +56,8 @@ export interface ICommandQueue {
    * @param options - Optional combined options
    * @returns Combined enqueue and completion result
    */
-  enqueueAndWait<TPayload, TEvent, TResponse>(
-    command: EnqueueCommand<TPayload>,
+  enqueueAndWait<TData, TEvent, TResponse>(
+    command: EnqueueCommand<TData>,
     options?: EnqueueAndWaitOptions,
   ): Promise<EnqueueAndWaitResult<TResponse>>
 
@@ -127,6 +127,15 @@ export interface ICommandQueue {
    * Check if command processing is paused.
    */
   isPaused(): boolean
+
+  /**
+   * Get entity IDs that were created or updated by a command's anticipated events.
+   *
+   * @param commandId - The command ID
+   * @param collection - Optional collection filter
+   * @returns Entity IDs, or empty if the command has no tracked entries
+   */
+  getCommandEntities(commandId: string, collection?: string): Promise<string[]>
 }
 
 /**
@@ -141,7 +150,7 @@ export interface ICommandSender {
    * @returns Server response
    * @throws CommandSendError on failure
    */
-  send<TPayload, TResponse>(command: CommandRecord<TPayload>): Promise<TResponse>
+  send<TData, TResponse>(command: CommandRecord<TData>): Promise<TResponse>
 }
 
 /**

@@ -15,7 +15,6 @@ import {
   MSG_EVENT,
   MSG_PANEL_CLEAR,
   MSG_PANEL_CONNECT,
-  MSG_REQUEST_COMMAND_SNAPSHOT,
   MSG_REQUEST_STORAGE,
   MSG_STORAGE_RESPONSE,
   PORT_PANEL,
@@ -44,7 +43,6 @@ export interface ConnectionStore {
   state: () => ConnectionState
   config: () => SerializedConfig | undefined
   role: () => 'leader' | 'standby' | undefined
-  requestCommandSnapshot: () => void
   sendAction: (action: 'retry' | 'cancel', commandId: string) => void
   clearBuffer: () => void
   execSql: (sql: string, bind?: unknown[]) => Promise<Record<string, unknown>[]>
@@ -156,9 +154,6 @@ export function createConnectionStore(handlers: ConnectionEventHandlers): Connec
     state,
     config,
     role,
-    requestCommandSnapshot() {
-      port?.postMessage({ type: MSG_REQUEST_COMMAND_SNAPSHOT })
-    },
     sendAction(action, commandId) {
       port?.postMessage({ type: MSG_ACTION, action, commandId })
     },

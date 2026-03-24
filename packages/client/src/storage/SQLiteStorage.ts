@@ -279,15 +279,15 @@ export class SQLiteStorage implements IStorage {
     this.assertInitialized()
     await this.exec(
       `INSERT OR REPLACE INTO commands
-       (command_id, service, type, payload, status, depends_on, blocked_by, attempts,
-        last_attempt_at, error, server_response, post_process, creates, revision_field,
-        created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (command_id, service, type, data, status, depends_on, blocked_by, attempts,
+        last_attempt_at, error, server_response, post_process, creates, revision,
+        path, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         command.commandId,
         command.service,
         command.type,
-        JSON.stringify(command.payload),
+        JSON.stringify(command.data),
         command.status,
         JSON.stringify(command.dependsOn),
         JSON.stringify(command.blockedBy),
@@ -297,7 +297,8 @@ export class SQLiteStorage implements IStorage {
         command.serverResponse !== undefined ? JSON.stringify(command.serverResponse) : null,
         command.postProcess ? JSON.stringify(command.postProcess) : null,
         command.creates ? JSON.stringify(command.creates) : null,
-        command.revisionField ?? null,
+        command.revision !== undefined ? JSON.stringify(command.revision) : null,
+        command.path !== undefined ? JSON.stringify(command.path) : null,
         command.createdAt,
         command.updatedAt,
       ],
@@ -496,8 +497,8 @@ export class SQLiteStorage implements IStorage {
     const table = this.rmTable(record.collection)
     await this.exec(
       `INSERT OR REPLACE INTO ${table}
-       (id, cache_key, _server_data, _effective_data, _has_local_changes, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+       (id, cache_key, _server_data, _effective_data, _has_local_changes, updated_at, __client_id, __reconciled_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         record.id,
         record.cacheKey,
@@ -505,6 +506,8 @@ export class SQLiteStorage implements IStorage {
         record.effectiveData,
         record.hasLocalChanges ? 1 : 0,
         record.updatedAt,
+        record._clientMetadata?.clientId ?? null,
+        record._clientMetadata?.reconciledAt ?? null,
       ],
     )
   }
@@ -527,8 +530,8 @@ export class SQLiteStorage implements IStorage {
     for (const [collection, group] of byCollection) {
       const table = this.rmTable(collection)
       const columns =
-        '(id, cache_key, _server_data, _effective_data, _has_local_changes, updated_at)'
-      const placeholder = '(?, ?, ?, ?, ?, ?)'
+        '(id, cache_key, _server_data, _effective_data, _has_local_changes, updated_at, __client_id, __reconciled_at)'
+      const placeholder = '(?, ?, ?, ?, ?, ?, ?, ?)'
       const placeholders = group.map(() => placeholder).join(', ')
       const params: unknown[] = []
 
@@ -540,6 +543,8 @@ export class SQLiteStorage implements IStorage {
           record.effectiveData,
           record.hasLocalChanges ? 1 : 0,
           record.updatedAt,
+          record._clientMetadata?.clientId ?? null,
+          record._clientMetadata?.reconciledAt ?? null,
         )
       }
 
@@ -715,7 +720,7 @@ export class SQLiteStorage implements IStorage {
       commandId: row.command_id,
       service: row.service,
       type: row.type,
-      payload: JSON.parse(row.payload),
+      data: JSON.parse(row.data),
       status: row.status as CommandStatus,
       dependsOn: JSON.parse(row.depends_on),
       blockedBy: JSON.parse(row.blocked_by),
@@ -725,7 +730,8 @@ export class SQLiteStorage implements IStorage {
       serverResponse: row.server_response ? JSON.parse(row.server_response) : undefined,
       postProcess: row.post_process ? JSON.parse(row.post_process) : undefined,
       creates: row.creates ? JSON.parse(row.creates) : undefined,
-      revisionField: row.revision_field ?? undefined,
+      revision: row.revision ? JSON.parse(row.revision) : undefined,
+      path: row.path ? JSON.parse(row.path) : undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }
@@ -767,6 +773,9 @@ export class SQLiteStorage implements IStorage {
       effectiveData: row._effective_data,
       hasLocalChanges: row._has_local_changes === 1,
       updatedAt: row.updated_at,
+      _clientMetadata: row.__client_id
+        ? { clientId: row.__client_id, reconciledAt: row.__reconciled_at ?? undefined }
+        : null,
     }
   }
 }
@@ -787,7 +796,7 @@ interface CommandRow {
   command_id: string
   service: string
   type: string
-  payload: string
+  data: string
   status: string
   depends_on: string
   blocked_by: string
@@ -797,7 +806,8 @@ interface CommandRow {
   server_response: string | null
   post_process: string | null
   creates: string | null
-  revision_field: string | null
+  revision: string | null
+  path: string | null
   created_at: number
   updated_at: number
 }
@@ -830,4 +840,6 @@ interface ReadModelRow {
   _effective_data: string
   _has_local_changes: number
   updated_at: number
+  __client_id: string | null
+  __reconciled_at: number | null
 }

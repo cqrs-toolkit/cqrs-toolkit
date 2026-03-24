@@ -1,5 +1,5 @@
 import { expect, getOutgoing, sendToPanel, test } from './fixtures.js'
-import { makeEvent, switchTab } from './panel-helpers.js'
+import { makeEvent, switchTab, toggleMultiSelectOption } from './panel-helpers.js'
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -68,7 +68,7 @@ test.describe('Layer 2: Panel Read Models Tab', () => {
     await expect(page.locator('.rm-col-updates')).toContainText('2')
   })
 
-  test('text filter', async ({ mockPanelPage: page }) => {
+  test('collection filter', async ({ mockPanelPage: page }) => {
     await switchTab(page, 'Read Models')
 
     await sendToPanel(page, {
@@ -88,14 +88,14 @@ test.describe('Layer 2: Panel Read Models Tab', () => {
 
     await expect(page.locator('.rm-row')).toHaveCount(2)
 
-    // Filter by 'todo' (case-insensitive substring)
-    await page.locator('.toolbar-input').fill('todo')
+    // Filter by 'todos' collection using the multi-select dropdown
+    await toggleMultiSelectOption(page, '.collection-selector', 'todos')
 
     await expect(page.locator('.rm-row')).toHaveCount(1)
     await expect(page.locator('.rm-col-collection')).toContainText('todos')
 
-    // Clear filter
-    await page.locator('.toolbar-input').fill('')
+    // Reset filter by deselecting 'todos'
+    await toggleMultiSelectOption(page, '.collection-selector', 'todos')
     await expect(page.locator('.rm-row')).toHaveCount(2)
   })
 

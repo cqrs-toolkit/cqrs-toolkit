@@ -6,15 +6,15 @@
 
 # Function: createFailedCommand()
 
-> **createFailedCommand**\<`TPayload`\>(`error`, `overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TPayload`\>
+> **createFailedCommand**\<`TData`\>(`error`, `overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TData`\>
 
 Create a failed command.
 
 ## Type Parameters
 
-### TPayload
+### TData
 
-`TPayload` = `unknown`
+`TData` = `unknown`
 
 ## Parameters
 
@@ -24,8 +24,8 @@ Create a failed command.
 
 ### overrides?
 
-`Partial`\<[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TPayload`\>\> = `{}`
+`Partial`\<[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TData`\>\> = `{}`
 
 ## Returns
 
-[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TPayload`\>
+[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TData`\>

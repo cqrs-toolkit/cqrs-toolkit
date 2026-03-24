@@ -40,6 +40,7 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test', done: false }),
         hasLocalChanges: false,
         updatedAt: 1000,
+        _clientMetadata: null,
       })
 
       const result = await store.getById<Todo>('todos', 'todo-1')
@@ -61,6 +62,7 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Modified', done: false }),
         hasLocalChanges: true,
         updatedAt: 1000,
+        _clientMetadata: null,
       })
 
       const result = await store.getById<Todo>('todos', 'todo-1')
@@ -81,6 +83,7 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'First', done: false }),
         hasLocalChanges: false,
         updatedAt: 1000,
+        _clientMetadata: null,
       })
       await storage.saveReadModel({
         id: 'todo-2',
@@ -90,6 +93,7 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-2', title: 'Second', done: true }),
         hasLocalChanges: false,
         updatedAt: 1000,
+        _clientMetadata: null,
       })
 
       const result = await store.getByIds<Todo>('todos', ['todo-1', 'todo-2', 'todo-3'])
@@ -111,6 +115,7 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'First', done: false }),
         hasLocalChanges: false,
         updatedAt: 1000,
+        _clientMetadata: null,
       })
       await storage.saveReadModel({
         id: 'todo-2',
@@ -120,6 +125,7 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-2', title: 'Second', done: true }),
         hasLocalChanges: true,
         updatedAt: 2000,
+        _clientMetadata: null,
       })
       await storage.saveReadModel({
         id: 'user-1',
@@ -129,6 +135,7 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'user-1', name: 'Alice' }),
         hasLocalChanges: false,
         updatedAt: 1000,
+        _clientMetadata: null,
       })
     })
 
@@ -167,6 +174,7 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-3', title: 'Third', done: false }),
         hasLocalChanges: false,
         updatedAt: 3000,
+        _clientMetadata: null,
       })
 
       const models = await store.list<Todo>('todos', { cacheKey: 'cache-1', limit: 1, offset: 1 })
@@ -202,6 +210,7 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Original' }),
         hasLocalChanges: true,
         updatedAt: 1000,
+        _clientMetadata: null,
       })
 
       // Server sends new data that still has description
@@ -232,6 +241,7 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Modified', done: false }),
         hasLocalChanges: true,
         updatedAt: 1000,
+        _clientMetadata: null,
       })
 
       // Update server baseline
@@ -264,6 +274,7 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test', done: false }),
         hasLocalChanges: false,
         updatedAt: 1000,
+        _clientMetadata: null,
       })
 
       await store.applyLocalChanges<Todo>('todos', 'todo-1', { done: true }, 'cache-1')
@@ -300,6 +311,7 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Modified', done: true }),
         hasLocalChanges: true,
         updatedAt: 1000,
+        _clientMetadata: null,
       })
 
       await store.clearLocalChanges('todos', 'todo-1')
@@ -318,6 +330,7 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Local Only' }),
         hasLocalChanges: true,
         updatedAt: 1000,
+        _clientMetadata: null,
       })
 
       await store.clearLocalChanges('todos', 'todo-1')
@@ -335,6 +348,7 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test', done: false }),
         hasLocalChanges: false,
         updatedAt: 1000,
+        _clientMetadata: null,
       })
 
       await store.clearLocalChanges('todos', 'todo-1')
@@ -354,6 +368,7 @@ describe('ReadModelStore', () => {
         effectiveData: '{}',
         hasLocalChanges: false,
         updatedAt: 1000,
+        _clientMetadata: null,
       })
 
       expect(await store.exists('todos', 'todo-1')).toBe(true)
@@ -374,6 +389,7 @@ describe('ReadModelStore', () => {
         effectiveData: '{}',
         hasLocalChanges: false,
         updatedAt: 1000,
+        _clientMetadata: null,
       })
       await storage.saveReadModel({
         id: 'todo-2',
@@ -383,6 +399,7 @@ describe('ReadModelStore', () => {
         effectiveData: '{}',
         hasLocalChanges: false,
         updatedAt: 1000,
+        _clientMetadata: null,
       })
 
       expect(await store.count('todos')).toBe(2)
@@ -419,6 +436,7 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Server', done: false }),
         hasLocalChanges: false,
         updatedAt: 1000,
+        _clientMetadata: null,
       })
 
       await store.setLocalData(
@@ -451,6 +469,7 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test' }),
         hasLocalChanges: true,
         updatedAt: 1000,
+        _clientMetadata: null,
       })
 
       const modified = await store.setLocalData(
@@ -474,6 +493,7 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Original', done: false }),
         hasLocalChanges: false,
         updatedAt: 1000,
+        _clientMetadata: null,
       })
 
       const modified = await store.mergeServerData('todos', 'todo-1', { done: true }, 'cache-1')
@@ -507,6 +527,7 @@ describe('ReadModelStore', () => {
         }),
         hasLocalChanges: true,
         updatedAt: 1000,
+        _clientMetadata: null,
       })
 
       const modified = await store.mergeServerData('todos', 'todo-1', { count: 5 }, 'cache-1')
@@ -572,6 +593,7 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test', done: true }),
         hasLocalChanges: true,
         updatedAt: 1000,
+        _clientMetadata: null,
       })
 
       const modified = await store.applyLocalChanges<Todo>(
@@ -597,6 +619,7 @@ describe('ReadModelStore', () => {
         effectiveData: '{}',
         hasLocalChanges: false,
         updatedAt: 1000,
+        _clientMetadata: null,
       })
 
       const modified = await store.delete('todos', 'todo-1')
@@ -613,6 +636,7 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test', done: false }),
         hasLocalChanges: false,
         updatedAt: 1000,
+        _clientMetadata: null,
       })
 
       const modified = await store.mergeServerData('todos', 'todo-1', { done: false }, 'cache-1')
@@ -630,6 +654,7 @@ describe('ReadModelStore', () => {
         effectiveData: '{}',
         hasLocalChanges: false,
         updatedAt: 1000,
+        _clientMetadata: null,
       })
 
       await store.delete('todos', 'todo-1')

@@ -7,13 +7,13 @@
 # Interface: ICommandHandlerMetadata
 
 Metadata lookup for command handler registrations.
-Allows the CommandQueue to access creates/revisionField config by command type.
+Allows the CommandQueue to access creates config by command type.
 
 ## Methods
 
 ### getRegistration()
 
-> **getRegistration**(`commandType`): [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`unknown`\> \| `undefined`
+> **getRegistration**(`commandType`): [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<[`IAnticipatedEvent`](IAnticipatedEvent.md)\<`string`, `AggregateEventData`\>, `unknown`\> \| `undefined`
 
 #### Parameters
 
@@ -23,4 +23,4 @@ Allows the CommandQueue to access creates/revisionField config by command type.
 
 #### Returns
 
-[`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`unknown`\> \| `undefined`
+[`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<[`IAnticipatedEvent`](IAnticipatedEvent.md)\<`string`, `AggregateEventData`\>, `unknown`\> \| `undefined`

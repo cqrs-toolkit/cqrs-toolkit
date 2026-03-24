@@ -10,6 +10,14 @@ Event message broadcast from worker to windows.
 
 ## Properties
 
+### data
+
+> **data**: `unknown`
+
+Event data
+
+---
+
 ### debug?
 
 > `optional` **debug**: `boolean`
@@ -23,14 +31,6 @@ Whether this is a debug-only event
 > **eventName**: `string`
 
 Event name
-
----
-
-### payload
-
-> **payload**: `unknown`
-
-Event payload
 
 ---
 

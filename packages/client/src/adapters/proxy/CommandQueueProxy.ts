@@ -64,8 +64,8 @@ export class CommandQueueProxy implements ICommandQueue {
     this.events$ = this.commandEvents.asObservable().pipe(share(), takeUntil(this.destroy$))
   }
 
-  async enqueue<TPayload, TEvent>(
-    command: EnqueueCommand<TPayload>,
+  async enqueue<TData, TEvent>(
+    command: EnqueueCommand<TData>,
     options?: EnqueueOptions,
   ): Promise<EnqueueResult<TEvent>> {
     return this.channel.request<EnqueueResult<TEvent>>('commandQueue.enqueue', [command, options])
@@ -100,11 +100,11 @@ export class CommandQueueProxy implements ICommandQueue {
     return firstValueFrom(race(terminalEvent$, timeout$))
   }
 
-  async enqueueAndWait<TPayload, TEvent, TResponse>(
-    command: EnqueueCommand<TPayload>,
+  async enqueueAndWait<TData, TEvent, TResponse>(
+    command: EnqueueCommand<TData>,
     options?: EnqueueAndWaitOptions,
   ): Promise<EnqueueAndWaitResult<TResponse>> {
-    const enqueueResult = await this.enqueue<TPayload, TEvent>(command, options)
+    const enqueueResult = await this.enqueue<TData, TEvent>(command, options)
 
     if (!enqueueResult.ok) {
       const errors: ValidationError[] = enqueueResult.error.details ?? []
@@ -181,6 +181,13 @@ export class CommandQueueProxy implements ICommandQueue {
     return false
   }
 
+  async getCommandEntities(commandId: string, collection?: string): Promise<string[]> {
+    return this.channel.request<string[]>('commandQueue.getCommandEntities', [
+      commandId,
+      collection,
+    ])
+  }
+
   destroy(): void {
     this.destroy$.next()
     this.destroy$.complete()
@@ -193,44 +200,44 @@ export class CommandQueueProxy implements ICommandQueue {
 // ---------------------------------------------------------------------------
 
 function broadcastToCommandEvent(event: EventMessage): CommandEvent | undefined {
-  const payload = event.payload as Record<string, unknown>
+  const data = event.data as Record<string, unknown>
 
   switch (event.eventName) {
     case 'command:enqueued':
       return {
         eventType: 'enqueued',
-        commandId: payload.commandId as string,
-        type: payload.type as string,
+        commandId: data.commandId as string,
+        type: data.type as string,
         status: 'pending',
         timestamp: Date.now(),
       }
     case 'command:status-changed':
       return {
         eventType: 'status-changed',
-        commandId: payload.commandId as string,
-        type: payload.type as string,
-        status: payload.status as CommandRecord['status'],
-        previousStatus: payload.previousStatus as CommandRecord['status'] | undefined,
-        error: payload.error as CommandError | undefined,
-        response: payload.response,
+        commandId: data.commandId as string,
+        type: data.type as string,
+        status: data.status as CommandRecord['status'],
+        previousStatus: data.previousStatus as CommandRecord['status'] | undefined,
+        error: data.error as CommandError | undefined,
+        response: data.response,
         timestamp: Date.now(),
       }
     case 'command:completed':
       return {
         eventType: 'completed',
-        commandId: payload.commandId as string,
-        type: payload.type as string,
+        commandId: data.commandId as string,
+        type: data.type as string,
         status: 'succeeded',
-        response: payload.response,
+        response: data.response,
         timestamp: Date.now(),
       }
     case 'command:failed':
       return {
         eventType: 'failed',
-        commandId: payload.commandId as string,
-        type: payload.type as string,
+        commandId: data.commandId as string,
+        type: data.type as string,
         status: 'failed',
-        error: payload.error as CommandError | undefined,
+        error: data.error as CommandError | undefined,
         timestamp: Date.now(),
       }
     default:

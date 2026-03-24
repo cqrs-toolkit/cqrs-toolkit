@@ -1,0 +1,6 @@
+{
+  "$id": "urn:schema:demo.DeleteNoteData:1.0.0",
+  "additionalProperties": false,
+  "properties": {},
+  "type": "object"
+}

@@ -85,8 +85,12 @@ export interface EventsStore {
   filteredItems: () => EventListItem[]
   persistenceFilter: () => Set<PersistenceValue>
   togglePersistenceFilter: (value: PersistenceValue) => void
-  typeFilter: () => string
-  setTypeFilter: (value: string) => void
+  selectAllPersistence: () => void
+  clearPersistence: () => void
+  typeFilter: () => Set<string>
+  toggleTypeFilter: (type: string) => void
+  selectAllTypes: () => void
+  clearTypeFilter: () => void
   streamFilter: () => string
   setStreamFilter: (value: string) => void
   filterVersion: () => number
@@ -118,8 +122,8 @@ export function createEventsStore(): EventsStore {
   const [persistenceFilter, setPersistenceFilter] = createSignal<Set<PersistenceValue>>(
     new Set(ALL_PERSISTENCE),
   )
-  const [typeFilter, setTypeFilter] = createSignal('')
-  const [streamFilter, setStreamFilter] = createSignal('')
+  const [typeFilter, setTypeFilter] = createSignal<Set<string>>(new Set())
+  const [streamFilter, setStreamFilterRaw] = createSignal('')
   const [filterVersion, setFilterVersion] = createSignal(0)
 
   const [selectedId, setSelectedId] = createSignal<string | undefined>()
@@ -133,7 +137,7 @@ export function createEventsStore(): EventsStore {
   const filteredItems = createMemo(() => {
     const items = allItems()
     const persistence = persistenceFilter()
-    const typeF = typeFilter().toLowerCase()
+    const typeF = typeFilter()
     const streamF = streamFilter()
 
     return items.filter((item) => {
@@ -141,8 +145,8 @@ export function createEventsStore(): EventsStore {
         const wsEvent = item.entry.event
         const eventPersistence = normalizePersistence(wsEvent.persistence)
         if (!persistence.has(eventPersistence)) return false
-        if (typeF && !wsEvent.type.toLowerCase().includes(typeF)) return false
-        if (streamF && wsEvent.streamId !== streamF) return false
+        if (typeF.size > 0 && !typeF.has(wsEvent.type)) return false
+        if (streamF && !wsEvent.streamId.includes(streamF)) return false
         return true
       }
 
@@ -152,7 +156,7 @@ export function createEventsStore(): EventsStore {
         item.kind === 'gap-repair-started' ||
         item.kind === 'gap-repair-completed'
       ) {
-        if (streamF && item.streamId !== streamF) return false
+        if (streamF && !item.streamId.includes(streamF)) return false
         return true
       }
 
@@ -177,7 +181,7 @@ export function createEventsStore(): EventsStore {
   function handleEvent(event: SanitizedEvent): void {
     switch (event.type) {
       case 'sync:ws-event-received': {
-        const wsEvent = event.payload['event'] as SanitizedWsEvent | undefined
+        const wsEvent = event.data['event'] as SanitizedWsEvent | undefined
         if (!wsEvent) return
 
         const entryId = `evt-${nextEntryId++}`
@@ -203,12 +207,12 @@ export function createEventsStore(): EventsStore {
       }
 
       case 'sync:ws-event-processed': {
-        const wsEvent = event.payload['event'] as SanitizedWsEvent | undefined
+        const wsEvent = event.data['event'] as SanitizedWsEvent | undefined
         if (!wsEvent) return
 
         const result: ProcessorResult = {
-          invalidated: (event.payload['invalidated'] as boolean) ?? false,
-          updatedIds: (event.payload['updatedIds'] as string[]) ?? [],
+          invalidated: (event.data['invalidated'] as boolean) ?? false,
+          updatedIds: (event.data['updatedIds'] as string[]) ?? [],
         }
 
         setProcessorResults((prev) => {
@@ -222,9 +226,9 @@ export function createEventsStore(): EventsStore {
       case 'sync:gap-detected': {
         const item: GapDetectedItem = {
           kind: 'gap-detected',
-          streamId: (event.payload['streamId'] as string) ?? '',
-          expected: String(event.payload['expected'] ?? ''),
-          received: String(event.payload['received'] ?? ''),
+          streamId: (event.data['streamId'] as string) ?? '',
+          expected: String(event.data['expected'] ?? ''),
+          received: String(event.data['received'] ?? ''),
           timestamp: event.timestamp,
         }
         setAllItems((prev) => [...prev, item])
@@ -234,8 +238,8 @@ export function createEventsStore(): EventsStore {
       case 'sync:gap-repair-started': {
         const item: GapRepairStartedItem = {
           kind: 'gap-repair-started',
-          streamId: (event.payload['streamId'] as string) ?? '',
-          fromRevision: String(event.payload['fromRevision'] ?? ''),
+          streamId: (event.data['streamId'] as string) ?? '',
+          fromRevision: String(event.data['fromRevision'] ?? ''),
           timestamp: event.timestamp,
         }
         setAllItems((prev) => [...prev, item])
@@ -245,8 +249,8 @@ export function createEventsStore(): EventsStore {
       case 'sync:gap-repair-completed': {
         const item: GapRepairCompletedItem = {
           kind: 'gap-repair-completed',
-          streamId: (event.payload['streamId'] as string) ?? '',
-          eventCount: (event.payload['eventCount'] as number) ?? 0,
+          streamId: (event.data['streamId'] as string) ?? '',
+          eventCount: (event.data['eventCount'] as number) ?? 0,
           timestamp: event.timestamp,
         }
         setAllItems((prev) => [...prev, item])
@@ -256,7 +260,7 @@ export function createEventsStore(): EventsStore {
       case 'session:changed': {
         const item: SessionDividerItem = {
           kind: 'session-divider',
-          userId: (event.payload['userId'] as string) ?? '',
+          userId: (event.data['userId'] as string) ?? '',
           timestamp: event.timestamp,
         }
         setAllItems((prev) => [...prev, item])
@@ -270,6 +274,8 @@ export function createEventsStore(): EventsStore {
     setProcessorResults(new Map())
     setSeenEventTypes(new Set<string>())
     setSeenStreamIds(new Set<string>())
+    setTypeFilter(new Set<string>())
+    setStreamFilterRaw('')
     setSelectedId(undefined)
   }
 
@@ -302,14 +308,38 @@ export function createEventsStore(): EventsStore {
       })
       bumpFilterVersion()
     },
+    selectAllPersistence() {
+      setPersistenceFilter(new Set(ALL_PERSISTENCE))
+      bumpFilterVersion()
+    },
+    clearPersistence() {
+      setPersistenceFilter(new Set<PersistenceValue>())
+      bumpFilterVersion()
+    },
     typeFilter,
-    setTypeFilter(value) {
-      setTypeFilter(value)
+    toggleTypeFilter(type) {
+      setTypeFilter((prev) => {
+        const next = new Set(prev)
+        if (next.has(type)) {
+          next.delete(type)
+        } else {
+          next.add(type)
+        }
+        return next
+      })
+      bumpFilterVersion()
+    },
+    selectAllTypes() {
+      setTypeFilter(new Set(seenEventTypes()))
+      bumpFilterVersion()
+    },
+    clearTypeFilter() {
+      setTypeFilter(new Set<string>())
       bumpFilterVersion()
     },
     streamFilter,
     setStreamFilter(value) {
-      setStreamFilter(value)
+      setStreamFilterRaw(value)
       bumpFilterVersion()
     },
     filterVersion,

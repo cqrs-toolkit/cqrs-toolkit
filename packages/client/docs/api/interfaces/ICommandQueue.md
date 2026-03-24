@@ -66,7 +66,7 @@ Observable of events for that command
 
 ### enqueue()
 
-> **enqueue**\<`TPayload`, `TEvent`\>(`command`, `options?`): `Promise`\<[`EnqueueResult`](../type-aliases/EnqueueResult.md)\<`TEvent`\>\>
+> **enqueue**\<`TData`, `TEvent`\>(`command`, `options?`): `Promise`\<[`EnqueueResult`](../type-aliases/EnqueueResult.md)\<`TEvent`\>\>
 
 Enqueue a command with local validation.
 Returns immediately with either validation errors or the queued command.
@@ -75,9 +75,9 @@ For forms: check result.ok to show validation errors immediately.
 
 #### Type Parameters
 
-##### TPayload
+##### TData
 
-`TPayload`
+`TData`
 
 ##### TEvent
 
@@ -87,7 +87,7 @@ For forms: check result.ok to show validation errors immediately.
 
 ##### command
 
-[`EnqueueCommand`](EnqueueCommand.md)\<`TPayload`\>
+[`EnqueueCommand`](EnqueueCommand.md)\<`TData`\>
 
 Command to enqueue
 
@@ -107,16 +107,16 @@ Enqueue result with validation status
 
 ### enqueueAndWait()
 
-> **enqueueAndWait**\<`TPayload`, `TEvent`, `TResponse`\>(`command`, `options?`): `Promise`\<[`EnqueueAndWaitResult`](../type-aliases/EnqueueAndWaitResult.md)\<`TResponse`\>\>
+> **enqueueAndWait**\<`TData`, `TEvent`, `TResponse`\>(`command`, `options?`): `Promise`\<[`EnqueueAndWaitResult`](../type-aliases/EnqueueAndWaitResult.md)\<`TResponse`\>\>
 
 Convenience: enqueue and wait for completion in one call.
 Best for simple form submissions.
 
 #### Type Parameters
 
-##### TPayload
+##### TData
 
-`TPayload`
+`TData`
 
 ##### TEvent
 
@@ -130,7 +130,7 @@ Best for simple form submissions.
 
 ##### command
 
-[`EnqueueCommand`](EnqueueCommand.md)\<`TPayload`\>
+[`EnqueueCommand`](EnqueueCommand.md)\<`TData`\>
 
 Command to enqueue
 
@@ -167,6 +167,34 @@ Command ID
 `Promise`\<[`CommandRecord`](CommandRecord.md)\<`unknown`, `unknown`\> \| `undefined`\>
 
 Command record or undefined
+
+---
+
+### getCommandEntities()
+
+> **getCommandEntities**(`commandId`, `collection?`): `Promise`\<`string`[]\>
+
+Get entity IDs that were created or updated by a command's anticipated events.
+
+#### Parameters
+
+##### commandId
+
+`string`
+
+The command ID
+
+##### collection?
+
+`string`
+
+Optional collection filter
+
+#### Returns
+
+`Promise`\<`string`[]\>
+
+Entity IDs, or empty if the command has no tracked entries
 
 ---
 

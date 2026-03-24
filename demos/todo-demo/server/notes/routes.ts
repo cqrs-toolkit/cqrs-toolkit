@@ -2,6 +2,23 @@
  * Note API routes — thin wiring between HTTP and aggregate/repository.
  */
 
+import type { DemoEventStore } from '@cqrs-toolkit/demo-base/common/server'
+import type { CommandResponse, CommandSuccessResponse } from '@cqrs-toolkit/demo-base/common/shared'
+import { NotebookRepository } from '@cqrs-toolkit/demo-base/notebooks/server'
+import {
+  NoteAggregate,
+  type NoteRepository,
+  type NoteServerEvent,
+} from '@cqrs-toolkit/demo-base/notes/server'
+import {
+  type ListNotesResponse,
+  type Note,
+  type NoteCommand,
+  createNotePayloadSchema,
+  deleteNotePayloadSchema,
+  updateNoteBodyPayloadSchema,
+  updateNoteTitlePayloadSchema,
+} from '@cqrs-toolkit/demo-base/notes/shared'
 import {
   EventExistenceRevision,
   type EventMetadata,
@@ -12,18 +29,6 @@ import {
 import { Ajv } from 'ajv'
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
 import { v4 as uuidv4 } from 'uuid'
-import type { NoteCommand } from '../../shared/notes/commands.js'
-import {
-  createNotePayloadSchema,
-  deleteNotePayloadSchema,
-  updateNoteBodyPayloadSchema,
-  updateNoteTitlePayloadSchema,
-} from '../../shared/notes/commands.js'
-import type { ListNotesResponse, Note } from '../../shared/notes/types.js'
-import type { CommandResponse, CommandSuccessResponse } from '../../shared/types.js'
-import type { DemoEventStore } from '../event-store.js'
-import { NoteAggregate, type NoteServerEvent } from './aggregate.js'
-import type { NoteRepository } from './repository.js'
 
 const ajv = new Ajv()
 
@@ -60,6 +65,7 @@ function toCommandSuccess(
 export function noteRoutes(
   eventStore: DemoEventStore,
   noteRepo: NoteRepository,
+  notebookRepo: NotebookRepository,
 ): FastifyPluginAsync {
   return async function routes(app: FastifyInstance): Promise<void> {
     app.get<{
@@ -97,7 +103,7 @@ export function noteRoutes(
     })
 
     app.post<{
-      Body: NoteCommand
+      Body: NoteCommand & { revision?: string }
       Reply: CommandResponse
     }>('/notes/commands', async (request, reply) => {
       const command = request.body
@@ -109,13 +115,21 @@ export function noteRoutes(
       try {
         switch (command.type) {
           case 'CreateNote': {
-            if (!validateCreateNote(command.payload)) {
+            if (!validateCreateNote(command.data)) {
               reply.code(400)
-              return { message: 'Invalid payload', details: validateCreateNote.errors }
+              return { message: 'Invalid data', details: validateCreateNote.errors }
+            }
+            const notebook = notebookRepo.findById(command.data.notebookId)
+            if (!notebook) {
+              reply.code(404)
+              return {
+                message: 'Notebook not found',
+                details: { notebookId: command.data.notebookId },
+              }
             }
             const id = uuidv4()
             const aggregate = new NoteAggregate()
-            aggregate.create(command.payload, id, metadata)
+            aggregate.create(command.data, id, metadata)
             const result = await noteRepo.save(aggregate, EventExistenceRevision.NoStream)
             if (!result.ok) {
               reply.code(result.error.code ?? 500)
@@ -129,64 +143,76 @@ export function noteRoutes(
           }
 
           case 'UpdateNoteTitle': {
-            if (!validateUpdateNoteTitle(command.payload)) {
+            if (!validateUpdateNoteTitle(command.data)) {
               reply.code(400)
-              return { message: 'Invalid payload', details: validateUpdateNoteTitle.errors }
+              return { message: 'Invalid data', details: validateUpdateNoteTitle.errors }
             }
-            const aggregate = await noteRepo.getById(command.payload.id)
+            if (typeof command.revision !== 'string') {
+              reply.code(400)
+              return { message: 'revision is required' }
+            }
+            const aggregate = await noteRepo.getById(command.data.id)
             if (!aggregate) {
               reply.code(404)
-              return { message: 'Note not found', details: { id: command.payload.id } }
+              return { message: 'Note not found', details: { id: command.data.id } }
             }
-            const expectedRevision = BigInt(command.payload.revision)
-            aggregate.updateTitle(command.payload, metadata)
+            const expectedRevision = BigInt(command.revision)
+            aggregate.updateTitle(command.data, metadata)
             const result = await noteRepo.save(aggregate, expectedRevision)
             if (!result.ok) {
               reply.code(result.error.code ?? 500)
               return { message: result.error.message }
             }
             return toCommandSuccess(
-              command.payload.id,
+              command.data.id,
               result.value.nextExpectedRevision,
               result.value.events ?? [],
             )
           }
 
           case 'UpdateNoteBody': {
-            if (!validateUpdateNoteBody(command.payload)) {
+            if (!validateUpdateNoteBody(command.data)) {
               reply.code(400)
-              return { message: 'Invalid payload', details: validateUpdateNoteBody.errors }
+              return { message: 'Invalid data', details: validateUpdateNoteBody.errors }
             }
-            const aggregate = await noteRepo.getById(command.payload.id)
+            if (typeof command.revision !== 'string') {
+              reply.code(400)
+              return { message: 'revision is required' }
+            }
+            const aggregate = await noteRepo.getById(command.data.id)
             if (!aggregate) {
               reply.code(404)
-              return { message: 'Note not found', details: { id: command.payload.id } }
+              return { message: 'Note not found', details: { id: command.data.id } }
             }
-            const expectedRevision = BigInt(command.payload.revision)
-            aggregate.updateBody(command.payload, metadata)
+            const expectedRevision = BigInt(command.revision)
+            aggregate.updateBody(command.data, metadata)
             const result = await noteRepo.save(aggregate, expectedRevision)
             if (!result.ok) {
               reply.code(result.error.code ?? 500)
               return { message: result.error.message }
             }
             return toCommandSuccess(
-              command.payload.id,
+              command.data.id,
               result.value.nextExpectedRevision,
               result.value.events ?? [],
             )
           }
 
           case 'DeleteNote': {
-            if (!validateDeleteNote(command.payload)) {
+            if (!validateDeleteNote(command.data)) {
               reply.code(400)
-              return { message: 'Invalid payload', details: validateDeleteNote.errors }
+              return { message: 'Invalid data', details: validateDeleteNote.errors }
             }
-            const aggregate = await noteRepo.getById(command.payload.id)
+            if (typeof command.revision !== 'string') {
+              reply.code(400)
+              return { message: 'revision is required' }
+            }
+            const aggregate = await noteRepo.getById(command.data.id)
             if (!aggregate) {
               reply.code(404)
-              return { message: 'Note not found', details: { id: command.payload.id } }
+              return { message: 'Note not found', details: { id: command.data.id } }
             }
-            const expectedRevision = BigInt(command.payload.revision)
+            const expectedRevision = BigInt(command.revision)
             aggregate.markDeleted(metadata)
             const result = await noteRepo.save(aggregate, expectedRevision)
             if (!result.ok) {
@@ -194,7 +220,7 @@ export function noteRoutes(
               return { message: result.error.message }
             }
             return toCommandSuccess(
-              command.payload.id,
+              command.data.id,
               result.value.nextExpectedRevision,
               result.value.events ?? [],
             )

@@ -17,12 +17,46 @@ import {
   type ICommandSender,
   type IPersistedEvent,
   type ISerializedEvent,
+  type SchemaValidator,
   type SeedEventPage,
+  type ValidationError,
 } from '@cqrs-toolkit/client'
-import { noteHandlers } from '../notes/executor.js'
-import { noteProcessors } from '../notes/processor.js'
-import { todoHandlers } from '../todos/executor.js'
-import { todoProcessors } from '../todos/processor.js'
+import { Err, Ok, ValidationException } from '@meticoeus/ddd-es'
+import Ajv, { type ErrorObject } from 'ajv'
+import type { JSONSchema7 } from 'json-schema'
+import { notebookHandlers } from '../domain/notebooks/executor.js'
+import { notebookProcessors } from '../domain/notebooks/processor.js'
+import { noteHandlers } from '../domain/notes/executor.js'
+import { noteProcessors } from '../domain/notes/processor.js'
+import { todoHandlers } from '../domain/todos/executor.js'
+import { todoProcessors } from '../domain/todos/processor.js'
+
+// ---------------------------------------------------------------------------
+// Schema validation
+// ---------------------------------------------------------------------------
+
+const ajv = new Ajv({ allErrors: true })
+
+function mapAjvErrors(errors: ErrorObject[] | null | undefined): ValidationError[] {
+  if (!errors) return []
+  return errors.map((err) => ({
+    path:
+      err.instancePath.replace(/^\//, '').replaceAll('/', '.') ||
+      String(err.params['missingProperty'] ?? ''),
+    message: err.message ?? 'Validation failed',
+    code: err.keyword,
+  }))
+}
+
+const schemaValidator: SchemaValidator<JSONSchema7> = {
+  validate(schema, data) {
+    const validate = ajv.compile(schema)
+    if (validate(data)) {
+      return Ok(data)
+    }
+    return Err(new ValidationException(undefined, mapAjvErrors(validate.errors)))
+  },
+}
 
 // ---------------------------------------------------------------------------
 // Command sender
@@ -37,6 +71,9 @@ const commandEndpoints: Record<string, string> = {
   UpdateNoteTitle: '/api/notes/commands',
   UpdateNoteBody: '/api/notes/commands',
   DeleteNote: '/api/notes/commands',
+  CreateNotebook: '/api/notebooks/commands',
+  UpdateNotebookName: '/api/notebooks/commands',
+  DeleteNotebook: '/api/notebooks/commands',
 }
 
 const commandSender: ICommandSender = {
@@ -52,7 +89,7 @@ const commandSender: ICommandSender = {
         'Content-Type': 'application/json',
         'x-command-id': command.commandId,
       },
-      body: JSON.stringify({ type: command.type, payload: command.payload }),
+      body: JSON.stringify({ type: command.type, data: command.data, revision: command.revision }),
     })
 
     if (!res.ok) {
@@ -133,9 +170,18 @@ const todosCollection: Collection = {
     fetchStreamEventsAfter(ctx, `/todos/${aggregateId(streamId)}/events`, afterRevision),
 }
 
+const notebooksCollection: Collection = {
+  name: 'notebooks',
+  getTopics: () => ['Notebook:*'],
+  matchesStream: (streamId) => streamId.startsWith('Notebook-'),
+  fetchSeedEvents: (ctx, cursor, limit) => fetchEventPage(ctx, '/events/notebooks', cursor, limit),
+  fetchStreamEvents: (ctx, streamId, afterRevision) =>
+    fetchStreamEventsAfter(ctx, `/notebooks/${aggregateId(streamId)}/events`, afterRevision),
+}
+
 const notesCollection: Collection = {
   name: 'notes',
-  getTopics: () => ['Note:*'],
+  getTopics: () => ['Notebook:*'],
   matchesStream: (streamId) => streamId.startsWith('Note-'),
   fetchSeedEvents: (ctx, cursor, limit) => fetchEventPage(ctx, '/events/notes', cursor, limit),
   fetchStreamEvents: (ctx, streamId, afterRevision) =>
@@ -146,7 +192,8 @@ const notesCollection: Collection = {
 // Shared config
 // ---------------------------------------------------------------------------
 
-export const cqrsConfig: CqrsConfig = {
+export const cqrsConfig: CqrsConfig<JSONSchema7> = {
+  schemaValidator,
   // Cookie-based auth — the browser sends cookies automatically.
   // For token-based auth, override per context with spread-and-override:
   //   startDedicatedWorker({ ...cqrsConfig, auth: workerAuthStrategy })
@@ -163,14 +210,15 @@ export const cqrsConfig: CqrsConfig = {
         steps: [
           clientSchema.init,
           { type: 'managed', name: 'todos' },
+          { type: 'managed', name: 'notebooks' },
           { type: 'managed', name: 'notes' },
         ],
       },
     ],
   },
-  collections: [todosCollection, notesCollection],
-  processors: [...todoProcessors, ...noteProcessors],
-  commandHandlers: [...todoHandlers, ...noteHandlers],
+  collections: [todosCollection, notebooksCollection, notesCollection],
+  processors: [...todoProcessors, ...notebookProcessors, ...noteProcessors],
+  commandHandlers: [...todoHandlers, ...notebookHandlers, ...noteHandlers],
   commandSender,
   retainTerminal: true,
   debug: true,

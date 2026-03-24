@@ -4,17 +4,23 @@
 
 [@cqrs-toolkit/client](../globals.md) / CqrsClient
 
-# Class: CqrsClient
+# Class: CqrsClient\<TCommand\>
 
 CQRS Client instance returned by [createCqrsClient](../functions/createCqrsClient.md).
 
 All fields are available immediately — the client is fully initialized at construction time.
 
+## Type Parameters
+
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md) = [`EnqueueCommand`](../interfaces/EnqueueCommand.md)
+
 ## Constructors
 
 ### Constructor
 
-> **new CqrsClient**(`adapter`, `cacheManager`, `commandQueue`, `queryManager`, `syncManager`, `closeResources`, `mode`): `CqrsClient`
+> **new CqrsClient**\<`TCommand`\>(`adapter`, `cacheManager`, `commandQueue`, `queryManager`, `syncManager`, `closeResources`, `mode`): `CqrsClient`\<`TCommand`\>
 
 #### Parameters
 
@@ -48,7 +54,7 @@ All fields are available immediately — the client is fully initialized at cons
 
 #### Returns
 
-`CqrsClient`
+`CqrsClient`\<`TCommand`\>
 
 ## Properties
 
@@ -133,9 +139,39 @@ Stops sync, destroys components, and closes the adapter.
 
 ---
 
+### getCommandEntities()
+
+> **getCommandEntities**(`commandId`, `collection?`): `Promise`\<`string`[]\>
+
+Get entity IDs that were created or updated by a command's anticipated events.
+
+#### Parameters
+
+##### commandId
+
+`string`
+
+The command ID (from SubmitSuccess.commandId)
+
+##### collection?
+
+`string`
+
+Optional collection filter. When provided, only returns
+entities from that collection.
+
+#### Returns
+
+`Promise`\<`string`[]\>
+
+Array of entity IDs. Empty if the command has no tracked entries
+(e.g., already reached terminal state and was cleaned up).
+
+---
+
 ### submit()
 
-> **submit**\<`TPayload`, `TResponse`\>(`command`, `options?`): `Promise`\<[`SubmitResult`](../type-aliases/SubmitResult.md)\<`TResponse`\>\>
+> **submit**\<`TResponse`\>(`command`, `options?`): `Promise`\<[`SubmitResult`](../type-aliases/SubmitResult.md)\<`TResponse`\>\>
 
 Network-aware command submission.
 
@@ -150,19 +186,15 @@ If `options.commandId` is provided, checks the queue first:
 
 #### Type Parameters
 
-##### TPayload
-
-`TPayload`
-
 ##### TResponse
 
-`TResponse`
+`TResponse` = `unknown`
 
 #### Parameters
 
 ##### command
 
-[`EnqueueCommand`](../interfaces/EnqueueCommand.md)\<`TPayload`\>
+`TCommand`
 
 ##### options?
 

@@ -4,6 +4,7 @@ import { getPanelWidth, setPanelWidth } from '../../panelWidths.js'
 import type { CacheStore } from '../../stores/cache.js'
 import { useContainerWidth } from '../../useContainerWidth.js'
 import { DragHandle } from '../DragHandle.js'
+import { MultiSelect } from '../MultiSelect.js'
 import { VirtualScroller } from '../VirtualScroller.js'
 import { CacheDetail } from './CacheDetail.js'
 import { CacheRow } from './CacheRow.js'
@@ -14,6 +15,7 @@ const CACHE_MIN_WIDTH = '410px'
 
 interface CacheTabProps {
   store: CacheStore
+  onExport: () => void
   onClear: () => void
 }
 
@@ -29,16 +31,27 @@ export const CacheTab: Component<CacheTabProps> = (props) => {
   return (
     <>
       <div class="cache-toolbar">
-        <select
-          class="toolbar-select"
-          value={props.store.collectionFilter()}
-          onChange={(e) => props.store.setCollectionFilter(e.currentTarget.value)}
-        >
-          <option value="">All collections</option>
-          {props.store.seenCollections().map((c) => (
-            <option value={c}>{c}</option>
-          ))}
-        </select>
+        <MultiSelect
+          class="collection-selector"
+          label="Collection"
+          values={props.store.seenCollections()}
+          selected={props.store.collectionFilter()}
+          onToggle={(v) => props.store.toggleCollectionFilter(v)}
+          onSelectAll={() => props.store.selectAllCollections()}
+          onClear={() => props.store.clearCollectionFilter()}
+        />
+        <MultiSelect
+          class="status-selector"
+          label="Status"
+          values={['active', 'evicted']}
+          selected={props.store.statusFilter()}
+          onToggle={(v) => props.store.toggleStatusFilter(v as 'active' | 'evicted')}
+          onSelectAll={() => props.store.selectAllStatuses()}
+          onClear={() => props.store.clearStatusFilter()}
+        />
+        <button class="toolbar-btn" onClick={() => props.onExport()}>
+          Export
+        </button>
         <button class="toolbar-btn" onClick={() => props.onClear()}>
           Clear
         </button>

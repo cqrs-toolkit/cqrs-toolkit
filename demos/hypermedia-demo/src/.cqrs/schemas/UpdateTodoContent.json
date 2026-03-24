@@ -1,0 +1,7 @@
+{
+  "$id": "http://localhost:3002/api/meta/schemas/urn/schema/demo.UpdateTodoContentData/1.0.0.json",
+  "additionalProperties": false,
+  "properties": { "content": { "minLength": 1, "type": "string" } },
+  "required": ["content"],
+  "type": "object"
+}

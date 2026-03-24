@@ -4,6 +4,7 @@ import { getPanelWidth, setPanelWidth } from '../../panelWidths.js'
 import type { SyncStore } from '../../stores/sync.js'
 import { useContainerWidth } from '../../useContainerWidth.js'
 import { DragHandle } from '../DragHandle.js'
+import { MultiSelect } from '../MultiSelect.js'
 import { VirtualScroller } from '../VirtualScroller.js'
 import { SyncDetail } from './SyncDetail.js'
 import { SyncRow } from './SyncRow.js'
@@ -14,6 +15,7 @@ const SYNC_MIN_WIDTH = '420px'
 
 interface SyncTabProps {
   store: SyncStore
+  onExport: () => void
   onClear: () => void
 }
 
@@ -37,15 +39,27 @@ export const SyncTab: Component<SyncTabProps> = (props) => {
         <Show when={props.store.wsState()}>
           {(ws) => <span class={`sync-ws-badge sync-ws-${ws()}`}>{ws()}</span>}
         </Show>
-        <div class="toolbar-filter">
-          <input
-            class="toolbar-input"
-            type="text"
-            placeholder="Filter type..."
-            value={props.store.typeFilter()}
-            onInput={(e) => props.store.setTypeFilter(e.currentTarget.value)}
-          />
-        </div>
+        <MultiSelect
+          class="type-selector"
+          label="Type"
+          values={props.store.seenTypes()}
+          selected={props.store.typeFilter()}
+          onToggle={(v) => props.store.toggleTypeFilter(v)}
+          onSelectAll={() => props.store.selectAllTypes()}
+          onClear={() => props.store.clearTypeFilter()}
+        />
+        <MultiSelect
+          class="scope-selector"
+          label="Scope"
+          values={props.store.seenScopes()}
+          selected={props.store.scopeFilter()}
+          onToggle={(v) => props.store.toggleScopeFilter(v)}
+          onSelectAll={() => props.store.selectAllScopes()}
+          onClear={() => props.store.clearScopeFilter()}
+        />
+        <button class="toolbar-btn" onClick={() => props.onExport()}>
+          Export
+        </button>
         <button class="toolbar-btn" onClick={() => props.onClear()}>
           Clear
         </button>

@@ -6,22 +6,22 @@
 
 # Function: createSendingCommand()
 
-> **createSendingCommand**\<`TPayload`\>(`overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TPayload`\>
+> **createSendingCommand**\<`TData`\>(`overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TData`\>
 
 Create a sending command.
 
 ## Type Parameters
 
-### TPayload
+### TData
 
-`TPayload` = `unknown`
+`TData` = `unknown`
 
 ## Parameters
 
 ### overrides?
 
-`Partial`\<[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TPayload`\>\> = `{}`
+`Partial`\<[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TData`\>\> = `{}`
 
 ## Returns
 
-[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TPayload`\>
+[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TData`\>

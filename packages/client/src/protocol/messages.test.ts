@@ -63,7 +63,7 @@ describe('message type guards', () => {
       const msg = {
         type: 'event',
         eventName: 'session:updated',
-        payload: { userId: '123' },
+        data: { userId: '123' },
       }
       expect(isEventMessage(msg)).toBe(true)
     })

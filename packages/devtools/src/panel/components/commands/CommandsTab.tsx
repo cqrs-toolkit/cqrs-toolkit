@@ -1,10 +1,12 @@
+import type { CommandStatus } from '@cqrs-toolkit/client'
 import type { Component } from 'solid-js'
 import { Show } from 'solid-js'
 import { getPanelWidth, setPanelWidth } from '../../panelWidths.js'
 import type { CommandsStore } from '../../stores/commands.js'
 import { useContainerWidth } from '../../useContainerWidth.js'
+import { ChipSelect } from '../ChipSelect.js'
 import { DragHandle } from '../DragHandle.js'
-import { StatusFilterChips } from '../StatusFilterChips.js'
+import { MultiSelect } from '../MultiSelect.js'
 import { VirtualScroller } from '../VirtualScroller.js'
 import { CommandDetail } from './CommandDetail.js'
 import { CommandRow } from './CommandRow.js'
@@ -17,7 +19,7 @@ interface CommandsTabProps {
   store: CommandsStore
   onRetry: (commandId: string) => void
   onCancel: (commandId: string) => void
-  onRefresh: () => void
+  onExport: () => void
   onClear: () => void
 }
 
@@ -33,12 +35,36 @@ export const CommandsTab: Component<CommandsTabProps> = (props) => {
   return (
     <>
       <div class="commands-toolbar">
-        <StatusFilterChips
-          active={props.store.filterStatuses()}
-          onToggle={(s) => props.store.toggleFilter(s)}
+        <ChipSelect
+          class="status-selector"
+          label="Status"
+          values={['pending', 'blocked', 'sending', 'succeeded', 'failed', 'cancelled']}
+          selected={props.store.filterStatuses()}
+          onToggle={(s) => props.store.toggleFilter(s as CommandStatus)}
+          onSelectAll={() => props.store.selectAllStatuses()}
+          onClear={() => props.store.clearStatuses()}
+          colorVar="status"
         />
-        <button class="toolbar-btn" onClick={() => props.onRefresh()}>
-          Refresh
+        <MultiSelect
+          class="type-selector"
+          label="Type"
+          values={props.store.seenTypes()}
+          selected={props.store.typeFilter()}
+          onToggle={(v) => props.store.toggleTypeFilter(v)}
+          onSelectAll={() => props.store.selectAllTypes()}
+          onClear={() => props.store.clearTypeFilter()}
+        />
+        <MultiSelect
+          class="service-selector"
+          label="Service"
+          values={props.store.seenServices()}
+          selected={props.store.serviceFilter()}
+          onToggle={(v) => props.store.toggleServiceFilter(v)}
+          onSelectAll={() => props.store.selectAllServices()}
+          onClear={() => props.store.clearServiceFilter()}
+        />
+        <button class="toolbar-btn" onClick={() => props.onExport()}>
+          Export
         </button>
         <button class="toolbar-btn" onClick={() => props.onClear()}>
           Clear

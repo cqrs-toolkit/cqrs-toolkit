@@ -136,6 +136,16 @@ export class EventProcessorRunner {
       }
     }
 
+    // Apply deferred _clientMetadata from reconciled entries. The old entry's
+    // metadata was captured before deletion; the new entry now exists after
+    // applyResult, so we can set it.
+    for (const meta of reconciliation.deferredMetadata) {
+      await this.readModelStore.setClientMetadata(meta.collection, meta.id, {
+        clientId: meta.clientId,
+        reconciledAt: Date.now(),
+      })
+    }
+
     // Re-apply anticipated overlays from dependent commands onto the new server-ID entry.
     // These were copied from the old stream before deletion, with client IDs replaced.
     for (const overlay of reconciliation.overlayEvents) {
@@ -248,8 +258,12 @@ export class EventProcessorRunner {
   private async reconcileAnticipatedCreate(
     event: ParsedEvent,
     processorResults: ProcessorResult[],
-  ): Promise<{ deletedEntries: string[]; overlayEvents: ParsedEvent[] }> {
-    const empty = { deletedEntries: [], overlayEvents: [] }
+  ): Promise<{
+    deletedEntries: string[]
+    overlayEvents: ParsedEvent[]
+    deferredMetadata: Array<{ collection: string; id: string; clientId: string }>
+  }> {
+    const empty = { deletedEntries: [], overlayEvents: [], deferredMetadata: [] }
 
     // Only reconcile non-anticipated events with a commandId
     if (event.persistence === 'Anticipated') return empty
@@ -261,6 +275,7 @@ export class EventProcessorRunner {
 
     const deletedEntries: string[] = []
     const overlayEvents: ParsedEvent[] = []
+    const deferredMetadata: Array<{ collection: string; id: string; clientId: string }> = []
 
     for (const result of processorResults) {
       for (const entry of tracked) {
@@ -281,16 +296,27 @@ export class EventProcessorRunner {
 
         // Step 2: Transform — replace client IDs with server IDs
         for (const oldEvent of oldStreamEvents) {
-          let dataJson = JSON.stringify(oldEvent.data)
-          dataJson = dataJson.replaceAll(trackedId, result.id)
           overlayEvents.push({
             ...oldEvent,
             streamId: oldEvent.streamId.replaceAll(trackedId, result.id),
-            data: JSON.parse(dataJson),
+            data: patchEntityId(oldEvent.data, trackedId, result.id),
           })
         }
 
-        // Step 3: Delete old entry
+        // Step 3: Capture _clientMetadata from old entry before deleting.
+        // The old entry has no serverData (purely anticipated), so it will be
+        // destroyed. The metadata is preserved and applied to the new server-ID
+        // entry after applyResult creates it (deferred).
+        const oldModel = await this.readModelStore.getById(trackedCollection, trackedId)
+        if (oldModel?._clientMetadata) {
+          deferredMetadata.push({
+            collection: result.collection,
+            id: result.id,
+            clientId: oldModel._clientMetadata.clientId,
+          })
+        }
+
+        // Step 4: Delete old entry
         await this.readModelStore.delete(trackedCollection, trackedId)
         deletedEntries.push(entry)
 
@@ -307,7 +333,7 @@ export class EventProcessorRunner {
       }
     }
 
-    return { deletedEntries, overlayEvents }
+    return { deletedEntries, overlayEvents, deferredMetadata }
   }
 
   /**
@@ -374,4 +400,14 @@ function isInvalidateSignal(value: unknown): value is InvalidateSignal {
     'invalidate' in value &&
     value.invalidate === true
   )
+}
+
+/**
+ * Replace the entity self-ID in event data (ddd-es convention: `data.id`).
+ * Returns a shallow copy with `id` replaced, or the original data unchanged if no match.
+ */
+function patchEntityId(data: unknown, oldId: string, newId: string): unknown {
+  if (typeof data !== 'object' || data === null) return data
+  if (!('id' in data) || data.id !== oldId) return data
+  return { ...data, id: newId }
 }

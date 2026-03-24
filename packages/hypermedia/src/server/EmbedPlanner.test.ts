@@ -328,9 +328,9 @@ function resourceDescriptor(id: string): ResourceDescriptor {
 }
 
 function makeSpecs() {
-  const itemResolve = vi.fn<any>()
-  const tagResolve = vi.fn<any>()
-  const categoryResolve = vi.fn<any>()
+  const itemResolve = vi.fn()
+  const tagResolve = vi.fn()
+  const categoryResolve = vi.fn()
 
   const itemSpec: AnySpec<unknown, unknown> = {
     className: 'test:Item',

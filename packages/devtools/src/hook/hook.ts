@@ -18,7 +18,6 @@
   const MSG_COMMAND_SNAPSHOT = 'cqrs-devtools-command-snapshot'
   const MSG_ACTIVATE = 'cqrs-devtools-activate'
   const MSG_DEACTIVATE = 'cqrs-devtools-deactivate'
-  const MSG_REQUEST_COMMAND_SNAPSHOT = 'cqrs-devtools-request-command-snapshot'
   const MSG_ACTION = 'cqrs-devtools-action'
   const MSG_REQUEST_STORAGE = 'cqrs-devtools-request-storage'
   const MSG_STORAGE_RESPONSE = 'cqrs-devtools-storage-response'
@@ -158,10 +157,6 @@
       case MSG_DEACTIVATE:
         active = false
         unsubscribe()
-        break
-
-      case MSG_REQUEST_COMMAND_SNAPSHOT:
-        sendCommandSnapshot()
         break
 
       case MSG_ACTION:

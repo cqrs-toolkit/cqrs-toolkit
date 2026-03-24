@@ -7,7 +7,12 @@
  * - Local changes are overlaid on server baseline
  */
 
-import type { IStorage, QueryOptions, ReadModelRecord } from '../../storage/IStorage.js'
+import type {
+  ClientMetadata,
+  IStorage,
+  QueryOptions,
+  ReadModelRecord,
+} from '../../storage/IStorage.js'
 
 /**
  * Read model store configuration.
@@ -32,6 +37,8 @@ export interface ReadModel<T = unknown> {
   serverData?: T
   /** Last update timestamp */
   updatedAt: number
+  /** Client-side identity tracking metadata. Undefined for server-seeded entries. */
+  _clientMetadata?: ClientMetadata
 }
 
 /**
@@ -63,8 +70,16 @@ export class ReadModelStore {
    */
   async getById<T>(collection: string, id: string): Promise<ReadModel<T> | undefined> {
     const record = await this.storage.getReadModel(collection, id)
-    if (!record) return undefined
-    return this.recordToReadModel<T>(record)
+    if (record) return this.recordToReadModel<T>(record)
+
+    // Reconciliation fallback: a client-generated ID may have been replaced by a
+    // server-assigned ID. Check the command ID mapping table for a redirect.
+    const mapping = await this.storage.getCommandIdMapping(id)
+    if (!mapping) return undefined
+
+    const reconciled = await this.storage.getReadModel(collection, mapping.serverId)
+    if (!reconciled) return undefined
+    return this.recordToReadModel<T>(reconciled)
   }
 
   /**
@@ -232,6 +247,7 @@ export class ReadModelStore {
       effectiveData,
       hasLocalChanges,
       updatedAt: now,
+      _clientMetadata: existing?._clientMetadata ?? null,
     }
 
     await this.storage.saveReadModel(record)
@@ -275,6 +291,7 @@ export class ReadModelStore {
       effectiveData,
       hasLocalChanges: true,
       updatedAt: now,
+      _clientMetadata: existing?._clientMetadata ?? null,
     }
 
     await this.storage.saveReadModel(record)
@@ -313,6 +330,7 @@ export class ReadModelStore {
       effectiveData,
       hasLocalChanges: true,
       updatedAt: Date.now(),
+      _clientMetadata: existing?._clientMetadata ?? null,
     }
 
     await this.storage.saveReadModel(record)
@@ -390,6 +408,7 @@ export class ReadModelStore {
       effectiveData,
       hasLocalChanges,
       updatedAt: Date.now(),
+      _clientMetadata: existing?._clientMetadata ?? null,
     }
 
     await this.storage.saveReadModel(record)
@@ -421,6 +440,20 @@ export class ReadModelStore {
   }
 
   /**
+   * Set client metadata on a read model entry.
+   * Used to track the original client-generated ID through reconciliation.
+   *
+   * @param collection - Collection name
+   * @param id - Entity ID
+   * @param metadata - Client metadata to set
+   */
+  async setClientMetadata(collection: string, id: string, metadata: ClientMetadata): Promise<void> {
+    const existing = await this.storage.getReadModel(collection, id)
+    if (!existing) return
+    await this.storage.saveReadModel({ ...existing, _clientMetadata: metadata })
+  }
+
+  /**
    * Delete a read model.
    *
    * @param collection - Collection name
@@ -444,6 +477,7 @@ export class ReadModelStore {
       hasLocalChanges: record.hasLocalChanges,
       serverData: record.serverData ? (JSON.parse(record.serverData) as T) : undefined,
       updatedAt: record.updatedAt,
+      _clientMetadata: record._clientMetadata ?? undefined,
     }
   }
 

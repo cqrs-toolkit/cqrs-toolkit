@@ -1,0 +1,62 @@
+{
+  "pulledAt": "2026-03-21T19:48:30.080Z",
+  "apidocUrl": "http://localhost:3002/api/meta/apidoc",
+  "schemas": [
+    {
+      "name": "CreateTodo",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/demo.CreateTodo/1.0.0.json",
+      "sha256": "b35ebace922c5aeba49906a62ea7001d063b43a0ff624d43295b0c47fb31779a"
+    },
+    {
+      "name": "UpdateTodoContent",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/demo.UpdateTodoContentData/1.0.0.json",
+      "sha256": "92351a34a58ae4ecb4dbf095b2755a2749bfc75664e0a0196f7526420b3a5dc0"
+    },
+    {
+      "name": "ChangeTodoStatus",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/demo.ChangeTodoStatusData/1.0.0.json",
+      "sha256": "04ef1fc93e1cf57f4f3e27d02b038fb1250db8e828b85796c8ea3d627c9ac273"
+    },
+    {
+      "name": "DeleteTodo",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/demo.DeleteTodoData/1.0.0.json",
+      "sha256": "534693ef6aef5672453521f7887615cd9aa27a92a3d0dcf821bbd8cea2612cdf"
+    },
+    {
+      "name": "CreateNote",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/demo.CreateNote/1.0.0.json",
+      "sha256": "e3b521d0ec13e77fd038cdb360e0061deb79d627b14353958fa21bcde4f851ff"
+    },
+    {
+      "name": "UpdateNoteTitle",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/demo.UpdateNoteTitleData/1.0.0.json",
+      "sha256": "d23dad05019d05e1768ae241bcbbb88589e2d2f41d924017231963bfed8d2eb5"
+    },
+    {
+      "name": "UpdateNoteBody",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/demo.UpdateNoteBodyData/1.0.0.json",
+      "sha256": "92bd022d75f6f9a1a348c8285a155760df66c1052e165c79a56f1189ba37e8d2"
+    },
+    {
+      "name": "DeleteNote",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/demo.DeleteNoteData/1.0.0.json",
+      "sha256": "6193f89a6c41575d6ae9187750b6c08138ae028aab1934468ccb836ed0003a8b"
+    },
+    {
+      "name": "CreateNotebook",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/demo.CreateNotebook/1.0.0.json",
+      "sha256": "c369b7d0ec74f9ada1a8853ad9d77f25cfce4926b228ad6ffbcfd43e5a3c6083"
+    },
+    {
+      "name": "UpdateNotebookName",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/demo.UpdateNotebookNameData/1.0.0.json",
+      "sha256": "3786072a7cca5167ee5b7736ca3f489fac7ded2537a107b427dea44cf627f88c"
+    },
+    {
+      "name": "DeleteNotebook",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/demo.DeleteNotebookData/1.0.0.json",
+      "sha256": "b8d387577782804946d1c0f4dadcb937cc07255df48c709fc01a92c6f00193c4"
+    }
+  ],
+  "commonSchemas": []
+}

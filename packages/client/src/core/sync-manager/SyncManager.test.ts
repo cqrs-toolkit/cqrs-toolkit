@@ -100,7 +100,7 @@ describe('SyncManager', () => {
         cacheKey,
       )
       await queryManager.hold(cacheKey)
-      await commandQueue.enqueue({ type: 'CreateTodo', payload: {} })
+      await commandQueue.enqueue({ type: 'CreateTodo', data: {} })
 
       // Start SyncManager so it subscribes to session:destroyed
       await syncManager.start()

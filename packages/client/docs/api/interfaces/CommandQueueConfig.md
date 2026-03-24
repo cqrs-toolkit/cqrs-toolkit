@@ -52,7 +52,7 @@ TTL for command ID mappings in milliseconds. Default: 5 minutes.
 
 > `optional` **handlerMetadata**: [`ICommandHandlerMetadata`](ICommandHandlerMetadata.md)
 
-Metadata lookup for command handler registrations (creates, revisionField).
+Metadata lookup for command handler registrations (creates config).
 
 ---
 

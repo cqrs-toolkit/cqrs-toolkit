@@ -6,22 +6,22 @@
 
 # Function: createPendingCommand()
 
-> **createPendingCommand**\<`TPayload`\>(`overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TPayload`\>
+> **createPendingCommand**\<`TData`\>(`overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TData`\>
 
 Create a pending command.
 
 ## Type Parameters
 
-### TPayload
+### TData
 
-`TPayload` = `unknown`
+`TData` = `unknown`
 
 ## Parameters
 
 ### overrides?
 
-`Partial`\<[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TPayload`\>\> = `{}`
+`Partial`\<[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TData`\>\> = `{}`
 
 ## Returns
 
-[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TPayload`\>
+[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TData`\>

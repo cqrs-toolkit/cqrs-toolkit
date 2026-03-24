@@ -14,6 +14,8 @@ import type { SanitizedEvent } from '../../shared/protocol.js'
 
 type CacheKeyStatus = 'active' | 'evicted'
 
+const ALL_STATUSES: CacheKeyStatus[] = ['active', 'evicted']
+
 export interface CacheKeyEntry {
   key: string
   collection: string
@@ -28,8 +30,14 @@ export interface CacheKeyEntry {
 export interface CacheStore {
   entries: () => CacheKeyEntry[]
   filteredEntries: () => CacheKeyEntry[]
-  collectionFilter: () => string
-  setCollectionFilter: (v: string) => void
+  collectionFilter: () => Set<string>
+  toggleCollectionFilter: (v: string) => void
+  selectAllCollections: () => void
+  clearCollectionFilter: () => void
+  statusFilter: () => Set<CacheKeyStatus>
+  toggleStatusFilter: (v: CacheKeyStatus) => void
+  selectAllStatuses: () => void
+  clearStatusFilter: () => void
   filterVersion: () => number
   seenCollections: () => string[]
   selectedId: () => string | undefined
@@ -37,6 +45,7 @@ export interface CacheStore {
   selectedEntry: () => CacheKeyEntry | undefined
   handleEvent: (event: SanitizedEvent) => void
   clear: () => void
+  exportJson: () => string
 }
 
 // ---------------------------------------------------------------------------
@@ -47,7 +56,8 @@ export function createCacheStore(): CacheStore {
   const [entries, setEntries] = createSignal<Map<string, CacheKeyEntry>>(new Map())
   const [seenCollections, setSeenCollections] = createSignal<Set<string>>(new Set())
 
-  const [collectionFilter, setCollectionFilterRaw] = createSignal('')
+  const [collectionFilter, setCollectionFilter] = createSignal<Set<string>>(new Set())
+  const [statusFilter, setStatusFilter] = createSignal<Set<CacheKeyStatus>>(new Set(ALL_STATUSES))
   const [filterVersion, setFilterVersion] = createSignal(0)
   const [selectedId, setSelectedId] = createSignal<string | undefined>()
 
@@ -62,19 +72,23 @@ export function createCacheStore(): CacheStore {
   const filteredEntries = createMemo(() => {
     const all = entriesList()
     const col = collectionFilter()
-    if (!col) return all
-    return all.filter((e) => e.collection === col)
+    const status = statusFilter()
+    return all.filter((e) => {
+      if (col.size > 0 && !col.has(e.collection)) return false
+      if (!status.has(e.status)) return false
+      return true
+    })
   })
 
   function handleEvent(event: SanitizedEvent): void {
     switch (event.type) {
       case 'cache:key-acquired': {
-        const key = event.payload['cacheKey'] as string | undefined
+        const key = event.data['cacheKey'] as string | undefined
         if (!key) return
 
-        const collection = (event.payload['collection'] as string) ?? ''
-        const params = event.payload['params'] as Record<string, unknown> | undefined
-        const evictionPolicy = (event.payload['evictionPolicy'] as string) ?? 'passive'
+        const collection = (event.data['collection'] as string) ?? ''
+        const params = event.data['params'] as Record<string, unknown> | undefined
+        const evictionPolicy = (event.data['evictionPolicy'] as string) ?? 'passive'
 
         const entry: CacheKeyEntry = {
           key,
@@ -103,7 +117,7 @@ export function createCacheStore(): CacheStore {
       }
 
       case 'cache:evicted': {
-        const key = event.payload['cacheKey'] as string | undefined
+        const key = event.data['cacheKey'] as string | undefined
         if (!key) return
 
         setEntries((prev) => {
@@ -114,7 +128,7 @@ export function createCacheStore(): CacheStore {
             ...existing,
             status: 'evicted',
             evictedAt: event.timestamp,
-            evictionReason: (event.payload['reason'] as string) ?? undefined,
+            evictionReason: (event.data['reason'] as string) ?? undefined,
           })
           return next
         })
@@ -125,7 +139,9 @@ export function createCacheStore(): CacheStore {
 
   function clear(): void {
     setEntries(new Map())
-    setSeenCollections(new Set<string>())
+    setSeenCollections(new Set<CacheKeyStatus>())
+    setCollectionFilter(new Set<CacheKeyStatus>())
+    setStatusFilter(new Set(ALL_STATUSES))
     setSelectedId(undefined)
   }
 
@@ -133,8 +149,39 @@ export function createCacheStore(): CacheStore {
     entries: entriesList,
     filteredEntries,
     collectionFilter,
-    setCollectionFilter(v) {
-      setCollectionFilterRaw(v)
+    toggleCollectionFilter(v) {
+      setCollectionFilter((prev) => {
+        const next = new Set(prev)
+        if (next.has(v)) next.delete(v)
+        else next.add(v)
+        return next
+      })
+      bumpFilterVersion()
+    },
+    selectAllCollections() {
+      setCollectionFilter(new Set(seenCollections()))
+      bumpFilterVersion()
+    },
+    clearCollectionFilter() {
+      setCollectionFilter(new Set<CacheKeyStatus>())
+      bumpFilterVersion()
+    },
+    statusFilter,
+    toggleStatusFilter(v) {
+      setStatusFilter((prev) => {
+        const next = new Set(prev)
+        if (next.has(v)) next.delete(v)
+        else next.add(v)
+        return next
+      })
+      bumpFilterVersion()
+    },
+    selectAllStatuses() {
+      setStatusFilter(new Set(ALL_STATUSES))
+      bumpFilterVersion()
+    },
+    clearStatusFilter() {
+      setStatusFilter(new Set<CacheKeyStatus>())
       bumpFilterVersion()
     },
     filterVersion,
@@ -148,5 +195,8 @@ export function createCacheStore(): CacheStore {
     },
     handleEvent,
     clear,
+    exportJson() {
+      return JSON.stringify(entriesList(), null, 2)
+    },
   }
 }

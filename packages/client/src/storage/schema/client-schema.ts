@@ -34,7 +34,7 @@ CREATE TABLE commands (
   command_id TEXT PRIMARY KEY,
   service TEXT NOT NULL,
   type TEXT NOT NULL,
-  payload TEXT NOT NULL,
+  data TEXT NOT NULL,
   status TEXT NOT NULL,
   depends_on TEXT NOT NULL DEFAULT '[]',
   blocked_by TEXT NOT NULL DEFAULT '[]',
@@ -44,7 +44,8 @@ CREATE TABLE commands (
   server_response TEXT,
   post_process TEXT,
   creates TEXT,
-  revision_field TEXT,
+  revision TEXT,
+  path TEXT,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 )`

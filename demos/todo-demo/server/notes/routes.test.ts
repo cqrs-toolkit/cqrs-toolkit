@@ -1,14 +1,16 @@
+import type { CommandSuccessResponse } from '@cqrs-toolkit/demo-base/common/shared'
+import type { Note } from '@cqrs-toolkit/demo-base/notes/shared'
 import type { FastifyInstance } from 'fastify'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import type { Note } from '../../shared/notes/types.js'
-import type { CommandSuccessResponse } from '../../shared/types.js'
 import { createApp } from '../bootstrap.js'
 
 let app: FastifyInstance
+let notebookId: string
 
 beforeAll(async () => {
   ;({ app } = createApp({ logLevel: 'silent' }))
   await app.ready()
+  notebookId = await createNotebookOn(app)
 })
 
 afterAll(async () => {
@@ -21,7 +23,10 @@ describe('POST /api/notes/commands', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/notes/commands',
-        payload: { type: 'CreateNote', payload: { title: 'My Note', body: 'Some content' } },
+        payload: {
+          type: 'CreateNote',
+          data: { notebookId, title: 'My Note', body: 'Some content' },
+        },
       })
 
       expect(res.statusCode).toBe(200)
@@ -31,6 +36,7 @@ describe('POST /api/notes/commands', () => {
       expect(body.events).toHaveLength(1)
       expect(body.events[0]?.type).toBe('NoteCreated')
       expect(body.events[0]?.data).toMatchObject({
+        notebookId,
         title: 'My Note',
         body: 'Some content',
       })
@@ -40,18 +46,21 @@ describe('POST /api/notes/commands', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/notes/commands',
-        payload: { type: 'CreateNote', payload: { title: '', body: 'content' } },
+        payload: {
+          type: 'CreateNote',
+          data: { notebookId, title: '', body: 'content' },
+        },
       })
 
       expect(res.statusCode).toBe(400)
-      expect(res.json()).toMatchObject({ message: 'Invalid payload' })
+      expect(res.json()).toMatchObject({ message: 'Invalid data' })
     })
 
     it('rejects missing body field', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/notes/commands',
-        payload: { type: 'CreateNote', payload: { title: 'test' } },
+        payload: { type: 'CreateNote', data: { notebookId, title: 'test' } },
       })
 
       expect(res.statusCode).toBe(400)
@@ -61,7 +70,10 @@ describe('POST /api/notes/commands', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/notes/commands',
-        payload: { type: 'CreateNote', payload: { title: 'Empty body note', body: '' } },
+        payload: {
+          type: 'CreateNote',
+          data: { notebookId, title: 'Empty body note', body: '' },
+        },
       })
 
       expect(res.statusCode).toBe(200)
@@ -77,7 +89,8 @@ describe('POST /api/notes/commands', () => {
         url: '/api/notes/commands',
         payload: {
           type: 'UpdateNoteTitle',
-          payload: { id: noteId, title: 'New Title', revision: nextExpectedRevision },
+          data: { id: noteId, title: 'New Title' },
+          revision: nextExpectedRevision,
         },
       })
 
@@ -93,7 +106,8 @@ describe('POST /api/notes/commands', () => {
         url: '/api/notes/commands',
         payload: {
           type: 'UpdateNoteTitle',
-          payload: { id: 'nonexistent', title: 'x', revision: '0' },
+          data: { id: 'nonexistent', title: 'x' },
+          revision: '0',
         },
       })
 
@@ -111,7 +125,8 @@ describe('POST /api/notes/commands', () => {
         url: '/api/notes/commands',
         payload: {
           type: 'UpdateNoteBody',
-          payload: { id: noteId, body: 'new body', revision: nextExpectedRevision },
+          data: { id: noteId, body: 'new body' },
+          revision: nextExpectedRevision,
         },
       })
 
@@ -127,7 +142,8 @@ describe('POST /api/notes/commands', () => {
         url: '/api/notes/commands',
         payload: {
           type: 'UpdateNoteBody',
-          payload: { id: 'nonexistent', body: 'x', revision: '0' },
+          data: { id: 'nonexistent', body: 'x' },
+          revision: '0',
         },
       })
 
@@ -144,7 +160,8 @@ describe('POST /api/notes/commands', () => {
         url: '/api/notes/commands',
         payload: {
           type: 'DeleteNote',
-          payload: { id: noteId, revision: nextExpectedRevision },
+          data: { id: noteId },
+          revision: nextExpectedRevision,
         },
       })
 
@@ -160,7 +177,7 @@ describe('POST /api/notes/commands', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/notes/commands',
-        payload: { type: 'DeleteNote', payload: { id: 'nonexistent', revision: '0' } },
+        payload: { type: 'DeleteNote', data: { id: 'nonexistent' }, revision: '0' },
       })
 
       expect(res.statusCode).toBe(404)
@@ -171,7 +188,7 @@ describe('POST /api/notes/commands', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/notes/commands',
-      payload: { type: 'FlyToMoon', payload: {} },
+      payload: { type: 'FlyToMoon', data: {} },
     })
 
     expect(res.statusCode).toBe(400)
@@ -181,11 +198,11 @@ describe('POST /api/notes/commands', () => {
 
 describe('GET /api/notes', () => {
   it('lists notes sorted by createdAt', async () => {
-    const freshApp = await createFreshApp()
-    const { id: id1 } = await createNoteOn(freshApp, 'First', 'a')
-    const { id: id2 } = await createNoteOn(freshApp, 'Second', 'b')
+    const fresh = await createFreshApp()
+    const { id: id1 } = await createNoteOn(fresh.app, fresh.notebookId, 'First', 'a')
+    const { id: id2 } = await createNoteOn(fresh.app, fresh.notebookId, 'Second', 'b')
 
-    const res = await freshApp.inject({ method: 'GET', url: '/api/notes' })
+    const res = await fresh.app.inject({ method: 'GET', url: '/api/notes' })
 
     expect(res.statusCode).toBe(200)
     const body = res.json<{ items: Note[]; nextCursor: string | null }>()
@@ -194,7 +211,7 @@ describe('GET /api/notes', () => {
     expect(body.items[1]?.id).toBe(id2)
     expect(body.nextCursor).toBeNull()
 
-    await freshApp.close()
+    await fresh.app.close()
   })
 })
 
@@ -228,7 +245,8 @@ describe('GET /api/notes/:id/events', () => {
       url: '/api/notes/commands',
       payload: {
         type: 'UpdateNoteTitle',
-        payload: { id: noteId, title: 'Updated', revision: nextExpectedRevision },
+        data: { id: noteId, title: 'Updated' },
+        revision: nextExpectedRevision,
       },
     })
 
@@ -242,16 +260,16 @@ describe('GET /api/notes/:id/events', () => {
 
 describe('GET /api/events/notes', () => {
   it('returns global note events', async () => {
-    const freshApp = await createFreshApp()
-    await createNoteOn(freshApp, 'Global event test', 'body')
+    const fresh = await createFreshApp()
+    await createNoteOn(fresh.app, fresh.notebookId, 'Global event test', 'body')
 
-    const res = await freshApp.inject({ method: 'GET', url: '/api/events/notes' })
+    const res = await fresh.app.inject({ method: 'GET', url: '/api/events/notes' })
 
     expect(res.statusCode).toBe(200)
     const body = res.json<{ events: unknown[]; nextCursor: string | null }>()
     expect(body.events.length).toBeGreaterThanOrEqual(1)
 
-    await freshApp.close()
+    await fresh.app.close()
   })
 })
 
@@ -263,25 +281,37 @@ interface CreateResult {
 }
 
 async function createNote(title: string, body: string): Promise<CreateResult> {
-  return createNoteOn(app, title, body)
+  return createNoteOn(app, notebookId, title, body)
 }
 
 async function createNoteOn(
   instance: FastifyInstance,
+  nbId: string,
   title: string,
   body: string,
 ): Promise<CreateResult> {
   const res = await instance.inject({
     method: 'POST',
     url: '/api/notes/commands',
-    payload: { type: 'CreateNote', payload: { title, body } },
+    payload: { type: 'CreateNote', data: { notebookId: nbId, title, body } },
   })
   const resBody = res.json<CommandSuccessResponse>()
   return { id: resBody.id, nextExpectedRevision: resBody.nextExpectedRevision }
 }
 
-async function createFreshApp(): Promise<FastifyInstance> {
+async function createNotebookOn(instance: FastifyInstance): Promise<string> {
+  const res = await instance.inject({
+    method: 'POST',
+    url: '/api/notebooks/commands',
+    payload: { type: 'CreateNotebook', data: { name: 'Test Notebook' } },
+  })
+  const resBody = res.json<CommandSuccessResponse>()
+  return resBody.id
+}
+
+async function createFreshApp(): Promise<{ app: FastifyInstance; notebookId: string }> {
   const { app: freshApp } = createApp({ logLevel: 'silent' })
   await freshApp.ready()
-  return freshApp
+  const nbId = await createNotebookOn(freshApp)
+  return { app: freshApp, notebookId: nbId }
 }

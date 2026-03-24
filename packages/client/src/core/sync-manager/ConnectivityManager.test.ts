@@ -55,7 +55,7 @@ describe('ConnectivityManager', () => {
 
       expect(events).toHaveLength(1)
       expect(events[0]).toMatchObject({
-        payload: { online: true },
+        data: { online: true },
       })
     })
   })
@@ -79,7 +79,7 @@ describe('ConnectivityManager', () => {
 
       expect(events).toHaveLength(1)
       expect(events[0]).toMatchObject({
-        payload: { online: false },
+        data: { online: false },
       })
     })
   })

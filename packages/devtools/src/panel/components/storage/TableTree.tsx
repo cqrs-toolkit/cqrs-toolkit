@@ -1,6 +1,9 @@
 import type { Component } from 'solid-js'
-import { For, Show } from 'solid-js'
+import { createEffect, createMemo, For } from 'solid-js'
 import type { StorageStore } from '../../stores/storage.js'
+import type { TreeNodeDef } from '../../stores/tree.js'
+import { TreeNode } from './TreeNode.js'
+import { TreeView } from './TreeView.js'
 
 interface TableTreeProps {
   store: StorageStore
@@ -9,47 +12,31 @@ interface TableTreeProps {
 }
 
 export const TableTree: Component<TableTreeProps> = (props) => {
+  const treeDefs = createMemo((): TreeNodeDef[] =>
+    props.store.tables().map((table) => ({
+      id: table.name,
+      label: table.name,
+      onActivate: () => props.onOpenTable(table.name),
+      children: [
+        {
+          id: `${table.name}:schema`,
+          label: 'Schema',
+          onActivate: () => props.onOpenDdl(table.name),
+        },
+      ],
+    })),
+  )
+
+  createEffect(() => {
+    props.store.treeStore.setNodes(treeDefs())
+  })
+
   return (
     <div class="storage-tree">
       <div class="storage-tree-header">Tables</div>
-      <div class="storage-tree-list">
-        <For each={props.store.tables()}>
-          {(table) => {
-            const expanded = () => props.store.expandedTable() === table.name
-
-            return (
-              <div class="storage-tree-item">
-                <div
-                  class={`storage-tree-name ${expanded() ? 'expanded' : ''}`}
-                  onDblClick={() => props.onOpenTable(table.name)}
-                  onMouseDown={(e) => {
-                    if (e.button === 1) {
-                      e.preventDefault()
-                      props.onOpenDdl(table.name)
-                    }
-                  }}
-                >
-                  <span
-                    class="storage-tree-arrow"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      props.store.toggleTable(table.name)
-                    }}
-                  >
-                    {expanded() ? '\u25BE' : '\u25B8'}
-                  </span>
-                  {table.name}
-                </div>
-                <Show when={expanded()}>
-                  <div class="storage-tree-action" onDblClick={() => props.onOpenDdl(table.name)}>
-                    Schema
-                  </div>
-                </Show>
-              </div>
-            )
-          }}
-        </For>
-      </div>
+      <TreeView store={props.store.treeStore}>
+        <For each={treeDefs()}>{(node) => <TreeNode node={node} depth={0} />}</For>
+      </TreeView>
     </div>
   )
 }

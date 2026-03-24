@@ -4,15 +4,15 @@
 
 [@cqrs-toolkit/client](../globals.md) / AnticipatedEvent
 
-# Interface: AnticipatedEvent\<TPayload\>
+# Interface: AnticipatedEvent\<TData\>
 
 Anticipated event produced by local command execution.
 
 ## Type Parameters
 
-### TPayload
+### TData
 
-`TPayload` = `unknown`
+`TData` = `unknown`
 
 ## Properties
 
@@ -30,7 +30,7 @@ Anticipated event produced by local command execution.
 
 ### data
 
-> **data**: `TPayload`
+> **data**: `TData`
 
 ---
 

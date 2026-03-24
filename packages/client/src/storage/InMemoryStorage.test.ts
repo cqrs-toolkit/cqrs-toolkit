@@ -203,7 +203,7 @@ describe('InMemoryStorage', () => {
       commandId: 'cmd-1',
       service: 'test-service',
       type: 'TestCommand',
-      payload: { foo: 'bar' },
+      data: { foo: 'bar' },
       status: 'pending',
       dependsOn: [],
       blockedBy: [],
@@ -387,6 +387,7 @@ describe('InMemoryStorage', () => {
       effectiveData: '{"title":"Test"}',
       hasLocalChanges: false,
       updatedAt: 1000,
+      _clientMetadata: null,
     }
 
     it('saves and retrieves read model', async () => {

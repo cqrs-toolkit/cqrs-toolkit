@@ -9,7 +9,7 @@
 > **marbleTest**(`fn`): () => `void`
 
 Create a marble test function.
-Uses node:assert's deepStrictEqual for comparison.
+Provides a convenient wrapper for TestScheduler.
 
 ## Parameters
 

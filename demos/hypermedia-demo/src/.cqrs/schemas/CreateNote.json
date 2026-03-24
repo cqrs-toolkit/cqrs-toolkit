@@ -1,0 +1,11 @@
+{
+  "$id": "http://localhost:3002/api/meta/schemas/urn/schema/demo.CreateNote/1.0.0.json",
+  "additionalProperties": false,
+  "properties": {
+    "body": { "type": "string" },
+    "notebookId": { "minLength": 1, "type": "string" },
+    "title": { "minLength": 1, "type": "string" }
+  },
+  "required": ["notebookId", "title", "body"],
+  "type": "object"
+}

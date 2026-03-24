@@ -40,6 +40,7 @@ describe('QueryManager', () => {
       effectiveData: JSON.stringify({ id: 'todo-1', title: 'First', done: false }),
       hasLocalChanges: false,
       updatedAt: 1000,
+      _clientMetadata: null,
     })
     await storage.saveReadModel({
       id: 'todo-2',
@@ -49,6 +50,7 @@ describe('QueryManager', () => {
       effectiveData: JSON.stringify({ id: 'todo-2', title: 'Second Modified', done: true }),
       hasLocalChanges: true,
       updatedAt: 2000,
+      _clientMetadata: null,
     })
   })
 
@@ -185,6 +187,7 @@ describe('QueryManager', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Updated', done: false }),
         hasLocalChanges: false,
         updatedAt: 3000,
+        _clientMetadata: null,
       })
 
       // Emit update notification
@@ -238,6 +241,7 @@ describe('QueryManager', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Stale', done: false }),
         hasLocalChanges: false,
         updatedAt: 3000,
+        _clientMetadata: null,
       })
       eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'] })
 
@@ -250,6 +254,7 @@ describe('QueryManager', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Latest', done: false }),
         hasLocalChanges: false,
         updatedAt: 4000,
+        _clientMetadata: null,
       })
       eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'] })
 

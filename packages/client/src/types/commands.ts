@@ -9,7 +9,7 @@ import {
   type Result,
   ValidationException,
 } from '@meticoeus/ddd-es'
-import type { CreateCommandConfig, PostProcessPlan } from './domain.js'
+import type { AutoRevision, CreateCommandConfig, PostProcessPlan } from './domain.js'
 import type { ValidationError } from './validation.js'
 
 /**
@@ -47,15 +47,17 @@ export interface CommandError {
 /**
  * Persisted command record.
  */
-export interface CommandRecord<TPayload = unknown, TResponse = unknown> {
+export interface CommandRecord<TData = unknown, TResponse = unknown> {
   /** Unique command identifier (client-generated) */
   commandId: string
   /** Target service for the command */
   service: string
   /** Command type (e.g., 'CreateTodo', 'UpdateUser') */
   type: string
-  /** Command payload */
-  payload: TPayload
+  /** Command data */
+  data: TData
+  /** URL path template values for command sender URL expansion. */
+  path?: unknown
   /** Current status */
   status: CommandStatus
   /** Commands this command depends on (must complete first) */
@@ -74,8 +76,8 @@ export interface CommandRecord<TPayload = unknown, TResponse = unknown> {
   postProcess?: PostProcessPlan
   /** Create command configuration (present only for commands that create aggregates) */
   creates?: CreateCommandConfig
-  /** Payload field name that holds the revision (from handler registration) */
-  revisionField?: string
+  /** Revision for optimistic concurrency. AutoRevision markers are resolved before send. */
+  revision?: string | AutoRevision
   /** Creation timestamp */
   createdAt: number
   /** Last update timestamp */
@@ -85,11 +87,15 @@ export interface CommandRecord<TPayload = unknown, TResponse = unknown> {
 /**
  * Command to enqueue.
  */
-export interface EnqueueCommand<TPayload = unknown> {
+export interface EnqueueCommand<TData = unknown> {
   /** Command type */
   type: string
-  /** Command payload */
-  payload: TPayload
+  /** Command data (HTTP body payload) */
+  data: TData
+  /** URL path template values (e.g. `{ id: '...' }`). Used by the command sender for URL expansion. */
+  path?: unknown
+  /** Revision for optimistic concurrency (mutate commands). Absent for creates. */
+  revision?: string | AutoRevision
   /** Target service (optional, defaults to primary) */
   service?: string
   /** Commands this depends on (optional) */
@@ -120,7 +126,7 @@ export interface WaitOptions {
 export interface EnqueueAndWaitOptions extends EnqueueOptions, WaitOptions {}
 
 /**
- * Successful enqueue payload.
+ * Successful enqueue data.
  */
 export interface EnqueueSuccess<TEvent> {
   /** Assigned command ID */
@@ -179,7 +185,7 @@ export type CommandCompletionResult =
   | CompletionTimeout
 
 /**
- * Successful enqueueAndWait payload.
+ * Successful enqueueAndWait data.
  */
 export interface EnqueueAndWaitSuccess<TResponse> {
   /** Assigned command ID */

@@ -1,0 +1,51 @@
+{
+  "name": "@cqrs-toolkit/hypermedia-client",
+  "version": "0.1.0",
+  "description": "Hypermedia-driven command sender, schema validators, and CLI for CQRS client auto-wiring",
+  "keywords": [
+    "cqrs",
+    "hypermedia",
+    "hydra",
+    "hateoas",
+    "command-sender"
+  ],
+  "license": "MIT",
+  "author": "Ontel, LLC",
+  "main": "dist/src/index.js",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    },
+    "./config": {
+      "types": "./dist/src/config.d.ts",
+      "import": "./dist/src/config.js"
+    }
+  },
+  "bin": {
+    "cqrs-pull": "./bin/cqrs-pull.js"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "compile": "tsc -p tsconfig.json --noEmit",
+    "docs": "typedoc",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@types/json-schema": "^7.0.15",
+    "@typescript-eslint/typescript-estree": "^8.57.1",
+    "magic-string": "^0.30.21"
+  },
+  "peerDependencies": {
+    "@cqrs-toolkit/client": ">=0.1.0",
+    "@meticoeus/ddd-es": ">=0.7.2",
+    "ajv": ">=8.0.0"
+  }
+}

@@ -54,7 +54,7 @@ Should be called when the client is destroyed.
 
 ### emit()
 
-> **emit**\<`T`\>(`type`, `payload`): `void`
+> **emit**\<`T`\>(`type`, `data`): `void`
 
 Emit a library event.
 
@@ -72,11 +72,11 @@ Emit a library event.
 
 Event type
 
-##### payload
+##### data
 
-[`LibraryEventPayloads`](../interfaces/LibraryEventPayloads.md)\[`T`\]
+[`LibraryEventData`](../interfaces/LibraryEventData.md)\[`T`\]
 
-Event payload
+Event data
 
 #### Returns
 
@@ -86,7 +86,7 @@ Event payload
 
 ### emitDebug()
 
-> **emitDebug**\<`T`\>(`type`, `payload`): `void`
+> **emitDebug**\<`T`\>(`type`, `data`): `void`
 
 Emit a debug-only library event.
 No-op when `this.debug` is false. When enabled, emits with `debug: true`
@@ -106,11 +106,11 @@ on the envelope so consumers can distinguish debug events.
 
 Event type
 
-##### payload
+##### data
 
-[`LibraryEventPayloads`](../interfaces/LibraryEventPayloads.md)\[`T`\]
+[`LibraryEventData`](../interfaces/LibraryEventData.md)\[`T`\]
 
-Event payload
+Event data
 
 #### Returns
 

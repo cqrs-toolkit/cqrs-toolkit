@@ -41,7 +41,7 @@ export const CommandDetail: Component<CommandDetailProps> = (props) => {
       {/* Payload */}
       <div class="detail-section">
         <h4>Payload</h4>
-        <pre class="detail-json">{formatJson(props.command.payload)}</pre>
+        <pre class="detail-json">{formatJson(props.command.data)}</pre>
       </div>
 
       {/* Error */}
@@ -80,9 +80,9 @@ export const CommandDetail: Component<CommandDetailProps> = (props) => {
                 <li>
                   <span class="event-type">{evt.type}</span>
                   <span class="event-time">{formatTimestamp(evt.timestamp)}</span>
-                  <Show when={Object.keys(evt.payload).length > 0}>
+                  <Show when={Object.keys(evt.data).length > 0}>
                     <pre class="detail-json" style="margin-top: 2px">
-                      {formatJson(evt.payload)}
+                      {formatJson(evt.data)}
                     </pre>
                   </Show>
                 </li>

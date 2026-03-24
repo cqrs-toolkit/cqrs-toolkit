@@ -397,14 +397,14 @@ export class WorkerMessageHandler {
    * Broadcast an event to all connected windows.
    *
    * @param eventName - Event name
-   * @param payload - Event payload
+   * @param data - Event data
    * @param debug - Whether this is a debug-only event
    */
-  broadcastEvent(eventName: string, payload: unknown, debug?: boolean): void {
+  broadcastEvent(eventName: string, data: unknown, debug?: boolean): void {
     const message: EventMessage = {
       type: 'event',
       eventName,
-      payload,
+      data,
       debug,
     }
 

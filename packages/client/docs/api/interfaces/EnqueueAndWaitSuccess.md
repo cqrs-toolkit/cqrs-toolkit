@@ -6,7 +6,7 @@
 
 # Interface: EnqueueAndWaitSuccess\<TResponse\>
 
-Successful enqueueAndWait payload.
+Successful enqueueAndWait data.
 
 ## Type Parameters
 

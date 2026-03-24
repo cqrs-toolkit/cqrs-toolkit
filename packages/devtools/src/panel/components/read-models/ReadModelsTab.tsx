@@ -4,6 +4,7 @@ import { getPanelWidth, setPanelWidth } from '../../panelWidths.js'
 import type { ReadModelsStore } from '../../stores/readModels.js'
 import { useContainerWidth } from '../../useContainerWidth.js'
 import { DragHandle } from '../DragHandle.js'
+import { MultiSelect } from '../MultiSelect.js'
 import { VirtualScroller } from '../VirtualScroller.js'
 import { ReadModelDetail } from './ReadModelDetail.js'
 import { ReadModelRow } from './ReadModelRow.js'
@@ -14,6 +15,7 @@ const READMODELS_MIN_WIDTH = '370px'
 
 interface ReadModelsTabProps {
   store: ReadModelsStore
+  onExport: () => void
   onClear: () => void
 }
 
@@ -29,15 +31,18 @@ export const ReadModelsTab: Component<ReadModelsTabProps> = (props) => {
   return (
     <>
       <div class="rm-toolbar">
-        <div class="toolbar-filter">
-          <input
-            class="toolbar-input"
-            type="text"
-            placeholder="Filter collection..."
-            value={props.store.collectionFilter()}
-            onInput={(e) => props.store.setCollectionFilter(e.currentTarget.value)}
-          />
-        </div>
+        <MultiSelect
+          class="collection-selector"
+          label="Collection"
+          values={props.store.seenCollections()}
+          selected={props.store.collectionFilter()}
+          onToggle={(v) => props.store.toggleCollectionFilter(v)}
+          onSelectAll={() => props.store.selectAllCollections()}
+          onClear={() => props.store.clearCollectionFilter()}
+        />
+        <button class="toolbar-btn" onClick={() => props.onExport()}>
+          Export
+        </button>
         <button class="toolbar-btn" onClick={() => props.onClear()}>
           Clear
         </button>

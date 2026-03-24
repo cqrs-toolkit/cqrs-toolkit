@@ -50,23 +50,34 @@ function extensionBuildPlugin(): Plugin {
   }
 }
 
-export default defineConfig({
-  root,
-  plugins: [solidPlugin(), extensionBuildPlugin()],
-  build: {
-    outDir: 'dist',
-    emptyOutDir: true,
-    rollupOptions: {
-      input: resolve(root, 'src/panel/index.tsx'),
-      output: {
-        entryFileNames: 'panel.js',
-        assetFileNames: 'panel.[ext]',
+export default defineConfig(({ mode }) => {
+  return {
+    root,
+    plugins: [solidPlugin(), extensionBuildPlugin()],
+    resolve: {
+      conditions: mode === 'test' ? ['development', 'browser'] : [],
+    },
+    ssr: {
+      resolve: {
+        conditions: mode === 'test' ? ['development', 'browser'] : [],
+        noExternal: ['solid-js'],
       },
     },
-  },
-  test: {
-    name: 'unit-devtools',
-    environment: 'node',
-    includeSource: ['src/*.test.ts', 'src/**/*.test.ts'],
-  },
+    build: {
+      outDir: 'dist',
+      emptyOutDir: true,
+      rollupOptions: {
+        input: resolve(root, 'src/panel/index.tsx'),
+        output: {
+          entryFileNames: 'panel.js',
+          assetFileNames: 'panel.[ext]',
+        },
+      },
+    },
+    test: {
+      name: 'unit-devtools',
+      environment: 'jsdom',
+      includeSource: ['src/*.test.ts', 'src/*.test.tsx', 'src/**/*.test.ts', 'src/**/*.test.tsx'],
+    },
+  }
 })

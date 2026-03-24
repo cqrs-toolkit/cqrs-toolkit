@@ -5,7 +5,7 @@
 import type { IQueryManager, QueryManagerQueryOptions } from '@cqrs-toolkit/client'
 import { onCleanup } from 'solid-js'
 import { createStore, reconcile } from 'solid-js/store'
-import type { Identifiable, ListQueryOptions, ListQueryState } from './types.js'
+import type { Identifiable, ListQueryOptions, ListQueryState, ReconciledId } from './types.js'
 
 interface ListQueryStore<T extends Identifiable> {
   items: T[]
@@ -13,6 +13,7 @@ interface ListQueryStore<T extends Identifiable> {
   total: number
   hasLocalChanges: boolean
   error: unknown
+  reconciled: ReconciledId[]
 }
 
 /**
@@ -23,10 +24,15 @@ interface ListQueryStore<T extends Identifiable> {
  * Uses `createStore` + `reconcile` for fine-grained reactivity and
  * stable `<For>` identity.
  *
+ * When an entity's ID is reconciled (client temp ID → server ID), the store
+ * pre-mutates existing items so `reconcile()` preserves Solid store identity.
+ * The `reconciled` field exposes these mappings for consumers holding entity
+ * IDs in external signals (selection state, URL params).
+ *
  * @param queryManager - The query manager (should be StableRefQueryManager-wrapped for best results)
  * @param collection - Collection name
  * @param options - Query options (scope, limit, offset)
- * @returns Reactive store with items, loading, total, hasLocalChanges, error
+ * @returns Reactive store with items, loading, total, hasLocalChanges, error, reconciled
  */
 export function createListQuery<T extends Identifiable>(
   queryManager: IQueryManager,
@@ -39,6 +45,7 @@ export function createListQuery<T extends Identifiable>(
     total: 0,
     hasLocalChanges: false,
     error: undefined,
+    reconciled: [],
   }
 
   const [store, setStore] = createStore<ListQueryStore<T>>(initialState)
@@ -74,10 +81,38 @@ export function createListQuery<T extends Identifiable>(
         cacheKey = result.cacheKey
       }
 
+      // Build clientId→serverId map from metadata for items that have been reconciled.
+      // An item has been reconciled when its _clientMetadata.clientId differs from its id.
+      const idRemaps = new Map<string, string>()
+      for (const m of result.meta) {
+        if (m.clientId && m.clientId !== m.id) {
+          idRemaps.set(m.clientId, m.id)
+        }
+      }
+
+      // Pre-mutate existing store items whose id matches a reconciled clientId.
+      // This makes reconcile() see the same item with the new id — preserving
+      // the Solid store object reference and <For> DOM node identity.
+      if (idRemaps.size > 0) {
+        for (const [i, item] of store.items.entries()) {
+          const newId = idRemaps.get(item.id)
+          if (typeof newId === 'string') {
+            setStore('items', i, { ...item, id: newId } as T)
+          }
+        }
+      }
+
       setStore('items', reconcile(result.data, { key: 'id', merge: true }))
       setStore('total', result.total)
       setStore('hasLocalChanges', result.hasLocalChanges)
       setStore('error', undefined)
+
+      // Expose reconciliation mappings for consumers holding entity IDs externally.
+      const reconciled: ReconciledId[] = []
+      for (const [clientId, serverId] of idRemaps) {
+        reconciled.push({ clientId, serverId })
+      }
+      setStore('reconciled', reconciled)
 
       if (!initialFetchDone) {
         initialFetchDone = true

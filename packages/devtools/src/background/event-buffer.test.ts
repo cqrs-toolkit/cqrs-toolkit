@@ -3,7 +3,7 @@ import type { SanitizedEvent, SerializedConfig } from '../shared/protocol.js'
 import { EventBuffer } from './event-buffer.js'
 
 function makeEvent(type: string, timestamp = Date.now()): SanitizedEvent {
-  return { type, payload: {}, timestamp }
+  return { type, data: {}, timestamp }
 }
 
 const FAKE_CONFIG: SerializedConfig = {

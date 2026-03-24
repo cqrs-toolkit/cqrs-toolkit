@@ -1,0 +1,159 @@
+import type { CommandSuccessResponse } from '@cqrs-toolkit/demo-base/common/shared'
+import type { APIRequestContext } from '@playwright/test'
+import { expect, test, url } from '../../../e2e-fixtures.js'
+import {
+  getDashNoteTexts,
+  gotoWithWsSubscribed,
+  waitForDashNoteCount,
+  waitForWsDisconnected,
+  waitForWsReconnection,
+} from '../../../e2e-helpers.js'
+
+const API = 'http://localhost:3001/api'
+
+test.beforeEach(async ({ request }) => {
+  await request.post(`${API}/test/reset`)
+})
+
+/** Create a notebook via API and return its ID. */
+async function createNotebookViaApi(request: APIRequestContext): Promise<string> {
+  const res = await request.post(`${API}/notebooks/commands`, {
+    data: { type: 'CreateNotebook', data: { name: 'API Notebook' } },
+  })
+  expect(res.ok()).toBe(true)
+  const body = (await res.json()) as CommandSuccessResponse
+  return body.id
+}
+
+test('recovers missed events after server WS outage', async ({ page, request }) => {
+  const notebookId = await createNotebookViaApi(request)
+
+  // 1. Open dashboard with WS → create note → verify visible
+  await gotoWithWsSubscribed(page, url('/', { mode: 'online-only', ws: true }))
+
+  const createRes = await request.post(`${API}/notes/commands`, {
+    data: { type: 'CreateNote', data: { notebookId, title: 'Original', body: '' } },
+  })
+  expect(createRes.ok()).toBe(true)
+  const createBody = (await createRes.json()) as CommandSuccessResponse
+  const noteId = createBody.id
+  const revAfterCreate = createBody.nextExpectedRevision
+
+  await waitForDashNoteCount(page, 1)
+  expect(await getDashNoteTexts(page)).toEqual(['Original'])
+
+  // 2. Kill WS server-side — client misses subsequent events
+  await request.post(`${API}/test/ws-pause`)
+  await waitForWsDisconnected(page)
+
+  // 3. Update note title via API — client does NOT receive this event
+  const updateRes = await request.post(`${API}/notes/commands`, {
+    data: {
+      type: 'UpdateNoteTitle',
+      data: { id: noteId, title: 'Recovered' },
+      revision: revAfterCreate,
+    },
+  })
+  expect(updateRes.ok()).toBe(true)
+  const updateBody = (await updateRes.json()) as CommandSuccessResponse
+  const revAfterTitle = updateBody.nextExpectedRevision
+
+  // 4. Resume WS server-side — client reconnects via 5s timer
+  await request.post(`${API}/test/ws-resume`)
+  await waitForWsReconnection(page)
+
+  // 5. Update note body via API — client receives via WS, detects revision gap
+  const bodyRes = await request.post(`${API}/notes/commands`, {
+    data: {
+      type: 'UpdateNoteBody',
+      data: { id: noteId, body: 'some body' },
+      revision: revAfterTitle,
+    },
+  })
+  expect(bodyRes.ok()).toBe(true)
+
+  // 6. Gap detection triggers fetch of missing events — title should update
+  await expect(page.locator('.dash-note-title', { hasText: 'Recovered' })).toBeVisible({
+    timeout: 10_000,
+  })
+
+  // 7. Verify WS still works — create another note
+  const secondRes = await request.post(`${API}/notes/commands`, {
+    data: { type: 'CreateNote', data: { notebookId, title: 'After-Gap', body: '' } },
+  })
+  expect(secondRes.ok()).toBe(true)
+
+  await waitForDashNoteCount(page, 2)
+  expect(await getDashNoteTexts(page)).toContain('After-Gap')
+})
+
+test('recovers missed events after client network loss', async ({ page, request, mode }) => {
+  const notebookId = await createNotebookViaApi(request)
+
+  // 1. Open dashboard with WS → create note → verify visible
+  await gotoWithWsSubscribed(page, url('/', { mode, ws: true }))
+
+  const createRes = await request.post(`${API}/notes/commands`, {
+    data: { type: 'CreateNote', data: { notebookId, title: 'Original', body: '' } },
+  })
+  expect(createRes.ok()).toBe(true)
+  const createBody = (await createRes.json()) as CommandSuccessResponse
+  const noteId = createBody.id
+  const revAfterCreate = createBody.nextExpectedRevision
+
+  await waitForDashNoteCount(page, 1)
+  expect(await getDashNoteTexts(page)).toEqual(['Original'])
+
+  // 2. Kill WS server-side, then set page offline
+  //    Order matters: ws-pause before setOffline so the server is ready
+  //    to reject before any reconnect attempt triggered by the offline event.
+  await request.post(`${API}/test/ws-pause`)
+  await waitForWsDisconnected(page)
+  await page.context().setOffline(true)
+
+  // 3. Update note title via API — client does NOT receive this event
+  const updateRes = await request.post(`${API}/notes/commands`, {
+    data: {
+      type: 'UpdateNoteTitle',
+      data: { id: noteId, title: 'Recovered' },
+      revision: revAfterCreate,
+    },
+  })
+  expect(updateRes.ok()).toBe(true)
+  const updateBody = (await updateRes.json()) as CommandSuccessResponse
+  const revAfterTitle = updateBody.nextExpectedRevision
+
+  // 4. Resume WS server-side, then restore network
+  //    Order matters: ws-resume before setOffline(false) so the server
+  //    is accepting before the `online` event triggers an immediate reconnect.
+  await request.post(`${API}/test/ws-resume`)
+  await page.context().setOffline(false)
+
+  // Online-only: `online` event → immediate reconnect
+  // Worker modes: `setOffline` doesn't affect worker, falls back to 5s timer
+  await waitForWsReconnection(page)
+
+  // 5. Update note body via API — client receives via WS, detects revision gap
+  const bodyRes = await request.post(`${API}/notes/commands`, {
+    data: {
+      type: 'UpdateNoteBody',
+      data: { id: noteId, body: 'some body' },
+      revision: revAfterTitle,
+    },
+  })
+  expect(bodyRes.ok()).toBe(true)
+
+  // 6. Gap detection triggers fetch of missing events — title should update
+  await expect(page.locator('.dash-note-title', { hasText: 'Recovered' })).toBeVisible({
+    timeout: 10_000,
+  })
+
+  // 7. Verify WS still works — create another note
+  const secondRes = await request.post(`${API}/notes/commands`, {
+    data: { type: 'CreateNote', data: { notebookId, title: 'After-Gap', body: '' } },
+  })
+  expect(secondRes.ok()).toBe(true)
+
+  await waitForDashNoteCount(page, 2)
+  expect(await getDashNoteTexts(page)).toContain('After-Gap')
+})

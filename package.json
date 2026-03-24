@@ -8,14 +8,20 @@
   "author": "Ontel, LLC",
   "type": "module",
   "scripts": {
-    "build": "tsc --build tsconfig.build.json && npm run compile --workspaces --if-present && npm run build --workspace=packages/devtools",
+    "build": "make build",
+    "vitest": "vitest",
     "test": "vitest --project unit-*",
     "test:run": "vitest --project unit-* --run",
     "dev": "npm run dev -w @cqrs-toolkit/todo-demo",
+    "dev:hm": "npm run dev -w @cqrs-toolkit/hypermedia-demo",
+    "server": "npm run server -w @cqrs-toolkit/todo-demo",
+    "server:hm": "npm run server -w @cqrs-toolkit/hypermedia-demo",
     "docs": "npm run docs --workspaces --if-present",
     "format:all": "prettier --write packages demos",
-    "test:e2e": "npx playwright test --config demos/todo-demo/playwright.config.ts",
-    "test:extension": "npx playwright test --config demos/todo-demo/playwright.extension.config.ts",
+    "test:e2e": "npm run test:e2e:todo && npm run test:e2e:hm && npm run test:e2e:extension",
+    "test:e2e:todo": "npx playwright test --config demos/todo-demo/playwright.config.ts",
+    "test:e2e:hm": "npx playwright test --config demos/hypermedia-demo/playwright.config.ts",
+    "test:e2e:extension": "npx playwright test --config demos/todo-demo/playwright.extension.config.ts",
     "format": "./scripts/format-changed.sh",
     "precommit": "npm run docs && git add . && npm run format && npm run test:run",
     "postinstall": "node .husky/install.mjs"
@@ -34,7 +40,7 @@
     "typedoc-plugin-markdown": "^4.10.0",
     "typescript": "^5.6.3",
     "vite": "^7.0.0",
-    "vitest": "^2.1.3"
+    "vitest": "^4.1.0"
   },
   "peerDependencies": {
     "@meticoeus/ddd-es": ">=0.7.2"

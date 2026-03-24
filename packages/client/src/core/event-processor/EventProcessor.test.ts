@@ -4,6 +4,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
+import type { IAnticipatedEventHandler } from '../command-queue/CommandQueue.js'
 import { EventBus } from '../events/EventBus.js'
 import { ReadModelStore } from '../read-model-store/ReadModelStore.js'
 import { EventProcessorRegistry } from './EventProcessorRegistry.js'
@@ -257,6 +258,7 @@ describe('EventProcessorRunner', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Original', done: false }),
         hasLocalChanges: false,
         updatedAt: Date.now(),
+        _clientMetadata: null,
       })
 
       registry.register({
@@ -292,6 +294,7 @@ describe('EventProcessorRunner', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test' }),
         hasLocalChanges: false,
         updatedAt: Date.now(),
+        _clientMetadata: null,
       })
 
       registry.register({
@@ -326,6 +329,7 @@ describe('EventProcessorRunner', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', count: 5 }),
         hasLocalChanges: false,
         updatedAt: Date.now(),
+        _clientMetadata: null,
       })
 
       let capturedContext: ProcessorContext | undefined
@@ -398,6 +402,7 @@ describe('EventProcessorRunner', () => {
         effectiveData: JSON.stringify({ id: 'counter-1', value: 10 }),
         hasLocalChanges: false,
         updatedAt: Date.now(),
+        _clientMetadata: null,
       })
 
       registry.register({
@@ -484,7 +489,7 @@ describe('EventProcessorRunner', () => {
 
       expect(events).toHaveLength(1)
       expect(events[0]).toMatchObject({
-        payload: { collection: 'todos', ids: ['todo-1'] },
+        data: { collection: 'todos', ids: ['todo-1'] },
       })
     })
 
@@ -524,6 +529,7 @@ describe('EventProcessorRunner', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Optimistic Title', done: false }),
         hasLocalChanges: true,
         updatedAt: Date.now(),
+        _clientMetadata: null,
       })
 
       registry.register({
@@ -569,6 +575,7 @@ describe('EventProcessorRunner', () => {
         }),
         hasLocalChanges: true,
         updatedAt: Date.now(),
+        _clientMetadata: null,
       })
 
       registry.register({
@@ -607,6 +614,7 @@ describe('EventProcessorRunner', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test' }),
         hasLocalChanges: false,
         updatedAt: Date.now(),
+        _clientMetadata: null,
       })
 
       // Processor returns the same data
@@ -705,6 +713,243 @@ describe('EventProcessorRunner', () => {
       expect(result.invalidated).toBe(true)
       expect(result.updatedIds).toContain('items:item-1')
       expect(result.updatedIds).toContain('items:item-2')
+    })
+  })
+
+  describe('reconcileAnticipatedCreate', () => {
+    const CLIENT_ID = 'client-abc-123'
+    const SERVER_ID = 'server-xyz-789'
+
+    function createAnticipatedEventHandler(): IAnticipatedEventHandler & {
+      getTrackedEntries: ReturnType<typeof vi.fn>
+      getAnticipatedEventsForStream: ReturnType<typeof vi.fn>
+    } {
+      return {
+        cache: vi.fn().mockResolvedValue(undefined),
+        cleanup: vi.fn().mockResolvedValue(undefined),
+        regenerate: vi.fn().mockResolvedValue(undefined),
+        getTrackedEntries: vi.fn().mockReturnValue(undefined),
+        getAnticipatedEventsForStream: vi.fn().mockResolvedValue([]),
+        clearAll: vi.fn().mockResolvedValue(undefined),
+      }
+    }
+
+    function registerCreateProcessor(): void {
+      registry.register({
+        eventTypes: 'TodoCreated',
+        processor: (event: { id: string; title: string }): ProcessorResult => ({
+          collection: 'todos',
+          id: event.id,
+          update: { type: 'set', data: event },
+          isServerUpdate: true,
+        }),
+      })
+    }
+
+    function registerUpdateProcessor(): void {
+      registry.register({
+        eventTypes: 'TodoTitleUpdated',
+        processor: (event: { id: string; title: string }): ProcessorResult => ({
+          collection: 'todos',
+          id: event.id,
+          update: { type: 'merge', data: { title: event.title } },
+          isServerUpdate: false,
+        }),
+      })
+    }
+
+    it('skips reconciliation for anticipated events', async () => {
+      const handler = createAnticipatedEventHandler()
+      runner.setAnticipatedEventHandler(handler)
+      registerCreateProcessor()
+
+      const event = makeParsedEvent({
+        type: 'TodoCreated',
+        persistence: 'Anticipated',
+        commandId: 'cmd-1',
+        data: { id: CLIENT_ID, title: 'Test' },
+      })
+
+      await runner.processEvent(event)
+
+      expect(handler.getTrackedEntries).not.toHaveBeenCalled()
+    })
+
+    it('skips reconciliation when no commandId', async () => {
+      const handler = createAnticipatedEventHandler()
+      runner.setAnticipatedEventHandler(handler)
+      registerCreateProcessor()
+
+      const event = makeParsedEvent({
+        type: 'TodoCreated',
+        data: { id: SERVER_ID, title: 'Test' },
+        // no commandId
+      })
+
+      await runner.processEvent(event)
+
+      expect(handler.getTrackedEntries).not.toHaveBeenCalled()
+    })
+
+    it('skips reconciliation when no tracked entries', async () => {
+      const handler = createAnticipatedEventHandler()
+      handler.getTrackedEntries.mockReturnValue(undefined)
+      runner.setAnticipatedEventHandler(handler)
+      registerCreateProcessor()
+
+      const event = makeParsedEvent({
+        type: 'TodoCreated',
+        commandId: 'cmd-1',
+        data: { id: SERVER_ID, title: 'Test' },
+      })
+
+      await runner.processEvent(event)
+
+      expect(handler.getTrackedEntries).toHaveBeenCalledWith('cmd-1')
+      expect(handler.getAnticipatedEventsForStream).not.toHaveBeenCalled()
+    })
+
+    it('skips reconciliation when tracked ID matches server ID', async () => {
+      const handler = createAnticipatedEventHandler()
+      handler.getTrackedEntries.mockReturnValue([`todos:${SERVER_ID}`])
+      runner.setAnticipatedEventHandler(handler)
+      registerCreateProcessor()
+
+      const event = makeParsedEvent({
+        type: 'TodoCreated',
+        commandId: 'cmd-1',
+        streamId: `Todo-${SERVER_ID}`,
+        data: { id: SERVER_ID, title: 'Test' },
+      })
+
+      await runner.processEvent(event)
+
+      // trackedId === result.id, so no reconciliation
+      expect(handler.getAnticipatedEventsForStream).not.toHaveBeenCalled()
+    })
+
+    it('deletes old entry and creates server entry when IDs differ', async () => {
+      const handler = createAnticipatedEventHandler()
+      handler.getTrackedEntries.mockReturnValue([`todos:${CLIENT_ID}`])
+      handler.getAnticipatedEventsForStream.mockResolvedValue([])
+      runner.setAnticipatedEventHandler(handler)
+      registerCreateProcessor()
+
+      // Seed old entry under client ID
+      await storage.saveReadModel({
+        id: CLIENT_ID,
+        collection: 'todos',
+        cacheKey: 'cache-1',
+        serverData: null,
+        effectiveData: JSON.stringify({ id: CLIENT_ID, title: 'Optimistic' }),
+        hasLocalChanges: true,
+        updatedAt: Date.now(),
+        _clientMetadata: null,
+      })
+
+      const event = makeParsedEvent({
+        type: 'TodoCreated',
+        commandId: 'cmd-1',
+        streamId: `Todo-${SERVER_ID}`,
+        data: { id: SERVER_ID, title: 'Confirmed' },
+      })
+
+      const result = await runner.processEvent(event)
+
+      // Old entry deleted
+      const oldRecord = await storage.getReadModel('todos', CLIENT_ID)
+      expect(oldRecord).toBeUndefined()
+
+      // New entry created under server ID
+      const newRecord = await storage.getReadModel('todos', SERVER_ID)
+      expect(newRecord).toBeDefined()
+      expect(JSON.parse(newRecord!.effectiveData)).toEqual({ id: SERVER_ID, title: 'Confirmed' })
+
+      // Both IDs in updatedIds
+      expect(result.updatedIds).toContain(`todos:${CLIENT_ID}`)
+      expect(result.updatedIds).toContain(`todos:${SERVER_ID}`)
+    })
+
+    it('re-applies overlay events with patched entity ID', async () => {
+      const handler = createAnticipatedEventHandler()
+      handler.getTrackedEntries.mockReturnValue([`todos:${CLIENT_ID}`])
+
+      // Overlay: a title update from a dependent command, still referencing client ID
+      const overlayEvent: ParsedEvent = {
+        id: 'overlay-evt-1',
+        type: 'TodoTitleUpdated',
+        streamId: `Todo-${CLIENT_ID}`,
+        persistence: 'Anticipated',
+        data: { id: CLIENT_ID, title: 'Updated Title' },
+        commandId: 'cmd-2',
+        cacheKey: 'cache-1',
+      }
+      handler.getAnticipatedEventsForStream.mockResolvedValue([overlayEvent])
+      runner.setAnticipatedEventHandler(handler)
+
+      registerCreateProcessor()
+      registerUpdateProcessor()
+
+      const event = makeParsedEvent({
+        type: 'TodoCreated',
+        commandId: 'cmd-1',
+        streamId: `Todo-${SERVER_ID}`,
+        data: { id: SERVER_ID, title: 'Confirmed' },
+      })
+
+      await runner.processEvent(event)
+
+      // getAnticipatedEventsForStream called with old stream ID, excluding the create command
+      expect(handler.getAnticipatedEventsForStream).toHaveBeenCalledWith(
+        `Todo-${CLIENT_ID}`,
+        'cmd-1',
+      )
+
+      // Server entry has title from overlay (merged on top of the create)
+      const record = await storage.getReadModel('todos', SERVER_ID)
+      expect(record).toBeDefined()
+      const data = JSON.parse(record!.effectiveData)
+      expect(data.title).toBe('Updated Title')
+      expect(data.id).toBe(SERVER_ID)
+    })
+
+    it('emits single readmodel:updated with both deleted and created IDs', async () => {
+      const handler = createAnticipatedEventHandler()
+      handler.getTrackedEntries.mockReturnValue([`todos:${CLIENT_ID}`])
+      handler.getAnticipatedEventsForStream.mockResolvedValue([])
+      runner.setAnticipatedEventHandler(handler)
+      registerCreateProcessor()
+
+      // Seed old entry
+      await storage.saveReadModel({
+        id: CLIENT_ID,
+        collection: 'todos',
+        cacheKey: 'cache-1',
+        serverData: null,
+        effectiveData: JSON.stringify({ id: CLIENT_ID, title: 'Optimistic' }),
+        hasLocalChanges: true,
+        updatedAt: Date.now(),
+        _clientMetadata: null,
+      })
+
+      const emissions: unknown[] = []
+      eventBus.on('readmodel:updated').subscribe((e) => emissions.push(e))
+
+      const event = makeParsedEvent({
+        type: 'TodoCreated',
+        commandId: 'cmd-1',
+        streamId: `Todo-${SERVER_ID}`,
+        data: { id: SERVER_ID, title: 'Confirmed' },
+      })
+
+      await runner.processEvent(event)
+
+      // Single emission containing both IDs
+      expect(emissions).toHaveLength(1)
+      const data = (emissions[0] as { data: { collection: string; ids: string[] } }).data
+      expect(data.collection).toBe('todos')
+      expect(data.ids).toContain(CLIENT_ID)
+      expect(data.ids).toContain(SERVER_ID)
     })
   })
 })

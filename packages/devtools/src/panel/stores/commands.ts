@@ -11,7 +11,7 @@ import type { SanitizedEvent, SerializedCommandRecord } from '../../shared/proto
 
 export interface DebugEvent {
   type: string
-  payload: Record<string, unknown>
+  data: Record<string, unknown>
   timestamp: number
 }
 
@@ -25,6 +25,18 @@ export interface CommandsStore {
   filteredCommands: () => CommandEntry[]
   filterStatuses: () => Set<CommandStatus>
   toggleFilter: (status: CommandStatus) => void
+  selectAllStatuses: () => void
+  clearStatuses: () => void
+  seenTypes: () => string[]
+  seenServices: () => string[]
+  typeFilter: () => Set<string>
+  serviceFilter: () => Set<string>
+  toggleTypeFilter: (type: string) => void
+  selectAllTypes: () => void
+  clearTypeFilter: () => void
+  toggleServiceFilter: (service: string) => void
+  selectAllServices: () => void
+  clearServiceFilter: () => void
   filterVersion: () => number
   selectedId: () => string | undefined
   selectCommand: (id: string | undefined) => void
@@ -32,6 +44,7 @@ export interface CommandsStore {
   handleEvent: (event: SanitizedEvent) => void
   setCommands: (commands: SerializedCommandRecord[]) => void
   clear: () => void
+  exportJson: () => string
 }
 
 const ALL_STATUSES: CommandStatus[] = [
@@ -48,11 +61,27 @@ export function createCommandsStore(): CommandsStore {
   const [filterStatuses, setFilterStatuses] = createSignal<Set<CommandStatus>>(
     new Set(ALL_STATUSES),
   )
+  const [seenTypes, setSeenTypes] = createSignal<Set<string>>(new Set())
+  const [seenServices, setSeenServices] = createSignal<Set<string>>(new Set())
+  const [typeFilter, setTypeFilter] = createSignal<Set<string>>(new Set())
+  const [serviceFilter, setServiceFilter] = createSignal<Set<string>>(new Set())
   const [selectedId, setSelectedId] = createSignal<string | undefined>()
   const [filterVersion, setFilterVersion] = createSignal(0)
 
   function bumpFilterVersion(): void {
     setFilterVersion((v) => v + 1)
+  }
+
+  function trackType(type: string): void {
+    if (type && !seenTypes().has(type)) {
+      setSeenTypes((prev) => new Set(prev).add(type))
+    }
+  }
+
+  function trackService(service: string): void {
+    if (service && !seenServices().has(service)) {
+      setSeenServices((prev) => new Set(prev).add(service))
+    }
   }
 
   function getEntry(commandId: string): CommandEntry | undefined {
@@ -76,16 +105,26 @@ export function createCommandsStore(): CommandsStore {
 
   function filteredCommands(): CommandEntry[] {
     const active = filterStatuses()
-    return commands().filter((e) => active.has(e.record.status))
+    const types = typeFilter()
+    const services = serviceFilter()
+    return commands().filter((e) => {
+      if (!active.has(e.record.status)) return false
+      if (types.size > 0 && !types.has(e.record.type)) return false
+      if (services.size > 0 && !services.has(e.record.service)) return false
+      return true
+    })
   }
 
   function handleEvent(event: SanitizedEvent): void {
-    const payload = event.payload
+    const data = event.data
 
     switch (event.type) {
       case 'command:enqueued': {
-        const commandId = payload['commandId'] as string | undefined
+        const commandId = data['commandId'] as string | undefined
         if (!commandId) return
+
+        const type = (data['type'] as string) ?? ''
+        if (type) trackType(type)
 
         // We might not have the full record yet — create a placeholder
         setEntries((prev) => {
@@ -95,8 +134,8 @@ export function createCommandsStore(): CommandsStore {
             const record: SerializedCommandRecord = {
               commandId,
               service: '',
-              type: (payload['type'] as string) ?? '',
-              payload: {},
+              type,
+              data: {},
               status: 'pending',
               dependsOn: [],
               blockedBy: [],
@@ -112,13 +151,13 @@ export function createCommandsStore(): CommandsStore {
       }
 
       case 'command:status-changed': {
-        const commandId = payload['commandId'] as string | undefined
+        const commandId = data['commandId'] as string | undefined
         if (!commandId) return
         upsertEntry(commandId, (entry) => ({
           ...entry,
           record: {
             ...entry.record,
-            status: (payload['status'] as CommandStatus) ?? entry.record.status,
+            status: (data['status'] as CommandStatus) ?? entry.record.status,
             updatedAt: event.timestamp,
           },
         }))
@@ -126,7 +165,7 @@ export function createCommandsStore(): CommandsStore {
       }
 
       case 'command:completed': {
-        const commandId = payload['commandId'] as string | undefined
+        const commandId = data['commandId'] as string | undefined
         if (!commandId) return
         upsertEntry(commandId, (entry) => ({
           ...entry,
@@ -140,7 +179,7 @@ export function createCommandsStore(): CommandsStore {
       }
 
       case 'command:failed': {
-        const commandId = payload['commandId'] as string | undefined
+        const commandId = data['commandId'] as string | undefined
         if (!commandId) return
         upsertEntry(commandId, (entry) => ({
           ...entry,
@@ -149,7 +188,7 @@ export function createCommandsStore(): CommandsStore {
             status: 'failed',
             error: {
               source: 'server',
-              message: (payload['error'] as string) ?? 'Unknown error',
+              message: (data['error'] as string) ?? 'Unknown error',
             },
             updatedAt: event.timestamp,
           },
@@ -158,12 +197,17 @@ export function createCommandsStore(): CommandsStore {
       }
 
       case 'command:sent': {
-        const commandId = payload['commandId'] as string | undefined
+        const commandId = data['commandId'] as string | undefined
         if (!commandId) return
+
+        const sentType = (data['type'] as string) || ''
+        const sentService = (data['service'] as string) || ''
+        if (sentType) trackType(sentType)
+        if (sentService) trackService(sentService)
 
         const debugEvent: DebugEvent = {
           type: event.type,
-          payload,
+          data,
           timestamp: event.timestamp,
         }
 
@@ -171,9 +215,9 @@ export function createCommandsStore(): CommandsStore {
         upsertEntry(commandId, (entry) => ({
           record: {
             ...entry.record,
-            service: (payload['service'] as string) || entry.record.service,
-            type: (payload['type'] as string) || entry.record.type,
-            payload: payload['payload'] ?? entry.record.payload,
+            service: sentService || entry.record.service,
+            type: sentType || entry.record.type,
+            data: data['data'] ?? entry.record.data,
           },
           debugEvents: [...entry.debugEvents, debugEvent],
         }))
@@ -181,19 +225,19 @@ export function createCommandsStore(): CommandsStore {
       }
 
       case 'command:response': {
-        const commandId = payload['commandId'] as string | undefined
+        const commandId = data['commandId'] as string | undefined
         if (!commandId) return
 
         const debugEvent: DebugEvent = {
           type: event.type,
-          payload,
+          data,
           timestamp: event.timestamp,
         }
 
         upsertEntry(commandId, (entry) => ({
           record: {
             ...entry.record,
-            serverResponse: payload['response'],
+            serverResponse: data['response'],
           },
           debugEvents: [...entry.debugEvents, debugEvent],
         }))
@@ -203,6 +247,11 @@ export function createCommandsStore(): CommandsStore {
   }
 
   function setCommands(commands: SerializedCommandRecord[]): void {
+    for (const cmd of commands) {
+      if (cmd.type) trackType(cmd.type)
+      if (cmd.service) trackService(cmd.service)
+    }
+
     setEntries((prev) => {
       const next = new Map(prev)
       for (const cmd of commands) {
@@ -219,6 +268,10 @@ export function createCommandsStore(): CommandsStore {
   function clear(): void {
     setEntries(new Map())
     setSelectedId(undefined)
+    setSeenTypes(new Set<string>())
+    setSeenServices(new Set<string>())
+    setTypeFilter(new Set<string>())
+    setServiceFilter(new Set<string>())
   }
 
   return {
@@ -237,6 +290,58 @@ export function createCommandsStore(): CommandsStore {
       })
       bumpFilterVersion()
     },
+    selectAllStatuses() {
+      setFilterStatuses(new Set(ALL_STATUSES))
+      bumpFilterVersion()
+    },
+    clearStatuses() {
+      setFilterStatuses(new Set<CommandStatus>())
+      bumpFilterVersion()
+    },
+    seenTypes: () => Array.from(seenTypes()).sort(),
+    seenServices: () => Array.from(seenServices()).sort(),
+    typeFilter,
+    serviceFilter,
+    toggleTypeFilter(type) {
+      setTypeFilter((prev) => {
+        const next = new Set(prev)
+        if (next.has(type)) {
+          next.delete(type)
+        } else {
+          next.add(type)
+        }
+        return next
+      })
+      bumpFilterVersion()
+    },
+    selectAllTypes() {
+      setTypeFilter(new Set(seenTypes()))
+      bumpFilterVersion()
+    },
+    clearTypeFilter() {
+      setTypeFilter(new Set<string>())
+      bumpFilterVersion()
+    },
+    toggleServiceFilter(service) {
+      setServiceFilter((prev) => {
+        const next = new Set(prev)
+        if (next.has(service)) {
+          next.delete(service)
+        } else {
+          next.add(service)
+        }
+        return next
+      })
+      bumpFilterVersion()
+    },
+    selectAllServices() {
+      setServiceFilter(new Set(seenServices()))
+      bumpFilterVersion()
+    },
+    clearServiceFilter() {
+      setServiceFilter(new Set<string>())
+      bumpFilterVersion()
+    },
     filterVersion,
     selectedId,
     selectCommand: setSelectedId,
@@ -248,5 +353,8 @@ export function createCommandsStore(): CommandsStore {
     handleEvent,
     setCommands,
     clear,
+    exportJson() {
+      return JSON.stringify(commands(), null, 2)
+    },
   }
 }

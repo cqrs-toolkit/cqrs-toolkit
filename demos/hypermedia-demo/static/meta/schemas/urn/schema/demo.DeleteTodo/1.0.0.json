@@ -1,0 +1,18 @@
+{
+  "$id": "urn:schema:demo.DeleteTodo:1.0.0",
+  "additionalProperties": false,
+  "properties": {
+    "data": {
+      "$ref": "urn:schema:demo.DeleteTodoData:1.0.0"
+    },
+    "revision": {
+      "type": "string"
+    },
+    "type": {
+      "const": "delete",
+      "type": "string"
+    }
+  },
+  "required": ["type", "data"],
+  "type": "object"
+}

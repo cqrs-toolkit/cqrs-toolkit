@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / CqrsConfig
 
-# Interface: CqrsConfig
+# Interface: CqrsConfig\<TSchema\>
 
 Shared CQRS configuration.
 
@@ -14,6 +14,12 @@ The consumer writes this once and imports it from both entry points.
 ## Extended by
 
 - [`CqrsClientConfig`](CqrsClientConfig.md)
+
+## Type Parameters
+
+### TSchema
+
+`TSchema` = `unknown`
 
 ## Properties
 
@@ -45,10 +51,10 @@ Collection configurations.
 
 ### commandHandlers?
 
-> `optional` **commandHandlers**: [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`unknown`\>[]
+> `optional` **commandHandlers**: [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`any`, `TSchema`\>[]
 
 Command handler registrations for local validation and optimistic updates.
-Each handler validates a command payload and produces anticipated events.
+Each handler validates command data and produces anticipated events.
 If not provided, commands are sent directly without local validation.
 
 ---
@@ -100,6 +106,17 @@ Retain terminal commands in storage for debugging/introspection.
 > `optional` **retry**: [`RetryConfig`](RetryConfig.md)
 
 Retry configuration for commands.
+
+---
+
+### schemaValidator?
+
+> `optional` **schemaValidator**: [`SchemaValidator`](SchemaValidator.md)\<`TSchema`\>
+
+Schema validator implementation for structural validation.
+Required if any command handler registration has a `schema` property.
+The generic `TSchema` enforces that the validator and all registrations
+agree on the schema type (JSONSchema7, z.ZodType, etc.).
 
 ---
 

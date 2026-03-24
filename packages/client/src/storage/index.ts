@@ -5,6 +5,7 @@
 export type {
   CacheKeyRecord,
   CachedEventRecord,
+  ClientMetadata,
   IStorage,
   QueryOptions,
   ReadModelRecord,

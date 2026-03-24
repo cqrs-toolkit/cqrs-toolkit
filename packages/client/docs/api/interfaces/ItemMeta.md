@@ -12,6 +12,14 @@ can reconcile references without inspecting consumer data.
 
 ## Properties
 
+### clientId?
+
+> `readonly` `optional` **clientId**: `string`
+
+Original client-generated temp ID. Present when the entity was created from a temp-ID create command.
+
+---
+
 ### id
 
 > `readonly` **id**: `string`

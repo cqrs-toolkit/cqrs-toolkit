@@ -341,6 +341,39 @@ true if data changed
 
 ---
 
+### setClientMetadata()
+
+> **setClientMetadata**(`collection`, `id`, `metadata`): `Promise`\<`void`\>
+
+Set client metadata on a read model entry.
+Used to track the original client-generated ID through reconciliation.
+
+#### Parameters
+
+##### collection
+
+`string`
+
+Collection name
+
+##### id
+
+`string`
+
+Entity ID
+
+##### metadata
+
+[`ClientMetadata`](../interfaces/ClientMetadata.md)
+
+Client metadata to set
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
 ### setLocalData()
 
 > **setLocalData**\<`T`\>(`collection`, `id`, `data`, `cacheKey`): `Promise`\<`boolean`\>

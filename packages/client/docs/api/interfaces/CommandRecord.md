@@ -4,15 +4,15 @@
 
 [@cqrs-toolkit/client](../globals.md) / CommandRecord
 
-# Interface: CommandRecord\<TPayload, TResponse\>
+# Interface: CommandRecord\<TData, TResponse\>
 
 Persisted command record.
 
 ## Type Parameters
 
-### TPayload
+### TData
 
-`TPayload` = `unknown`
+`TData` = `unknown`
 
 ### TResponse
 
@@ -60,6 +60,14 @@ Create command configuration (present only for commands that create aggregates)
 
 ---
 
+### data
+
+> **data**: `TData`
+
+Command data
+
+---
+
 ### dependsOn
 
 > **dependsOn**: `string`[]
@@ -84,11 +92,11 @@ Timestamp of last send attempt
 
 ---
 
-### payload
+### path?
 
-> **payload**: `TPayload`
+> `optional` **path**: `unknown`
 
-Command payload
+URL path template values for command sender URL expansion.
 
 ---
 
@@ -100,11 +108,11 @@ Post-processing instructions from the domain executor
 
 ---
 
-### revisionField?
+### revision?
 
-> `optional` **revisionField**: `string`
+> `optional` **revision**: `string` \| [`AutoRevision`](AutoRevision.md)
 
-Payload field name that holds the revision (from handler registration)
+Revision for optimistic concurrency. AutoRevision markers are resolved before send.
 
 ---
 

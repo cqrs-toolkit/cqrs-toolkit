@@ -51,4 +51,8 @@ export function registerCommandQueueMethods(
   handler.registerMethod('commandQueue.isPaused', async () => {
     return commandQueue.isPaused()
   })
+
+  handler.registerMethod('commandQueue.getCommandEntities', async (args) => {
+    return commandQueue.getCommandEntities(args[0] as string, args[1] as string | undefined)
+  })
 }

@@ -319,7 +319,7 @@ describe('CacheManager', () => {
 
       expect(events).toHaveLength(1)
       expect(events[0]).toMatchObject({
-        payload: { cacheKey: ephemeralKey, reason: 'explicit' },
+        data: { cacheKey: ephemeralKey, reason: 'explicit' },
       })
     })
   })
@@ -356,7 +356,7 @@ describe('CacheManager', () => {
       expect(result).toBe(false)
       expect(events).toHaveLength(1)
       expect(events[0]).toMatchObject({
-        payload: { windowId: 'w-3', maxWindows: 2 },
+        data: { windowId: 'w-3', maxWindows: 2 },
       })
     })
 
@@ -415,7 +415,7 @@ describe('CacheManager', () => {
       expect(await cacheManager.getCount()).toBe(0)
       expect(events).toHaveLength(1)
       expect(events[0]).toMatchObject({
-        payload: { previousUserId: 'user-1', newUserId: 'user-2' },
+        data: { previousUserId: 'user-1', newUserId: 'user-2' },
       })
     })
 
@@ -515,7 +515,7 @@ describe('CacheManager', () => {
 
       expect(events).toHaveLength(1)
       expect(events[0]).toMatchObject({
-        payload: { cacheKey: key, reason: 'explicit' },
+        data: { cacheKey: key, reason: 'explicit' },
       })
     })
   })
@@ -601,7 +601,7 @@ describe('CacheManager', () => {
 
       expect(events).toHaveLength(1)
       expect(events[0]).toMatchObject({
-        payload: { cacheKey: key, reason: 'expired' },
+        data: { cacheKey: key, reason: 'expired' },
       })
     })
 

@@ -89,7 +89,9 @@ export function generateCollectionDDL(name: string): string[] {
   _server_data TEXT,
   _effective_data TEXT NOT NULL,
   _has_local_changes INTEGER NOT NULL DEFAULT 0,
-  updated_at INTEGER NOT NULL
+  updated_at INTEGER NOT NULL,
+  __client_id TEXT,
+  __reconciled_at INTEGER
 )`,
     `CREATE INDEX idx_rm_${name}_cache_key ON rm_${name} (cache_key)`,
   ]

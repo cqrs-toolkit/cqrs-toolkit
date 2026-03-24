@@ -37,3 +37,14 @@ Reactive state returned by `createItemQuery`.
 ### loading
 
 > `readonly` **loading**: `boolean`
+
+---
+
+### reconciledId
+
+> `readonly` **reconciledId**: [`ReconciledId`](ReconciledId.md) \| `undefined`
+
+Set when the item query detects that the tracked ID was reconciled
+(client temp ID replaced by server ID). The query transparently follows
+the new ID — consumers holding the old ID externally can react to update
+their references.

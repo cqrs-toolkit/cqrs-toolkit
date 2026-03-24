@@ -6,7 +6,7 @@
 
 # Function: createCqrsClient()
 
-> **createCqrsClient**(`config`): `Promise`\<[`CqrsClient`](../classes/CqrsClient.md)\>
+> **createCqrsClient**(`config`): `Promise`\<[`CqrsClient`](../classes/CqrsClient.md)\<[`EnqueueCommand`](../interfaces/EnqueueCommand.md)\<`unknown`\>\>\>
 
 Create a new CQRS Client instance.
 
@@ -23,7 +23,7 @@ Client configuration
 
 ## Returns
 
-`Promise`\<[`CqrsClient`](../classes/CqrsClient.md)\>
+`Promise`\<[`CqrsClient`](../classes/CqrsClient.md)\<[`EnqueueCommand`](../interfaces/EnqueueCommand.md)\<`unknown`\>\>\>
 
 A fully initialized CQRS Client instance
 
@@ -51,7 +51,7 @@ const client = await createCqrsClient({
       const res = await fetch('/api/commands', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: command.type, payload: command.payload }),
+        body: JSON.stringify({ type: command.type, data: command.data }),
       })
       if (!res.ok) throw new Error(`Command failed: ${res.status}`)
       return res.json()

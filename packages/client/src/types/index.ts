@@ -8,7 +8,7 @@ export type {
   AnticipatedEventMeta,
   EventPersistence,
   LibraryEvent,
-  LibraryEventPayloads,
+  LibraryEventData,
   LibraryEventType,
 } from './events.js'
 
@@ -27,18 +27,24 @@ export {
 
 // Domain
 export type {
+  AsyncValidationContext,
   AutoRevision,
   CommandHandlerRegistration,
   CreateCommandConfig,
   DomainExecutionResult,
   DomainExecutionSuccess,
+  HandlerContext,
   ICommandHandlerMetadata,
   IDomainExecutor,
+  InitializingContext,
   PostProcessPlan,
+  SchemaValidator,
+  UpdatingContext,
 } from './domain.js'
 
 export {
   autoRevision,
+  createEntityId,
   domainFailure,
   domainSuccess,
   isAutoRevision,

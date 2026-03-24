@@ -28,26 +28,123 @@ export async function waitForTodoContent(page: Page, text: string): Promise<void
   await expect(page.locator('.todo-content', { hasText: text })).toBeVisible()
 }
 
-export async function addNote(page: Page, title: string, body?: string): Promise<void> {
-  await page.getByPlaceholder('Note title').fill(title)
-  if (body) {
-    await page.getByPlaceholder('Body (optional)').fill(body)
-  }
-  await page.getByRole('button', { name: 'Add' }).click()
-  // Wait for the submit to complete — the form transitions from add-saving to add-idle
-  // after the server confirms.
-  await expect(page.locator('.add-form.add-idle')).toBeAttached()
-  await expect(page.locator('.note-title', { hasText: title })).toBeVisible()
+// ---------------------------------------------------------------------------
+// Notebook helpers
+// ---------------------------------------------------------------------------
+
+export async function addNotebook(page: Page, name: string): Promise<void> {
+  await page.locator('.add-notebook-btn').click()
+  await page.locator('.notebook-placeholder-input').fill(name)
+  await page.locator('.save-notebook').click()
+  await expect(page.locator('.notebook-placeholder')).not.toBeAttached()
+  await expect(page.locator('.notebook-name', { hasText: name })).toBeVisible()
+  // Wait for auto-select: the notebook should be selected after create.
+  await expect(
+    page.locator('.notebook-item.notebook-selected', {
+      has: page.locator('.notebook-name', { hasText: name }),
+    }),
+  ).toBeVisible()
 }
 
-export async function deleteNote(page: Page, title: string): Promise<void> {
-  const item = page.locator('.note-item', { has: page.locator('.note-title', { hasText: title }) })
-  await item.getByRole('button', { name: 'Del' }).click()
+export async function selectNotebook(page: Page, name: string): Promise<void> {
+  await page
+    .locator('.notebook-item', { has: page.locator('.notebook-name', { hasText: name }) })
+    .click()
+}
+
+export async function deleteNotebook(page: Page, name: string): Promise<void> {
+  // Ensure trash icons are visible
+  if (
+    !(await page
+      .locator('.delete-notebook')
+      .first()
+      .isVisible()
+      .catch(() => false))
+  ) {
+    await page.locator('.toggle-trash').click()
+  }
+  const item = page.locator('.notebook-item', {
+    has: page.locator('.notebook-name', { hasText: name }),
+  })
+  await item.locator('.delete-notebook').click()
   await expect(item).toHaveCount(0)
 }
 
+// ---------------------------------------------------------------------------
+// Note helpers (new 3-column UI)
+// ---------------------------------------------------------------------------
+
+/**
+ * Add a note in the currently selected notebook using the 3-column UI.
+ * Clicks `+`, fills title/body in the editor, clicks save, then waits for the
+ * note to appear in the title list.
+ */
+export async function addNote(page: Page, title: string, body?: string): Promise<void> {
+  // Click the + button to create a placeholder
+  await page.locator('.add-note-btn').click()
+  // Wait for editor to appear in create mode
+  await expect(page.locator('.note-editor.editor-create')).toBeVisible()
+
+  // Fill the editor
+  await page.locator('.editor-title').fill(title)
+  if (body) {
+    await page.locator('.editor-body').fill(body)
+  }
+
+  // Click save
+  await page.locator('.save-note').click()
+
+  // Wait for the note to appear in the title list (as a non-italic, persisted item)
+  await expect(
+    page.locator('.note-title-item .note-title:not(.italic)', { hasText: title }),
+  ).toBeVisible()
+
+  // Wait for the save cycle to complete. After create-mode save, the editor
+  // transitions from editor-create → editor-saving → editor-ready (item query
+  // loaded the newly created note).
+  await expect(page.locator('.note-editor.editor-saving')).not.toBeAttached()
+  await expect(page.locator('.note-editor.editor-ready')).toBeVisible()
+}
+
+/**
+ * Add a note in a specific notebook. Selects the notebook first.
+ */
+export async function addNoteInNotebook(
+  page: Page,
+  notebookName: string,
+  title: string,
+  body?: string,
+): Promise<void> {
+  await selectNotebook(page, notebookName)
+  await addNote(page, title, body)
+}
+
+/**
+ * Select a note by title in the middle column title list.
+ */
+export async function selectNote(page: Page, title: string): Promise<void> {
+  await page
+    .locator('.note-title-item', { has: page.locator('.note-title', { hasText: title }) })
+    .click()
+}
+
+/**
+ * Delete the currently selected note via the editor's trash button.
+ * Waits for the item query to load the correct note before clicking delete,
+ * eliminating races between note selection and stale query data.
+ */
+export async function deleteNote(page: Page, title: string): Promise<void> {
+  await selectNote(page, title)
+  // Wait for the editor to finish loading the selected note's data
+  await expect(page.locator('.note-editor.editor-ready')).toBeVisible()
+  await page.locator('.delete-note').click()
+  // Wait for the note to disappear from the title list
+  await expect(page.locator('.note-title-item .note-title', { hasText: title })).toHaveCount(0)
+}
+
 export async function waitForNoteCount(page: Page, count: number): Promise<void> {
-  await expect(page.locator('.note-item')).toHaveCount(count)
+  // Count non-placeholder note title items (those without italic class)
+  await expect(page.locator('.note-title-item:not(:has(.italic))')).toHaveCount(count)
 }
 
 export async function waitForDashNotesReady(page: Page): Promise<void> {

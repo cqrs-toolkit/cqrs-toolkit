@@ -13,15 +13,15 @@ Abstracted for testability and different transport implementations.
 
 ### send()
 
-> **send**\<`TPayload`, `TResponse`\>(`command`): `Promise`\<`TResponse`\>
+> **send**\<`TData`, `TResponse`\>(`command`): `Promise`\<`TResponse`\>
 
 Send a command to the server.
 
 #### Type Parameters
 
-##### TPayload
+##### TData
 
-`TPayload`
+`TData`
 
 ##### TResponse
 
@@ -31,7 +31,7 @@ Send a command to the server.
 
 ##### command
 
-[`CommandRecord`](CommandRecord.md)\<`TPayload`\>
+[`CommandRecord`](CommandRecord.md)\<`TData`\>
 
 Command record to send
 

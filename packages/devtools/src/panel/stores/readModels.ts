@@ -29,14 +29,18 @@ export interface ReadModelCollectionEntry {
 export interface ReadModelsStore {
   entries: () => ReadModelCollectionEntry[]
   filteredEntries: () => ReadModelCollectionEntry[]
-  collectionFilter: () => string
-  setCollectionFilter: (v: string) => void
+  collectionFilter: () => Set<string>
+  toggleCollectionFilter: (v: string) => void
+  selectAllCollections: () => void
+  clearCollectionFilter: () => void
   filterVersion: () => number
+  seenCollections: () => string[]
   selectedCollection: () => string | undefined
   selectCollection: (c: string | undefined) => void
   selectedEntry: () => ReadModelCollectionEntry | undefined
   handleEvent: (event: SanitizedEvent) => void
   clear: () => void
+  exportJson: () => string
 }
 
 // ---------------------------------------------------------------------------
@@ -47,8 +51,9 @@ export function createReadModelsStore(): ReadModelsStore {
   const [collections, setCollections] = createSignal<Map<string, ReadModelCollectionEntry>>(
     new Map(),
   )
+  const [seenCollections, setSeenCollections] = createSignal<Set<string>>(new Set())
 
-  const [collectionFilter, setCollectionFilterRaw] = createSignal('')
+  const [collectionFilter, setCollectionFilter] = createSignal<Set<string>>(new Set())
   const [filterVersion, setFilterVersion] = createSignal(0)
   const [selectedCollection, setSelectedCollection] = createSignal<string | undefined>()
 
@@ -62,9 +67,9 @@ export function createReadModelsStore(): ReadModelsStore {
 
   const filteredEntries = createMemo(() => {
     const all = entriesList()
-    const filter = collectionFilter().toLowerCase()
-    if (!filter) return all
-    return all.filter((e) => e.collection.toLowerCase().includes(filter))
+    const col = collectionFilter()
+    if (col.size === 0) return all
+    return all.filter((e) => col.has(e.collection))
   })
 
   function getOrCreateCollection(
@@ -83,13 +88,23 @@ export function createReadModelsStore(): ReadModelsStore {
     }
   }
 
+  function trackCollection(collection: string): void {
+    setSeenCollections((prev) => {
+      if (prev.has(collection)) return prev
+      const next = new Set(prev)
+      next.add(collection)
+      return next
+    })
+  }
+
   function handleEvent(event: SanitizedEvent): void {
     switch (event.type) {
       case 'cache:key-acquired': {
-        const cacheKey = event.payload['cacheKey'] as string | undefined
+        const cacheKey = event.data['cacheKey'] as string | undefined
         if (!cacheKey) return
-        const collection = (event.payload['collection'] as string) ?? ''
+        const collection = (event.data['collection'] as string) ?? ''
 
+        trackCollection(collection)
         setCollections((prev) => {
           const next = new Map(prev)
           const entry = getOrCreateCollection(prev, collection)
@@ -102,9 +117,10 @@ export function createReadModelsStore(): ReadModelsStore {
       }
 
       case 'readmodel:updated': {
-        const collection = (event.payload['collection'] as string) ?? ''
-        const ids = (event.payload['ids'] as string[]) ?? []
+        const collection = (event.data['collection'] as string) ?? ''
+        const ids = (event.data['ids'] as string[]) ?? []
 
+        trackCollection(collection)
         setCollections((prev) => {
           const next = new Map(prev)
           const entry = getOrCreateCollection(prev, collection)
@@ -129,6 +145,8 @@ export function createReadModelsStore(): ReadModelsStore {
 
   function clear(): void {
     setCollections(new Map())
+    setSeenCollections(new Set<string>())
+    setCollectionFilter(new Set<string>())
     setSelectedCollection(undefined)
   }
 
@@ -136,11 +154,25 @@ export function createReadModelsStore(): ReadModelsStore {
     entries: entriesList,
     filteredEntries,
     collectionFilter,
-    setCollectionFilter(v) {
-      setCollectionFilterRaw(v)
+    toggleCollectionFilter(v) {
+      setCollectionFilter((prev) => {
+        const next = new Set(prev)
+        if (next.has(v)) next.delete(v)
+        else next.add(v)
+        return next
+      })
+      bumpFilterVersion()
+    },
+    selectAllCollections() {
+      setCollectionFilter(new Set(seenCollections()))
+      bumpFilterVersion()
+    },
+    clearCollectionFilter() {
+      setCollectionFilter(new Set<string>())
       bumpFilterVersion()
     },
     filterVersion,
+    seenCollections: () => Array.from(seenCollections()).sort(),
     selectedCollection,
     selectCollection: setSelectedCollection,
     selectedEntry() {
@@ -150,5 +182,13 @@ export function createReadModelsStore(): ReadModelsStore {
     },
     handleEvent,
     clear,
+    exportJson() {
+      const entries = entriesList().map((entry) => ({
+        ...entry,
+        cacheKeys: Array.from(entry.cacheKeys),
+        entityIds: Array.from(entry.entityIds),
+      }))
+      return JSON.stringify(entries, null, 2)
+    },
   }
 }
