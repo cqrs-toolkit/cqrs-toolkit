@@ -1,4 +1,4 @@
-import { logProvider } from '@meticoeus/ddd-es'
+import { type Link, logProvider } from '@meticoeus/ddd-es'
 import type { TerminalCommandStatus } from '../../types/commands.js'
 import type { Collection } from '../../types/config.js'
 import type { CacheManager } from '../cache-manager/CacheManager.js'
@@ -18,12 +18,12 @@ import { isAnticipatedEventShape } from './AnticipatedEventShape.js'
  * Tracks which entities were updated by each command's anticipated events. On failure
  * or cancellation, reverts those read models to their server baseline.
  */
-export function createAnticipatedEventHandler(
+export function createAnticipatedEventHandler<TLink extends Link>(
   eventCache: EventCache,
-  cacheManager: CacheManager,
+  cacheManager: CacheManager<TLink>,
   eventProcessorRunner: EventProcessorRunner,
   readModelStore: ReadModelStore,
-  collections: Collection[],
+  collections: Collection<TLink>[],
 ): IAnticipatedEventHandler {
   /** commandId → ["collection:id", ...] tracking which entities were optimistically updated. */
   const anticipatedUpdates = new Map<string, string[]>()
@@ -44,7 +44,16 @@ export function createAnticipatedEventHandler(
           continue
         }
 
-        const cacheKey = await cacheManager.acquire(collection.name)
+        // TODO(lazy-load): The cache key for lazily-loaded collections should come from
+        // the active scope the command was issued against, not from a static seedCacheKey.
+        if (!collection.seedCacheKey) {
+          logProvider.log.warn(
+            { streamId: raw.streamId, commandId },
+            'Collection has no seedCacheKey for anticipated event',
+          )
+          continue
+        }
+        const cacheKey = await cacheManager.acquire(collection.seedCacheKey)
 
         const eventId = await eventCache.cacheAnticipatedEvent(
           { type: raw.type, data: raw.data, streamId: raw.streamId, commandId },

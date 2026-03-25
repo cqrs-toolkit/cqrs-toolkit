@@ -10,6 +10,7 @@
  * Web Locks auto-release on page unload — no beforeunload handler needed.
  */
 
+import type { Link } from '@meticoeus/ddd-es'
 import { Observable, Subject, map, share, takeUntil } from 'rxjs'
 import type { ICacheManager } from '../../core/cache-manager/types.js'
 import type { ICommandQueue } from '../../core/command-queue/types.js'
@@ -59,7 +60,7 @@ const TAB_LOCK_NAME = 'cqrs-client-dedicated-tab'
  * - Connects to a Dedicated Worker that owns all CQRS components
  * - Provides proxy objects for main-thread consumers
  */
-export class DedicatedWorkerAdapter implements IWorkerAdapter {
+export class DedicatedWorkerAdapter<TLink extends Link> implements IWorkerAdapter<TLink> {
   readonly mode = 'dedicated-worker' as const
   readonly role = 'leader' as const
 
@@ -68,8 +69,8 @@ export class DedicatedWorkerAdapter implements IWorkerAdapter {
 
   private _status: AdapterStatus = 'uninitialized'
   private _commandQueue: CommandQueueProxy | undefined
-  private _queryManager: QueryManagerProxy | undefined
-  private _cacheManager: CacheManagerProxy | undefined
+  private _queryManager: QueryManagerProxy<TLink> | undefined
+  private _cacheManager: CacheManagerProxy<TLink> | undefined
   private _syncManager: SyncManagerProxy | undefined
   private _events$: Observable<LibraryEvent> | undefined
 
@@ -94,12 +95,12 @@ export class DedicatedWorkerAdapter implements IWorkerAdapter {
     return this._commandQueue
   }
 
-  get queryManager(): IQueryManager {
+  get queryManager(): IQueryManager<TLink> {
     assert(this._queryManager, 'Adapter not initialized')
     return this._queryManager
   }
 
-  get cacheManager(): ICacheManager {
+  get cacheManager(): ICacheManager<TLink> {
     assert(this._cacheManager, 'Adapter not initialized')
     return this._cacheManager
   }
@@ -181,8 +182,8 @@ export class DedicatedWorkerAdapter implements IWorkerAdapter {
 
       // Create proxy objects
       this._commandQueue = new CommandQueueProxy(this.channel, broadcastEvents$)
-      this._queryManager = new QueryManagerProxy(this.channel, broadcastEvents$)
-      this._cacheManager = new CacheManagerProxy(this.channel)
+      this._queryManager = new QueryManagerProxy<TLink>(this.channel, broadcastEvents$)
+      this._cacheManager = new CacheManagerProxy<TLink>(this.channel)
       this._syncManager = new SyncManagerProxy(this.channel, broadcastEvents$)
 
       // Sync connectivity state from worker

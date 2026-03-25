@@ -4,13 +4,27 @@
 
 [@cqrs-toolkit/client](../globals.md) / ResolvedConfig
 
-# Interface: ResolvedConfig
+# Interface: ResolvedConfig\<TLink, TSchema, TEvent\>
 
 Resolved shared configuration with all defaults applied.
 
 ## Extends
 
-- `Required`\<`Omit`\<[`CqrsConfig`](CqrsConfig.md), `"commandHandlers"` \| `"commandSender"` \| `"schemaValidator"` \| `"workerSetup"` \| `"collections"` \| `"processors"`\>\>
+- `Required`\<`Omit`\<[`CqrsConfig`](CqrsConfig.md)\<`TLink`, `TSchema`, `TEvent`\>, `"commandHandlers"` \| `"commandSender"` \| `"schemaValidator"` \| `"workerSetup"` \| `"collections"` \| `"processors"`\>\>
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
+
+### TSchema
+
+`TSchema`
+
+### TEvent
+
+`TEvent` _extends_ [`IAnticipatedEvent`](IAnticipatedEvent.md)
 
 ## Properties
 
@@ -42,13 +56,13 @@ Cache configuration.
 
 ### collections
 
-> **collections**: [`Collection`](Collection.md)[]
+> **collections**: [`Collection`](Collection.md)\<`TLink`\>[]
 
 ---
 
 ### commandHandlers
 
-> **commandHandlers**: [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<[`IAnticipatedEvent`](IAnticipatedEvent.md)\<`string`, `AggregateEventData`\>, `unknown`\>[]
+> **commandHandlers**: [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`TLink`, `TSchema`, `TEvent`\>[]
 
 ---
 

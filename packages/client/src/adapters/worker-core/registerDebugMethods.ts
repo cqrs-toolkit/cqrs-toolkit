@@ -3,7 +3,9 @@
  * Called lazily on the first `debug.enable` RPC — not at startup.
  */
 
+import type { Link } from '@meticoeus/ddd-es'
 import type { CacheManager } from '../../core/cache-manager/CacheManager.js'
+import type { IAnticipatedEvent } from '../../core/command-lifecycle/AnticipatedEventShape.js'
 import type { CommandQueue } from '../../core/command-queue/CommandQueue.js'
 import type { SyncManager } from '../../core/sync-manager/SyncManager.js'
 import type { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
@@ -13,10 +15,10 @@ import type { IStorage } from '../../storage/IStorage.js'
 /**
  * Dependencies needed for debug snapshot methods.
  */
-export interface DebugMethodDeps {
-  commandQueue: CommandQueue
-  cacheManager: CacheManager
-  syncManager: SyncManager
+export interface DebugMethodDeps<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent> {
+  commandQueue: CommandQueue<TLink, TSchema, TEvent>
+  cacheManager: CacheManager<TLink>
+  syncManager: SyncManager<TLink, TSchema, TEvent>
   storage: IStorage
   db: ISqliteDb
 }
@@ -24,7 +26,10 @@ export interface DebugMethodDeps {
 /**
  * Register debug snapshot RPC methods on the worker message handler.
  */
-export function registerDebugMethods(handler: WorkerMessageHandler, deps: DebugMethodDeps): void {
+export function registerDebugMethods<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent>(
+  handler: WorkerMessageHandler,
+  deps: DebugMethodDeps<TLink, TSchema, TEvent>,
+): void {
   const { commandQueue, cacheManager, syncManager, storage, db } = deps
 
   handler.registerMethod('debug.getCommandSnapshot', async () => {

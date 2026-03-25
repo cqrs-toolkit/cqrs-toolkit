@@ -1,7 +1,8 @@
-import { SaveIcon, TrashIcon } from '#common/components'
+import { appCreateItemQuery, SaveIcon, TrashIcon } from '#common/components'
 import type { Note } from '#notes/shared'
 import type { AutoRevision, SubmitResult } from '@cqrs-toolkit/client'
-import { createItemQuery, useClient } from '@cqrs-toolkit/client-solid'
+import { useClient } from '@cqrs-toolkit/client-solid'
+import { ServiceLink } from '@meticoeus/ddd-es'
 import { createEffect, createSignal, Show } from 'solid-js'
 
 interface NoteEditorProps {
@@ -32,8 +33,8 @@ interface NoteEditorProps {
 type SaveState = 'idle' | 'saving' | 'deleting'
 
 export function NoteEditor(props: NoteEditorProps) {
-  const client = useClient()
-  const query = createItemQuery<Note>(client.queryManager, 'notes', () => props.noteId)
+  const client = useClient<ServiceLink>()
+  const query = appCreateItemQuery<Note>(client.queryManager, 'notes', () => props.noteId)
 
   const [title, setTitle] = createSignal('')
   const [body, setBody] = createSignal('')

@@ -40,6 +40,8 @@ describe('QueryManager', () => {
       effectiveData: JSON.stringify({ id: 'todo-1', title: 'First', done: false }),
       hasLocalChanges: false,
       updatedAt: 1000,
+      revision: null,
+      position: null,
       _clientMetadata: null,
     })
     await storage.saveReadModel({
@@ -50,6 +52,8 @@ describe('QueryManager', () => {
       effectiveData: JSON.stringify({ id: 'todo-2', title: 'Second Modified', done: true }),
       hasLocalChanges: true,
       updatedAt: 2000,
+      revision: null,
+      position: null,
       _clientMetadata: null,
     })
   })
@@ -77,7 +81,7 @@ describe('QueryManager', () => {
     it('creates cache key on access', async () => {
       const result = await queryManager.getById<Todo>('todos', 'todo-1')
 
-      const cacheKeyExists = await cacheManager.exists(result.cacheKey)
+      const cacheKeyExists = await cacheManager.exists(result.cacheKey.key)
       expect(cacheKeyExists).toBe(true)
     })
   })
@@ -187,6 +191,8 @@ describe('QueryManager', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Updated', done: false }),
         hasLocalChanges: false,
         updatedAt: 3000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -241,6 +247,8 @@ describe('QueryManager', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Stale', done: false }),
         hasLocalChanges: false,
         updatedAt: 3000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
       eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'] })
@@ -254,6 +262,8 @@ describe('QueryManager', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Latest', done: false }),
         hasLocalChanges: false,
         updatedAt: 4000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
       eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'] })
@@ -299,39 +309,39 @@ describe('QueryManager', () => {
   describe('hold/release', () => {
     it('holds a cache key', async () => {
       const result = await queryManager.getById<Todo>('todos', 'todo-1')
-      await queryManager.hold(result.cacheKey)
+      await queryManager.hold(result.cacheKey.key)
 
-      const cacheKey = await cacheManager.get(result.cacheKey)
+      const cacheKey = await cacheManager.get(result.cacheKey.key)
       expect(cacheKey?.holdCount).toBe(1)
     })
 
     it('releases a cache key', async () => {
       const result = await queryManager.getById<Todo>('todos', 'todo-1')
-      await queryManager.hold(result.cacheKey)
-      await queryManager.release(result.cacheKey)
+      await queryManager.hold(result.cacheKey.key)
+      await queryManager.release(result.cacheKey.key)
 
-      const cacheKey = await cacheManager.get(result.cacheKey)
+      const cacheKey = await cacheManager.get(result.cacheKey.key)
       expect(cacheKey?.holdCount).toBe(0)
     })
 
     it('tracks multiple holds', async () => {
       const result = await queryManager.getById<Todo>('todos', 'todo-1')
-      await queryManager.hold(result.cacheKey)
-      await queryManager.hold(result.cacheKey)
-      await queryManager.release(result.cacheKey)
+      await queryManager.hold(result.cacheKey.key)
+      await queryManager.hold(result.cacheKey.key)
+      await queryManager.release(result.cacheKey.key)
 
-      const cacheKey = await cacheManager.get(result.cacheKey)
+      const cacheKey = await cacheManager.get(result.cacheKey.key)
       expect(cacheKey?.holdCount).toBe(1)
     })
 
     it('releases all holds on destroy', async () => {
       const result = await queryManager.getById<Todo>('todos', 'todo-1')
-      await queryManager.hold(result.cacheKey)
-      await queryManager.hold(result.cacheKey)
+      await queryManager.hold(result.cacheKey.key)
+      await queryManager.hold(result.cacheKey.key)
 
       await queryManager.releaseAll()
 
-      const cacheKey = await cacheManager.get(result.cacheKey)
+      const cacheKey = await cacheManager.get(result.cacheKey.key)
       expect(cacheKey?.holdCount).toBe(0)
     })
   })
@@ -339,17 +349,17 @@ describe('QueryManager', () => {
   describe('onSessionDestroyed', () => {
     it('clears all active holds without calling cacheManager.release()', async () => {
       const result = await queryManager.getById<Todo>('todos', 'todo-1')
-      await queryManager.hold(result.cacheKey)
-      await queryManager.hold(result.cacheKey) // refcount = 2 internally
+      await queryManager.hold(result.cacheKey.key)
+      await queryManager.hold(result.cacheKey.key) // refcount = 2 internally
 
       queryManager.onSessionDestroyed()
 
       // Internal tracking was cleared — release should be a no-op (no error, no call to cacheManager)
       // Verify by doing a release — it should not throw or call through
-      await queryManager.release(result.cacheKey) // no-op since activeHolds was cleared
+      await queryManager.release(result.cacheKey.key) // no-op since activeHolds was cleared
 
       // Hold count in storage should still be 1 (we didn't call cacheManager.release)
-      const cacheKey = await cacheManager.get(result.cacheKey)
+      const cacheKey = await cacheManager.get(result.cacheKey.key)
       expect(cacheKey?.holdCount).toBe(1)
     })
   })
@@ -357,13 +367,13 @@ describe('QueryManager', () => {
   describe('releaseForCacheKey', () => {
     it('removes hold tracking for an evicted cache key', async () => {
       const result = await queryManager.getById<Todo>('todos', 'todo-1')
-      await queryManager.hold(result.cacheKey)
-      await queryManager.hold(result.cacheKey)
+      await queryManager.hold(result.cacheKey.key)
+      await queryManager.hold(result.cacheKey.key)
 
-      queryManager.releaseForCacheKey(result.cacheKey)
+      queryManager.releaseForCacheKey(result.cacheKey.key)
 
       // Hold count in storage is unchanged (key was evicted, no release call)
-      const cacheKey = await cacheManager.get(result.cacheKey)
+      const cacheKey = await cacheManager.get(result.cacheKey.key)
       expect(cacheKey?.holdCount).toBe(1)
     })
   })

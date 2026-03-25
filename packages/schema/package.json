@@ -38,7 +38,7 @@
     "@types/json-schema": "^7.0.15"
   },
   "peerDependencies": {
-    "@meticoeus/ddd-es": ">=0.7.2",
+    "@meticoeus/ddd-es": ">=0.7.3",
     "ajv": ">=8.0.0"
   }
 }

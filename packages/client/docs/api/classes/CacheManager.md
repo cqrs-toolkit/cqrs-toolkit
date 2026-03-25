@@ -4,19 +4,25 @@
 
 [@cqrs-toolkit/client](../globals.md) / CacheManager
 
-# Class: CacheManager
+# Class: CacheManager\<TLink\>
 
 Cache manager implementation.
 
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
+
 ## Implements
 
-- [`ICacheManager`](../interfaces/ICacheManager.md)
+- [`ICacheManager`](../interfaces/ICacheManager.md)\<`TLink`\>
 
 ## Constructors
 
 ### Constructor
 
-> **new CacheManager**(`config`): `CacheManager`
+> **new CacheManager**\<`TLink`\>(`config`): `CacheManager`\<`TLink`\>
 
 #### Parameters
 
@@ -26,42 +32,30 @@ Cache manager implementation.
 
 #### Returns
 
-`CacheManager`
+`CacheManager`\<`TLink`\>
 
 ## Methods
 
 ### acquire()
 
-> **acquire**(`collection`, `params?`, `options?`): `Promise`\<`string`\>
+> **acquire**(`identity`, `options?`): `Promise`\<`string`\>
 
-Acquire a cache key for a collection with optional parameters.
-Creates the cache key if it doesn't exist.
+Acquire a cache key, returning only the UUID string.
+Convenience wrapper around [acquireKey](#acquirekey) for callers that only need the key.
 
 #### Parameters
 
-##### collection
+##### identity
 
-`string`
-
-Collection name
-
-##### params?
-
-`Record`\<`string`, `unknown`\>
-
-Optional query parameters
+[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
 
 ##### options?
 
 [`AcquireCacheKeyOptions`](../interfaces/AcquireCacheKeyOptions.md)
 
-Acquisition options
-
 #### Returns
 
 `Promise`\<`string`\>
-
-Cache key identifier
 
 #### Implementation of
 
@@ -69,12 +63,36 @@ Cache key identifier
 
 ---
 
+### acquireKey()
+
+> **acquireKey**(`identity`, `options?`): `Promise`\<[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>\>
+
+Acquire a cache key identity. Creates the cache key in storage if it doesn't exist.
+Returns the full identity object with the derived UUID key and all source data.
+
+#### Parameters
+
+##### identity
+
+[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
+##### options?
+
+[`AcquireCacheKeyOptions`](../interfaces/AcquireCacheKeyOptions.md)
+
+#### Returns
+
+`Promise`\<[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>\>
+
+#### Implementation of
+
+[`ICacheManager`](../interfaces/ICacheManager.md).[`acquireKey`](../interfaces/ICacheManager.md#acquirekey)
+
+---
+
 ### checkSessionUser()
 
 > **checkSessionUser**(`userId`): `Promise`\<`boolean`\>
-
-Check for session/user mismatch. If the current session belongs to a
-different user, wipes all cache keys and emits `cache:session-reset`.
 
 #### Parameters
 
@@ -82,13 +100,9 @@ different user, wipes all cache keys and emits `cache:session-reset`.
 
 `string`
 
-Expected user identifier
-
 #### Returns
 
 `Promise`\<`boolean`\>
-
-Whether a mismatch was detected and the cache was reset
 
 ---
 
@@ -97,9 +111,6 @@ Whether a mismatch was detected and the cache was reset
 > **evict**(`key`): `Promise`\<`boolean`\>
 
 Explicitly evict a cache key.
-This will delete the cache key and all associated data.
-Cannot evict held cache keys. Cannot evict frozen persistent keys.
-Ephemeral keys skip the frozen check (they can never be frozen).
 
 #### Parameters
 
@@ -107,7 +118,7 @@ Ephemeral keys skip the frozen check (they can never be frozen).
 
 `string`
 
-Cache key identifier
+Cache key UUID
 
 #### Returns
 
@@ -126,7 +137,6 @@ Whether eviction succeeded
 > **evictAll**(): `Promise`\<`number`\>
 
 Evict all evictable cache keys.
-Used during session clear or manual cleanup.
 
 #### Returns
 
@@ -145,7 +155,6 @@ Number of cache keys evicted
 > **evictExpired**(): `Promise`\<`number`\>
 
 Evict expired cache keys.
-Should be called periodically (e.g., on activity).
 
 #### Returns
 
@@ -171,7 +180,7 @@ Check if a cache key exists.
 
 `string`
 
-Cache key identifier
+Cache key UUID
 
 #### Returns
 
@@ -190,8 +199,6 @@ Whether the cache key exists
 > **freeze**(`key`): `Promise`\<`void`\>
 
 Freeze a cache key.
-While frozen, no changes can be made to data under this cache key.
-Ephemeral keys cannot be frozen (no-op).
 
 #### Parameters
 
@@ -199,7 +206,7 @@ Ephemeral keys cannot be frozen (no-op).
 
 `string`
 
-Cache key identifier
+Cache key UUID
 
 #### Returns
 
@@ -223,7 +230,7 @@ Get a cache key record.
 
 `string`
 
-Cache key identifier
+Cache key UUID
 
 #### Returns
 
@@ -269,8 +276,6 @@ Idempotent: calling hold twice for the same window is a no-op.
 
 `string`
 
-Cache key identifier
-
 #### Returns
 
 `Promise`\<`void`\>
@@ -306,7 +311,7 @@ Check if a cache key is frozen.
 
 `string`
 
-Cache key identifier
+Cache key UUID
 
 #### Returns
 
@@ -324,8 +329,7 @@ Whether the cache key is frozen
 
 > **onSessionDestroyed**(): `Promise`\<`void`\>
 
-Handle session destroyed — wipe all cache keys and in-memory state.
-Deletes each cache key via storage.deleteCacheKey() which cascade-deletes events + read models.
+Handle session destroyed — clears all cache state.
 
 #### Returns
 
@@ -346,13 +350,9 @@ Returns false and emits event if at capacity.
 
 `string`
 
-Window identifier to register
-
 #### Returns
 
 `boolean`
-
-Whether registration succeeded
 
 ---
 
@@ -369,8 +369,6 @@ Ephemeral keys are auto-evicted when the last hold is released.
 ##### key
 
 `string`
-
-Cache key identifier
 
 #### Returns
 
@@ -395,8 +393,6 @@ Used for tab-death cleanup.
 
 `string`
 
-Window identifier to release
-
 #### Returns
 
 `Promise`\<`void`\>
@@ -415,7 +411,7 @@ Touch a cache key to update its access time.
 
 `string`
 
-Cache key identifier
+Cache key UUID
 
 #### Returns
 
@@ -439,7 +435,7 @@ Unfreeze a cache key.
 
 `string`
 
-Cache key identifier
+Cache key UUID
 
 #### Returns
 
@@ -462,8 +458,6 @@ Unregister a window, releasing all its holds.
 ##### windowId
 
 `string`
-
-Window identifier to unregister
 
 #### Returns
 

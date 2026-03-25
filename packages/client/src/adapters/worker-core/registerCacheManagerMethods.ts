@@ -2,19 +2,26 @@
  * Registers CacheManager RPC methods on the worker message handler.
  */
 
+import type { Link } from '@meticoeus/ddd-es'
+import type { CacheKeyIdentity } from '../../core/cache-manager/CacheKey.js'
 import type { CacheManager } from '../../core/cache-manager/CacheManager.js'
 import type { AcquireCacheKeyOptions } from '../../core/cache-manager/types.js'
 import type { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
 
-export function registerCacheManagerMethods(
+export function registerCacheManagerMethods<TLink extends Link>(
   handler: WorkerMessageHandler,
-  cacheManager: CacheManager,
+  cacheManager: CacheManager<TLink>,
 ): void {
+  handler.registerMethod('cacheManager.acquireKey', async (args) => {
+    const identity = args[0] as CacheKeyIdentity<TLink>
+    const options = args[1] as AcquireCacheKeyOptions | undefined
+    return cacheManager.acquireKey(identity, options)
+  })
+
   handler.registerMethod('cacheManager.acquire', async (args) => {
-    const collection = args[0] as string
-    const params = args[1] as Record<string, unknown> | undefined
-    const options = args[2] as AcquireCacheKeyOptions | undefined
-    return cacheManager.acquire(collection, params, options)
+    const identity = args[0] as CacheKeyIdentity<TLink>
+    const options = args[1] as AcquireCacheKeyOptions | undefined
+    return cacheManager.acquire(identity, options)
   })
 
   handler.registerMethod('cacheManager.exists', async (args) => {

@@ -1,17 +1,19 @@
 import { autoRevision, type CollectionSyncStatus, type LibraryEvent } from '@cqrs-toolkit/client'
-import { createListQuery, useClient } from '@cqrs-toolkit/client-solid'
+import { useClient } from '@cqrs-toolkit/client-solid'
+import { appCreateListQuery } from '@cqrs-toolkit/demo-base/common/components'
 import { NotebookList } from '@cqrs-toolkit/demo-base/notebooks/components'
 import type { Notebook } from '@cqrs-toolkit/demo-base/notebooks/shared'
 import { NoteEditor, NoteTitleList } from '@cqrs-toolkit/demo-base/notes/components'
 import type { Note } from '@cqrs-toolkit/demo-base/notes/shared'
+import { ServiceLink } from '@meticoeus/ddd-es'
 import { A } from '@solidjs/router'
 import { filter } from 'rxjs'
 import { createEffect, createMemo, createSignal, onCleanup, onMount, Show } from 'solid-js'
 
 export default function NotesPage() {
-  const client = useClient()
-  const notebooksQuery = createListQuery<Notebook>(client.queryManager, 'notebooks')
-  const notesQuery = createListQuery<Note>(client.queryManager, 'notes')
+  const client = useClient<ServiceLink>()
+  const notebooksQuery = appCreateListQuery<Notebook>(client.queryManager, 'notebooks')
+  const notesQuery = appCreateListQuery<Note>(client.queryManager, 'notes')
 
   const [selectedNotebookId, setSelectedNotebookId] = createSignal<string>()
   const [selectedNoteId, setSelectedNoteId] = createSignal<string>()

@@ -4,25 +4,39 @@
 
 [@cqrs-toolkit/client](../globals.md) / SyncManager
 
-# Class: SyncManager
+# Class: SyncManager\<TLink, TSchema, TEvent\>
 
 Sync manager.
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
+
+### TSchema
+
+`TSchema`
+
+### TEvent
+
+`TEvent` _extends_ [`IAnticipatedEvent`](../interfaces/IAnticipatedEvent.md)
 
 ## Constructors
 
 ### Constructor
 
-> **new SyncManager**(`config`): `SyncManager`
+> **new SyncManager**\<`TLink`, `TSchema`, `TEvent`\>(`config`): `SyncManager`\<`TLink`, `TSchema`, `TEvent`\>
 
 #### Parameters
 
 ##### config
 
-[`SyncManagerConfig`](../interfaces/SyncManagerConfig.md)
+[`SyncManagerConfig`](../interfaces/SyncManagerConfig.md)\<`TLink`, `TSchema`, `TEvent`\>
 
 #### Returns
 
-`SyncManager`
+`SyncManager`\<`TLink`, `TSchema`, `TEvent`\>
 
 ## Methods
 

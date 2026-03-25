@@ -6,14 +6,17 @@
  * reconstructed on the main thread from broadcast events.
  */
 
+import type { Link } from '@meticoeus/ddd-es'
+import type { IAnticipatedEvent } from '../../core/command-lifecycle/AnticipatedEventShape.js'
 import type { CommandQueue } from '../../core/command-queue/CommandQueue.js'
 import type { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
 import type { CommandFilter, EnqueueCommand, EnqueueOptions } from '../../types/commands.js'
 
-export function registerCommandQueueMethods(
-  handler: WorkerMessageHandler,
-  commandQueue: CommandQueue,
-): void {
+export function registerCommandQueueMethods<
+  TLink extends Link,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+>(handler: WorkerMessageHandler, commandQueue: CommandQueue<TLink, TSchema, TEvent>): void {
   handler.registerMethod('commandQueue.enqueue', async (args) => {
     const command = args[0] as EnqueueCommand
     const options = args[1] as EnqueueOptions | undefined

@@ -4,13 +4,17 @@
 
 [@cqrs-toolkit/client](../globals.md) / CqrsClient
 
-# Class: CqrsClient\<TCommand\>
+# Class: CqrsClient\<TLink, TCommand\>
 
 CQRS Client instance returned by [createCqrsClient](../functions/createCqrsClient.md).
 
 All fields are available immediately — the client is fully initialized at construction time.
 
 ## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
 
 ### TCommand
 
@@ -20,17 +24,17 @@ All fields are available immediately — the client is fully initialized at cons
 
 ### Constructor
 
-> **new CqrsClient**\<`TCommand`\>(`adapter`, `cacheManager`, `commandQueue`, `queryManager`, `syncManager`, `closeResources`, `mode`): `CqrsClient`\<`TCommand`\>
+> **new CqrsClient**\<`TLink`, `TCommand`\>(`adapter`, `cacheManager`, `commandQueue`, `queryManager`, `syncManager`, `closeResources`, `mode`): `CqrsClient`\<`TLink`, `TCommand`\>
 
 #### Parameters
 
 ##### adapter
 
-[`IAdapter`](../type-aliases/IAdapter.md)
+[`IAdapter`](../type-aliases/IAdapter.md)\<`TLink`\>
 
 ##### cacheManager
 
-[`ICacheManager`](../interfaces/ICacheManager.md)
+[`ICacheManager`](../interfaces/ICacheManager.md)\<`TLink`\>
 
 ##### commandQueue
 
@@ -38,7 +42,7 @@ All fields are available immediately — the client is fully initialized at cons
 
 ##### queryManager
 
-[`IQueryManager`](../interfaces/IQueryManager.md)
+[`IQueryManager`](../interfaces/IQueryManager.md)\<`TLink`\>
 
 ##### syncManager
 
@@ -54,13 +58,13 @@ All fields are available immediately — the client is fully initialized at cons
 
 #### Returns
 
-`CqrsClient`\<`TCommand`\>
+`CqrsClient`\<`TLink`, `TCommand`\>
 
 ## Properties
 
 ### cacheManager
 
-> `readonly` **cacheManager**: [`ICacheManager`](../interfaces/ICacheManager.md)
+> `readonly` **cacheManager**: [`ICacheManager`](../interfaces/ICacheManager.md)\<`TLink`\>
 
 Cache manager for cache key lifecycle and eviction.
 
@@ -84,7 +88,7 @@ Resolved execution mode.
 
 ### queryManager
 
-> `readonly` **queryManager**: [`IQueryManager`](../interfaces/IQueryManager.md)
+> `readonly` **queryManager**: [`IQueryManager`](../interfaces/IQueryManager.md)\<`TLink`\>
 
 Query manager for reading cached data.
 

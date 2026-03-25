@@ -4,33 +4,36 @@
 
 [@cqrs-toolkit/client](../globals.md) / ICacheManager
 
-# Interface: ICacheManager
+# Interface: ICacheManager\<TLink\>
 
 Cache manager interface.
 Provides cache key lifecycle, eviction, and hold management.
+
+Parameterized on `TLink` so entity cache keys carry the app's link type
+(`Link` for single-service, `ServiceLink` for multi-service).
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
 
 ## Methods
 
 ### acquire()
 
-> **acquire**(`collection`, `params?`, `options?`): `Promise`\<`string`\>
+> **acquire**(`identity`, `options?`): `Promise`\<`string`\>
 
-Acquire a cache key for a collection with optional parameters.
-Creates the cache key if it doesn't exist.
+Acquire a cache key, returning only the UUID string.
+Convenience wrapper around [acquireKey](#acquirekey) for callers that only need the key.
 
 #### Parameters
 
-##### collection
+##### identity
 
-`string`
+[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
 
-Collection name
-
-##### params?
-
-`Record`\<`string`, `unknown`\>
-
-Optional query parameters
+The cache key identity to acquire
 
 ##### options?
 
@@ -42,7 +45,36 @@ Acquisition options
 
 `Promise`\<`string`\>
 
-Cache key identifier
+The cache key UUID string
+
+---
+
+### acquireKey()
+
+> **acquireKey**(`identity`, `options?`): `Promise`\<[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>\>
+
+Acquire a cache key identity. Creates the cache key in storage if it doesn't exist.
+Returns the full identity object with the derived UUID key and all source data.
+
+#### Parameters
+
+##### identity
+
+[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
+The cache key identity to acquire
+
+##### options?
+
+[`AcquireCacheKeyOptions`](AcquireCacheKeyOptions.md)
+
+Acquisition options
+
+#### Returns
+
+`Promise`\<[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>\>
+
+The acquired cache key identity
 
 ---
 
@@ -58,7 +90,7 @@ Explicitly evict a cache key.
 
 `string`
 
-Cache key identifier
+Cache key UUID
 
 #### Returns
 
@@ -108,7 +140,7 @@ Check if a cache key exists.
 
 `string`
 
-Cache key identifier
+Cache key UUID
 
 #### Returns
 
@@ -130,7 +162,7 @@ Freeze a cache key.
 
 `string`
 
-Cache key identifier
+Cache key UUID
 
 #### Returns
 
@@ -150,7 +182,7 @@ Get a cache key record.
 
 `string`
 
-Cache key identifier
+Cache key UUID
 
 #### Returns
 
@@ -187,7 +219,7 @@ While held, the cache key cannot be evicted.
 
 `string`
 
-Cache key identifier
+Cache key UUID
 
 #### Returns
 
@@ -207,7 +239,7 @@ Check if a cache key is frozen.
 
 `string`
 
-Cache key identifier
+Cache key UUID
 
 #### Returns
 
@@ -229,7 +261,7 @@ Release a hold on a cache key.
 
 `string`
 
-Cache key identifier
+Cache key UUID
 
 #### Returns
 
@@ -249,7 +281,7 @@ Touch a cache key to update its access time.
 
 `string`
 
-Cache key identifier
+Cache key UUID
 
 #### Returns
 
@@ -269,7 +301,7 @@ Unfreeze a cache key.
 
 `string`
 
-Cache key identifier
+Cache key UUID
 
 #### Returns
 

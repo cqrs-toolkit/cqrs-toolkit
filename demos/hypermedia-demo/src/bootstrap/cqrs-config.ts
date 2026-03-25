@@ -6,62 +6,32 @@
  * this module independently — no serialization needed.
  */
 
-import { clientSchema, cookieAuthStrategy, type CqrsConfig } from '@cqrs-toolkit/client'
+import {
+  clientSchema,
+  cookieAuthStrategy,
+  type CqrsConfig,
+  type IAnticipatedEvent,
+} from '@cqrs-toolkit/client'
 import {
   createAjvSchemaValidator,
-  createCollection,
   createHypermediaCommandSender,
   withSchemaRegistry,
 } from '@cqrs-toolkit/hypermedia-client'
+import type { ServiceLink } from '@meticoeus/ddd-es'
 import type { JSONSchema7 } from 'json-schema'
 import { commands } from '../.cqrs/commands.js'
-import { representations } from '../.cqrs/representations.js'
 import { schemas } from '../.cqrs/schemas.js'
+import { notebooksCollection } from '../domain/notebooks/collection.js'
 import { notebookHandlers } from '../domain/notebooks/executor.js'
 import { notebookProcessors } from '../domain/notebooks/processor.js'
+import { notesCollection } from '../domain/notes/collection.js'
 import { noteHandlers } from '../domain/notes/executor.js'
 import { noteProcessors } from '../domain/notes/processor.js'
+import { todosCollection } from '../domain/todos/collection.js'
 import { todoHandlers } from '../domain/todos/executor.js'
 import { todoProcessors } from '../domain/todos/processor.js'
 
-// ---------------------------------------------------------------------------
-// Command sender (auto-wired from generated manifest)
-// ---------------------------------------------------------------------------
-
-const commandSender = createHypermediaCommandSender(commands, {
-  baseUrl: location.origin,
-})
-
-// ---------------------------------------------------------------------------
-// Collection definitions (wired from generated representation surfaces)
-// ---------------------------------------------------------------------------
-
-const todosCollection = createCollection({
-  name: 'todos',
-  representation: representations['demo:Todo'],
-  getTopics: () => ['Todo:*'],
-  matchesStream: (streamId) => streamId.startsWith('Todo-'),
-})
-
-const notebooksCollection = createCollection({
-  name: 'notebooks',
-  representation: representations['demo:Notebook'],
-  getTopics: () => ['Notebook:*'],
-  matchesStream: (streamId) => streamId.startsWith('Notebook-'),
-})
-
-const notesCollection = createCollection({
-  name: 'notes',
-  representation: representations['demo:Note'],
-  getTopics: () => ['Notebook:*'],
-  matchesStream: (streamId) => streamId.startsWith('Note-'),
-})
-
-// ---------------------------------------------------------------------------
-// Shared config
-// ---------------------------------------------------------------------------
-
-export const cqrsConfig: CqrsConfig<JSONSchema7> = {
+export const cqrsConfig: CqrsConfig<ServiceLink, JSONSchema7, IAnticipatedEvent> = {
   schemaValidator: createAjvSchemaValidator(schemas),
   auth: cookieAuthStrategy,
   network: {
@@ -89,7 +59,9 @@ export const cqrsConfig: CqrsConfig<JSONSchema7> = {
     ...notebookHandlers,
     ...noteHandlers,
   ]),
-  commandSender,
+  commandSender: createHypermediaCommandSender(commands, {
+    baseUrl: location.origin,
+  }),
   retainTerminal: true,
   debug: true,
 }

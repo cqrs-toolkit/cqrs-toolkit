@@ -18,12 +18,20 @@ CREATE TABLE session (
 const CACHE_KEYS_TABLE = `
 CREATE TABLE cache_keys (
   key TEXT PRIMARY KEY,
-  last_accessed_at INTEGER NOT NULL,
-  hold_count INTEGER NOT NULL DEFAULT 0,
+  kind TEXT NOT NULL,
+  link_service TEXT,
+  link_type TEXT,
+  link_id TEXT,
+  service TEXT,
+  scope_type TEXT,
+  scope_params TEXT,
+  parent_key TEXT,
+  eviction_policy TEXT NOT NULL DEFAULT 'persistent',
   frozen INTEGER NOT NULL DEFAULT 0,
+  last_accessed_at INTEGER NOT NULL,
   expires_at INTEGER,
   created_at INTEGER NOT NULL,
-  eviction_policy TEXT NOT NULL DEFAULT 'persistent'
+  hold_count INTEGER NOT NULL DEFAULT 0
 )`
 
 const CACHE_KEYS_ACCESS_INDEX = `

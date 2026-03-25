@@ -4,18 +4,12 @@
 
 [@cqrs-toolkit/client](../globals.md) / IDomainExecutor
 
-# Interface: IDomainExecutor\<TCommand, TEvent\>
+# Interface: IDomainExecutor\<TEvent\>
 
 Domain executor interface - consumer implements this.
 The library is agnostic to how validation is performed internally.
 
 ## Type Parameters
-
-### TCommand
-
-`TCommand` = `unknown`
-
-Command type accepted by the executor
 
 ### TEvent
 
@@ -39,9 +33,9 @@ On regeneration (`'updating'`), skips validation and runs the handler directly.
 
 ##### command
 
-`TCommand`
+[`ExecutorCommand`](ExecutorCommand.md)
 
-The command to execute
+The command envelope to execute
 
 ##### context
 

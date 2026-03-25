@@ -1,5 +1,5 @@
 import { type CollectionSyncStatus, type LibraryEvent } from '@cqrs-toolkit/client'
-import { createListQuery } from '@cqrs-toolkit/client-solid'
+import { appCreateListQuery } from '@cqrs-toolkit/demo-base/common/components'
 import { NotebookList } from '@cqrs-toolkit/demo-base/notebooks/components'
 import type { Notebook } from '@cqrs-toolkit/demo-base/notebooks/shared'
 import { NoteEditor, NoteTitleList } from '@cqrs-toolkit/demo-base/notes/components'
@@ -11,8 +11,8 @@ import { useClient } from '../bootstrap/typed-client.js'
 
 export default function NotesPage() {
   const client = useClient()
-  const notebooksQuery = createListQuery<Notebook>(client.queryManager, 'notebooks')
-  const notesQuery = createListQuery<Note>(client.queryManager, 'notes')
+  const notebooksQuery = appCreateListQuery<Notebook>(client.queryManager, 'notebooks')
+  const notesQuery = appCreateListQuery<Note>(client.queryManager, 'notes')
 
   const [selectedNotebookId, setSelectedNotebookId] = createSignal<string>()
   const [selectedNoteId, setSelectedNoteId] = createSignal<string>()

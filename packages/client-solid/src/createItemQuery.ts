@@ -3,6 +3,7 @@
  */
 
 import type { IQueryManager, QueryManagerQueryOptions } from '@cqrs-toolkit/client'
+import type { Link } from '@meticoeus/ddd-es'
 import { createComputed, onCleanup } from 'solid-js'
 import { createStore, reconcile } from 'solid-js/store'
 import type { Identifiable, ItemQueryOptions, ItemQueryState, ReconciledId } from './types.js'
@@ -37,8 +38,8 @@ interface Session {
  * @param options - Query options (scope)
  * @returns Reactive store with data, loading, hasLocalChanges, error, reconciledId
  */
-export function createItemQuery<T extends Identifiable>(
-  queryManager: IQueryManager,
+export function createItemQuery<TLink extends Link, T extends Identifiable>(
+  queryManager: IQueryManager<TLink>,
   collection: string,
   id: () => string,
   options?: ItemQueryOptions,
@@ -68,9 +69,6 @@ export function createItemQuery<T extends Identifiable>(
     let trackingId = initialId
 
     const queryOptions: QueryManagerQueryOptions = { hold: true }
-    if (options?.scope !== undefined) {
-      queryOptions.scope = options.scope
-    }
 
     setStore('data', undefined)
     setStore('loading', true)
@@ -88,7 +86,7 @@ export function createItemQuery<T extends Identifiable>(
         }
 
         if (cacheKey === undefined) {
-          cacheKey = result.cacheKey
+          cacheKey = result.cacheKey.key
         }
 
         // Detect reconciliation: the storage returned an entry under a different ID

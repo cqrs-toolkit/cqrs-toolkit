@@ -6,14 +6,15 @@
  * callbacks (topics, stream matching).
  */
 
-import type { Collection } from '@cqrs-toolkit/client'
+import type { CacheKeyIdentity, Collection } from '@cqrs-toolkit/client'
+import type { Link } from '@meticoeus/ddd-es'
 import { fetchEventPage, fetchStreamEvents } from './fetchHelpers.js'
 import type { RepresentationSurfaces } from './types.js'
 
 /**
  * Options for creating a collection from a representation.
  */
-export interface CreateCollectionOptions {
+export interface CreateCollectionOptions<TLink extends Link> {
   /** Collection name (e.g. 'todos') */
   name: string
   /** Representation surface data from generated representations.ts */
@@ -27,6 +28,8 @@ export interface CreateCollectionOptions {
    * Default: splits on first '-' (convention: 'Todo-{uuid}' → '{uuid}')
    */
   aggregateId?: (streamId: string) => string
+  /** Cache key identity to auto-seed on startup. */
+  seedCacheKey?: CacheKeyIdentity<TLink>
 }
 
 /**
@@ -53,7 +56,9 @@ function expandItemEventsPath(template: string, aggregateId: string): string {
  * The returned collection has `fetchSeedEvents` and `fetchStreamEvents`
  * pre-wired using the representation's aggregate events and item events URLs.
  */
-export function createCollection(opts: CreateCollectionOptions): Collection {
+export function createCollection<TLink extends Link>(
+  opts: CreateCollectionOptions<TLink>,
+): Collection<TLink> {
   const { name, representation, getTopics, matchesStream } = opts
   const extractId = opts.aggregateId ?? defaultAggregateId
   const aggregateEventsHref =
@@ -63,9 +68,10 @@ export function createCollection(opts: CreateCollectionOptions): Collection {
     name,
     getTopics,
     matchesStream,
-    fetchSeedEvents: (ctx, cursor, limit) =>
+    seedCacheKey: opts.seedCacheKey,
+    fetchSeedEvents: ({ ctx, cursor, limit }) =>
       fetchEventPage(ctx, aggregateEventsHref, cursor, limit),
-    fetchStreamEvents: (ctx, streamId, afterRevision) => {
+    fetchStreamEvents: ({ ctx, streamId, afterRevision }) => {
       const id = extractId(streamId)
       const path = expandItemEventsPath(representation.itemEvents.template, id)
       return fetchStreamEvents(ctx, path, afterRevision)

@@ -4,9 +4,23 @@
 
 [@cqrs-toolkit/client](../globals.md) / SyncManagerConfig
 
-# Interface: SyncManagerConfig
+# Interface: SyncManagerConfig\<TLink, TSchema, TEvent\>
 
 Sync manager configuration.
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
+
+### TSchema
+
+`TSchema`
+
+### TEvent
+
+`TEvent` _extends_ [`IAnticipatedEvent`](IAnticipatedEvent.md)
 
 ## Properties
 
@@ -18,19 +32,19 @@ Sync manager configuration.
 
 ### cacheManager
 
-> **cacheManager**: [`CacheManager`](../classes/CacheManager.md)
+> **cacheManager**: [`CacheManager`](../classes/CacheManager.md)\<`TLink`\>
 
 ---
 
 ### collections
 
-> **collections**: [`Collection`](Collection.md)[]
+> **collections**: [`Collection`](Collection.md)\<`TLink`\>[]
 
 ---
 
 ### commandQueue
 
-> **commandQueue**: [`CommandQueue`](../classes/CommandQueue.md)
+> **commandQueue**: [`CommandQueue`](../classes/CommandQueue.md)\<`TLink`, `TSchema`, `TEvent`\>
 
 ---
 
@@ -60,7 +74,7 @@ Sync manager configuration.
 
 ### queryManager
 
-> **queryManager**: [`QueryManager`](../classes/QueryManager.md)
+> **queryManager**: [`QueryManager`](../classes/QueryManager.md)\<`TLink`\>
 
 ---
 

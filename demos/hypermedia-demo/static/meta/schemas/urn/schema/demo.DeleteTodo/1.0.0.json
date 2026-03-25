@@ -13,6 +13,9 @@
       "type": "string"
     }
   },
-  "required": ["type", "data"],
+  "required": [
+    "type",
+    "data"
+  ],
   "type": "object"
 }

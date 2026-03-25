@@ -6,7 +6,7 @@
 
 # Function: withSchemaRegistry()
 
-> **withSchemaRegistry**\<`TEvent`\>(`registry`, `handlers`): `CommandHandlerRegistration`\<`TEvent`, `JSONSchema7`\>[]
+> **withSchemaRegistry**\<`TLink`, `TEvent`\>(`registry`, `handlers`): `CommandHandlerRegistration`\<`TLink`, `JSONSchema7`, `TEvent`\>[]
 
 Inject schemas from a registry onto command handler registrations.
 
@@ -23,9 +23,13 @@ commandHandlers: withSchemaRegistry(schemas, [...todoHandlers, ...noteHandlers])
 
 ## Type Parameters
 
+### TLink
+
+`TLink` _extends_ `Link`\<`string`, `string`\>
+
 ### TEvent
 
-`TEvent` _extends_ `IAnticipatedEvent`\<`string`, `AggregateEventData`\> = `IAnticipatedEvent`\<`string`, `AggregateEventData`\>
+`TEvent` _extends_ `IAnticipatedEvent`\<`string`, `AggregateEventData`\>
 
 ## Parameters
 
@@ -35,8 +39,8 @@ commandHandlers: withSchemaRegistry(schemas, [...todoHandlers, ...noteHandlers])
 
 ### handlers
 
-`CommandHandlerRegistration`\<`TEvent`, `JSONSchema7`\>[]
+`CommandHandlerRegistration`\<`TLink`, `JSONSchema7`, `TEvent`\>[]
 
 ## Returns
 
-`CommandHandlerRegistration`\<`TEvent`, `JSONSchema7`\>[]
+`CommandHandlerRegistration`\<`TLink`, `JSONSchema7`, `TEvent`\>[]

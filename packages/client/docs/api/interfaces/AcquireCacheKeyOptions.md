@@ -26,14 +26,6 @@ Whether to place a hold (prevents eviction)
 
 ---
 
-### scope?
-
-> `optional` **scope**: `string`
-
-Scope for the cache key
-
----
-
 ### ttl?
 
 > `optional` **ttl**: `number`

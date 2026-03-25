@@ -4,9 +4,23 @@
 
 [@cqrs-toolkit/client](../globals.md) / CommandQueueConfig
 
-# Interface: CommandQueueConfig
+# Interface: CommandQueueConfig\<TLink, TSchema, TEvent\>
 
 Command queue configuration.
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
+
+### TSchema
+
+`TSchema`
+
+### TEvent
+
+`TEvent` _extends_ [`IAnticipatedEvent`](IAnticipatedEvent.md)
 
 ## Properties
 
@@ -38,7 +52,7 @@ TTL for command ID mappings in milliseconds. Default: 5 minutes.
 
 ### domainExecutor?
 
-> `optional` **domainExecutor**: [`IDomainExecutor`](IDomainExecutor.md)\<`unknown`, `unknown`\>
+> `optional` **domainExecutor**: [`IDomainExecutor`](IDomainExecutor.md)\<`unknown`\>
 
 ---
 
@@ -50,7 +64,7 @@ TTL for command ID mappings in milliseconds. Default: 5 minutes.
 
 ### handlerMetadata?
 
-> `optional` **handlerMetadata**: [`ICommandHandlerMetadata`](ICommandHandlerMetadata.md)
+> `optional` **handlerMetadata**: [`ICommandHandlerMetadata`](ICommandHandlerMetadata.md)\<`TLink`, `TSchema`, `TEvent`\>
 
 Metadata lookup for command handler registrations (creates config).
 

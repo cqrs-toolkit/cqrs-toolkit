@@ -6,6 +6,7 @@
 import {
   Err,
   type ErrResult,
+  type Link,
   Ok,
   type OkResult,
   type Result,
@@ -157,19 +158,34 @@ export function createEntityId(context: HandlerContext): string {
  * Gives access to the local read model for business rule checks
  * (name uniqueness, permission lookups, etc.).
  */
-export interface AsyncValidationContext {
+export interface AsyncValidationContext<TLink extends Link> {
   /** Query the local read model store. */
-  queryManager: IQueryManager
+  queryManager: IQueryManager<TLink>
+  /** URL path template values from the command envelope. */
+  path?: unknown
+}
+
+/**
+ * Minimum command envelope shape required by the domain executor.
+ * The executor needs the command type for dispatch, data for validation/handling,
+ * and path for URL template values passed to validateAsync and handler contexts.
+ */
+export interface ExecutorCommand {
+  /** Command type for dispatch */
+  type: string
+  /** Command data (HTTP body payload) */
+  data: unknown
+  /** URL path template values from the command envelope */
+  path?: unknown
 }
 
 /**
  * Domain executor interface - consumer implements this.
  * The library is agnostic to how validation is performed internally.
  *
- * @template TCommand - Command type accepted by the executor
  * @template TEvent - Event type produced by the executor
  */
-export interface IDomainExecutor<TCommand = unknown, TEvent = unknown> {
+export interface IDomainExecutor<TEvent = unknown> {
   /**
    * Execute a command through the validation pipeline and produce anticipated events.
    *
@@ -177,11 +193,11 @@ export interface IDomainExecutor<TCommand = unknown, TEvent = unknown> {
    * (schema, validate, validateAsync) before the handler.
    * On regeneration (`'updating'`), skips validation and runs the handler directly.
    *
-   * @param command - The command to execute
+   * @param command - The command envelope to execute
    * @param context - Execution context (phase and entity ID for regeneration)
    * @returns Success with anticipated events, or failure with validation errors
    */
-  execute(command: TCommand, context: HandlerContext): Promise<DomainExecutionResult<TEvent>>
+  execute(command: ExecutorCommand, context: HandlerContext): Promise<DomainExecutionResult<TEvent>>
 }
 
 /**
@@ -269,8 +285,9 @@ export interface SchemaValidator<TSchema> {
  * @template TSchema - Schema type for structural validation (JSONSchema7, z.ZodType, etc.).
  */
 export interface CommandHandlerRegistration<
-  TEvent extends IAnticipatedEvent = IAnticipatedEvent,
+  TLink extends Link,
   TSchema = unknown,
+  TEvent extends IAnticipatedEvent = IAnticipatedEvent,
 > {
   /** Command type this handler processes */
   commandType: string
@@ -281,7 +298,7 @@ export interface CommandHandlerRegistration<
   /** Phase 3: async validation querying local data (permissions, name conflicts, etc.). */
   validateAsync?(
     data: unknown,
-    context: AsyncValidationContext,
+    context: AsyncValidationContext<TLink>,
   ): Promise<Result<unknown, ValidationException<ValidationError[]>>>
   /** Phase 4: produce anticipated events from validated data. */
   handler(data: unknown, context: HandlerContext): DomainExecutionResult<TEvent>
@@ -307,18 +324,24 @@ export interface ParentRefConfig {
  * Metadata lookup for command handler registrations.
  * Allows the CommandQueue to access creates config by command type.
  */
-export interface ICommandHandlerMetadata {
-  getRegistration(commandType: string): CommandHandlerRegistration | undefined
+export interface ICommandHandlerMetadata<
+  TLink extends Link,
+  TSchema = unknown,
+  TEvent extends IAnticipatedEvent = IAnticipatedEvent,
+> {
+  getRegistration(
+    commandType: string,
+  ): CommandHandlerRegistration<TLink, TSchema, TEvent> | undefined
 }
 
 /**
  * Options for `createDomainExecutor`.
  */
-export interface CreateDomainExecutorOptions<TSchema = unknown> {
+export interface CreateDomainExecutorOptions<TLink extends Link, TSchema = unknown> {
   /** Schema validator implementation. Required if any registration has a `schema`. */
   schemaValidator?: SchemaValidator<TSchema>
   /** Query manager for async validation phase. Required if any registration has `validateAsync`. */
-  queryManager?: IQueryManager
+  queryManager?: IQueryManager<TLink>
 }
 
 /**
@@ -334,11 +357,11 @@ export interface CreateDomainExecutorOptions<TSchema = unknown> {
  *
  * Returns both the executor and a metadata lookup for registration config.
  */
-export function createDomainExecutor<TEvent extends IAnticipatedEvent = IAnticipatedEvent>(
-  registrations: CommandHandlerRegistration<TEvent>[],
-  options?: CreateDomainExecutorOptions,
-): IDomainExecutor<unknown, TEvent> & ICommandHandlerMetadata {
-  const registrationMap = new Map<string, CommandHandlerRegistration<TEvent>>()
+export function createDomainExecutor<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent>(
+  registrations: CommandHandlerRegistration<TLink, TSchema, TEvent>[],
+  options?: CreateDomainExecutorOptions<TLink, TSchema>,
+): IDomainExecutor<TEvent> & ICommandHandlerMetadata<TLink, TSchema, TEvent> {
+  const registrationMap = new Map<string, CommandHandlerRegistration<TLink, TSchema, TEvent>>()
   const schemaValidator = options?.schemaValidator
   const queryManager = options?.queryManager
 
@@ -352,10 +375,10 @@ export function createDomainExecutor<TEvent extends IAnticipatedEvent = IAnticip
 
   return {
     async execute(
-      command: unknown,
+      command: ExecutorCommand,
       context: HandlerContext,
     ): Promise<DomainExecutionResult<TEvent>> {
-      const { type, data } = command as { type: string; data: unknown }
+      const { type, data, path } = command
       const reg = registrationMap.get(type)
       if (!reg) {
         return domainFailure([{ path: 'type', message: `Unknown command type: ${type}` }])
@@ -382,7 +405,7 @@ export function createDomainExecutor<TEvent extends IAnticipatedEvent = IAnticip
 
         // Phase 3: async validation (queries local read model)
         if (reg.validateAsync && queryManager) {
-          const asyncResult = await reg.validateAsync(currentData, { queryManager })
+          const asyncResult = await reg.validateAsync(currentData, { queryManager, path })
           if (!asyncResult.ok) return asyncResult
           currentData = asyncResult.value
         }
@@ -391,7 +414,9 @@ export function createDomainExecutor<TEvent extends IAnticipatedEvent = IAnticip
       return reg.handler(currentData, context)
     },
 
-    getRegistration(commandType: string): CommandHandlerRegistration | undefined {
+    getRegistration(
+      commandType: string,
+    ): CommandHandlerRegistration<TLink, TSchema, TEvent> | undefined {
       return registrationMap.get(commandType)
     },
   }

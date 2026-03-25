@@ -260,6 +260,25 @@ Array of read models with uncommitted changes
 
 ---
 
+### getRevisionMap()
+
+> **getRevisionMap**(`collection`): `Promise`\<`object`[]\>
+
+Get all (id, revision) pairs for entities in a collection that have a persisted revision.
+Used by SyncManager to restore knownRevisions on startup.
+
+#### Parameters
+
+##### collection
+
+`string`
+
+#### Returns
+
+`Promise`\<`object`[]\>
+
+---
+
 ### list()
 
 > **list**\<`T`\>(`collection`, `options?`): `Promise`\<[`ReadModel`](../interfaces/ReadModel.md)\<`T`\>[]\>
@@ -296,7 +315,7 @@ Array of read models
 
 ### mergeServerData()
 
-> **mergeServerData**\<`T`\>(`collection`, `id`, `data`, `cacheKey`): `Promise`\<`boolean`\>
+> **mergeServerData**\<`T`\>(`collection`, `id`, `data`, `cacheKey`, `revisionMeta?`): `Promise`\<`boolean`\>
 
 Merge partial data into server baseline and recompute effective data via three-way merge.
 Preserves local overlays that differ from the server baseline.
@@ -332,6 +351,12 @@ Partial data to merge into server baseline
 `string`
 
 Cache key to associate with
+
+##### revisionMeta?
+
+[`RevisionMeta`](../interfaces/RevisionMeta.md)
+
+Revision metadata from the event or seed record
 
 #### Returns
 
@@ -423,7 +448,7 @@ true if data changed
 
 ### setServerData()
 
-> **setServerData**\<`T`\>(`collection`, `id`, `data`, `cacheKey`): `Promise`\<`boolean`\>
+> **setServerData**\<`T`\>(`collection`, `id`, `data`, `cacheKey`, `revisionMeta?`): `Promise`\<`boolean`\>
 
 Directly set a read model (used by sync/seeding).
 Marks the data as server baseline.
@@ -459,6 +484,12 @@ Read model data
 `string`
 
 Cache key to associate with
+
+##### revisionMeta?
+
+[`RevisionMeta`](../interfaces/RevisionMeta.md)
+
+Revision metadata from the event or seed record
 
 #### Returns
 

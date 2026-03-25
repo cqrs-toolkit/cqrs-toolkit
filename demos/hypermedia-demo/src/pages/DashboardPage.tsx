@@ -1,7 +1,9 @@
 import { type CollectionSyncStatus, type LibraryEvent } from '@cqrs-toolkit/client'
-import { createListQuery, useClient } from '@cqrs-toolkit/client-solid'
+import { useClient } from '@cqrs-toolkit/client-solid'
+import { appCreateListQuery } from '@cqrs-toolkit/demo-base/common/components'
 import type { Note } from '@cqrs-toolkit/demo-base/notes/shared'
 import type { Todo } from '@cqrs-toolkit/demo-base/todos/shared'
+import { ServiceLink } from '@meticoeus/ddd-es'
 import { A } from '@solidjs/router'
 import { filter } from 'rxjs'
 import { createSignal, For, onCleanup, onMount, Show } from 'solid-js'
@@ -9,9 +11,9 @@ import { createSignal, For, onCleanup, onMount, Show } from 'solid-js'
 type PanelState = 'loading' | 'ready' | 'error'
 
 export default function DashboardPage() {
-  const client = useClient()
-  const todosQuery = createListQuery<Todo>(client.queryManager, 'todos')
-  const notesQuery = createListQuery<Note>(client.queryManager, 'notes')
+  const client = useClient<ServiceLink>()
+  const todosQuery = appCreateListQuery<Todo>(client.queryManager, 'todos')
+  const notesQuery = appCreateListQuery<Note>(client.queryManager, 'notes')
   const [todosState, setTodosState] = createSignal<PanelState>('loading')
   const [notesState, setNotesState] = createSignal<PanelState>('loading')
   const [todosSync, setTodosSync] = createSignal<CollectionSyncStatus>()

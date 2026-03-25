@@ -7,7 +7,7 @@ import { logProvider } from '@meticoeus/ddd-es'
 import type { EventPersistence } from '../../types/events.js'
 import type { IAnticipatedEventHandler } from '../command-queue/CommandQueue.js'
 import type { EventBus } from '../events/EventBus.js'
-import type { ReadModelStore } from '../read-model-store/ReadModelStore.js'
+import type { ReadModelStore, RevisionMeta } from '../read-model-store/ReadModelStore.js'
 import { EventProcessorRegistry } from './EventProcessorRegistry.js'
 import type {
   EventProcessor,
@@ -98,6 +98,15 @@ export class EventProcessorRunner {
       allResults.push(...result.results)
     }
 
+    // Build revision metadata for server-update writes (permanent events only)
+    const revisionMeta: RevisionMeta | undefined =
+      event.persistence === 'Permanent' && event.revision !== undefined
+        ? {
+            revision: String(event.revision),
+            position: event.position !== undefined ? String(event.position) : undefined,
+          }
+        : undefined
+
     // Check for create reconciliation: a permanent event replacing an anticipated create
     // that used a different (client-generated) ID. This copies anticipated overlays from
     // the old stream, deletes the old entry, and prepares overlays for re-application.
@@ -123,7 +132,7 @@ export class EventProcessorRunner {
     }
 
     for (const result of allResults) {
-      const modified = await this.applyResult(result, event.cacheKey)
+      const modified = await this.applyResult(result, event.cacheKey, revisionMeta)
       updatedIds.push(`${result.collection}:${result.id}`)
 
       if (modified) {
@@ -365,7 +374,11 @@ export class EventProcessorRunner {
    * Apply a processor result to the read model store.
    * Returns true if the data was actually modified.
    */
-  private async applyResult(result: ProcessorResult, cacheKey: string): Promise<boolean> {
+  private async applyResult(
+    result: ProcessorResult,
+    cacheKey: string,
+    revisionMeta?: RevisionMeta,
+  ): Promise<boolean> {
     const { collection, id, update, isServerUpdate } = result
 
     if (update.type === 'delete') {
@@ -374,14 +387,26 @@ export class EventProcessorRunner {
 
     if (update.type === 'set') {
       if (isServerUpdate) {
-        return this.readModelStore.setServerData(collection, id, update.data, cacheKey)
+        return this.readModelStore.setServerData(
+          collection,
+          id,
+          update.data,
+          cacheKey,
+          revisionMeta,
+        )
       }
       return this.readModelStore.setLocalData(collection, id, update.data, cacheKey)
     }
 
     if (update.type === 'merge') {
       if (isServerUpdate) {
-        return this.readModelStore.mergeServerData(collection, id, update.data, cacheKey)
+        return this.readModelStore.mergeServerData(
+          collection,
+          id,
+          update.data,
+          cacheKey,
+          revisionMeta,
+        )
       }
       return this.readModelStore.applyLocalChanges(collection, id, update.data, cacheKey)
     }

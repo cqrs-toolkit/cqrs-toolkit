@@ -3,10 +3,16 @@
   "additionalProperties": false,
   "properties": {
     "status": {
-      "enum": ["pending", "in_progress", "completed"],
+      "enum": [
+        "pending",
+        "in_progress",
+        "completed"
+      ],
       "type": "string"
     }
   },
-  "required": ["status"],
+  "required": [
+    "status"
+  ],
   "type": "object"
 }

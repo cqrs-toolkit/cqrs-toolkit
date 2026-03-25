@@ -7,7 +7,7 @@
  * instances across refetches.
  */
 
-import { logProvider } from '@meticoeus/ddd-es'
+import { type Link, logProvider } from '@meticoeus/ddd-es'
 import type { Observable } from 'rxjs'
 import {
   catchError,
@@ -41,15 +41,15 @@ interface CachedRef {
  * Decorator around IQueryManager that preserves object references for
  * items whose (id, updatedAt) pair has not changed since the last query.
  */
-export class StableRefQueryManager implements IQueryManager {
-  private readonly inner: IQueryManager
+export class StableRefQueryManager<TLink extends Link> implements IQueryManager<TLink> {
+  private readonly inner: IQueryManager<TLink>
 
   /** Per-collection cache: collection → (id → CachedRef) */
   private readonly refCache = new Map<string, Map<string, CachedRef>>()
 
   private readonly destroy$ = new Subject<void>()
 
-  constructor(inner: IQueryManager) {
+  constructor(inner: IQueryManager<TLink>) {
     this.inner = inner
   }
 
@@ -57,7 +57,7 @@ export class StableRefQueryManager implements IQueryManager {
     collection: string,
     id: string,
     options?: QueryOptions,
-  ): Promise<QueryResult<T>> {
+  ): Promise<QueryResult<TLink, T>> {
     const result = await this.inner.getById<T>(collection, id, options)
 
     if (result.data === undefined || result.meta === undefined) {
@@ -79,11 +79,11 @@ export class StableRefQueryManager implements IQueryManager {
     collection: string,
     ids: string[],
     options?: QueryOptions,
-  ): Promise<Map<string, QueryResult<T>>> {
+  ): Promise<Map<string, QueryResult<TLink, T>>> {
     const results = await this.inner.getByIds<T>(collection, ids, options)
     const collectionCache = this.getOrCreateCollectionCache(collection)
 
-    const reconciled = new Map<string, QueryResult<T>>()
+    const reconciled = new Map<string, QueryResult<TLink, T>>()
 
     for (const [id, result] of results) {
       if (result.data === undefined || result.meta === undefined) {
@@ -103,7 +103,7 @@ export class StableRefQueryManager implements IQueryManager {
     return reconciled
   }
 
-  async list<T>(collection: string, options?: QueryOptions): Promise<ListQueryResult<T>> {
+  async list<T>(collection: string, options?: QueryOptions): Promise<ListQueryResult<TLink, T>> {
     const result = await this.inner.list<T>(collection, options)
 
     const newCache = new Map<string, CachedRef>()

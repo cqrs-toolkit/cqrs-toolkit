@@ -6,9 +6,13 @@
 
 # Function: useClient()
 
-> **useClient**\<`TCommand`\>(): `CqrsClient`\<`TCommand`\>
+> **useClient**\<`TLink`, `TCommand`\>(): `CqrsClient`\<`TLink`, `TCommand`\>
 
 ## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`\<`string`, `string`\>
 
 ### TCommand
 
@@ -16,4 +20,4 @@
 
 ## Returns
 
-`CqrsClient`\<`TCommand`\>
+`CqrsClient`\<`TLink`, `TCommand`\>

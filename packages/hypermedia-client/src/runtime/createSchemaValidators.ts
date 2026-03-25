@@ -8,7 +8,7 @@ import type {
   SchemaValidator,
   ValidationError,
 } from '@cqrs-toolkit/client'
-import { Err, Ok, ValidationException } from '@meticoeus/ddd-es'
+import { Err, Link, Ok, ValidationException } from '@meticoeus/ddd-es'
 import { Ajv, type ErrorObject } from 'ajv'
 import type { JSONSchema7 } from 'json-schema'
 
@@ -59,10 +59,10 @@ function mapAjvErrors(errors: ErrorObject[] | null | undefined): ValidationError
  * ])
  * ```
  */
-export function withSchemaRegistry<TEvent extends IAnticipatedEvent = IAnticipatedEvent>(
+export function withSchemaRegistry<TLink extends Link, TEvent extends IAnticipatedEvent>(
   registry: SchemaRegistry,
-  handlers: CommandHandlerRegistration<TEvent, JSONSchema7>[],
-): CommandHandlerRegistration<TEvent, JSONSchema7>[] {
+  handlers: CommandHandlerRegistration<TLink, JSONSchema7, TEvent>[],
+): CommandHandlerRegistration<TLink, JSONSchema7, TEvent>[] {
   return handlers.map((handler) => {
     if (handler.schema !== undefined) return handler
     const schema = registry.commands[handler.commandType]
@@ -82,7 +82,7 @@ export function withSchemaRegistry<TEvent extends IAnticipatedEvent = IAnticipat
  * import { schemas } from './.cqrs/schemas.js'
  * import { createAjvSchemaValidator } from '@cqrs-toolkit/hypermedia-client'
  *
- * const config: CqrsConfig<JSONSchema7> = {
+ * const config: CqrsConfig<Link, JSONSchema7> = {
  *   schemaValidator: createAjvSchemaValidator(schemas),
  *   commandHandlers: withSchemaRegistry(schemas, [...handlers]),
  * }

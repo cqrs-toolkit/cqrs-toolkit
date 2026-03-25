@@ -7,6 +7,12 @@ import type {
 } from '@cqrs-toolkit/demo-base/notebooks/shared'
 import { addRevision } from '../utils/processors.js'
 
+export const notebookCommandEndpoints: Record<string, string> = {
+  CreateNotebook: '/api/notebooks/commands',
+  UpdateNotebookName: '/api/notebooks/commands',
+  DeleteNotebook: '/api/notebooks/commands',
+}
+
 export const notebookProcessors: ProcessorRegistration[] = [
   {
     eventTypes: 'NotebookCreated',

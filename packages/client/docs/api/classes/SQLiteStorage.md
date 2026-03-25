@@ -634,6 +634,29 @@ Get the total count of read model records.
 
 ---
 
+### getReadModelRevisions()
+
+> **getReadModelRevisions**(`collection`): `Promise`\<`object`[]\>
+
+Get all (id, revision) pairs for read models in a collection that have a non-null revision.
+Used by SyncManager to restore knownRevisions on startup.
+
+#### Parameters
+
+##### collection
+
+`string`
+
+#### Returns
+
+`Promise`\<`object`[]\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`getReadModelRevisions`](../interfaces/IStorage.md#getreadmodelrevisions)
+
+---
+
 ### getReadModelsByCacheKey()
 
 > **getReadModelsByCacheKey**(`cacheKey`): `Promise`\<[`ReadModelRecord`](../interfaces/ReadModelRecord.md)[]\>

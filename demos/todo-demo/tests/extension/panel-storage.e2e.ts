@@ -562,4 +562,67 @@ test.describe('tree keyboard navigation', () => {
     await page.keyboard.press('Escape')
     await expect(page.locator('.tree-node-row.selected')).toHaveCount(0)
   })
+
+  test('arrow right on leaf moves to next visible node', async ({ mockPanelPage: page }) => {
+    await switchToStorageWithTables(page)
+
+    // Expand commands, navigate to its Schema child (leaf)
+    await selectTreeNode(page, 'commands')
+    await page.keyboard.press('ArrowRight')
+    await page.keyboard.press('ArrowRight')
+    await expect(page.locator('.tree-node-row', { hasText: 'Schema' })).toHaveClass(/selected/)
+
+    // Right on leaf moves to next visible (cache_keys)
+    await page.keyboard.press('ArrowRight')
+    await expect(page.locator('.tree-node-row', { hasText: 'cache_keys' })).toHaveClass(/selected/)
+  })
+
+  test('arrow left on non-expanded root is a no-op', async ({ mockPanelPage: page }) => {
+    await switchToStorageWithTables(page)
+
+    await selectTreeNode(page, 'commands')
+    await page.keyboard.press('ArrowLeft')
+    await expect(page.locator('.tree-node-row', { hasText: 'commands' })).toHaveClass(/selected/)
+  })
+
+  test('arrow up on first node stays on first node', async ({ mockPanelPage: page }) => {
+    await switchToStorageWithTables(page)
+
+    await selectTreeNode(page, 'commands')
+    await page.keyboard.press('ArrowUp')
+    await expect(page.locator('.tree-node-row', { hasText: 'commands' })).toHaveClass(/selected/)
+  })
+
+  test('arrow down on last node stays on last node', async ({ mockPanelPage: page }) => {
+    await switchToStorageWithTables(page)
+
+    await selectTreeNode(page, 'read_models')
+    await page.keyboard.press('ArrowDown')
+    await expect(page.locator('.tree-node-row', { hasText: 'read_models' })).toHaveClass(/selected/)
+  })
+
+  test('keyboard re-focus restores last selected node', async ({ mockPanelPage: page }) => {
+    await switchToStorageWithTables(page)
+
+    // Select a node then blur the tree
+    await selectTreeNode(page, 'cache_keys')
+    await expect(page.locator('.tree-node-row', { hasText: 'cache_keys' })).toHaveClass(/selected/)
+    await page.keyboard.press('Escape')
+    await expect(page.locator('.tree-node-row.selected')).toHaveCount(0)
+
+    // Return keyboard focus to the tree — should restore cache_keys
+    await page.locator('.tree-view').focus()
+    await expect(page.locator('.tree-node-row', { hasText: 'cache_keys' })).toHaveClass(/selected/)
+  })
+
+  test('arrow down with no prior selection selects first visible', async ({
+    mockPanelPage: page,
+  }) => {
+    await switchToStorageWithTables(page)
+
+    // Focus the tree via Tab without clicking any node
+    await page.locator('.tree-view').focus()
+    await page.keyboard.press('ArrowDown')
+    await expect(page.locator('.tree-node-row', { hasText: 'commands' })).toHaveClass(/selected/)
+  })
 })

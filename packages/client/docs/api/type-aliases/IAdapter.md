@@ -4,9 +4,15 @@
 
 [@cqrs-toolkit/client](../globals.md) / IAdapter
 
-# Type Alias: IAdapter
+# Type Alias: IAdapter\<TLink\>
 
-> **IAdapter** = [`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md) \| [`IWorkerAdapter`](../interfaces/IWorkerAdapter.md)
+> **IAdapter**\<`TLink`\> = [`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md) \| [`IWorkerAdapter`](../interfaces/IWorkerAdapter.md)\<`TLink`\>
 
 Discriminated union of all adapter types.
 Discriminant: `mode` field.
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`

@@ -2,8 +2,10 @@
  * Configuration types for the CQRS Client.
  */
 
-import type { IPersistedEvent } from '@meticoeus/ddd-es'
+import type { IPersistedEvent, Link } from '@meticoeus/ddd-es'
 import type { AuthStrategy } from '../core/auth.js'
+import type { CacheKeyIdentity } from '../core/cache-manager/CacheKey.js'
+import type { IAnticipatedEvent } from '../core/command-lifecycle/AnticipatedEventShape.js'
 import type { ICommandSender } from '../core/command-queue/types.js'
 import type { ProcessorRegistration } from '../core/event-processor/types.js'
 import type { CommandHandlerRegistration, SchemaValidator } from './domain.js'
@@ -49,7 +51,6 @@ export interface LibraryStep {
   sql: string[]
 }
 
-// TODO: provide a way to drop read model tables
 /**
  * A managed read model collection.
  *
@@ -157,6 +158,10 @@ export interface FetchContext {
 export interface SeedRecord {
   id: string
   data: Record<string, unknown>
+  /** Stream revision (bigint as string). */
+  revision?: string
+  /** Global position (bigint as string). */
+  position?: string
 }
 
 /**
@@ -177,13 +182,50 @@ export interface SeedEventPage {
 }
 
 /**
+ * Options for {@link Collection.fetchSeedRecords}.
+ */
+export interface FetchSeedRecordOptions {
+  readonly ctx: FetchContext
+  readonly cursor: string | null
+  readonly limit: number
+}
+
+/**
+ * Options for {@link Collection.fetchSeedEvents}.
+ */
+export interface FetchSeedEventOptions {
+  readonly ctx: FetchContext
+  readonly cursor: string | null
+  readonly limit: number
+}
+
+/**
+ * Options for {@link Collection.fetchStreamEvents}.
+ */
+export interface FetchStreamEventOptions {
+  readonly ctx: FetchContext
+  readonly streamId: string
+  readonly afterRevision: bigint
+}
+
+/**
  * A synchronized event collection.
  *
  * Collections define how the library discovers, fetches, and routes events.
  * Consumer code implements the fetch methods to control HTTP conventions.
+ *
+ * Parameterized on `TLink` so multi-service apps using `ServiceLink`
+ * get typed entity cache keys with required `service` field.
  */
-export interface Collection {
+export interface Collection<TLink extends Link> {
   readonly name: string
+
+  /**
+   * Cache key identity to auto-seed on startup.
+   * If undefined, this collection is not seeded on init — data must be
+   * loaded on demand (e.g., via consumer-driven seeding on navigation).
+   */
+  readonly seedCacheKey?: CacheKeyIdentity<TLink>
 
   /** WS topic patterns to subscribe to. Return [] for no subscription. */
   getTopics(): string[]
@@ -203,11 +245,7 @@ export interface Collection {
    * If undefined, falls back to fetchSeedEvents (event-based seeding).
    * If neither is defined, seeding is skipped for this collection.
    */
-  fetchSeedRecords?(
-    ctx: FetchContext,
-    cursor: string | null,
-    limit: number,
-  ): Promise<SeedRecordPage>
+  fetchSeedRecords?(opts: FetchSeedRecordOptions): Promise<SeedRecordPage>
 
   /**
    * Fetch a page of events for initial seeding (fallback).
@@ -216,20 +254,37 @@ export interface Collection {
    *
    * Only used if fetchSeedRecords is not defined.
    */
-  fetchSeedEvents?(ctx: FetchContext, cursor: string | null, limit: number): Promise<SeedEventPage>
+  fetchSeedEvents?(opts: FetchSeedEventOptions): Promise<SeedEventPage>
 
   /**
    * Fetch per-stream events for gap recovery and command response processing.
    * If undefined, gap recovery processes buffered events as-is (lossy).
    */
-  fetchStreamEvents?(
-    ctx: FetchContext,
-    streamId: string,
-    afterRevision: bigint,
-  ): Promise<IPersistedEvent[]>
+  fetchStreamEvents?(opts: FetchStreamEventOptions): Promise<IPersistedEvent[]>
 
-  /** Whether to seed on initial sync. Default: true. */
-  readonly seedOnInit?: boolean
+  /**
+   * Derive stream ID from entity ID.
+   * Used to restore knownRevisions from persisted read model revisions on startup
+   * and to populate knownRevisions during record-based seeding.
+   *
+   * ## 1:1 aggregate assumption
+   *
+   * Revision tracking assumes each read model entity maps to exactly one domain
+   * aggregate (stream). The read model's `_revision` column stores a single scalar
+   * (the aggregate's stream revision), and this function maps entity → stream.
+   *
+   * Composite read models — entities built from events across multiple aggregates —
+   * should omit this function and do not participate in per-stream revision tracking.
+   * If composite read models are introduced, the following need extension:
+   *
+   * - `ReadModelRecord.revision` / `_revision` column — scalar → per-aggregate map
+   * - `ReadModel<T>.revision` — scalar → structured type
+   * - This function — single return → multiple, or replaced
+   * - `SyncManager.restoreKnownRevisions` — iterate map entries per entity
+   * - `EventProcessorRunner.applyResult` — `RevisionMeta` would carry stream identity
+   * - `SeedRecord.revision` — scalar → per-aggregate map
+   */
+  getStreamId?(entityId: string): string
 
   /** Page size for seeding. Default: 100. */
   readonly seedPageSize?: number
@@ -241,7 +296,11 @@ export interface Collection {
  * Contains all domain-level settings shared between the main thread and worker.
  * The consumer writes this once and imports it from both entry points.
  */
-export interface CqrsConfig<TSchema = unknown> {
+export interface CqrsConfig<
+  TLink extends Link,
+  TSchema = unknown,
+  TEvent extends IAnticipatedEvent = IAnticipatedEvent,
+> {
   /**
    * Schema validator implementation for structural validation.
    * Required if any command handler registration has a `schema` property.
@@ -255,7 +314,7 @@ export interface CqrsConfig<TSchema = unknown> {
    * Each handler validates command data and produces anticipated events.
    * If not provided, commands are sent directly without local validation.
    */
-  commandHandlers?: CommandHandlerRegistration<any, TSchema>[]
+  commandHandlers?: CommandHandlerRegistration<TLink, TSchema, TEvent>[]
 
   /**
    * Auth strategy for transport-level authentication.
@@ -287,7 +346,7 @@ export interface CqrsConfig<TSchema = unknown> {
   /**
    * Collection configurations.
    */
-  collections?: Collection[]
+  collections?: Collection<TLink>[]
 
   /**
    * Command sender for submitting commands to the server.
@@ -325,7 +384,11 @@ export interface CqrsConfig<TSchema = unknown> {
  * Extends the shared config with main-thread-only concerns:
  * mode selection and worker script URL.
  */
-export interface CqrsClientConfig<TSchema = unknown> extends CqrsConfig<TSchema> {
+export interface CqrsClientConfig<
+  TLink extends Link,
+  TSchema = unknown,
+  TEvent extends IAnticipatedEvent = IAnticipatedEvent,
+> extends CqrsConfig<TLink, TSchema, TEvent> {
   /**
    * Execution mode.
    * Defaults to 'auto': SharedWorker > Dedicated Worker > Online-only
@@ -380,9 +443,13 @@ export const DEFAULT_CONFIG = {
 /**
  * Resolved shared configuration with all defaults applied.
  */
-export interface ResolvedConfig extends Required<
+export interface ResolvedConfig<
+  TLink extends Link,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+> extends Required<
   Omit<
-    CqrsConfig,
+    CqrsConfig<TLink, TSchema, TEvent>,
     | 'commandHandlers'
     | 'commandSender'
     | 'schemaValidator'
@@ -391,18 +458,20 @@ export interface ResolvedConfig extends Required<
     | 'processors'
   >
 > {
-  commandHandlers: CommandHandlerRegistration[]
+  commandHandlers: CommandHandlerRegistration<TLink, TSchema, TEvent>[]
   commandSender?: ICommandSender
   schemaValidator?: SchemaValidator<unknown>
   workerSetup?: string[]
-  collections: Collection[]
+  collections: Collection<TLink>[]
   processors: ProcessorRegistration[]
 }
 
 /**
  * Resolve shared configuration with defaults.
  */
-export function resolveConfig(config: CqrsConfig): ResolvedConfig {
+export function resolveConfig<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent>(
+  config: CqrsConfig<TLink, TSchema, TEvent>,
+): ResolvedConfig<TLink, TSchema, TEvent> {
   return {
     commandHandlers: config.commandHandlers ?? [],
     commandSender: config.commandSender,

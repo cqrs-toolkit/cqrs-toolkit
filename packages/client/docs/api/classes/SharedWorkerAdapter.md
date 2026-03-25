@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / SharedWorkerAdapter
 
-# Class: SharedWorkerAdapter
+# Class: SharedWorkerAdapter\<TLink\>
 
 SharedWorker adapter for multi-tab offline support.
 
@@ -18,15 +18,21 @@ This adapter:
 - Handles window registration and heartbeats
 - Restores holds after worker restarts
 
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
+
 ## Implements
 
-- [`IWorkerAdapter`](../interfaces/IWorkerAdapter.md)
+- [`IWorkerAdapter`](../interfaces/IWorkerAdapter.md)\<`TLink`\>
 
 ## Constructors
 
 ### Constructor
 
-> **new SharedWorkerAdapter**(`config`): `SharedWorkerAdapter`
+> **new SharedWorkerAdapter**\<`TLink`\>(`config`): `SharedWorkerAdapter`\<`TLink`\>
 
 #### Parameters
 
@@ -36,7 +42,7 @@ This adapter:
 
 #### Returns
 
-`SharedWorkerAdapter`
+`SharedWorkerAdapter`\<`TLink`\>
 
 ## Properties
 
@@ -54,11 +60,11 @@ This adapter:
 
 #### Get Signature
 
-> **get** **cacheManager**(): [`ICacheManager`](../interfaces/ICacheManager.md)
+> **get** **cacheManager**(): [`ICacheManager`](../interfaces/ICacheManager.md)\<`TLink`\>
 
 ##### Returns
 
-[`ICacheManager`](../interfaces/ICacheManager.md)
+[`ICacheManager`](../interfaces/ICacheManager.md)\<`TLink`\>
 
 #### Implementation of
 
@@ -106,11 +112,11 @@ Observable of library events.
 
 #### Get Signature
 
-> **get** **queryManager**(): [`IQueryManager`](../interfaces/IQueryManager.md)
+> **get** **queryManager**(): [`IQueryManager`](../interfaces/IQueryManager.md)\<`TLink`\>
 
 ##### Returns
 
-[`IQueryManager`](../interfaces/IQueryManager.md)
+[`IQueryManager`](../interfaces/IQueryManager.md)\<`TLink`\>
 
 #### Implementation of
 

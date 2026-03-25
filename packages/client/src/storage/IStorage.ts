@@ -20,23 +20,40 @@ export interface SessionRecord {
 }
 
 /**
- * Cache key record.
+ * Cache key record — persisted metadata for a cache key identity.
+ * Stores the full identifying tuple so the identity can be rehydrated on reload.
  */
 export interface CacheKeyRecord {
   /** Cache key identifier (UUID v5 derived) */
   key: string
-  /** Last access timestamp */
-  lastAccessedAt: number
-  /** Hold count (prevents eviction when > 0) */
-  holdCount: number
+  /** Cache key kind */
+  kind: 'entity' | 'scope'
+  /** Entity: ServiceLink.service (null for plain Link or scope keys) */
+  linkService: string | null
+  /** Entity: Link.type (null for scope keys) */
+  linkType: string | null
+  /** Entity: Link.id (null for scope keys) */
+  linkId: string | null
+  /** Scope: optional service context (null for entity keys) */
+  service: string | null
+  /** Scope: scope type identifier (null for entity keys) */
+  scopeType: string | null
+  /** Scope: JSON-serialized scope params (null for entity keys or parameterless scopes) */
+  scopeParams: string | null
+  /** Parent cache key for hierarchical eviction (null if top-level) */
+  parentKey: string | null
+  /** Eviction policy — persistent keys can be frozen and survive restarts; ephemeral keys cannot */
+  evictionPolicy: 'persistent' | 'ephemeral'
   /** Whether the cache key is frozen */
   frozen: boolean
+  /** Last access timestamp */
+  lastAccessedAt: number
   /** TTL expiration timestamp (null = no expiration) */
   expiresAt: number | null
   /** Creation timestamp */
   createdAt: number
-  /** Eviction policy — persistent keys can be frozen and survive restarts; ephemeral keys cannot */
-  evictionPolicy: 'persistent' | 'ephemeral'
+  /** Hold count (prevents eviction when > 0) */
+  holdCount: number
 }
 
 /**
@@ -97,6 +114,14 @@ export interface ReadModelRecord {
   hasLocalChanges: boolean
   /** Last update timestamp */
   updatedAt: number
+  /**
+   * Stream revision of the last event that updated this read model (bigint as string).
+   * Null for locally-created entries.
+   * @see {@link Collection.getStreamId} for the 1:1 aggregate assumption this relies on.
+   */
+  revision: string | null
+  /** Global position of the last event that updated this read model (bigint as string). Null for locally-created entries. */
+  position: string | null
   /**
    * Client-side identity tracking metadata.
    * Set when an anticipated event creates a read model entry from a command
@@ -350,6 +375,12 @@ export interface IStorage {
    * Get the total count of read model records.
    */
   getReadModelCount(): Promise<number>
+
+  /**
+   * Get all (id, revision) pairs for read models in a collection that have a non-null revision.
+   * Used by SyncManager to restore knownRevisions on startup.
+   */
+  getReadModelRevisions(collection: string): Promise<Array<{ id: string; revision: string }>>
 
   // Command ID mapping operations (create reconciliation)
 

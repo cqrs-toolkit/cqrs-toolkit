@@ -3,7 +3,7 @@
  * Handles command persistence, validation, retry, and status tracking.
  */
 
-import { Err, logProvider, Ok } from '@meticoeus/ddd-es'
+import { Err, type Link, logProvider, Ok } from '@meticoeus/ddd-es'
 import {
   filter,
   firstValueFrom,
@@ -45,6 +45,7 @@ import type { ValidationError } from '../../types/validation.js'
 import { assert } from '../../utils/assert.js'
 import { calculateBackoffDelay, shouldRetry } from '../../utils/retry.js'
 import { generateId } from '../../utils/uuid.js'
+import type { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventShape.js'
 import type { ParsedEvent } from '../event-processor/EventProcessorRunner.js'
 import type { EventBus } from '../events/EventBus.js'
 import type { ICommandQueue, ICommandSender } from './types.js'
@@ -81,13 +82,13 @@ export interface IAnticipatedEventHandler {
 /**
  * Command queue configuration.
  */
-export interface CommandQueueConfig {
+export interface CommandQueueConfig<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent> {
   storage: IStorage
   eventBus: EventBus
   anticipatedEventHandler: IAnticipatedEventHandler
   domainExecutor?: IDomainExecutor
   /** Metadata lookup for command handler registrations (creates config). */
-  handlerMetadata?: ICommandHandlerMetadata
+  handlerMetadata?: ICommandHandlerMetadata<TLink, TSchema, TEvent>
   commandSender?: ICommandSender
   retryConfig?: RetryConfig
   defaultService?: string
@@ -132,12 +133,16 @@ interface AggregateChain {
   latestCommandId: string
 }
 
-export class CommandQueue implements ICommandQueue {
+export class CommandQueue<
+  TLink extends Link,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+> implements ICommandQueue {
   private readonly storage: IStorage
   private readonly eventBus: EventBus
   private readonly anticipatedEventHandler: IAnticipatedEventHandler
   private readonly domainExecutor?: IDomainExecutor
-  private readonly handlerMetadata?: ICommandHandlerMetadata
+  private readonly handlerMetadata?: ICommandHandlerMetadata<TLink, TSchema, TEvent>
   private readonly commandSender?: ICommandSender
   private readonly retryConfig: RetryConfig
   private readonly defaultService: string
@@ -163,7 +168,7 @@ export class CommandQueue implements ICommandQueue {
 
   readonly events$: Observable<CommandEvent>
 
-  constructor(config: CommandQueueConfig) {
+  constructor(config: CommandQueueConfig<TLink, TSchema, TEvent>) {
     this.storage = config.storage
     this.eventBus = config.eventBus
     this.anticipatedEventHandler = config.anticipatedEventHandler

@@ -11,8 +11,10 @@
  * - Mode C: startSharedWorker manages RemoteSqliteDb and passes it in
  */
 
+import type { Link } from '@meticoeus/ddd-es'
 import type { Subscription } from 'rxjs'
 import { CacheManager } from '../../core/cache-manager/CacheManager.js'
+import type { IAnticipatedEvent } from '../../core/command-lifecycle/AnticipatedEventShape.js'
 import { createAnticipatedEventHandler } from '../../core/command-lifecycle/createAnticipatedEventHandler.js'
 import { createCommandResponseHandler } from '../../core/command-lifecycle/createCommandResponseHandler.js'
 import { CommandQueue } from '../../core/command-queue/CommandQueue.js'
@@ -44,23 +46,26 @@ import { registerSyncManagerMethods } from './registerSyncManagerMethods.js'
  * Config is provided at construction time (from the consumer's worker entry point).
  * Lifecycle methods are registered externally by the startup functions.
  */
-export class WorkerOrchestrator {
+export class WorkerOrchestrator<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent> {
   private readonly messageHandler: WorkerMessageHandler
-  private readonly config: ResolvedConfig
+  private readonly config: ResolvedConfig<TLink, TSchema, TEvent>
 
   private storage: IStorage | undefined
   private eventBus: EventBus | undefined
   private sessionManager: SessionManager | undefined
-  private cacheManager: CacheManager | undefined
+  private cacheManager: CacheManager<TLink> | undefined
   private eventCache: EventCache | undefined
   private readModelStore: ReadModelStore | undefined
-  private commandQueue: CommandQueue | undefined
-  private queryManager: QueryManager | undefined
-  private syncManager: SyncManager | undefined
+  private commandQueue: CommandQueue<TLink, TSchema, TEvent> | undefined
+  private queryManager: QueryManager<TLink> | undefined
+  private syncManager: SyncManager<TLink, TSchema, TEvent> | undefined
   private eventBroadcastSub: Subscription | undefined
   private evictionSub: Subscription | undefined
 
-  constructor(messageHandler: WorkerMessageHandler, config: ResolvedConfig) {
+  constructor(
+    messageHandler: WorkerMessageHandler,
+    config: ResolvedConfig<TLink, TSchema, TEvent>,
+  ) {
     this.messageHandler = messageHandler
     this.config = config
   }
@@ -122,7 +127,7 @@ export class WorkerOrchestrator {
 
     // 6. Create CacheManager
     const windowId = crypto.randomUUID()
-    const cacheManager = new CacheManager({
+    const cacheManager = new CacheManager<TLink>({
       storage,
       eventBus,
       cacheConfig: config.cache,
@@ -147,7 +152,7 @@ export class WorkerOrchestrator {
     })
 
     // 10. Create CommandQueue with anticipated event handler and response handler
-    let syncManagerRef: SyncManager
+    let syncManagerRef: SyncManager<TLink, TSchema, TEvent>
 
     const anticipatedEventHandler = createAnticipatedEventHandler(
       eventCache,
@@ -158,20 +163,20 @@ export class WorkerOrchestrator {
     )
     eventProcessorRunner.setAnticipatedEventHandler(anticipatedEventHandler)
 
-    const queryManager = new QueryManager({
+    const queryManager = new QueryManager<TLink>({
       eventBus,
       cacheManager,
       readModelStore,
     })
     this.queryManager = queryManager
 
-    const commandQueue = new CommandQueue({
+    const commandQueue = new CommandQueue<TLink, TSchema, TEvent>({
       storage,
       eventBus,
       anticipatedEventHandler,
       ...(() => {
         if (config.commandHandlers.length === 0) return {}
-        const executor = createDomainExecutor(config.commandHandlers, {
+        const executor = createDomainExecutor<TLink, TSchema, TEvent>(config.commandHandlers, {
           schemaValidator: config.schemaValidator,
           queryManager,
         })
@@ -180,7 +185,7 @@ export class WorkerOrchestrator {
       commandSender: config.commandSender,
       retryConfig: config.retry,
       retainTerminal: config.retainTerminal,
-      onCommandResponse: createCommandResponseHandler(
+      onCommandResponse: createCommandResponseHandler<TLink, TSchema, TEvent>(
         () => syncManagerRef,
         cacheManager,
         config.collections,
@@ -189,7 +194,7 @@ export class WorkerOrchestrator {
     this.commandQueue = commandQueue
 
     // 12. Create SyncManager
-    const syncManager = new SyncManager({
+    const syncManager = new SyncManager<TLink, TSchema, TEvent>({
       eventBus,
       sessionManager,
       commandQueue,

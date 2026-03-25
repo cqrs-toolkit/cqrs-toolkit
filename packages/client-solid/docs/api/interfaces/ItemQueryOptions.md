@@ -7,9 +7,3 @@
 # Interface: ItemQueryOptions
 
 Options for `createItemQuery`.
-
-## Properties
-
-### scope?
-
-> `optional` **scope**: `string`

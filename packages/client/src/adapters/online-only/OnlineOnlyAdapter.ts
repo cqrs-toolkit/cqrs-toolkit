@@ -4,7 +4,9 @@
  * No worker orchestration or cross-tab coordination.
  */
 
+import type { Link } from '@meticoeus/ddd-es'
 import type { Observable } from 'rxjs'
+import type { IAnticipatedEvent } from '../../core/command-lifecycle/AnticipatedEventShape.js'
 import { EventBus } from '../../core/events/EventBus.js'
 import { SessionManager } from '../../core/session/SessionManager.js'
 import type { IStorage } from '../../storage/IStorage.js'
@@ -18,7 +20,11 @@ import type { AdapterStatus, IOnlineOnlyAdapter } from '../base/IAdapter.js'
  * Online-only adapter for development, testing, and deployments
  * where offline persistence is not required.
  */
-export class OnlineOnlyAdapter implements IOnlineOnlyAdapter {
+export class OnlineOnlyAdapter<
+  TLink extends Link,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+> implements IOnlineOnlyAdapter {
   readonly mode = 'online-only' as const
   readonly role = 'leader' as const
   readonly eventBus: EventBus
@@ -27,7 +33,7 @@ export class OnlineOnlyAdapter implements IOnlineOnlyAdapter {
   private _storage: IStorage | undefined
   private _sessionManager: SessionManager | undefined
 
-  constructor(config: ResolvedConfig) {
+  constructor(config: ResolvedConfig<TLink, TSchema, TEvent>) {
     this.eventBus = new EventBus()
     this.eventBus.debug = config.debug
   }

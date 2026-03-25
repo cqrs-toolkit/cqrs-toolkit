@@ -15,12 +15,20 @@ export function createTestCacheKey(overrides: Partial<CacheKeyRecord> = {}): Cac
   const now = Date.now()
   return {
     key: deriveCacheKey('test-collection'),
-    lastAccessedAt: now,
-    holdCount: 0,
+    kind: 'scope',
+    linkService: null,
+    linkType: null,
+    linkId: null,
+    service: null,
+    scopeType: 'test-collection',
+    scopeParams: null,
+    parentKey: null,
+    evictionPolicy: 'persistent',
     frozen: false,
+    lastAccessedAt: now,
     expiresAt: null,
     createdAt: now,
-    evictionPolicy: 'persistent',
+    holdCount: 0,
     ...overrides,
   }
 }

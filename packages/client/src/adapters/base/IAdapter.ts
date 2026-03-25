@@ -6,6 +6,7 @@
  * raw components for main-thread wiring, worker adapters expose proxies.
  */
 
+import type { Link } from '@meticoeus/ddd-es'
 import type { Observable } from 'rxjs'
 import type { ICacheManager } from '../../core/cache-manager/types.js'
 import type { ICommandQueue } from '../../core/command-queue/types.js'
@@ -74,11 +75,11 @@ export interface IOnlineOnlyAdapter extends IAdapterBase {
  * Worker adapter provides proxy objects. All orchestration happens in the
  * worker; createCqrsClient just wraps the proxies.
  */
-export interface IWorkerAdapter extends IAdapterBase {
+export interface IWorkerAdapter<TLink extends Link> extends IAdapterBase {
   readonly mode: 'shared-worker' | 'dedicated-worker'
   readonly commandQueue: ICommandQueue
-  readonly queryManager: IQueryManager
-  readonly cacheManager: ICacheManager
+  readonly queryManager: IQueryManager<TLink>
+  readonly cacheManager: ICacheManager<TLink>
   readonly syncManager: CqrsClientSyncManager
 
   /**
@@ -99,4 +100,4 @@ export interface IWorkerAdapter extends IAdapterBase {
  * Discriminated union of all adapter types.
  * Discriminant: `mode` field.
  */
-export type IAdapter = IOnlineOnlyAdapter | IWorkerAdapter
+export type IAdapter<TLink extends Link> = IOnlineOnlyAdapter | IWorkerAdapter<TLink>

@@ -19,9 +19,3 @@ Options for `createListQuery`.
 ### offset?
 
 > `optional` **offset**: `number`
-
----
-
-### scope?
-
-> `optional` **scope**: `string`

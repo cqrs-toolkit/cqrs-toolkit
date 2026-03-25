@@ -4,15 +4,29 @@
 
 [@cqrs-toolkit/client](../globals.md) / CqrsDebugAPI
 
-# Interface: CqrsDebugAPI
+# Interface: CqrsDebugAPI\<TLink, TSchema, TEvent\>
 
 Debug API exposed to devtools extensions.
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
+
+### TSchema
+
+`TSchema`
+
+### TEvent
+
+`TEvent` _extends_ [`IAnticipatedEvent`](IAnticipatedEvent.md)
 
 ## Properties
 
 ### cacheManager
 
-> `readonly` **cacheManager**: [`ICacheManager`](ICacheManager.md)
+> `readonly` **cacheManager**: [`ICacheManager`](ICacheManager.md)\<`TLink`\>
 
 Cache manager interface for inspection.
 
@@ -28,7 +42,7 @@ Command queue interface for inspection.
 
 ### config
 
-> `readonly` **config**: [`ResolvedConfig`](ResolvedConfig.md)
+> `readonly` **config**: [`ResolvedConfig`](ResolvedConfig.md)\<`TLink`, `TSchema`, `TEvent`\>
 
 Resolved client configuration.
 
@@ -52,7 +66,7 @@ Observable of all library events (including debug events).
 
 ### queryManager
 
-> `readonly` **queryManager**: [`IQueryManager`](IQueryManager.md)
+> `readonly` **queryManager**: [`IQueryManager`](IQueryManager.md)\<`TLink`\>
 
 Query manager interface for inspection.
 

@@ -8,6 +8,13 @@ import type {
 } from '@cqrs-toolkit/demo-base/notes/shared'
 import { addRevision } from '../utils/processors.js'
 
+export const noteCommandEndpoints: Record<string, string> = {
+  CreateNote: '/api/notes/commands',
+  UpdateNoteTitle: '/api/notes/commands',
+  UpdateNoteBody: '/api/notes/commands',
+  DeleteNote: '/api/notes/commands',
+}
+
 export const noteProcessors: ProcessorRegistration[] = [
   {
     eventTypes: 'NoteCreated',

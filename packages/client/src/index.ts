@@ -49,13 +49,17 @@ export type {
 export {
   CACHE_KEY_NAMESPACE as CACHE_KEY_NS,
   CacheManager,
-  deriveCacheKey as deriveCacheKeyFromManager,
-  deriveScopedCacheKey,
+  deriveEntityKey,
+  deriveScopeKey,
+  hydrateCacheKeyIdentity,
 } from './core/cache-manager/index.js'
 export type {
   AcquireCacheKeyOptions,
+  CacheKeyIdentity,
   CacheManagerConfig,
+  EntityCacheKey,
   ICacheManager,
+  ScopeCacheKey,
 } from './core/cache-manager/index.js'
 export { CommandQueue, CommandSendError } from './core/command-queue/index.js'
 export type {
@@ -93,6 +97,7 @@ export type {
   ReadModel,
   ReadModelQueryOptions,
   ReadModelStoreConfig,
+  RevisionMeta,
 } from './core/read-model-store/index.js'
 export { SessionManager } from './core/session/index.js'
 export type { AuthState, SessionManagerConfig, SessionState } from './core/session/index.js'

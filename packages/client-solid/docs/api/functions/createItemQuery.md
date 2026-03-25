@@ -6,7 +6,7 @@
 
 # Function: createItemQuery()
 
-> **createItemQuery**\<`T`\>(`queryManager`, `collection`, `id`, `options?`): [`ItemQueryState`](../interfaces/ItemQueryState.md)\<`T`\>
+> **createItemQuery**\<`TLink`, `T`\>(`queryManager`, `collection`, `id`, `options?`): [`ItemQueryState`](../interfaces/ItemQueryState.md)\<`T`\>
 
 Create a reactive single-item query that subscribes to collection changes.
 
@@ -21,6 +21,10 @@ the mapping via `reconciledId`.
 
 ## Type Parameters
 
+### TLink
+
+`TLink` _extends_ `Link`\<`string`, `string`\>
+
 ### T
 
 `T` _extends_ [`Identifiable`](../interfaces/Identifiable.md)
@@ -29,7 +33,7 @@ the mapping via `reconciledId`.
 
 ### queryManager
 
-`IQueryManager`
+`IQueryManager`\<`TLink`\>
 
 The query manager
 

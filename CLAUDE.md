@@ -124,6 +124,13 @@ Specific rules:
   At each boundary, convert `null` to `undefined` so the rest of the codebase deals only with `undefined`.
   Consumer-facing types that wrap a nullable storage field (e.g., `ReadModel.serverData`) use `undefined`, with the conversion happening in the read path (e.g., `recordToReadModel`).
 
+- **Do not add default values to new generic type parameters.**
+  When introducing a generic (e.g., `<TLink extends Link>`), do not add a default (`= Link`).
+  Thread the generic explicitly through every type, interface, class, and function that references it.
+  Verify the entire app compiles with the generic properly threaded before considering defaults.
+  If a default seems reasonable, note it in a `// TODO: default candidate = Link` comment beside the generic — do not apply it.
+  Defaults may only be introduced later as a deliberate API relaxation after the threading is proven correct.
+  This prevents the lazy pattern of silently falling back to a base type and masking missing threading.
 - **Prefer `interface` over `type` for object shapes.**
   Use `interface` for any type that describes an object structure (properties and methods).
   Reserve `type` for constructs that require it: unions, intersections, mapped types, conditional types, template literal types, and type aliases for primitives or tuples.

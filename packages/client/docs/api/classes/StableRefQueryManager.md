@@ -4,30 +4,36 @@
 
 [@cqrs-toolkit/client](../globals.md) / StableRefQueryManager
 
-# Class: StableRefQueryManager
+# Class: StableRefQueryManager\<TLink\>
 
 Decorator around IQueryManager that preserves object references for
 items whose (id, updatedAt) pair has not changed since the last query.
 
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
+
 ## Implements
 
-- [`IQueryManager`](../interfaces/IQueryManager.md)
+- [`IQueryManager`](../interfaces/IQueryManager.md)\<`TLink`\>
 
 ## Constructors
 
 ### Constructor
 
-> **new StableRefQueryManager**(`inner`): `StableRefQueryManager`
+> **new StableRefQueryManager**\<`TLink`\>(`inner`): `StableRefQueryManager`\<`TLink`\>
 
 #### Parameters
 
 ##### inner
 
-[`IQueryManager`](../interfaces/IQueryManager.md)
+[`IQueryManager`](../interfaces/IQueryManager.md)\<`TLink`\>
 
 #### Returns
 
-`StableRefQueryManager`
+`StableRefQueryManager`\<`TLink`\>
 
 ## Methods
 
@@ -107,7 +113,7 @@ Whether the entity exists
 
 ### getById()
 
-> **getById**\<`T`\>(`collection`, `id`, `options?`): `Promise`\<[`QueryResult`](../interfaces/QueryResult.md)\<`T`\>\>
+> **getById**\<`T`\>(`collection`, `id`, `options?`): `Promise`\<[`QueryResult`](../interfaces/QueryResult.md)\<`TLink`, `T`\>\>
 
 Get a single entity by ID.
 
@@ -139,7 +145,7 @@ Query options
 
 #### Returns
 
-`Promise`\<[`QueryResult`](../interfaces/QueryResult.md)\<`T`\>\>
+`Promise`\<[`QueryResult`](../interfaces/QueryResult.md)\<`TLink`, `T`\>\>
 
 Query result
 
@@ -151,7 +157,7 @@ Query result
 
 ### getByIds()
 
-> **getByIds**\<`T`\>(`collection`, `ids`, `options?`): `Promise`\<`Map`\<`string`, [`QueryResult`](../interfaces/QueryResult.md)\<`T`\>\>\>
+> **getByIds**\<`T`\>(`collection`, `ids`, `options?`): `Promise`\<`Map`\<`string`, [`QueryResult`](../interfaces/QueryResult.md)\<`TLink`, `T`\>\>\>
 
 Get multiple entities by IDs.
 
@@ -183,7 +189,7 @@ Query options
 
 #### Returns
 
-`Promise`\<`Map`\<`string`, [`QueryResult`](../interfaces/QueryResult.md)\<`T`\>\>\>
+`Promise`\<`Map`\<`string`, [`QueryResult`](../interfaces/QueryResult.md)\<`TLink`, `T`\>\>\>
 
 Map of ID to query result
 
@@ -205,7 +211,7 @@ Place a hold on a cache key.
 
 `string`
 
-Cache key to hold
+Cache key UUID string
 
 #### Returns
 
@@ -219,7 +225,7 @@ Cache key to hold
 
 ### list()
 
-> **list**\<`T`\>(`collection`, `options?`): `Promise`\<[`ListQueryResult`](../interfaces/ListQueryResult.md)\<`T`\>\>
+> **list**\<`T`\>(`collection`, `options?`): `Promise`\<[`ListQueryResult`](../interfaces/ListQueryResult.md)\<`TLink`, `T`\>\>
 
 List entities in a collection.
 
@@ -245,7 +251,7 @@ Query options
 
 #### Returns
 
-`Promise`\<[`ListQueryResult`](../interfaces/ListQueryResult.md)\<`T`\>\>
+`Promise`\<[`ListQueryResult`](../interfaces/ListQueryResult.md)\<`TLink`, `T`\>\>
 
 List query result
 
@@ -267,7 +273,7 @@ Release a hold on a cache key.
 
 `string`
 
-Cache key to release
+Cache key UUID string
 
 #### Returns
 

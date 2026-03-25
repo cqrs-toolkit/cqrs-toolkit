@@ -4,10 +4,19 @@
 
 [@cqrs-toolkit/client](../globals.md) / IQueryManager
 
-# Interface: IQueryManager
+# Interface: IQueryManager\<TLink\>
 
 Query manager interface.
 Provides read-only access to cached data with cache key management.
+
+Parameterized on `TLink` so multi-service apps get typed cache key identities
+in query results.
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
 
 ## Methods
 
@@ -75,7 +84,7 @@ Whether the entity exists
 
 ### getById()
 
-> **getById**\<`T`\>(`collection`, `id`, `options?`): `Promise`\<[`QueryResult`](QueryResult.md)\<`T`\>\>
+> **getById**\<`T`\>(`collection`, `id`, `options?`): `Promise`\<[`QueryResult`](QueryResult.md)\<`TLink`, `T`\>\>
 
 Get a single entity by ID.
 
@@ -107,7 +116,7 @@ Query options
 
 #### Returns
 
-`Promise`\<[`QueryResult`](QueryResult.md)\<`T`\>\>
+`Promise`\<[`QueryResult`](QueryResult.md)\<`TLink`, `T`\>\>
 
 Query result
 
@@ -115,7 +124,7 @@ Query result
 
 ### getByIds()
 
-> **getByIds**\<`T`\>(`collection`, `ids`, `options?`): `Promise`\<`Map`\<`string`, [`QueryResult`](QueryResult.md)\<`T`\>\>\>
+> **getByIds**\<`T`\>(`collection`, `ids`, `options?`): `Promise`\<`Map`\<`string`, [`QueryResult`](QueryResult.md)\<`TLink`, `T`\>\>\>
 
 Get multiple entities by IDs.
 
@@ -147,7 +156,7 @@ Query options
 
 #### Returns
 
-`Promise`\<`Map`\<`string`, [`QueryResult`](QueryResult.md)\<`T`\>\>\>
+`Promise`\<`Map`\<`string`, [`QueryResult`](QueryResult.md)\<`TLink`, `T`\>\>\>
 
 Map of ID to query result
 
@@ -165,7 +174,7 @@ Place a hold on a cache key.
 
 `string`
 
-Cache key to hold
+Cache key UUID string
 
 #### Returns
 
@@ -175,7 +184,7 @@ Cache key to hold
 
 ### list()
 
-> **list**\<`T`\>(`collection`, `options?`): `Promise`\<[`ListQueryResult`](ListQueryResult.md)\<`T`\>\>
+> **list**\<`T`\>(`collection`, `options?`): `Promise`\<[`ListQueryResult`](ListQueryResult.md)\<`TLink`, `T`\>\>
 
 List entities in a collection.
 
@@ -201,7 +210,7 @@ Query options
 
 #### Returns
 
-`Promise`\<[`ListQueryResult`](ListQueryResult.md)\<`T`\>\>
+`Promise`\<[`ListQueryResult`](ListQueryResult.md)\<`TLink`, `T`\>\>
 
 List query result
 
@@ -219,7 +228,7 @@ Release a hold on a cache key.
 
 `string`
 
-Cache key to release
+Cache key UUID string
 
 #### Returns
 

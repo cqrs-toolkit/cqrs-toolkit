@@ -22,6 +22,14 @@ export interface ReadModelStoreConfig {
 }
 
 /**
+ * Revision metadata from the event or seed record that produced this update.
+ */
+export interface RevisionMeta {
+  revision: string
+  position?: string
+}
+
+/**
  * Read model with metadata.
  */
 export interface ReadModel<T = unknown> {
@@ -37,6 +45,10 @@ export interface ReadModel<T = unknown> {
   serverData?: T
   /** Last update timestamp */
   updatedAt: number
+  /** Stream revision of the last event that updated this entity. Undefined for locally-created entries. */
+  revision?: string
+  /** Global position of the last event that updated this entity. Undefined for locally-created entries. */
+  position?: string
   /** Client-side identity tracking metadata. Undefined for server-seeded entries. */
   _clientMetadata?: ClientMetadata
 }
@@ -189,12 +201,14 @@ export class ReadModelStore {
    * @param id - Entity ID
    * @param data - Read model data
    * @param cacheKey - Cache key to associate with
+   * @param revisionMeta - Revision metadata from the event or seed record
    */
   async setServerData<T extends object>(
     collection: string,
     id: string,
     data: T,
     cacheKey: string,
+    revisionMeta?: RevisionMeta,
   ): Promise<boolean> {
     const dataJson = JSON.stringify(data)
     const now = Date.now()
@@ -229,12 +243,17 @@ export class ReadModelStore {
       }
     }
 
+    const revision = revisionMeta?.revision ?? existing?.revision ?? null
+    const position = revisionMeta?.position ?? existing?.position ?? null
+
     // Skip save if nothing changed
     if (
       existing &&
       existing.serverData === dataJson &&
       existing.effectiveData === effectiveData &&
-      existing.hasLocalChanges === hasLocalChanges
+      existing.hasLocalChanges === hasLocalChanges &&
+      existing.revision === revision &&
+      existing.position === position
     ) {
       return false
     }
@@ -247,6 +266,8 @@ export class ReadModelStore {
       effectiveData,
       hasLocalChanges,
       updatedAt: now,
+      revision,
+      position,
       _clientMetadata: existing?._clientMetadata ?? null,
     }
 
@@ -291,6 +312,8 @@ export class ReadModelStore {
       effectiveData,
       hasLocalChanges: true,
       updatedAt: now,
+      revision: existing?.revision ?? null,
+      position: existing?.position ?? null,
       _clientMetadata: existing?._clientMetadata ?? null,
     }
 
@@ -330,6 +353,8 @@ export class ReadModelStore {
       effectiveData,
       hasLocalChanges: true,
       updatedAt: Date.now(),
+      revision: existing?.revision ?? null,
+      position: existing?.position ?? null,
       _clientMetadata: existing?._clientMetadata ?? null,
     }
 
@@ -345,6 +370,7 @@ export class ReadModelStore {
    * @param id - Entity ID
    * @param data - Partial data to merge into server baseline
    * @param cacheKey - Cache key to associate with
+   * @param revisionMeta - Revision metadata from the event or seed record
    * @returns true if data changed
    */
   async mergeServerData<T extends object>(
@@ -352,6 +378,7 @@ export class ReadModelStore {
     id: string,
     data: Partial<T>,
     cacheKey: string,
+    revisionMeta?: RevisionMeta,
   ): Promise<boolean> {
     const existing = await this.storage.getReadModel(collection, id)
 
@@ -390,12 +417,17 @@ export class ReadModelStore {
       }
     }
 
+    const revision = revisionMeta?.revision ?? existing?.revision ?? null
+    const position = revisionMeta?.position ?? existing?.position ?? null
+
     // Skip save if nothing changed
     if (
       existing &&
       existing.serverData === serverDataJson &&
       existing.effectiveData === effectiveData &&
-      existing.hasLocalChanges === hasLocalChanges
+      existing.hasLocalChanges === hasLocalChanges &&
+      existing.revision === revision &&
+      existing.position === position
     ) {
       return false
     }
@@ -408,6 +440,8 @@ export class ReadModelStore {
       effectiveData,
       hasLocalChanges,
       updatedAt: Date.now(),
+      revision,
+      position,
       _clientMetadata: existing?._clientMetadata ?? null,
     }
 
@@ -467,6 +501,14 @@ export class ReadModelStore {
   }
 
   /**
+   * Get all (id, revision) pairs for entities in a collection that have a persisted revision.
+   * Used by SyncManager to restore knownRevisions on startup.
+   */
+  async getRevisionMap(collection: string): Promise<Array<{ id: string; revision: string }>> {
+    return this.storage.getReadModelRevisions(collection)
+  }
+
+  /**
    * Convert storage record to read model.
    */
   private recordToReadModel<T>(record: ReadModelRecord): ReadModel<T> {
@@ -477,6 +519,8 @@ export class ReadModelStore {
       hasLocalChanges: record.hasLocalChanges,
       serverData: record.serverData ? (JSON.parse(record.serverData) as T) : undefined,
       updatedAt: record.updatedAt,
+      revision: record.revision ?? undefined,
+      position: record.position ?? undefined,
       _clientMetadata: record._clientMetadata ?? undefined,
     }
   }

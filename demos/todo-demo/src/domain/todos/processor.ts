@@ -8,6 +8,13 @@ import type {
 } from '@cqrs-toolkit/demo-base/todos/shared'
 import { addRevision } from '../utils/processors.js'
 
+export const todoCommandEndpoints: Record<string, string> = {
+  CreateTodo: '/api/todos/commands',
+  UpdateTodoContent: '/api/todos/commands',
+  ChangeTodoStatus: '/api/todos/commands',
+  DeleteTodo: '/api/todos/commands',
+}
+
 export const todoProcessors: ProcessorRegistration[] = [
   {
     eventTypes: 'TodoCreated',

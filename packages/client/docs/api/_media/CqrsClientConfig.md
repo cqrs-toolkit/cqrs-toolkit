@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / CqrsClientConfig
 
-# Interface: CqrsClientConfig\<TSchema\>
+# Interface: CqrsClientConfig\<TLink, TSchema, TEvent\>
 
 Main-thread CQRS Client configuration.
 
@@ -13,13 +13,21 @@ mode selection and worker script URL.
 
 ## Extends
 
-- [`CqrsConfig`](CqrsConfig.md)\<`TSchema`\>
+- [`CqrsConfig`](CqrsConfig.md)\<`TLink`, `TSchema`, `TEvent`\>
 
 ## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
 
 ### TSchema
 
 `TSchema` = `unknown`
+
+### TEvent
+
+`TEvent` _extends_ [`IAnticipatedEvent`](IAnticipatedEvent.md) = [`IAnticipatedEvent`](IAnticipatedEvent.md)
 
 ## Properties
 
@@ -51,7 +59,7 @@ Cache configuration.
 
 ### collections?
 
-> `optional` **collections**: [`Collection`](Collection.md)[]
+> `optional` **collections**: [`Collection`](Collection.md)\<`TLink`\>[]
 
 Collection configurations.
 
@@ -63,7 +71,7 @@ Collection configurations.
 
 ### commandHandlers?
 
-> `optional` **commandHandlers**: [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`any`, `TSchema`\>[]
+> `optional` **commandHandlers**: [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`TLink`, `TSchema`, `TEvent`\>[]
 
 Command handler registrations for local validation and optimistic updates.
 Each handler validates command data and produces anticipated events.

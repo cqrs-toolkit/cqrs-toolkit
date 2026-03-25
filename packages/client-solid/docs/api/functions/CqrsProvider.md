@@ -6,13 +6,19 @@
 
 # Function: CqrsProvider()
 
-> **CqrsProvider**(`props`): `Element`
+> **CqrsProvider**\<`TLink`\>(`props`): `Element`
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`\<`string`, `string`\>
 
 ## Parameters
 
 ### props
 
-`CqrsProviderProps`
+`CqrsProviderProps`\<`TLink`\>
 
 ## Returns
 

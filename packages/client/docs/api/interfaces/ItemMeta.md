@@ -26,6 +26,14 @@ Original client-generated temp ID. Present when the entity was created from a te
 
 ---
 
+### revision?
+
+> `readonly` `optional` **revision**: `string`
+
+Stream revision (bigint as string). Present when the entity has been confirmed by the server.
+
+---
+
 ### updatedAt
 
 > `readonly` **updatedAt**: `number`

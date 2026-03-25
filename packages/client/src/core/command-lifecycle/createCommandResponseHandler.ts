@@ -1,8 +1,9 @@
-import { logProvider } from '@meticoeus/ddd-es'
+import { type Link, logProvider } from '@meticoeus/ddd-es'
 import type { Collection, CommandRecord } from '../../types/index.js'
 import { CacheManager } from '../cache-manager/index.js'
 import type { ParsedEvent } from '../event-processor/index.js'
 import { SyncManager } from '../sync-manager/index.js'
+import type { IAnticipatedEvent } from './AnticipatedEventShape.js'
 import { hasResponseEvents, isResponseEvent } from './ResponseEvent.js'
 
 /**
@@ -17,10 +18,14 @@ import { hasResponseEvents, isResponseEvent } from './ResponseEvent.js'
  * SyncManager. The lazy ref is safe because onCommandResponse is never called
  * before SyncManager exists (queue starts paused, only processes after resume).
  */
-export function createCommandResponseHandler(
-  getSyncManager: () => SyncManager,
-  cacheManager: CacheManager,
-  collections: Collection[],
+export function createCommandResponseHandler<
+  TLink extends Link,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+>(
+  getSyncManager: () => SyncManager<TLink, TSchema, TEvent>,
+  cacheManager: CacheManager<TLink>,
+  collections: Collection<TLink>[],
 ): (command: CommandRecord, response: unknown) => Promise<void> {
   return async (command: CommandRecord, response: unknown) => {
     if (!hasResponseEvents(response)) return
@@ -42,7 +47,16 @@ export function createCommandResponseHandler(
         continue
       }
 
-      const cacheKey = await cacheManager.acquire(collection.name)
+      // TODO(lazy-load): The cache key for lazily-loaded collections should come from
+      // the active scope the command was issued against, not from a static seedCacheKey.
+      if (!collection.seedCacheKey) {
+        logProvider.log.warn(
+          { streamId: raw.streamId, commandId: command.commandId },
+          'Collection has no seedCacheKey for command response',
+        )
+        continue
+      }
+      const cacheKey = await cacheManager.acquire(collection.seedCacheKey)
 
       parsedEvents.push({
         id: raw.id,

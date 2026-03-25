@@ -351,6 +351,18 @@ export class InMemoryStorage implements IStorage {
     return this.readModels.size
   }
 
+  async getReadModelRevisions(
+    collection: string,
+  ): Promise<Array<{ id: string; revision: string }>> {
+    const results: Array<{ id: string; revision: string }> = []
+    for (const record of this.readModels.values()) {
+      if (record.collection === collection && record.revision !== null) {
+        results.push({ id: record.id, revision: record.revision })
+      }
+    }
+    return results
+  }
+
   // Command ID mapping operations
 
   async getCommandIdMapping(clientId: string): Promise<CommandIdMappingRecord | undefined> {

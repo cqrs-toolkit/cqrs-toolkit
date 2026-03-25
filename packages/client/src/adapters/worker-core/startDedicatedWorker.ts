@@ -14,7 +14,8 @@
 
 /// <reference lib="webworker" />
 
-import { createConsoleLogger, logProvider } from '@meticoeus/ddd-es'
+import { type Link, createConsoleLogger, logProvider } from '@meticoeus/ddd-es'
+import type { IAnticipatedEvent } from '../../core/command-lifecycle/AnticipatedEventShape.js'
 import { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
 import type { CqrsConfig } from '../../types/config.js'
 import { resolveConfig } from '../../types/config.js'
@@ -33,10 +34,12 @@ logProvider.setLogger(createConsoleLogger({ level: 'warn' }))
  *
  * @param config - Shared CQRS config (same object the main thread uses)
  */
-export function startDedicatedWorker(config: CqrsConfig): void {
+export function startDedicatedWorker<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent>(
+  config: CqrsConfig<TLink, TSchema, TEvent>,
+): void {
   const resolved = resolveConfig(config)
   const messageHandler = new WorkerMessageHandler()
-  const orchestrator = new WorkerOrchestrator(messageHandler, resolved)
+  const orchestrator = new WorkerOrchestrator<TLink, TSchema, TEvent>(messageHandler, resolved)
 
   // Register Mode B lifecycle methods
   messageHandler.registerMethod('orchestrator.initialize', async () => {

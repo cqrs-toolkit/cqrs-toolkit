@@ -2,7 +2,9 @@
  * Cache manager interface and types.
  */
 
+import type { Link } from '@meticoeus/ddd-es'
 import type { CacheKeyRecord } from '../../storage/IStorage.js'
+import type { CacheKeyIdentity } from './CacheKey.js'
 
 /**
  * Options for acquiring a cache key.
@@ -12,8 +14,6 @@ export interface AcquireCacheKeyOptions {
   hold?: boolean
   /** TTL in milliseconds (overrides default) */
   ttl?: number
-  /** Scope for the cache key */
-  scope?: string
   /** Eviction policy for new keys (default: 'persistent') */
   evictionPolicy?: 'persistent' | 'ephemeral'
 }
@@ -21,27 +21,38 @@ export interface AcquireCacheKeyOptions {
 /**
  * Cache manager interface.
  * Provides cache key lifecycle, eviction, and hold management.
+ *
+ * Parameterized on `TLink` so entity cache keys carry the app's link type
+ * (`Link` for single-service, `ServiceLink` for multi-service).
  */
-export interface ICacheManager {
+export interface ICacheManager<TLink extends Link> {
   /**
-   * Acquire a cache key for a collection with optional parameters.
-   * Creates the cache key if it doesn't exist.
+   * Acquire a cache key identity. Creates the cache key in storage if it doesn't exist.
+   * Returns the full identity object with the derived UUID key and all source data.
    *
-   * @param collection - Collection name
-   * @param params - Optional query parameters
+   * @param identity - The cache key identity to acquire
    * @param options - Acquisition options
-   * @returns Cache key identifier
+   * @returns The acquired cache key identity
    */
-  acquire(
-    collection: string,
-    params?: Record<string, unknown>,
+  acquireKey(
+    identity: CacheKeyIdentity<TLink>,
     options?: AcquireCacheKeyOptions,
-  ): Promise<string>
+  ): Promise<CacheKeyIdentity<TLink>>
+
+  /**
+   * Acquire a cache key, returning only the UUID string.
+   * Convenience wrapper around {@link acquireKey} for callers that only need the key.
+   *
+   * @param identity - The cache key identity to acquire
+   * @param options - Acquisition options
+   * @returns The cache key UUID string
+   */
+  acquire(identity: CacheKeyIdentity<TLink>, options?: AcquireCacheKeyOptions): Promise<string>
 
   /**
    * Check if a cache key exists.
    *
-   * @param key - Cache key identifier
+   * @param key - Cache key UUID
    * @returns Whether the cache key exists
    */
   exists(key: string): Promise<boolean>
@@ -49,7 +60,7 @@ export interface ICacheManager {
   /**
    * Get a cache key record.
    *
-   * @param key - Cache key identifier
+   * @param key - Cache key UUID
    * @returns Cache key record or undefined
    */
   get(key: string): Promise<CacheKeyRecord | undefined>
@@ -57,7 +68,7 @@ export interface ICacheManager {
   /**
    * Touch a cache key to update its access time.
    *
-   * @param key - Cache key identifier
+   * @param key - Cache key UUID
    */
   touch(key: string): Promise<void>
 
@@ -65,35 +76,35 @@ export interface ICacheManager {
    * Place a hold on a cache key.
    * While held, the cache key cannot be evicted.
    *
-   * @param key - Cache key identifier
+   * @param key - Cache key UUID
    */
   hold(key: string): Promise<void>
 
   /**
    * Release a hold on a cache key.
    *
-   * @param key - Cache key identifier
+   * @param key - Cache key UUID
    */
   release(key: string): Promise<void>
 
   /**
    * Freeze a cache key.
    *
-   * @param key - Cache key identifier
+   * @param key - Cache key UUID
    */
   freeze(key: string): Promise<void>
 
   /**
    * Unfreeze a cache key.
    *
-   * @param key - Cache key identifier
+   * @param key - Cache key UUID
    */
   unfreeze(key: string): Promise<void>
 
   /**
    * Check if a cache key is frozen.
    *
-   * @param key - Cache key identifier
+   * @param key - Cache key UUID
    * @returns Whether the cache key is frozen
    */
   isFrozen(key: string): Promise<boolean>
@@ -101,7 +112,7 @@ export interface ICacheManager {
   /**
    * Explicitly evict a cache key.
    *
-   * @param key - Cache key identifier
+   * @param key - Cache key UUID
    * @returns Whether eviction succeeded
    */
   evict(key: string): Promise<boolean>

@@ -6,7 +6,7 @@
 
 # Function: startDedicatedWorker()
 
-> **startDedicatedWorker**(`config`): `void`
+> **startDedicatedWorker**\<`TLink`, `TSchema`, `TEvent`\>(`config`): `void`
 
 Bootstrap a Dedicated Worker with CQRS orchestration.
 
@@ -15,11 +15,25 @@ methods, sets up message handling, and signals readiness to the main
 thread. The main thread's adapter calls `orchestrator.initialize` to
 trigger component creation (includes OPFS probe for Mode B).
 
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`\<`string`, `string`\>
+
+### TSchema
+
+`TSchema`
+
+### TEvent
+
+`TEvent` _extends_ [`IAnticipatedEvent`](../interfaces/IAnticipatedEvent.md)\<`string`, `AggregateEventData`\>
+
 ## Parameters
 
 ### config
 
-[`CqrsConfig`](../interfaces/CqrsConfig.md)
+[`CqrsConfig`](../interfaces/CqrsConfig.md)\<`TLink`, `TSchema`, `TEvent`\>
 
 Shared CQRS config (same object the main thread uses)
 

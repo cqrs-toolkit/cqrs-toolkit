@@ -2,7 +2,13 @@
  * Unit tests for createListQuery.
  */
 
-import type { IQueryManager, ListQueryResult, QueryOptions } from '@cqrs-toolkit/client'
+import type {
+  IQueryManager,
+  ListQueryResult,
+  QueryOptions,
+  ScopeCacheKey,
+} from '@cqrs-toolkit/client'
+import { ServiceLink } from '@meticoeus/ddd-es'
 import { Subject } from 'rxjs'
 import { createRoot } from 'solid-js'
 import { describe, expect, it, vi } from 'vitest'
@@ -17,17 +23,24 @@ interface Todo {
 const TODO_A: Todo = { id: '1', title: 'Buy milk', done: false }
 const TODO_B: Todo = { id: '2', title: 'Walk dog', done: true }
 
+function scopeKey(key: string): ScopeCacheKey {
+  return { kind: 'scope', key, scopeType: 'test' } as unknown as ScopeCacheKey
+}
+
 function createMockQueryManager() {
   const collectionUpdate$ = new Subject<string[]>()
-  let listResult: ListQueryResult<Todo>
-  const holdSpy = vi.fn<IQueryManager['hold']>().mockResolvedValue(undefined)
-  const releaseSpy = vi.fn<IQueryManager['release']>().mockResolvedValue(undefined)
-  const listSpy = vi.fn<IQueryManager['list']>()
+  let listResult: ListQueryResult<ServiceLink, Todo>
+  const holdSpy = vi.fn<IQueryManager<ServiceLink>['hold']>().mockResolvedValue(undefined)
+  const releaseSpy = vi.fn<IQueryManager<ServiceLink>['release']>().mockResolvedValue(undefined)
+  const listSpy = vi.fn<IQueryManager<ServiceLink>['list']>()
 
-  const qm: IQueryManager = {
-    async list<T>(_collection: string, options?: QueryOptions): Promise<ListQueryResult<T>> {
+  const qm: IQueryManager<ServiceLink> = {
+    async list<T>(
+      _collection: string,
+      options?: QueryOptions,
+    ): Promise<ListQueryResult<ServiceLink, T>> {
       listSpy(_collection, options)
-      return listResult as unknown as ListQueryResult<T>
+      return listResult as unknown as ListQueryResult<ServiceLink, T>
     },
     async getById() {
       throw new Error('Not used in list tests')
@@ -57,7 +70,7 @@ function createMockQueryManager() {
   return {
     qm,
     collectionUpdate$,
-    setListResult(result: ListQueryResult<Todo>) {
+    setListResult(result: ListQueryResult<ServiceLink, Todo>) {
       listResult = result
     },
     holdSpy,
@@ -82,11 +95,11 @@ describe('createListQuery', () => {
       ],
       total: 2,
       hasLocalChanges: false,
-      cacheKey: 'ck-todos',
+      cacheKey: scopeKey('ck-todos'),
     })
 
     await createRoot(async (dispose) => {
-      const state = createListQuery<Todo>(qm, 'todos')
+      const state = createListQuery<ServiceLink, Todo>(qm, 'todos')
 
       expect(state.loading).toBe(true)
       expect(state.items).toHaveLength(0)
@@ -113,11 +126,11 @@ describe('createListQuery', () => {
       meta: [{ id: '1', updatedAt: 1000 }],
       total: 1,
       hasLocalChanges: false,
-      cacheKey: 'ck-todos',
+      cacheKey: scopeKey('ck-todos'),
     })
 
     await createRoot(async (dispose) => {
-      const state = createListQuery<Todo>(qm, 'todos')
+      const state = createListQuery<ServiceLink, Todo>(qm, 'todos')
       await tick()
 
       expect(state.items).toHaveLength(1)
@@ -131,7 +144,7 @@ describe('createListQuery', () => {
         ],
         total: 2,
         hasLocalChanges: false,
-        cacheKey: 'ck-todos',
+        cacheKey: scopeKey('ck-todos'),
       })
       collectionUpdate$.next(['2'])
 
@@ -152,11 +165,11 @@ describe('createListQuery', () => {
       meta: [{ id: '1', updatedAt: 1000 }],
       total: 1,
       hasLocalChanges: false,
-      cacheKey: 'ck-todos',
+      cacheKey: scopeKey('ck-todos'),
     })
 
     await createRoot(async (dispose) => {
-      const state = createListQuery<Todo>(qm, 'todos')
+      const state = createListQuery<ServiceLink, Todo>(qm, 'todos')
       await tick()
 
       expect(state.loading).toBe(false)
@@ -170,7 +183,7 @@ describe('createListQuery', () => {
         ],
         total: 2,
         hasLocalChanges: false,
-        cacheKey: 'ck-todos',
+        cacheKey: scopeKey('ck-todos'),
       })
       collectionUpdate$.next(['2'])
 
@@ -193,11 +206,11 @@ describe('createListQuery', () => {
       meta: [{ id: '1', updatedAt: 1000 }],
       total: 1,
       hasLocalChanges: false,
-      cacheKey: 'ck-todos',
+      cacheKey: scopeKey('ck-todos'),
     })
 
     await createRoot(async (dispose) => {
-      createListQuery<Todo>(qm, 'todos')
+      createListQuery<ServiceLink, Todo>(qm, 'todos')
       await tick()
 
       expect(releaseSpy).not.toHaveBeenCalled()
@@ -216,11 +229,11 @@ describe('createListQuery', () => {
       meta: [{ id: '1', updatedAt: 1000 }],
       total: 1,
       hasLocalChanges: false,
-      cacheKey: 'ck-todos',
+      cacheKey: scopeKey('ck-todos'),
     })
 
     await createRoot(async (dispose) => {
-      createListQuery<Todo>(qm, 'todos')
+      createListQuery<ServiceLink, Todo>(qm, 'todos')
       await tick()
 
       expect(collectionUpdate$.observed).toBe(true)
@@ -235,18 +248,18 @@ describe('createListQuery', () => {
     const { qm, collectionUpdate$ } = createMockQueryManager()
 
     let callCount = 0
-    const resolvers: Array<(result: ListQueryResult<Todo>) => void> = []
+    const resolvers: Array<(result: ListQueryResult<ServiceLink, Todo>) => void> = []
 
     // Override list to capture resolve callbacks
-    qm.list = <T>(): Promise<ListQueryResult<T>> => {
+    qm.list = <T>(): Promise<ListQueryResult<ServiceLink, T>> => {
       callCount++
-      return new Promise<ListQueryResult<T>>((resolve) => {
-        resolvers.push(resolve as unknown as (result: ListQueryResult<Todo>) => void)
+      return new Promise<ListQueryResult<ServiceLink, T>>((resolve) => {
+        resolvers.push(resolve as unknown as (result: ListQueryResult<ServiceLink, Todo>) => void)
       })
     }
 
     await createRoot(async (dispose) => {
-      const state = createListQuery<Todo>(qm, 'todos')
+      const state = createListQuery<ServiceLink, Todo>(qm, 'todos')
 
       // Wait for initial fetch to be started
       await tick()
@@ -263,7 +276,7 @@ describe('createListQuery', () => {
         meta: [{ id: '1', updatedAt: 1000 }],
         total: 1,
         hasLocalChanges: false,
-        cacheKey: 'ck-todos',
+        cacheKey: scopeKey('ck-todos'),
       })
       await tick()
 
@@ -279,7 +292,7 @@ describe('createListQuery', () => {
         ],
         total: 2,
         hasLocalChanges: false,
-        cacheKey: 'ck-todos',
+        cacheKey: scopeKey('ck-todos'),
       })
       await tick()
 
@@ -296,7 +309,7 @@ describe('createListQuery', () => {
     qm.list = () => Promise.reject(testError)
 
     await createRoot(async (dispose) => {
-      const state = createListQuery<Todo>(qm, 'todos')
+      const state = createListQuery<ServiceLink, Todo>(qm, 'todos')
       await tick()
 
       expect(state.error).toBe(testError)
@@ -308,12 +321,12 @@ describe('createListQuery', () => {
         meta: [{ id: '1', updatedAt: 1000 }],
         total: 1,
         hasLocalChanges: false,
-        cacheKey: 'ck-todos',
+        cacheKey: scopeKey('ck-todos'),
       })
-      qm.list = async <T>(): Promise<ListQueryResult<T>> => {
+      qm.list = async <T>(): Promise<ListQueryResult<ServiceLink, T>> => {
         return (await Promise.resolve(
-          setListResult as unknown as ListQueryResult<T>,
-        )) as unknown as ListQueryResult<T>
+          setListResult as unknown as ListQueryResult<ServiceLink, T>,
+        )) as unknown as ListQueryResult<ServiceLink, T>
       }
       // Restore proper list implementation
       const origQm = createMockQueryManager()
@@ -322,7 +335,7 @@ describe('createListQuery', () => {
         meta: [{ id: '1', updatedAt: 1000 }],
         total: 1,
         hasLocalChanges: false,
-        cacheKey: 'ck-todos',
+        cacheKey: scopeKey('ck-todos'),
       })
       qm.list = origQm.qm.list.bind(origQm.qm)
 
@@ -344,16 +357,15 @@ describe('createListQuery', () => {
       meta: [],
       total: 0,
       hasLocalChanges: false,
-      cacheKey: 'ck-todos',
+      cacheKey: scopeKey('ck-todos'),
     })
 
     await createRoot(async (dispose) => {
-      createListQuery<Todo>(qm, 'todos', { scope: 'user-1', limit: 10, offset: 5 })
+      createListQuery<ServiceLink, Todo>(qm, 'todos', { limit: 10, offset: 5 })
       await tick()
 
       expect(listSpy).toHaveBeenCalledWith('todos', {
         hold: true,
-        scope: 'user-1',
         limit: 10,
         offset: 5,
       })

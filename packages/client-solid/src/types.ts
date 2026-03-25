@@ -13,7 +13,6 @@ export interface Identifiable {
  * Options for `createListQuery`.
  */
 export interface ListQueryOptions {
-  scope?: string
   limit?: number
   offset?: number
 }
@@ -21,9 +20,7 @@ export interface ListQueryOptions {
 /**
  * Options for `createItemQuery`.
  */
-export interface ItemQueryOptions {
-  scope?: string
-}
+export interface ItemQueryOptions {}
 
 /**
  * A client ID → server ID mapping from a recent ID reconciliation.

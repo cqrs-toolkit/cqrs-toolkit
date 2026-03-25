@@ -18,7 +18,7 @@ compiled lazily on first `validate()` call — AJV caches compiled validators.
 import { schemas } from './.cqrs/schemas.js'
 import { createAjvSchemaValidator } from '@cqrs-toolkit/hypermedia-client'
 
-const config: CqrsConfig<JSONSchema7> = {
+const config: CqrsConfig<Link, JSONSchema7> = {
   schemaValidator: createAjvSchemaValidator(schemas),
   commandHandlers: withSchemaRegistry(schemas, [...handlers]),
 }

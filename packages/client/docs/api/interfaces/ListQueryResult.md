@@ -4,11 +4,17 @@
 
 [@cqrs-toolkit/client](../globals.md) / ListQueryResult
 
-# Interface: ListQueryResult\<T\>
+# Interface: ListQueryResult\<TLink, T\>
 
 List query result.
 
+Parameterized on `TLink` so multi-service apps get typed cache key identities.
+
 ## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
 
 ### T
 
@@ -18,9 +24,9 @@ List query result.
 
 ### cacheKey
 
-> **cacheKey**: `string`
+> **cacheKey**: [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
 
-Cache key used for this query
+Cache key identity used for this query
 
 ---
 

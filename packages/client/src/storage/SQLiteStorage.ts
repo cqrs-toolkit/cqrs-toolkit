@@ -147,16 +147,25 @@ export class SQLiteStorage implements IStorage {
   async saveCacheKey(record: CacheKeyRecord): Promise<void> {
     this.assertInitialized()
     await this.exec(
-      `INSERT OR REPLACE INTO cache_keys (key, last_accessed_at, hold_count, frozen, expires_at, created_at, eviction_policy)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT OR REPLACE INTO cache_keys
+       (key, kind, link_service, link_type, link_id, service, scope_type, scope_params, parent_key, eviction_policy, frozen, last_accessed_at, expires_at, created_at, hold_count)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         record.key,
-        record.lastAccessedAt,
-        record.holdCount,
+        record.kind,
+        record.linkService,
+        record.linkType,
+        record.linkId,
+        record.service,
+        record.scopeType,
+        record.scopeParams,
+        record.parentKey,
+        record.evictionPolicy,
         record.frozen ? 1 : 0,
+        record.lastAccessedAt,
         record.expiresAt,
         record.createdAt,
-        record.evictionPolicy,
+        record.holdCount,
       ],
     )
   }
@@ -497,14 +506,16 @@ export class SQLiteStorage implements IStorage {
     const table = this.rmTable(record.collection)
     await this.exec(
       `INSERT OR REPLACE INTO ${table}
-       (id, cache_key, _server_data, _effective_data, _has_local_changes, updated_at, __client_id, __reconciled_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, cache_key, _server_data, _effective_data, _has_local_changes, _revision, _position, updated_at, __client_id, __reconciled_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         record.id,
         record.cacheKey,
         record.serverData,
         record.effectiveData,
         record.hasLocalChanges ? 1 : 0,
+        record.revision,
+        record.position,
         record.updatedAt,
         record._clientMetadata?.clientId ?? null,
         record._clientMetadata?.reconciledAt ?? null,
@@ -530,8 +541,8 @@ export class SQLiteStorage implements IStorage {
     for (const [collection, group] of byCollection) {
       const table = this.rmTable(collection)
       const columns =
-        '(id, cache_key, _server_data, _effective_data, _has_local_changes, updated_at, __client_id, __reconciled_at)'
-      const placeholder = '(?, ?, ?, ?, ?, ?, ?, ?)'
+        '(id, cache_key, _server_data, _effective_data, _has_local_changes, _revision, _position, updated_at, __client_id, __reconciled_at)'
+      const placeholder = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       const placeholders = group.map(() => placeholder).join(', ')
       const params: unknown[] = []
 
@@ -542,6 +553,8 @@ export class SQLiteStorage implements IStorage {
           record.serverData,
           record.effectiveData,
           record.hasLocalChanges ? 1 : 0,
+          record.revision,
+          record.position,
           record.updatedAt,
           record._clientMetadata?.clientId ?? null,
           record._clientMetadata?.reconciledAt ?? null,
@@ -585,6 +598,17 @@ export class SQLiteStorage implements IStorage {
       total += row.count
     }
     return total
+  }
+
+  async getReadModelRevisions(
+    collection: string,
+  ): Promise<Array<{ id: string; revision: string }>> {
+    this.assertInitialized()
+    const table = this.rmTable(collection)
+    const rows = await this.query<{ id: string; _revision: string }>(
+      `SELECT id, _revision FROM ${table} WHERE _revision IS NOT NULL`,
+    )
+    return rows.map((row) => ({ id: row.id, revision: row._revision }))
   }
 
   // Command ID mapping operations
@@ -755,12 +779,20 @@ export class SQLiteStorage implements IStorage {
   private rowToCacheKey(row: CacheKeyRow): CacheKeyRecord {
     return {
       key: row.key,
-      lastAccessedAt: row.last_accessed_at,
-      holdCount: row.hold_count,
+      kind: row.kind as CacheKeyRecord['kind'],
+      linkService: row.link_service,
+      linkType: row.link_type,
+      linkId: row.link_id,
+      service: row.service,
+      scopeType: row.scope_type,
+      scopeParams: row.scope_params,
+      parentKey: row.parent_key,
+      evictionPolicy: row.eviction_policy as CacheKeyRecord['evictionPolicy'],
       frozen: row.frozen === 1,
+      lastAccessedAt: row.last_accessed_at,
       expiresAt: row.expires_at,
       createdAt: row.created_at,
-      evictionPolicy: row.eviction_policy as CacheKeyRecord['evictionPolicy'],
+      holdCount: row.hold_count,
     }
   }
 
@@ -773,6 +805,8 @@ export class SQLiteStorage implements IStorage {
       effectiveData: row._effective_data,
       hasLocalChanges: row._has_local_changes === 1,
       updatedAt: row.updated_at,
+      revision: row._revision,
+      position: row._position,
       _clientMetadata: row.__client_id
         ? { clientId: row.__client_id, reconciledAt: row.__reconciled_at ?? undefined }
         : null,
@@ -784,12 +818,20 @@ export class SQLiteStorage implements IStorage {
 
 interface CacheKeyRow {
   key: string
-  last_accessed_at: number
-  hold_count: number
+  kind: string
+  link_service: string | null
+  link_type: string | null
+  link_id: string | null
+  service: string | null
+  scope_type: string | null
+  scope_params: string | null
+  parent_key: string | null
+  eviction_policy: string
   frozen: number
+  last_accessed_at: number
   expires_at: number | null
   created_at: number
-  eviction_policy: string
+  hold_count: number
 }
 
 interface CommandRow {
@@ -839,6 +881,8 @@ interface ReadModelRow {
   _server_data: string | null
   _effective_data: string
   _has_local_changes: number
+  _revision: string | null
+  _position: string | null
   updated_at: number
   __client_id: string | null
   __reconciled_at: number | null

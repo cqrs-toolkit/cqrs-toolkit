@@ -3,13 +3,19 @@
  * on the worker message handler.
  */
 
+import type { Link } from '@meticoeus/ddd-es'
+import type { IAnticipatedEvent } from '../../core/command-lifecycle/AnticipatedEventShape.js'
 import type { SessionManager } from '../../core/session/SessionManager.js'
 import type { SyncManager } from '../../core/sync-manager/SyncManager.js'
 import type { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
 
-export function registerSyncManagerMethods(
+export function registerSyncManagerMethods<
+  TLink extends Link,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+>(
   handler: WorkerMessageHandler,
-  syncManager: SyncManager,
+  syncManager: SyncManager<TLink, TSchema, TEvent>,
   sessionManager: SessionManager,
 ): void {
   // SyncManager methods (CqrsClientSyncManager interface)

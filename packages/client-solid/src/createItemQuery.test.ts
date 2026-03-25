@@ -2,7 +2,8 @@
  * Unit tests for createItemQuery.
  */
 
-import type { IQueryManager, QueryOptions, QueryResult } from '@cqrs-toolkit/client'
+import type { IQueryManager, QueryOptions, QueryResult, ScopeCacheKey } from '@cqrs-toolkit/client'
+import { ServiceLink } from '@meticoeus/ddd-es'
 import { Subject } from 'rxjs'
 import { createRoot, createSignal } from 'solid-js'
 import { describe, expect, it, vi } from 'vitest'
@@ -17,21 +18,25 @@ interface Todo {
 const TODO_A: Todo = { id: '1', title: 'Buy milk', done: false }
 const TODO_B: Todo = { id: '2', title: 'Walk dog', done: true }
 
+function scopeKey(key: string): ScopeCacheKey {
+  return { kind: 'scope', key, scopeType: 'test' } as unknown as ScopeCacheKey
+}
+
 function createMockQueryManager() {
   const collectionUpdate$ = new Subject<string[]>()
-  let getByIdResult: QueryResult<Todo>
-  const holdSpy = vi.fn<IQueryManager['hold']>().mockResolvedValue(undefined)
-  const releaseSpy = vi.fn<IQueryManager['release']>().mockResolvedValue(undefined)
-  const getByIdSpy = vi.fn<IQueryManager['getById']>()
+  let getByIdResult: QueryResult<ServiceLink, Todo>
+  const holdSpy = vi.fn<IQueryManager<ServiceLink>['hold']>().mockResolvedValue(undefined)
+  const releaseSpy = vi.fn<IQueryManager<ServiceLink>['release']>().mockResolvedValue(undefined)
+  const getByIdSpy = vi.fn<IQueryManager<ServiceLink>['getById']>()
 
-  const qm: IQueryManager = {
+  const qm: IQueryManager<ServiceLink> = {
     async getById<T>(
       _collection: string,
       _id: string,
       options?: QueryOptions,
-    ): Promise<QueryResult<T>> {
+    ): Promise<QueryResult<ServiceLink, T>> {
       getByIdSpy(_collection, _id, options)
-      return getByIdResult as unknown as QueryResult<T>
+      return getByIdResult as unknown as QueryResult<ServiceLink, T>
     },
     async list() {
       throw new Error('Not used in item tests')
@@ -61,7 +66,7 @@ function createMockQueryManager() {
   return {
     qm,
     collectionUpdate$,
-    setGetByIdResult(result: QueryResult<Todo>) {
+    setGetByIdResult(result: QueryResult<ServiceLink, Todo>) {
       getByIdResult = result
     },
     holdSpy,
@@ -82,11 +87,11 @@ describe('createItemQuery', () => {
       data: TODO_A,
       meta: { id: '1', updatedAt: 1000 },
       hasLocalChanges: false,
-      cacheKey: 'ck-todos-1',
+      cacheKey: scopeKey('ck-todos-1'),
     })
 
     await createRoot(async (dispose) => {
-      const state = createItemQuery<Todo>(qm, 'todos', () => '1')
+      const state = createItemQuery<ServiceLink, Todo>(qm, 'todos', () => '1')
 
       expect(state.loading).toBe(true)
       expect(state.data).toBeUndefined()
@@ -110,11 +115,11 @@ describe('createItemQuery', () => {
       data: undefined,
       meta: undefined,
       hasLocalChanges: false,
-      cacheKey: 'ck-todos-missing',
+      cacheKey: scopeKey('ck-todos-missing'),
     })
 
     await createRoot(async (dispose) => {
-      const state = createItemQuery<Todo>(qm, 'todos', () => 'missing')
+      const state = createItemQuery<ServiceLink, Todo>(qm, 'todos', () => 'missing')
       await tick()
 
       expect(state.loading).toBe(false)
@@ -131,11 +136,11 @@ describe('createItemQuery', () => {
       data: TODO_A,
       meta: { id: '1', updatedAt: 1000 },
       hasLocalChanges: false,
-      cacheKey: 'ck-todos-1',
+      cacheKey: scopeKey('ck-todos-1'),
     })
 
     await createRoot(async (dispose) => {
-      const state = createItemQuery<Todo>(qm, 'todos', () => '1')
+      const state = createItemQuery<ServiceLink, Todo>(qm, 'todos', () => '1')
       await tick()
 
       expect(state.data?.title).toBe('Buy milk')
@@ -146,7 +151,7 @@ describe('createItemQuery', () => {
         data: updated,
         meta: { id: '1', updatedAt: 2000 },
         hasLocalChanges: false,
-        cacheKey: 'ck-todos-1',
+        cacheKey: scopeKey('ck-todos-1'),
       })
       collectionUpdate$.next(['1'])
       await tick()
@@ -164,11 +169,11 @@ describe('createItemQuery', () => {
       data: TODO_A,
       meta: { id: '1', updatedAt: 1000 },
       hasLocalChanges: false,
-      cacheKey: 'ck-todos-1',
+      cacheKey: scopeKey('ck-todos-1'),
     })
 
     await createRoot(async (dispose) => {
-      createItemQuery<Todo>(qm, 'todos', () => '1')
+      createItemQuery<ServiceLink, Todo>(qm, 'todos', () => '1')
       await tick()
 
       const callCountAfterInit = getByIdSpy.mock.calls.length
@@ -191,12 +196,12 @@ describe('createItemQuery', () => {
       data: TODO_A,
       meta: { id: '1', updatedAt: 1000 },
       hasLocalChanges: false,
-      cacheKey: 'ck-todos-1',
+      cacheKey: scopeKey('ck-todos-1'),
     })
 
     await createRoot(async (dispose) => {
       const [id, setId] = createSignal('1')
-      const state = createItemQuery<Todo>(qm, 'todos', id)
+      const state = createItemQuery<ServiceLink, Todo>(qm, 'todos', id)
       await tick()
 
       expect(state.data?.id).toBe('1')
@@ -206,7 +211,7 @@ describe('createItemQuery', () => {
         data: TODO_B,
         meta: { id: '2', updatedAt: 2000 },
         hasLocalChanges: false,
-        cacheKey: 'ck-todos-2',
+        cacheKey: scopeKey('ck-todos-2'),
       })
       setId('2')
       await tick()
@@ -224,28 +229,30 @@ describe('createItemQuery', () => {
   it('resets loading to true on ID change', async () => {
     const { qm, setGetByIdResult } = createMockQueryManager()
 
-    let resolveSecondFetch: ((result: QueryResult<Todo>) => void) | undefined
+    let resolveSecondFetch: ((result: QueryResult<ServiceLink, Todo>) => void) | undefined
     let callCount = 0
 
     setGetByIdResult({
       data: TODO_A,
       meta: { id: '1', updatedAt: 1000 },
       hasLocalChanges: false,
-      cacheKey: 'ck-todos-1',
+      cacheKey: scopeKey('ck-todos-1'),
     })
 
     await createRoot(async (dispose) => {
       const [id, setId] = createSignal('1')
-      const state = createItemQuery<Todo>(qm, 'todos', id)
+      const state = createItemQuery<ServiceLink, Todo>(qm, 'todos', id)
       await tick()
 
       expect(state.loading).toBe(false)
 
       // Override getById to capture second fetch
-      qm.getById = <T>(): Promise<QueryResult<T>> => {
+      qm.getById = <T>(): Promise<QueryResult<ServiceLink, T>> => {
         callCount++
-        return new Promise<QueryResult<T>>((resolve) => {
-          resolveSecondFetch = resolve as unknown as (result: QueryResult<Todo>) => void
+        return new Promise<QueryResult<ServiceLink, T>>((resolve) => {
+          resolveSecondFetch = resolve as unknown as (
+            result: QueryResult<ServiceLink, Todo>,
+          ) => void
         })
       }
 
@@ -260,7 +267,7 @@ describe('createItemQuery', () => {
         data: TODO_B,
         meta: { id: '2', updatedAt: 2000 },
         hasLocalChanges: false,
-        cacheKey: 'ck-todos-2',
+        cacheKey: scopeKey('ck-todos-2'),
       })
       await tick()
 
@@ -278,7 +285,7 @@ describe('createItemQuery', () => {
     qm.getById = () => Promise.reject(testError)
 
     await createRoot(async (dispose) => {
-      const state = createItemQuery<Todo>(qm, 'todos', () => '1')
+      const state = createItemQuery<ServiceLink, Todo>(qm, 'todos', () => '1')
       await tick()
 
       expect(state.error).toBe(testError)
@@ -295,11 +302,11 @@ describe('createItemQuery', () => {
       data: TODO_A,
       meta: { id: '1', updatedAt: 1000 },
       hasLocalChanges: false,
-      cacheKey: 'ck-todos-1',
+      cacheKey: scopeKey('ck-todos-1'),
     })
 
     await createRoot(async (dispose) => {
-      createItemQuery<Todo>(qm, 'todos', () => '1')
+      createItemQuery<ServiceLink, Todo>(qm, 'todos', () => '1')
       await tick()
 
       expect(releaseSpy).not.toHaveBeenCalled()
@@ -317,11 +324,11 @@ describe('createItemQuery', () => {
       data: TODO_A,
       meta: { id: '1', updatedAt: 1000 },
       hasLocalChanges: false,
-      cacheKey: 'ck-todos-1',
+      cacheKey: scopeKey('ck-todos-1'),
     })
 
     await createRoot(async (dispose) => {
-      createItemQuery<Todo>(qm, 'todos', () => '1')
+      createItemQuery<ServiceLink, Todo>(qm, 'todos', () => '1')
       await tick()
 
       expect(collectionUpdate$.observed).toBe(true)
@@ -335,17 +342,17 @@ describe('createItemQuery', () => {
   it('discards stale responses on concurrent ID changes', async () => {
     const { qm } = createMockQueryManager()
 
-    const resolvers: Array<(result: QueryResult<Todo>) => void> = []
+    const resolvers: Array<(result: QueryResult<ServiceLink, Todo>) => void> = []
 
-    qm.getById = <T>(): Promise<QueryResult<T>> => {
-      return new Promise<QueryResult<T>>((resolve) => {
-        resolvers.push(resolve as unknown as (result: QueryResult<Todo>) => void)
+    qm.getById = <T>(): Promise<QueryResult<ServiceLink, T>> => {
+      return new Promise<QueryResult<ServiceLink, T>>((resolve) => {
+        resolvers.push(resolve as unknown as (result: QueryResult<ServiceLink, Todo>) => void)
       })
     }
 
     await createRoot(async (dispose) => {
       const [id, setId] = createSignal('1')
-      const state = createItemQuery<Todo>(qm, 'todos', id)
+      const state = createItemQuery<ServiceLink, Todo>(qm, 'todos', id)
       await tick()
 
       // Switch ID before first fetch resolves
@@ -357,7 +364,7 @@ describe('createItemQuery', () => {
         data: TODO_A,
         meta: { id: '1', updatedAt: 1000 },
         hasLocalChanges: false,
-        cacheKey: 'ck-todos-1',
+        cacheKey: scopeKey('ck-todos-1'),
       })
       await tick()
 
@@ -369,7 +376,7 @@ describe('createItemQuery', () => {
         data: TODO_B,
         meta: { id: '2', updatedAt: 2000 },
         hasLocalChanges: false,
-        cacheKey: 'ck-todos-2',
+        cacheKey: scopeKey('ck-todos-2'),
       })
       await tick()
 
@@ -386,16 +393,15 @@ describe('createItemQuery', () => {
       data: TODO_A,
       meta: { id: '1', updatedAt: 1000 },
       hasLocalChanges: false,
-      cacheKey: 'ck-todos-1',
+      cacheKey: scopeKey('ck-todos-1'),
     })
 
     await createRoot(async (dispose) => {
-      createItemQuery<Todo>(qm, 'todos', () => '1', { scope: 'user-1' })
+      createItemQuery<ServiceLink, Todo>(qm, 'todos', () => '1', {})
       await tick()
 
       expect(getByIdSpy).toHaveBeenCalledWith('todos', '1', {
         hold: true,
-        scope: 'user-1',
       })
 
       dispose()

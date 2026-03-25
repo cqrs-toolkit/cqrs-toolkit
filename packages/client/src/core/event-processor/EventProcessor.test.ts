@@ -258,6 +258,8 @@ describe('EventProcessorRunner', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Original', done: false }),
         hasLocalChanges: false,
         updatedAt: Date.now(),
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -294,6 +296,8 @@ describe('EventProcessorRunner', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test' }),
         hasLocalChanges: false,
         updatedAt: Date.now(),
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -329,6 +333,8 @@ describe('EventProcessorRunner', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', count: 5 }),
         hasLocalChanges: false,
         updatedAt: Date.now(),
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -402,6 +408,8 @@ describe('EventProcessorRunner', () => {
         effectiveData: JSON.stringify({ id: 'counter-1', value: 10 }),
         hasLocalChanges: false,
         updatedAt: Date.now(),
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -529,6 +537,8 @@ describe('EventProcessorRunner', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Optimistic Title', done: false }),
         hasLocalChanges: true,
         updatedAt: Date.now(),
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -575,6 +585,8 @@ describe('EventProcessorRunner', () => {
         }),
         hasLocalChanges: true,
         updatedAt: Date.now(),
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -605,7 +617,7 @@ describe('EventProcessorRunner', () => {
     })
 
     it('does not emit readmodel:updated when data is unchanged', async () => {
-      // Create a record with known data
+      // Create a record with known data and matching revision so processing is a true no-op
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
@@ -614,6 +626,8 @@ describe('EventProcessorRunner', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test' }),
         hasLocalChanges: false,
         updatedAt: Date.now(),
+        revision: String(DEFAULT_REVISION),
+        position: String(DEFAULT_POSITION),
         _clientMetadata: null,
       })
 
@@ -844,6 +858,8 @@ describe('EventProcessorRunner', () => {
         effectiveData: JSON.stringify({ id: CLIENT_ID, title: 'Optimistic' }),
         hasLocalChanges: true,
         updatedAt: Date.now(),
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -929,6 +945,8 @@ describe('EventProcessorRunner', () => {
         effectiveData: JSON.stringify({ id: CLIENT_ID, title: 'Optimistic' }),
         hasLocalChanges: true,
         updatedAt: Date.now(),
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 

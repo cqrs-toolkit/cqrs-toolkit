@@ -6,6 +6,8 @@
       "type": "string"
     }
   },
-  "required": ["body"],
+  "required": [
+    "body"
+  ],
   "type": "object"
 }

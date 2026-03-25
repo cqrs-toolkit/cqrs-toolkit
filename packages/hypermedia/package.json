@@ -46,7 +46,7 @@
     "@types/json-schema": "^7.0.15"
   },
   "peerDependencies": {
-    "@meticoeus/ddd-es": ">=0.7.2",
+    "@meticoeus/ddd-es": ">=0.7.3",
     "@cqrs-toolkit/schema": ">=0.1.0",
     "ajv": ">=8.0.0",
     "fastify": ">=5.0.0"

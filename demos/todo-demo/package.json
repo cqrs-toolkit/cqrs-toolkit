@@ -19,7 +19,7 @@
     "@cqrs-toolkit/demo-base": "*",
     "@cqrs-toolkit/client-solid": "*",
     "@cqrs-toolkit/realtime": "*",
-    "@meticoeus/ddd-es": "^0.7.2",
+    "@meticoeus/ddd-es": "^0.7.3",
     "@solidjs/router": "^0.15.4",
     "ajv": "^8.0.0"
   },

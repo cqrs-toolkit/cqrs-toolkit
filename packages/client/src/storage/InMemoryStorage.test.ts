@@ -387,6 +387,8 @@ describe('InMemoryStorage', () => {
       effectiveData: '{"title":"Test"}',
       hasLocalChanges: false,
       updatedAt: 1000,
+      revision: null,
+      position: null,
       _clientMetadata: null,
     }
 

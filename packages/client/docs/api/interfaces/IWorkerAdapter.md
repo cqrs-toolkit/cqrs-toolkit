@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / IWorkerAdapter
 
-# Interface: IWorkerAdapter
+# Interface: IWorkerAdapter\<TLink\>
 
 Worker adapter provides proxy objects. All orchestration happens in the
 worker; createCqrsClient just wraps the proxies.
@@ -13,11 +13,17 @@ worker; createCqrsClient just wraps the proxies.
 
 - `IAdapterBase`
 
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
+
 ## Properties
 
 ### cacheManager
 
-> `readonly` **cacheManager**: [`ICacheManager`](ICacheManager.md)
+> `readonly` **cacheManager**: [`ICacheManager`](ICacheManager.md)\<`TLink`\>
 
 ---
 
@@ -47,7 +53,7 @@ Observable of library events.
 
 ### queryManager
 
-> `readonly` **queryManager**: [`IQueryManager`](IQueryManager.md)
+> `readonly` **queryManager**: [`IQueryManager`](IQueryManager.md)\<`TLink`\>
 
 ---
 

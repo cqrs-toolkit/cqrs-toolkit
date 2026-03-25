@@ -83,11 +83,3 @@ Only include models with local changes
 #### Inherited from
 
 [`ReadModelQueryOptions`](ReadModelQueryOptions.md).[`orderDirection`](ReadModelQueryOptions.md#orderdirection)
-
----
-
-### scope?
-
-> `optional` **scope**: `string`
-
-Custom scope for the cache key

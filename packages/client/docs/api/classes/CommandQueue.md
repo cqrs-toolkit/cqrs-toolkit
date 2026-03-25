@@ -4,10 +4,24 @@
 
 [@cqrs-toolkit/client](../globals.md) / CommandQueue
 
-# Class: CommandQueue
+# Class: CommandQueue\<TLink, TSchema, TEvent\>
 
 Command queue interface.
 Provides form-friendly async patterns for command handling.
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
+
+### TSchema
+
+`TSchema`
+
+### TEvent
+
+`TEvent` _extends_ [`IAnticipatedEvent`](../interfaces/IAnticipatedEvent.md)
 
 ## Implements
 
@@ -17,17 +31,17 @@ Provides form-friendly async patterns for command handling.
 
 ### Constructor
 
-> **new CommandQueue**(`config`): `CommandQueue`
+> **new CommandQueue**\<`TLink`, `TSchema`, `TEvent`\>(`config`): `CommandQueue`\<`TLink`, `TSchema`, `TEvent`\>
 
 #### Parameters
 
 ##### config
 
-[`CommandQueueConfig`](../interfaces/CommandQueueConfig.md)
+[`CommandQueueConfig`](../interfaces/CommandQueueConfig.md)\<`TLink`, `TSchema`, `TEvent`\>
 
 #### Returns
 
-`CommandQueue`
+`CommandQueue`\<`TLink`, `TSchema`, `TEvent`\>
 
 ## Properties
 

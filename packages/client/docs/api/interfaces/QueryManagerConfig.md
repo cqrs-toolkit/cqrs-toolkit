@@ -4,15 +4,21 @@
 
 [@cqrs-toolkit/client](../globals.md) / QueryManagerConfig
 
-# Interface: QueryManagerConfig
+# Interface: QueryManagerConfig\<TLink\>
 
 Query manager configuration.
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
 
 ## Properties
 
 ### cacheManager
 
-> **cacheManager**: [`CacheManager`](../classes/CacheManager.md)
+> **cacheManager**: [`CacheManager`](../classes/CacheManager.md)\<`TLink`\>
 
 ---
 

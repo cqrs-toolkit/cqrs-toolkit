@@ -4,12 +4,21 @@
 
 [@cqrs-toolkit/client](../globals.md) / Collection
 
-# Interface: Collection
+# Interface: Collection\<TLink\>
 
 A synchronized event collection.
 
 Collections define how the library discovers, fetches, and routes events.
 Consumer code implements the fetch methods to control HTTP conventions.
+
+Parameterized on `TLink` so multi-service apps using `ServiceLink`
+get typed entity cache keys with required `service` field.
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
 
 ## Properties
 
@@ -19,11 +28,13 @@ Consumer code implements the fetch methods to control HTTP conventions.
 
 ---
 
-### seedOnInit?
+### seedCacheKey?
 
-> `readonly` `optional` **seedOnInit**: `boolean`
+> `readonly` `optional` **seedCacheKey**: [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
 
-Whether to seed on initial sync. Default: true.
+Cache key identity to auto-seed on startup.
+If undefined, this collection is not seeded on init — data must be
+loaded on demand (e.g., via consumer-driven seeding on navigation).
 
 ---
 
@@ -37,7 +48,7 @@ Page size for seeding. Default: 100.
 
 ### fetchSeedEvents()?
 
-> `optional` **fetchSeedEvents**(`ctx`, `cursor`, `limit`): `Promise`\<[`SeedEventPage`](SeedEventPage.md)\>
+> `optional` **fetchSeedEvents**(`opts`): `Promise`\<[`SeedEventPage`](SeedEventPage.md)\>
 
 Fetch a page of events for initial seeding (fallback).
 Events are processed through event processors to build read models.
@@ -47,17 +58,9 @@ Only used if fetchSeedRecords is not defined.
 
 #### Parameters
 
-##### ctx
+##### opts
 
-[`FetchContext`](FetchContext.md)
-
-##### cursor
-
-`string` | `null`
-
-##### limit
-
-`number`
+[`FetchSeedEventOptions`](FetchSeedEventOptions.md)
 
 #### Returns
 
@@ -67,7 +70,7 @@ Only used if fetchSeedRecords is not defined.
 
 ### fetchSeedRecords()?
 
-> `optional` **fetchSeedRecords**(`ctx`, `cursor`, `limit`): `Promise`\<[`SeedRecordPage`](SeedRecordPage.md)\>
+> `optional` **fetchSeedRecords**(`opts`): `Promise`\<[`SeedRecordPage`](SeedRecordPage.md)\>
 
 Fetch a page of pre-computed read model records for initial seeding.
 This is the primary seeding mechanism — records go directly into the
@@ -78,17 +81,9 @@ If neither is defined, seeding is skipped for this collection.
 
 #### Parameters
 
-##### ctx
+##### opts
 
-[`FetchContext`](FetchContext.md)
-
-##### cursor
-
-`string` | `null`
-
-##### limit
-
-`number`
+[`FetchSeedRecordOptions`](FetchSeedRecordOptions.md)
 
 #### Returns
 
@@ -98,28 +93,57 @@ If neither is defined, seeding is skipped for this collection.
 
 ### fetchStreamEvents()?
 
-> `optional` **fetchStreamEvents**(`ctx`, `streamId`, `afterRevision`): `Promise`\<[`IPersistedEvent`](../type-aliases/IPersistedEvent.md)[]\>
+> `optional` **fetchStreamEvents**(`opts`): `Promise`\<[`IPersistedEvent`](../type-aliases/IPersistedEvent.md)[]\>
 
 Fetch per-stream events for gap recovery and command response processing.
 If undefined, gap recovery processes buffered events as-is (lossy).
 
 #### Parameters
 
-##### ctx
+##### opts
 
-[`FetchContext`](FetchContext.md)
-
-##### streamId
-
-`string`
-
-##### afterRevision
-
-`bigint`
+[`FetchStreamEventOptions`](FetchStreamEventOptions.md)
 
 #### Returns
 
 `Promise`\<[`IPersistedEvent`](../type-aliases/IPersistedEvent.md)[]\>
+
+---
+
+### getStreamId()?
+
+> `optional` **getStreamId**(`entityId`): `string`
+
+Derive stream ID from entity ID.
+Used to restore knownRevisions from persisted read model revisions on startup
+and to populate knownRevisions during record-based seeding.
+
+## 1:1 aggregate assumption
+
+Revision tracking assumes each read model entity maps to exactly one domain
+aggregate (stream). The read model's `_revision` column stores a single scalar
+(the aggregate's stream revision), and this function maps entity → stream.
+
+Composite read models — entities built from events across multiple aggregates —
+should omit this function and do not participate in per-stream revision tracking.
+If composite read models are introduced, the following need extension:
+
+- `ReadModelRecord.revision` / `_revision` column — scalar → per-aggregate map
+- `ReadModel<T>.revision` — scalar → structured type
+- This function — single return → multiple, or replaced
+- `SyncManager.restoreKnownRevisions` — iterate map entries per entity
+- `EventProcessorRunner.applyResult` — `RevisionMeta` would carry stream identity
+- `SeedRecord.revision` — scalar → per-aggregate map
+
+#### Parameters
+
+##### entityId
+
+`string`
+
+#### Returns
+
+`string`
 
 ---
 

@@ -62,6 +62,27 @@ Entity ID
 
 ---
 
+### position
+
+> **position**: `string` \| `null`
+
+Global position of the last event that updated this read model (bigint as string). Null for locally-created entries.
+
+---
+
+### revision
+
+> **revision**: `string` \| `null`
+
+Stream revision of the last event that updated this read model (bigint as string).
+Null for locally-created entries.
+
+#### See
+
+[Collection.getStreamId](Collection.md#getstreamid) for the 1:1 aggregate assumption this relies on.
+
+---
+
 ### serverData
 
 > **serverData**: `string` \| `null`

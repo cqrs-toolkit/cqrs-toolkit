@@ -15,7 +15,7 @@
  * queue keeps running, in-flight operations don't restart.
  */
 
-import { logProvider } from '@meticoeus/ddd-es'
+import { type Link, logProvider } from '@meticoeus/ddd-es'
 import { Observable, Subject, Subscription, interval, map, share, takeUntil } from 'rxjs'
 import type { ICacheManager } from '../../core/cache-manager/types.js'
 import type { ICommandQueue } from '../../core/command-queue/types.js'
@@ -67,7 +67,7 @@ const ACTIVE_TAB_LOCK_NAME = 'cqrs-client-active-tab'
  * - Handles window registration and heartbeats
  * - Restores holds after worker restarts
  */
-export class SharedWorkerAdapter implements IWorkerAdapter {
+export class SharedWorkerAdapter<TLink extends Link> implements IWorkerAdapter<TLink> {
   readonly mode = 'shared-worker' as const
 
   private readonly config: SharedWorkerAdapterConfig
@@ -77,8 +77,8 @@ export class SharedWorkerAdapter implements IWorkerAdapter {
   private _status: AdapterStatus = 'uninitialized'
   private _isActive = false
   private _commandQueue: CommandQueueProxy | undefined
-  private _queryManager: QueryManagerProxy | undefined
-  private _cacheManager: CacheManagerProxy | undefined
+  private _queryManager: QueryManagerProxy<TLink> | undefined
+  private _cacheManager: CacheManagerProxy<TLink> | undefined
   private _syncManager: SyncManagerProxy | undefined
   private _events$: Observable<LibraryEvent> | undefined
 
@@ -111,12 +111,12 @@ export class SharedWorkerAdapter implements IWorkerAdapter {
     return this._commandQueue
   }
 
-  get queryManager(): IQueryManager {
+  get queryManager(): IQueryManager<TLink> {
     assert(this._queryManager, 'Adapter not initialized')
     return this._queryManager
   }
 
-  get cacheManager(): ICacheManager {
+  get cacheManager(): ICacheManager<TLink> {
     assert(this._cacheManager, 'Adapter not initialized')
     return this._cacheManager
   }
@@ -247,8 +247,8 @@ export class SharedWorkerAdapter implements IWorkerAdapter {
 
       // 9. Create proxy objects
       this._commandQueue = new CommandQueueProxy(this.channel, broadcastEvents$)
-      this._queryManager = new QueryManagerProxy(this.channel, broadcastEvents$)
-      this._cacheManager = new CacheManagerProxy(this.channel)
+      this._queryManager = new QueryManagerProxy<TLink>(this.channel, broadcastEvents$)
+      this._cacheManager = new CacheManagerProxy<TLink>(this.channel)
       this._syncManager = new SyncManagerProxy(this.channel, broadcastEvents$)
 
       // 10. Sync connectivity state from worker

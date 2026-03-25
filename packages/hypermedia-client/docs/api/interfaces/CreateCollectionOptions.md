@@ -4,9 +4,15 @@
 
 [@cqrs-toolkit/hypermedia-client](../README.md) / CreateCollectionOptions
 
-# Interface: CreateCollectionOptions
+# Interface: CreateCollectionOptions\<TLink\>
 
 Options for creating a collection from a representation.
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
 
 ## Properties
 
@@ -72,3 +78,11 @@ Collection name (e.g. 'todos')
 > **representation**: [`RepresentationSurfaces`](RepresentationSurfaces.md)
 
 Representation surface data from generated representations.ts
+
+---
+
+### seedCacheKey?
+
+> `optional` **seedCacheKey**: `CacheKeyIdentity`\<`TLink`\>
+
+Cache key identity to auto-seed on startup.

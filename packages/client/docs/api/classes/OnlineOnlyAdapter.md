@@ -4,10 +4,24 @@
 
 [@cqrs-toolkit/client](../globals.md) / OnlineOnlyAdapter
 
-# Class: OnlineOnlyAdapter
+# Class: OnlineOnlyAdapter\<TLink, TSchema, TEvent\>
 
 Online-only adapter for development, testing, and deployments
 where offline persistence is not required.
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
+
+### TSchema
+
+`TSchema`
+
+### TEvent
+
+`TEvent` _extends_ [`IAnticipatedEvent`](../interfaces/IAnticipatedEvent.md)
 
 ## Implements
 
@@ -17,17 +31,17 @@ where offline persistence is not required.
 
 ### Constructor
 
-> **new OnlineOnlyAdapter**(`config`): `OnlineOnlyAdapter`
+> **new OnlineOnlyAdapter**\<`TLink`, `TSchema`, `TEvent`\>(`config`): `OnlineOnlyAdapter`\<`TLink`, `TSchema`, `TEvent`\>
 
 #### Parameters
 
 ##### config
 
-[`ResolvedConfig`](../interfaces/ResolvedConfig.md)
+[`ResolvedConfig`](../interfaces/ResolvedConfig.md)\<`TLink`, `TSchema`, `TEvent`\>
 
 #### Returns
 
-`OnlineOnlyAdapter`
+`OnlineOnlyAdapter`\<`TLink`, `TSchema`, `TEvent`\>
 
 ## Properties
 

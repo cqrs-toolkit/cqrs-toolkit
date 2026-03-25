@@ -6,24 +6,38 @@
 
 # Function: createCqrsClient()
 
-> **createCqrsClient**(`config`): `Promise`\<[`CqrsClient`](../classes/CqrsClient.md)\<[`EnqueueCommand`](../interfaces/EnqueueCommand.md)\<`unknown`\>\>\>
+> **createCqrsClient**\<`TLink`, `TSchema`, `TEvent`\>(`config`): `Promise`\<[`CqrsClient`](../classes/CqrsClient.md)\<`TLink`, [`EnqueueCommand`](../interfaces/EnqueueCommand.md)\<`unknown`\>\>\>
 
 Create a new CQRS Client instance.
 
 Resolves configuration, initializes the adapter, registers event processors,
 wires all components, starts sync, and returns a fully initialized client.
 
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`\<`string`, `string`\>
+
+### TSchema
+
+`TSchema` = `unknown`
+
+### TEvent
+
+`TEvent` _extends_ [`IAnticipatedEvent`](../interfaces/IAnticipatedEvent.md)\<`string`, `AggregateEventData`\> = [`IAnticipatedEvent`](../interfaces/IAnticipatedEvent.md)\<`string`, `AggregateEventData`\>
+
 ## Parameters
 
 ### config
 
-[`CqrsClientConfig`](../interfaces/CqrsClientConfig.md)
+[`CqrsClientConfig`](../interfaces/CqrsClientConfig.md)\<`TLink`, `TSchema`, `TEvent`\>
 
 Client configuration
 
 ## Returns
 
-`Promise`\<[`CqrsClient`](../classes/CqrsClient.md)\<[`EnqueueCommand`](../interfaces/EnqueueCommand.md)\<`unknown`\>\>\>
+`Promise`\<[`CqrsClient`](../classes/CqrsClient.md)\<`TLink`, [`EnqueueCommand`](../interfaces/EnqueueCommand.md)\<`unknown`\>\>\>
 
 A fully initialized CQRS Client instance
 
@@ -34,7 +48,7 @@ import { createCqrsClient } from '@cqrs-toolkit/client'
 
 const client = await createCqrsClient({
   network: { baseUrl: '/api', wsUrl: 'ws://localhost:3000/events' },
-  collections: [{ name: 'todos', seedOnInit: true }],
+  collections: [{ name: 'todos' }],
   processors: [
     {
       eventTypes: 'TodoCreated',

@@ -3,4 +3,9 @@
  */
 
 export { ReadModelStore } from './ReadModelStore.js'
-export type { ReadModel, ReadModelQueryOptions, ReadModelStoreConfig } from './ReadModelStore.js'
+export type {
+  ReadModel,
+  ReadModelQueryOptions,
+  ReadModelStoreConfig,
+  RevisionMeta,
+} from './ReadModelStore.js'

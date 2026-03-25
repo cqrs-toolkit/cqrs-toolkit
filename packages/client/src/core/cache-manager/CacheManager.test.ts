@@ -5,7 +5,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import { EventBus } from '../events/EventBus.js'
-import { deriveCacheKey } from './CacheKey.js'
+import { deriveScopeKey } from './CacheKey.js'
 import { CacheManager } from './CacheManager.js'
 
 const WINDOW_ID = 'window-1'
@@ -29,43 +29,51 @@ describe('CacheManager', () => {
 
   describe('acquire', () => {
     it('creates a new cache key', async () => {
-      const key = await cacheManager.acquire('todos')
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
 
       expect(key).toBeDefined()
       expect(await cacheManager.exists(key)).toBe(true)
     })
 
     it('returns deterministic key for same collection', async () => {
-      const key1 = await cacheManager.acquire('todos')
-      const key2 = await cacheManager.acquire('todos')
+      const key1 = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
+      const key2 = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
 
       expect(key1).toBe(key2)
     })
 
     it('returns different keys for different params', async () => {
-      const key1 = await cacheManager.acquire('todos', { status: 'active' })
-      const key2 = await cacheManager.acquire('todos', { status: 'completed' })
+      const key1 = await cacheManager.acquire(
+        deriveScopeKey({ scopeType: 'todos', scopeParams: { status: 'active' } }),
+      )
+      const key2 = await cacheManager.acquire(
+        deriveScopeKey({ scopeType: 'todos', scopeParams: { status: 'completed' } }),
+      )
 
       expect(key1).not.toBe(key2)
     })
 
     it('returns same key for same params in different order', async () => {
-      const key1 = await cacheManager.acquire('todos', { a: 1, b: 2 })
-      const key2 = await cacheManager.acquire('todos', { b: 2, a: 1 })
+      const key1 = await cacheManager.acquire(
+        deriveScopeKey({ scopeType: 'todos', scopeParams: { a: 1, b: 2 } }),
+      )
+      const key2 = await cacheManager.acquire(
+        deriveScopeKey({ scopeType: 'todos', scopeParams: { b: 2, a: 1 } }),
+      )
 
       expect(key1).toBe(key2)
     })
 
     it('places a hold when requested', async () => {
-      const key = await cacheManager.acquire('todos', undefined, { hold: true })
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), { hold: true })
 
       const record = await storage.getCacheKey(key)
       expect(record?.holdCount).toBe(1)
     })
 
     it('does not increment hold count on re-acquire with hold (idempotent per window)', async () => {
-      const key = await cacheManager.acquire('todos', undefined, { hold: true })
-      await cacheManager.acquire('todos', undefined, { hold: true })
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), { hold: true })
+      await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), { hold: true })
 
       const record = await storage.getCacheKey(key)
       // Same windowId → idempotent, holdCount stays at 1
@@ -73,7 +81,7 @@ describe('CacheManager', () => {
     })
 
     it('uses provided TTL', async () => {
-      const key = await cacheManager.acquire('todos', undefined, { ttl: 1000 })
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), { ttl: 1000 })
 
       const record = await storage.getCacheKey(key)
       expect(record?.expiresAt).toBeDefined()
@@ -81,8 +89,12 @@ describe('CacheManager', () => {
     })
 
     it('creates scoped cache key', async () => {
-      const key1 = await cacheManager.acquire('todos', undefined, { scope: 'user-1' })
-      const key2 = await cacheManager.acquire('todos', undefined, { scope: 'user-2' })
+      const key1 = await cacheManager.acquire(
+        deriveScopeKey({ service: 'user-1', scopeType: 'todos' }),
+      )
+      const key2 = await cacheManager.acquire(
+        deriveScopeKey({ service: 'user-2', scopeType: 'todos' }),
+      )
 
       expect(key1).not.toBe(key2)
     })
@@ -90,14 +102,14 @@ describe('CacheManager', () => {
 
   describe('evictionPolicy', () => {
     it('defaults to persistent', async () => {
-      const key = await cacheManager.acquire('todos')
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
 
       const record = await storage.getCacheKey(key)
       expect(record?.evictionPolicy).toBe('persistent')
     })
 
     it('stores ephemeral policy on record', async () => {
-      const key = await cacheManager.acquire('todos', undefined, {
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), {
         evictionPolicy: 'ephemeral',
       })
 
@@ -106,10 +118,10 @@ describe('CacheManager', () => {
     })
 
     it('does not change evictionPolicy on re-acquire', async () => {
-      const key = await cacheManager.acquire('todos', undefined, {
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), {
         evictionPolicy: 'ephemeral',
       })
-      await cacheManager.acquire('todos', undefined, {
+      await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), {
         evictionPolicy: 'persistent',
       })
 
@@ -118,7 +130,7 @@ describe('CacheManager', () => {
     })
 
     it('freeze is a no-op for ephemeral keys', async () => {
-      const key = await cacheManager.acquire('todos', undefined, {
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), {
         evictionPolicy: 'ephemeral',
       })
 
@@ -136,24 +148,24 @@ describe('CacheManager', () => {
       })
 
       // Create persistent key first (oldest)
-      await cacheManager.acquire('persistent-collection')
+      await cacheManager.acquire(deriveScopeKey({ scopeType: 'persistent-collection' }))
       await new Promise((r) => setTimeout(r, 10))
 
       // Create ephemeral key second (newer)
-      await cacheManager.acquire('ephemeral-collection', undefined, {
+      await cacheManager.acquire(deriveScopeKey({ scopeType: 'ephemeral-collection' }), {
         evictionPolicy: 'ephemeral',
       })
       await new Promise((r) => setTimeout(r, 10))
 
       // Create third persistent key
-      await cacheManager.acquire('persistent-2')
+      await cacheManager.acquire(deriveScopeKey({ scopeType: 'persistent-2' }))
       await new Promise((r) => setTimeout(r, 10))
 
       // Add 4th — should evict ephemeral key first despite it being newer
-      await cacheManager.acquire('collection-4')
+      await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-4' }))
 
-      const ephemeralKey = deriveCacheKey('ephemeral-collection')
-      const persistentKey = deriveCacheKey('persistent-collection')
+      const ephemeralKey = deriveScopeKey({ scopeType: 'ephemeral-collection' }).key
+      const persistentKey = deriveScopeKey({ scopeType: 'persistent-collection' }).key
 
       expect(await cacheManager.exists(ephemeralKey)).toBe(false) // Evicted (ephemeral priority)
       expect(await cacheManager.exists(persistentKey)).toBe(true) // Kept (persistent)
@@ -162,7 +174,7 @@ describe('CacheManager', () => {
 
   describe('per-window holds', () => {
     it('hold adds windowId to tracking, storage holdCount becomes 1', async () => {
-      const key = await cacheManager.acquire('todos')
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
 
       await cacheManager.hold(key)
 
@@ -171,7 +183,7 @@ describe('CacheManager', () => {
     })
 
     it('second hold with same windowId is idempotent', async () => {
-      const key = await cacheManager.acquire('todos')
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
 
       await cacheManager.hold(key)
       await cacheManager.hold(key)
@@ -189,7 +201,7 @@ describe('CacheManager', () => {
         windowId: 'window-2',
       })
 
-      const key = await cacheManager.acquire('todos')
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
 
       await cacheManager.hold(key)
       await cacheManager2.hold(key)
@@ -210,7 +222,7 @@ describe('CacheManager', () => {
         windowId: 'window-2',
       })
 
-      const key = await cacheManager.acquire('todos')
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
       await cacheManager.hold(key)
       await cacheManager2.hold(key)
 
@@ -225,7 +237,7 @@ describe('CacheManager', () => {
     })
 
     it('release last windowId drops storage holdCount to 0', async () => {
-      const key = await cacheManager.acquire('todos')
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
       await cacheManager.hold(key)
 
       await cacheManager.release(key)
@@ -235,7 +247,7 @@ describe('CacheManager', () => {
     })
 
     it('ephemeral key auto-evicted when last window releases', async () => {
-      const key = await cacheManager.acquire('todos', undefined, {
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), {
         evictionPolicy: 'ephemeral',
         hold: true,
       })
@@ -248,8 +260,8 @@ describe('CacheManager', () => {
     })
 
     it('releaseAllForWindow cleans up all keys for that window', async () => {
-      const key1 = await cacheManager.acquire('collection-1')
-      const key2 = await cacheManager.acquire('collection-2')
+      const key1 = await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-1' }))
+      const key2 = await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-2' }))
       await cacheManager.hold(key1)
       await cacheManager.hold(key2)
 
@@ -264,7 +276,7 @@ describe('CacheManager', () => {
 
   describe('initialize', () => {
     it('resets all holdCounts to 0', async () => {
-      const key = await cacheManager.acquire('todos', undefined, { hold: true })
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), { hold: true })
 
       const recordBefore = await storage.getCacheKey(key)
       expect(recordBefore?.holdCount).toBe(1)
@@ -283,8 +295,8 @@ describe('CacheManager', () => {
     })
 
     it('evicts all ephemeral keys (persistent keys survive)', async () => {
-      const persistentKey = await cacheManager.acquire('persistent')
-      const ephemeralKey = await cacheManager.acquire('ephemeral', undefined, {
+      const persistentKey = await cacheManager.acquire(deriveScopeKey({ scopeType: 'persistent' }))
+      const ephemeralKey = await cacheManager.acquire(deriveScopeKey({ scopeType: 'ephemeral' }), {
         evictionPolicy: 'ephemeral',
       })
 
@@ -302,7 +314,7 @@ describe('CacheManager', () => {
     })
 
     it('emits cache:evicted for each ephemeral key', async () => {
-      const ephemeralKey = await cacheManager.acquire('ephemeral', undefined, {
+      const ephemeralKey = await cacheManager.acquire(deriveScopeKey({ scopeType: 'ephemeral' }), {
         evictionPolicy: 'ephemeral',
       })
 
@@ -403,8 +415,8 @@ describe('CacheManager', () => {
         lastSeenAt: Date.now(),
       })
 
-      await cacheManager.acquire('collection-1')
-      await cacheManager.acquire('collection-2')
+      await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-1' }))
+      await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-2' }))
 
       const events: unknown[] = []
       eventBus.on('cache:session-reset').subscribe((e) => events.push(e))
@@ -427,7 +439,9 @@ describe('CacheManager', () => {
         lastSeenAt: Date.now(),
       })
 
-      const key = await cacheManager.acquire('todos', undefined, { hold: true })
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), {
+        hold: true,
+      })
       expect(await cacheManager.exists(key)).toBe(true)
 
       await cacheManager.checkSessionUser('user-2')
@@ -440,7 +454,7 @@ describe('CacheManager', () => {
 
   describe('hold/release', () => {
     it('holds a cache key', async () => {
-      const key = await cacheManager.acquire('todos')
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
 
       await cacheManager.hold(key)
 
@@ -449,7 +463,9 @@ describe('CacheManager', () => {
     })
 
     it('releases a cache key', async () => {
-      const key = await cacheManager.acquire('todos', undefined, { hold: true })
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), {
+        hold: true,
+      })
 
       await cacheManager.release(key)
 
@@ -460,7 +476,7 @@ describe('CacheManager', () => {
 
   describe('freeze/unfreeze', () => {
     it('freezes a cache key', async () => {
-      const key = await cacheManager.acquire('todos')
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
 
       await cacheManager.freeze(key)
 
@@ -468,7 +484,7 @@ describe('CacheManager', () => {
     })
 
     it('unfreezes a cache key', async () => {
-      const key = await cacheManager.acquire('todos')
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
       await cacheManager.freeze(key)
 
       await cacheManager.unfreeze(key)
@@ -479,7 +495,7 @@ describe('CacheManager', () => {
 
   describe('evict', () => {
     it('evicts an unheld, unfrozen cache key', async () => {
-      const key = await cacheManager.acquire('todos')
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
 
       const evicted = await cacheManager.evict(key)
 
@@ -488,7 +504,9 @@ describe('CacheManager', () => {
     })
 
     it('does not evict a held cache key', async () => {
-      const key = await cacheManager.acquire('todos', undefined, { hold: true })
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), {
+        hold: true,
+      })
 
       const evicted = await cacheManager.evict(key)
 
@@ -497,7 +515,7 @@ describe('CacheManager', () => {
     })
 
     it('does not evict a frozen cache key', async () => {
-      const key = await cacheManager.acquire('todos')
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
       await cacheManager.freeze(key)
 
       const evicted = await cacheManager.evict(key)
@@ -507,7 +525,7 @@ describe('CacheManager', () => {
     })
 
     it('emits cache:evicted event', async () => {
-      const key = await cacheManager.acquire('todos')
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
       const events: unknown[] = []
       eventBus.on('cache:evicted').subscribe((e) => events.push(e))
 
@@ -531,18 +549,18 @@ describe('CacheManager', () => {
       })
 
       // Fill up cache
-      const key1 = await cacheManager.acquire('collection-1')
+      const key1 = await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-1' }))
       await new Promise((r) => setTimeout(r, 10)) // Different access times
-      const key2 = await cacheManager.acquire('collection-2')
+      const key2 = await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-2' }))
       await new Promise((r) => setTimeout(r, 10))
-      const key3 = await cacheManager.acquire('collection-3')
+      const key3 = await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-3' }))
 
       // Touch key1 to make it more recent
       await cacheManager.touch(key1)
       await new Promise((r) => setTimeout(r, 10))
 
       // Add 4th key - should evict key2 (oldest access time)
-      const _key4 = await cacheManager.acquire('collection-4')
+      const _key4 = await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-4' }))
 
       expect(await cacheManager.exists(key1)).toBe(true)
       expect(await cacheManager.exists(key2)).toBe(false) // Evicted
@@ -557,13 +575,15 @@ describe('CacheManager', () => {
         windowId: WINDOW_ID,
       })
 
-      const key1 = await cacheManager.acquire('collection-1', undefined, { hold: true })
+      const key1 = await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-1' }), {
+        hold: true,
+      })
       await new Promise((r) => setTimeout(r, 10))
-      const key2 = await cacheManager.acquire('collection-2')
+      const key2 = await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-2' }))
       await new Promise((r) => setTimeout(r, 10))
 
       // Try to add 3rd - cannot evict key1 (held), so evict key2
-      const _key3 = await cacheManager.acquire('collection-3')
+      const _key3 = await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-3' }))
 
       expect(await cacheManager.exists(key1)).toBe(true) // Held, not evicted
       expect(await cacheManager.exists(key2)).toBe(false) // Evicted
@@ -572,7 +592,7 @@ describe('CacheManager', () => {
 
   describe('evictExpired', () => {
     it('evicts expired cache keys', async () => {
-      const key = await cacheManager.acquire('todos', undefined, { ttl: 1 })
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), { ttl: 1 })
 
       await new Promise((r) => setTimeout(r, 50)) // Wait for expiry
 
@@ -583,7 +603,9 @@ describe('CacheManager', () => {
     })
 
     it('does not evict non-expired cache keys', async () => {
-      const key = await cacheManager.acquire('todos', undefined, { ttl: 60000 })
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), {
+        ttl: 60000,
+      })
 
       const evicted = await cacheManager.evictExpired()
 
@@ -592,7 +614,7 @@ describe('CacheManager', () => {
     })
 
     it('emits cache:evicted with reason expired', async () => {
-      const key = await cacheManager.acquire('todos', undefined, { ttl: 1 })
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), { ttl: 1 })
       const events: unknown[] = []
       eventBus.on('cache:evicted').subscribe((e) => events.push(e))
 
@@ -606,7 +628,10 @@ describe('CacheManager', () => {
     })
 
     it('does not evict expired but held cache keys', async () => {
-      const key = await cacheManager.acquire('todos', undefined, { ttl: 1, hold: true })
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), {
+        ttl: 1,
+        hold: true,
+      })
 
       await new Promise((r) => setTimeout(r, 50))
 
@@ -619,9 +644,11 @@ describe('CacheManager', () => {
 
   describe('evictAll', () => {
     it('evicts all evictable cache keys', async () => {
-      await cacheManager.acquire('collection-1')
-      await cacheManager.acquire('collection-2')
-      const heldKey = await cacheManager.acquire('collection-3', undefined, { hold: true })
+      await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-1' }))
+      await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-2' }))
+      const heldKey = await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-3' }), {
+        hold: true,
+      })
 
       const evicted = await cacheManager.evictAll()
 
@@ -634,18 +661,18 @@ describe('CacheManager', () => {
     it('returns correct count', async () => {
       expect(await cacheManager.getCount()).toBe(0)
 
-      await cacheManager.acquire('collection-1')
+      await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-1' }))
       expect(await cacheManager.getCount()).toBe(1)
 
-      await cacheManager.acquire('collection-2')
+      await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-2' }))
       expect(await cacheManager.getCount()).toBe(2)
     })
   })
 
   describe('onSessionDestroyed', () => {
     it('deletes all cache keys from storage', async () => {
-      await cacheManager.acquire('collection-1')
-      await cacheManager.acquire('collection-2')
+      await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-1' }))
+      await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-2' }))
       expect(await cacheManager.getCount()).toBe(2)
 
       await cacheManager.onSessionDestroyed()
@@ -654,40 +681,42 @@ describe('CacheManager', () => {
     })
 
     it('clears in-memory holds and registered windows', async () => {
-      const key = await cacheManager.acquire('todos', undefined, { hold: true })
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), {
+        hold: true,
+      })
 
       await cacheManager.onSessionDestroyed()
 
       // Re-create cache key — hold should start fresh (not carry over)
-      const newKey = await cacheManager.acquire('todos')
+      const newKey = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
       const record = await cacheManager.get(newKey)
       expect(record?.holdCount).toBe(0)
     })
   })
 })
 
-describe('deriveCacheKey', () => {
+describe('deriveScopeKey', () => {
   it('generates deterministic keys', () => {
-    const key1 = deriveCacheKey('todos')
-    const key2 = deriveCacheKey('todos')
-    expect(key1).toBe(key2)
+    const key1 = deriveScopeKey({ scopeType: 'todos' })
+    const key2 = deriveScopeKey({ scopeType: 'todos' })
+    expect(key1.key).toBe(key2.key)
   })
 
-  it('generates different keys for different collections', () => {
-    const key1 = deriveCacheKey('todos')
-    const key2 = deriveCacheKey('users')
-    expect(key1).not.toBe(key2)
+  it('generates different keys for different scope types', () => {
+    const key1 = deriveScopeKey({ scopeType: 'todos' })
+    const key2 = deriveScopeKey({ scopeType: 'users' })
+    expect(key1.key).not.toBe(key2.key)
   })
 
   it('generates different keys for different params', () => {
-    const key1 = deriveCacheKey('todos', { status: 'active' })
-    const key2 = deriveCacheKey('todos', { status: 'completed' })
-    expect(key1).not.toBe(key2)
+    const key1 = deriveScopeKey({ scopeType: 'todos', scopeParams: { status: 'active' } })
+    const key2 = deriveScopeKey({ scopeType: 'todos', scopeParams: { status: 'completed' } })
+    expect(key1.key).not.toBe(key2.key)
   })
 
   it('is order-independent for params', () => {
-    const key1 = deriveCacheKey('todos', { a: 1, b: 2, c: 3 })
-    const key2 = deriveCacheKey('todos', { c: 3, a: 1, b: 2 })
-    expect(key1).toBe(key2)
+    const key1 = deriveScopeKey({ scopeType: 'todos', scopeParams: { a: 1, b: 2, c: 3 } })
+    const key2 = deriveScopeKey({ scopeType: 'todos', scopeParams: { c: 3, a: 1, b: 2 } })
+    expect(key1.key).toBe(key2.key)
   })
 })

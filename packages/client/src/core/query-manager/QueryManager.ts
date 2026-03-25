@@ -5,7 +5,7 @@
  * It wraps the ReadModelStore with cache key management.
  */
 
-import { logProvider } from '@meticoeus/ddd-es'
+import { type Link, logProvider } from '@meticoeus/ddd-es'
 import type { Observable } from 'rxjs'
 import {
   Subject,
@@ -19,6 +19,7 @@ import {
   switchMap,
   takeUntil,
 } from 'rxjs'
+import { deriveScopeKey } from '../cache-manager/CacheKey.js'
 import type { CacheManager } from '../cache-manager/CacheManager.js'
 import type { EventBus } from '../events/EventBus.js'
 import type { ReadModelStore } from '../read-model-store/index.js'
@@ -27,9 +28,9 @@ import type { IQueryManager, ListQueryResult, QueryOptions, QueryResult } from '
 /**
  * Query manager configuration.
  */
-export interface QueryManagerConfig {
+export interface QueryManagerConfig<TLink extends Link> {
   eventBus: EventBus
-  cacheManager: CacheManager
+  cacheManager: CacheManager<TLink>
   readModelStore: ReadModelStore
 }
 
@@ -39,15 +40,15 @@ export type { ListQueryResult, QueryOptions, QueryResult } from './types.js'
 /**
  * Query manager.
  */
-export class QueryManager implements IQueryManager {
+export class QueryManager<TLink extends Link> implements IQueryManager<TLink> {
   private readonly eventBus: EventBus
-  private readonly cacheManager: CacheManager
+  private readonly cacheManager: CacheManager<TLink>
   private readonly readModelStore: ReadModelStore
 
   private readonly destroy$ = new Subject<void>()
   private readonly activeHolds = new Map<string, number>()
 
-  constructor(config: QueryManagerConfig) {
+  constructor(config: QueryManagerConfig<TLink>) {
     this.eventBus = config.eventBus
     this.cacheManager = config.cacheManager
     this.readModelStore = config.readModelStore
@@ -65,10 +66,12 @@ export class QueryManager implements IQueryManager {
     collection: string,
     id: string,
     options?: QueryOptions,
-  ): Promise<QueryResult<T>> {
-    const cacheKey = await this.cacheManager.acquire(collection, undefined, {
+  ): Promise<QueryResult<TLink, T>> {
+    // TODO(lazy-load): The caller should provide the cache key identity instead of
+    // QueryManager deriving a 1:1 collection→scope key mapping.
+    const identity = deriveScopeKey({ scopeType: collection })
+    const cacheKeyIdentity = await this.cacheManager.acquireKey(identity, {
       hold: options?.hold,
-      scope: options?.scope,
     })
 
     const model = await this.readModelStore.getById<T>(collection, id)
@@ -76,10 +79,15 @@ export class QueryManager implements IQueryManager {
     return {
       data: model?.data,
       meta: model
-        ? { id: model.id, updatedAt: model.updatedAt, clientId: model._clientMetadata?.clientId }
+        ? {
+            id: model.id,
+            updatedAt: model.updatedAt,
+            clientId: model._clientMetadata?.clientId,
+            revision: model.revision,
+          }
         : undefined,
       hasLocalChanges: model?.hasLocalChanges ?? false,
-      cacheKey,
+      cacheKey: cacheKeyIdentity,
     }
   }
 
@@ -95,14 +103,16 @@ export class QueryManager implements IQueryManager {
     collection: string,
     ids: string[],
     options?: QueryOptions,
-  ): Promise<Map<string, QueryResult<T>>> {
-    const cacheKey = await this.cacheManager.acquire(collection, undefined, {
+  ): Promise<Map<string, QueryResult<TLink, T>>> {
+    // TODO(lazy-load): The caller should provide the cache key identity instead of
+    // QueryManager deriving a 1:1 collection→scope key mapping.
+    const identity = deriveScopeKey({ scopeType: collection })
+    const cacheKeyIdentity = await this.cacheManager.acquireKey(identity, {
       hold: options?.hold,
-      scope: options?.scope,
     })
 
     const models = await this.readModelStore.getByIds<T>(collection, ids)
-    const results = new Map<string, QueryResult<T>>()
+    const results = new Map<string, QueryResult<TLink, T>>()
 
     for (const id of ids) {
       const model = models.get(id)
@@ -112,7 +122,7 @@ export class QueryManager implements IQueryManager {
           ? { id: model.id, updatedAt: model.updatedAt, clientId: model._clientMetadata?.clientId }
           : undefined,
         hasLocalChanges: model?.hasLocalChanges ?? false,
-        cacheKey,
+        cacheKey: cacheKeyIdentity,
       })
     }
 
@@ -126,10 +136,12 @@ export class QueryManager implements IQueryManager {
    * @param options - Query options
    * @returns List query result
    */
-  async list<T>(collection: string, options?: QueryOptions): Promise<ListQueryResult<T>> {
-    const cacheKey = await this.cacheManager.acquire(collection, undefined, {
+  async list<T>(collection: string, options?: QueryOptions): Promise<ListQueryResult<TLink, T>> {
+    // TODO(lazy-load): The caller should provide the cache key identity instead of
+    // QueryManager deriving a 1:1 collection→scope key mapping.
+    const identity = deriveScopeKey({ scopeType: collection })
+    const cacheKeyIdentity = await this.cacheManager.acquireKey(identity, {
       hold: options?.hold,
-      scope: options?.scope,
     })
 
     // Don't filter by cache key - list all entities in the collection
@@ -146,10 +158,11 @@ export class QueryManager implements IQueryManager {
         id: m.id,
         updatedAt: m.updatedAt,
         clientId: m._clientMetadata?.clientId,
+        revision: m.revision,
       })),
       total,
       hasLocalChanges: models.some((m) => m.hasLocalChanges),
-      cacheKey,
+      cacheKey: cacheKeyIdentity,
     }
   }
 
@@ -221,8 +234,8 @@ export class QueryManager implements IQueryManager {
    * @param collection - Collection name
    */
   async touch(collection: string): Promise<void> {
-    const cacheKey = await this.cacheManager.acquire(collection)
-    await this.cacheManager.touch(cacheKey)
+    const key = await this.cacheManager.acquire(deriveScopeKey({ scopeType: collection }))
+    await this.cacheManager.touch(key)
   }
 
   /**

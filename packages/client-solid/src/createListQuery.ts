@@ -3,6 +3,7 @@
  */
 
 import type { IQueryManager, QueryManagerQueryOptions } from '@cqrs-toolkit/client'
+import type { Link } from '@meticoeus/ddd-es'
 import { onCleanup } from 'solid-js'
 import { createStore, reconcile } from 'solid-js/store'
 import type { Identifiable, ListQueryOptions, ListQueryState, ReconciledId } from './types.js'
@@ -34,8 +35,8 @@ interface ListQueryStore<T extends Identifiable> {
  * @param options - Query options (scope, limit, offset)
  * @returns Reactive store with items, loading, total, hasLocalChanges, error, reconciled
  */
-export function createListQuery<T extends Identifiable>(
-  queryManager: IQueryManager,
+export function createListQuery<TLink extends Link, T extends Identifiable>(
+  queryManager: IQueryManager<TLink>,
   collection: string,
   options?: ListQueryOptions,
 ): ListQueryState<T> {
@@ -51,9 +52,6 @@ export function createListQuery<T extends Identifiable>(
   const [store, setStore] = createStore<ListQueryStore<T>>(initialState)
 
   const queryOptions: QueryManagerQueryOptions = { hold: true }
-  if (options?.scope !== undefined) {
-    queryOptions.scope = options.scope
-  }
   if (options?.limit !== undefined) {
     queryOptions.limit = options.limit
   }
@@ -78,7 +76,7 @@ export function createListQuery<T extends Identifiable>(
 
       // Track cache key for release on cleanup
       if (cacheKey === undefined) {
-        cacheKey = result.cacheKey
+        cacheKey = result.cacheKey.key
       }
 
       // Build clientId→serverId map from metadata for items that have been reconciled.

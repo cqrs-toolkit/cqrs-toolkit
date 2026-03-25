@@ -1,16 +1,18 @@
 import { autoRevision } from '@cqrs-toolkit/client'
-import { createListQuery, useClient } from '@cqrs-toolkit/client-solid'
+import { useClient } from '@cqrs-toolkit/client-solid'
+import { appCreateListQuery } from '@cqrs-toolkit/demo-base/common/components'
 import { AddTodo, TodoItem } from '@cqrs-toolkit/demo-base/todos/components'
 import type { Todo } from '@cqrs-toolkit/demo-base/todos/shared'
+import { ServiceLink } from '@meticoeus/ddd-es'
 import { createMemo, createSignal, For, Show } from 'solid-js'
 import PageShell from '../components/PageShell.js'
 import { createEditNavigator } from '../primitives/createEditNavigator.js'
 
 export default function TodosPage() {
-  const client = useClient()
+  const client = useClient<ServiceLink>()
   const nav = createEditNavigator()
   const [error, setError] = createSignal<string>()
-  const query = createListQuery<Todo>(client.queryManager, 'todos')
+  const query = appCreateListQuery<Todo>(client.queryManager, 'todos')
 
   const sortedTodos = createMemo(() =>
     query.items.slice().sort((a, b) => {

@@ -89,6 +89,8 @@ export function generateCollectionDDL(name: string): string[] {
   _server_data TEXT,
   _effective_data TEXT NOT NULL,
   _has_local_changes INTEGER NOT NULL DEFAULT 0,
+  _revision TEXT,
+  _position TEXT,
   updated_at INTEGER NOT NULL,
   __client_id TEXT,
   __reconciled_at INTEGER

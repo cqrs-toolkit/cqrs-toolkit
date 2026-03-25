@@ -40,6 +40,8 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test', done: false }),
         hasLocalChanges: false,
         updatedAt: 1000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -62,6 +64,8 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Modified', done: false }),
         hasLocalChanges: true,
         updatedAt: 1000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -83,6 +87,8 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'First', done: false }),
         hasLocalChanges: false,
         updatedAt: 1000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
       await storage.saveReadModel({
@@ -93,6 +99,8 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-2', title: 'Second', done: true }),
         hasLocalChanges: false,
         updatedAt: 1000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -115,6 +123,8 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'First', done: false }),
         hasLocalChanges: false,
         updatedAt: 1000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
       await storage.saveReadModel({
@@ -125,6 +135,8 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-2', title: 'Second', done: true }),
         hasLocalChanges: true,
         updatedAt: 2000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
       await storage.saveReadModel({
@@ -135,6 +147,8 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'user-1', name: 'Alice' }),
         hasLocalChanges: false,
         updatedAt: 1000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
     })
@@ -174,6 +188,8 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-3', title: 'Third', done: false }),
         hasLocalChanges: false,
         updatedAt: 3000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -210,6 +226,8 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Original' }),
         hasLocalChanges: true,
         updatedAt: 1000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -241,6 +259,8 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Modified', done: false }),
         hasLocalChanges: true,
         updatedAt: 1000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -274,6 +294,8 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test', done: false }),
         hasLocalChanges: false,
         updatedAt: 1000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -311,6 +333,8 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Modified', done: true }),
         hasLocalChanges: true,
         updatedAt: 1000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -330,6 +354,8 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Local Only' }),
         hasLocalChanges: true,
         updatedAt: 1000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -348,6 +374,8 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test', done: false }),
         hasLocalChanges: false,
         updatedAt: 1000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -368,6 +396,8 @@ describe('ReadModelStore', () => {
         effectiveData: '{}',
         hasLocalChanges: false,
         updatedAt: 1000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -389,6 +419,8 @@ describe('ReadModelStore', () => {
         effectiveData: '{}',
         hasLocalChanges: false,
         updatedAt: 1000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
       await storage.saveReadModel({
@@ -399,6 +431,8 @@ describe('ReadModelStore', () => {
         effectiveData: '{}',
         hasLocalChanges: false,
         updatedAt: 1000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -436,6 +470,8 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Server', done: false }),
         hasLocalChanges: false,
         updatedAt: 1000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -469,6 +505,8 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test' }),
         hasLocalChanges: true,
         updatedAt: 1000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -493,6 +531,8 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Original', done: false }),
         hasLocalChanges: false,
         updatedAt: 1000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -527,6 +567,8 @@ describe('ReadModelStore', () => {
         }),
         hasLocalChanges: true,
         updatedAt: 1000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -593,6 +635,8 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test', done: true }),
         hasLocalChanges: true,
         updatedAt: 1000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -619,6 +663,8 @@ describe('ReadModelStore', () => {
         effectiveData: '{}',
         hasLocalChanges: false,
         updatedAt: 1000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -636,6 +682,8 @@ describe('ReadModelStore', () => {
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test', done: false }),
         hasLocalChanges: false,
         updatedAt: 1000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 
@@ -654,6 +702,8 @@ describe('ReadModelStore', () => {
         effectiveData: '{}',
         hasLocalChanges: false,
         updatedAt: 1000,
+        revision: null,
+        position: null,
         _clientMetadata: null,
       })
 

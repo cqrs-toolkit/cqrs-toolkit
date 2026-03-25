@@ -6,7 +6,7 @@
 
 # Function: createListQuery()
 
-> **createListQuery**\<`T`\>(`queryManager`, `collection`, `options?`): [`ListQueryState`](../interfaces/ListQueryState.md)\<`T`\>
+> **createListQuery**\<`TLink`, `T`\>(`queryManager`, `collection`, `options?`): [`ListQueryState`](../interfaces/ListQueryState.md)\<`T`\>
 
 Create a reactive list query that subscribes to collection changes.
 
@@ -22,6 +22,10 @@ IDs in external signals (selection state, URL params).
 
 ## Type Parameters
 
+### TLink
+
+`TLink` _extends_ `Link`\<`string`, `string`\>
+
 ### T
 
 `T` _extends_ [`Identifiable`](../interfaces/Identifiable.md)
@@ -30,7 +34,7 @@ IDs in external signals (selection state, URL params).
 
 ### queryManager
 
-`IQueryManager`
+`IQueryManager`\<`TLink`\>
 
 The query manager (should be StableRefQueryManager-wrapped for best results)
 

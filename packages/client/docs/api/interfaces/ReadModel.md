@@ -56,6 +56,22 @@ Entity ID
 
 ---
 
+### position?
+
+> `optional` **position**: `string`
+
+Global position of the last event that updated this entity. Undefined for locally-created entries.
+
+---
+
+### revision?
+
+> `optional` **revision**: `string`
+
+Stream revision of the last event that updated this entity. Undefined for locally-created entries.
+
+---
+
 ### serverData?
 
 > `optional` **serverData**: `T`

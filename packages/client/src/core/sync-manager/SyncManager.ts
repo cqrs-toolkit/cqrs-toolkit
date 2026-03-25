@@ -9,13 +9,14 @@
  */
 
 import { parseServerMessage, serializeClientMessage } from '@cqrs-toolkit/realtime'
-import type { IPersistedEvent } from '@meticoeus/ddd-es'
+import type { IPersistedEvent, Link } from '@meticoeus/ddd-es'
 import { logProvider } from '@meticoeus/ddd-es'
 import { Subject, Subscription, takeUntil } from 'rxjs'
 import type { Collection, FetchContext, NetworkConfig } from '../../types/config.js'
 import { hydrateSerializedEvent, normalizeEventPersistence } from '../../types/events.js'
 import type { AuthStrategy } from '../auth.js'
 import type { CacheManager } from '../cache-manager/CacheManager.js'
+import type { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventShape.js'
 import type { CommandQueue } from '../command-queue/CommandQueue.js'
 import type { EventCache } from '../event-cache/EventCache.js'
 import type { EventProcessorRunner, ParsedEvent } from '../event-processor/index.js'
@@ -28,18 +29,18 @@ import { ConnectivityManager } from './ConnectivityManager.js'
 /**
  * Sync manager configuration.
  */
-export interface SyncManagerConfig {
+export interface SyncManagerConfig<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent> {
   eventBus: EventBus
   sessionManager: SessionManager
-  commandQueue: CommandQueue
+  commandQueue: CommandQueue<TLink, TSchema, TEvent>
   eventCache: EventCache
-  cacheManager: CacheManager
+  cacheManager: CacheManager<TLink>
   eventProcessor: EventProcessorRunner
   readModelStore: ReadModelStore
-  queryManager: QueryManager
+  queryManager: QueryManager<TLink>
   networkConfig: NetworkConfig
   auth: AuthStrategy
-  collections: Collection[]
+  collections: Collection<TLink>[]
 }
 
 /**
@@ -56,18 +57,18 @@ export interface CollectionSyncStatus {
 /**
  * Sync manager.
  */
-export class SyncManager {
+export class SyncManager<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent> {
   private readonly eventBus: EventBus
   private readonly sessionManager: SessionManager
-  private readonly commandQueue: CommandQueue
+  private readonly commandQueue: CommandQueue<TLink, TSchema, TEvent>
   private readonly eventCache: EventCache
-  private readonly cacheManager: CacheManager
+  private readonly cacheManager: CacheManager<TLink>
   private readonly eventProcessor: EventProcessorRunner
   private readonly readModelStore: ReadModelStore
-  private readonly queryManager: QueryManager
+  private readonly queryManager: QueryManager<TLink>
   private readonly networkConfig: NetworkConfig
   private readonly auth: AuthStrategy
-  private readonly collections: Collection[]
+  private readonly collections: Collection<TLink>[]
 
   private readonly connectivity: ConnectivityManager
 
@@ -99,7 +100,7 @@ export class SyncManager {
 
   private static readonly INVALIDATION_REFETCH_DELAY_MS = 500
 
-  constructor(config: SyncManagerConfig) {
+  constructor(config: SyncManagerConfig<TLink, TSchema, TEvent>) {
     this.eventBus = config.eventBus
     this.sessionManager = config.sessionManager
     this.commandQueue = config.commandQueue
@@ -407,14 +408,20 @@ export class SyncManager {
   private async doStartSync(): Promise<void> {
     logProvider.log.debug('Starting sync')
 
+    // Restore revision tracking from persisted read models (prevents false gap detection after reload)
+    await this.restoreKnownRevisions()
+
     // Resume command processing
     this.commandQueue.resume()
 
-    // Seed collections that need it
+    // Seed collections that have a seedCacheKey and fetch methods
+    // TODO(lazy-load): seedCacheKey collections always seed on startup. Lazily-loaded
+    // collections need consumer-driven seeding. On restart, consult stored cache keys
+    // in the DB to determine what to re-seed and in what order (spec §2.3).
     for (const collection of this.collections) {
       const status = this.collectionStatus.get(collection.name)
       const canSeed = collection.fetchSeedRecords || collection.fetchSeedEvents
-      if (status && !status.seeded && collection.seedOnInit !== false && canSeed) {
+      if (status && !status.seeded && collection.seedCacheKey && canSeed) {
         await this.seedCollection(collection)
       }
     }
@@ -433,10 +440,11 @@ export class SyncManager {
    * @param reason - Why this seed is happening ('initial' for first sync, 'refetch' for invalidation)
    */
   private async seedCollection(
-    collection: Collection,
+    collection: Collection<TLink>,
     reason: 'initial' | 'refetch' = 'initial',
   ): Promise<void> {
     if (!collection.fetchSeedRecords && !collection.fetchSeedEvents) return
+    if (!collection.seedCacheKey) return
 
     const status = this.collectionStatus.get(collection.name)
     if (!status || status.syncing) return
@@ -445,7 +453,7 @@ export class SyncManager {
     this.eventBus.emit('sync:started', { collection: collection.name })
 
     try {
-      const cacheKey = await this.cacheManager.acquire(collection.name)
+      const cacheKey = await this.cacheManager.acquire(collection.seedCacheKey)
       const ctx = await this.buildFetchContext()
       const pageSize = collection.seedPageSize ?? 100
       let recordCount = 0
@@ -488,7 +496,7 @@ export class SyncManager {
    * @returns Total number of records seeded
    */
   private async seedWithRecords(
-    collection: Collection,
+    collection: Collection<TLink>,
     ctx: FetchContext,
     cacheKey: string,
     pageSize: number,
@@ -497,12 +505,31 @@ export class SyncManager {
     let totalRecords = 0
 
     do {
-      const page = await collection.fetchSeedRecords!(ctx, cursor, pageSize)
+      const page = await collection.fetchSeedRecords!({ ctx, cursor, limit: pageSize })
       this.connectivity.reportContact()
 
       if (page.records.length > 0) {
         for (const record of page.records) {
-          await this.readModelStore.setServerData(collection.name, record.id, record.data, cacheKey)
+          const revisionMeta = record.revision
+            ? { revision: record.revision, position: record.position }
+            : undefined
+          await this.readModelStore.setServerData(
+            collection.name,
+            record.id,
+            record.data,
+            cacheKey,
+            revisionMeta,
+          )
+
+          // Populate knownRevisions for gap detection during WS processing
+          if (record.revision && collection.getStreamId) {
+            const streamId = collection.getStreamId(record.id)
+            const revBigint = BigInt(record.revision)
+            const current = this.knownRevisions.get(streamId)
+            if (current === undefined || revBigint > current) {
+              this.knownRevisions.set(streamId, revBigint)
+            }
+          }
         }
         totalRecords += page.records.length
       }
@@ -510,6 +537,14 @@ export class SyncManager {
       if (page.records.length < pageSize) break
       cursor = page.nextCursor
     } while (cursor)
+
+    // Notify reactive queries that the collection has new data.
+    // Unlike seedWithEvents (where EventProcessorRunner emits per-event),
+    // record-based seeding writes directly to storage, so a single bulk
+    // notification is needed after all pages are loaded.
+    if (totalRecords > 0) {
+      this.eventBus.emit('readmodel:updated', { collection: collection.name, ids: [] })
+    }
 
     this.eventBus.emit('sync:seed-completed', {
       collection: collection.name,
@@ -526,7 +561,7 @@ export class SyncManager {
    * @returns Total number of events seeded
    */
   private async seedWithEvents(
-    collection: Collection,
+    collection: Collection<TLink>,
     ctx: FetchContext,
     cacheKey: string,
     pageSize: number,
@@ -535,7 +570,7 @@ export class SyncManager {
     let eventCount = 0
 
     do {
-      const page = await collection.fetchSeedEvents!(ctx, cursor, pageSize)
+      const page = await collection.fetchSeedEvents!({ ctx, cursor, limit: pageSize })
       this.connectivity.reportContact()
 
       if (page.events.length > 0) {
@@ -592,7 +627,7 @@ export class SyncManager {
   /**
    * Find all collections that match a given streamId.
    */
-  private getMatchingCollections(streamId: string): Collection[] {
+  private getMatchingCollections(streamId: string): Collection<TLink>[] {
     return this.collections.filter((c) => c.matchesStream(streamId))
   }
 
@@ -781,7 +816,10 @@ export class SyncManager {
 
     this.eventBus.emitDebug('sync:ws-event-received', { event })
 
-    const cacheKey = await this.cacheManager.acquire(primaryCollection.name)
+    // TODO(lazy-load): WS events for lazily-loaded collections need to look up
+    // active cache keys by collection instead of relying on a static seedCacheKey.
+    if (!primaryCollection.seedCacheKey) return
+    const cacheKey = await this.cacheManager.acquire(primaryCollection.seedCacheKey)
 
     const cached = await this.eventCache.cacheServerEvent(event, { cacheKey })
     if (!cached) return // Duplicate
@@ -899,7 +937,11 @@ export class SyncManager {
 
       // Fetch events after the last known good revision (exclusive)
       const ctx = await this.buildFetchContext()
-      const events = await collection.fetchStreamEvents(ctx, streamId, firstGap.fromPosition)
+      const events = await collection.fetchStreamEvents({
+        ctx,
+        streamId,
+        afterRevision: firstGap.fromPosition,
+      })
       this.connectivity.reportContact()
 
       // Cache fetched events (fills the gap; duplicates are rejected by EventCache)
@@ -989,6 +1031,8 @@ export class SyncManager {
    * Schedule a debounced refetch for a collection after an invalidation signal.
    * Repeated invalidations within the delay window are coalesced into a single refetch.
    */
+  // TODO(lazy-load): For lazily-loaded data, refetch needs to know which active
+  // cache key(s) are associated with the collection, not just use seedCacheKey.
   private scheduleCollectionRefetch(collectionName: string): void {
     const existing = this.pendingRefetches.get(collectionName)
     if (existing !== undefined) clearTimeout(existing)
@@ -1009,6 +1053,25 @@ export class SyncManager {
     }, SyncManager.INVALIDATION_REFETCH_DELAY_MS)
 
     this.pendingRefetches.set(collectionName, timer)
+  }
+
+  /**
+   * Restore known revisions from persisted read model tables.
+   * Called before WS connects to prevent false-positive gap detection after page reload.
+   */
+  private async restoreKnownRevisions(): Promise<void> {
+    for (const collection of this.collections) {
+      if (!collection.getStreamId) continue
+      const entries = await this.readModelStore.getRevisionMap(collection.name)
+      for (const entry of entries) {
+        const streamId = collection.getStreamId(entry.id)
+        const revBigint = BigInt(entry.revision)
+        const current = this.knownRevisions.get(streamId)
+        if (current === undefined || revBigint > current) {
+          this.knownRevisions.set(streamId, revBigint)
+        }
+      }
+    }
   }
 
   /**

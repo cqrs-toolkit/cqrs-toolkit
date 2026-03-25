@@ -3,6 +3,8 @@
  * All methods are pure RPC calls to the worker.
  */
 
+import type { Link } from '@meticoeus/ddd-es'
+import type { CacheKeyIdentity } from '../../core/cache-manager/CacheKey.js'
 import type { AcquireCacheKeyOptions, ICacheManager } from '../../core/cache-manager/types.js'
 import type { WorkerMessageChannel } from '../../protocol/MessageChannel.js'
 import type { CacheKeyRecord } from '../../storage/IStorage.js'
@@ -10,19 +12,28 @@ import type { CacheKeyRecord } from '../../storage/IStorage.js'
 /**
  * Main-thread proxy for the worker-side CacheManager.
  */
-export class CacheManagerProxy implements ICacheManager {
+export class CacheManagerProxy<TLink extends Link> implements ICacheManager<TLink> {
   private readonly channel: WorkerMessageChannel
 
   constructor(channel: WorkerMessageChannel) {
     this.channel = channel
   }
 
+  async acquireKey(
+    identity: CacheKeyIdentity<TLink>,
+    options?: AcquireCacheKeyOptions,
+  ): Promise<CacheKeyIdentity<TLink>> {
+    return this.channel.request<CacheKeyIdentity<TLink>>('cacheManager.acquireKey', [
+      identity,
+      options,
+    ])
+  }
+
   async acquire(
-    collection: string,
-    params?: Record<string, unknown>,
+    identity: CacheKeyIdentity<TLink>,
     options?: AcquireCacheKeyOptions,
   ): Promise<string> {
-    return this.channel.request<string>('cacheManager.acquire', [collection, params, options])
+    return this.channel.request<string>('cacheManager.acquire', [identity, options])
   }
 
   async exists(key: string): Promise<boolean> {

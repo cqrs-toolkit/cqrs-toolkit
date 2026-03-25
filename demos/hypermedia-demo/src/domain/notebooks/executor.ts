@@ -7,16 +7,17 @@ import {
   domainSuccess,
   type AsyncValidationContext,
   type HandlerContext,
+  type ValidationError,
 } from '@cqrs-toolkit/client'
 import type { Notebook } from '@cqrs-toolkit/demo-base/notebooks/shared'
-import { Err, Ok, ValidationException } from '@meticoeus/ddd-es'
+import { Err, Ok, ServiceLink, ValidationException, type Result } from '@meticoeus/ddd-es'
 import type { AppCommandHandlerRegistration } from '../utils/executors.js'
 
 async function checkNameUniqueness(
   name: string,
   excludeId: string | undefined,
-  { queryManager }: AsyncValidationContext,
-) {
+  { queryManager }: AsyncValidationContext<ServiceLink>,
+): Promise<Result<unknown, ValidationException<ValidationError[]>>> {
   const result = await queryManager.list<Notebook>('notebooks')
   const duplicate = result.data.find(
     (n) => n.name === name && (excludeId === undefined || n.id !== excludeId),
@@ -35,7 +36,7 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
   {
     commandType: 'CreateNotebook',
     creates: { eventType: 'NotebookCreated', idStrategy: 'temporary' },
-    async validateAsync(data: { name: string }, context: AsyncValidationContext) {
+    async validateAsync(data: { name: string }, context: AsyncValidationContext<ServiceLink>) {
       const check = await checkNameUniqueness(data.name, undefined, context)
       if (!check.ok) return check
       return Ok(data)
@@ -54,7 +55,7 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
   },
   {
     commandType: 'UpdateNotebookName',
-    async validateAsync(data: { name: string }, context: AsyncValidationContext) {
+    async validateAsync(data: { name: string }, context: AsyncValidationContext<ServiceLink>) {
       const { id } = context.path as { id: string }
       const check = await checkNameUniqueness(data.name, id, context)
       if (!check.ok) return check

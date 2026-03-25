@@ -4,7 +4,7 @@
  * Read methods use RPC. watchCollection/watchById use broadcast events.
  */
 
-import { logProvider } from '@meticoeus/ddd-es'
+import { type Link, logProvider } from '@meticoeus/ddd-es'
 import {
   Observable,
   Subject,
@@ -30,7 +30,7 @@ import type { EventMessage } from '../../protocol/messages.js'
 /**
  * Main-thread proxy for the worker-side QueryManager.
  */
-export class QueryManagerProxy implements IQueryManager {
+export class QueryManagerProxy<TLink extends Link> implements IQueryManager<TLink> {
   private readonly channel: WorkerMessageChannel
   private readonly broadcastEvents$: Observable<EventMessage>
   private readonly destroy$ = new Subject<void>()
@@ -44,24 +44,31 @@ export class QueryManagerProxy implements IQueryManager {
     collection: string,
     id: string,
     options?: QueryOptions,
-  ): Promise<QueryResult<T>> {
-    return this.channel.request<QueryResult<T>>('queryManager.getById', [collection, id, options])
+  ): Promise<QueryResult<TLink, T>> {
+    return this.channel.request<QueryResult<TLink, T>>('queryManager.getById', [
+      collection,
+      id,
+      options,
+    ])
   }
 
   async getByIds<T>(
     collection: string,
     ids: string[],
     options?: QueryOptions,
-  ): Promise<Map<string, QueryResult<T>>> {
-    return this.channel.request<Map<string, QueryResult<T>>>('queryManager.getByIds', [
+  ): Promise<Map<string, QueryResult<TLink, T>>> {
+    return this.channel.request<Map<string, QueryResult<TLink, T>>>('queryManager.getByIds', [
       collection,
       ids,
       options,
     ])
   }
 
-  async list<T>(collection: string, options?: QueryOptions): Promise<ListQueryResult<T>> {
-    return this.channel.request<ListQueryResult<T>>('queryManager.list', [collection, options])
+  async list<T>(collection: string, options?: QueryOptions): Promise<ListQueryResult<TLink, T>> {
+    return this.channel.request<ListQueryResult<TLink, T>>('queryManager.list', [
+      collection,
+      options,
+    ])
   }
 
   watchCollection(collection: string): Observable<string[]> {

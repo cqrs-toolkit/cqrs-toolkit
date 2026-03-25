@@ -5,13 +5,14 @@
  * they are reconstructed on the main thread from broadcast events.
  */
 
+import type { Link } from '@meticoeus/ddd-es'
 import type { QueryManager } from '../../core/query-manager/QueryManager.js'
 import type { QueryOptions } from '../../core/query-manager/types.js'
 import type { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
 
-export function registerQueryManagerMethods(
+export function registerQueryManagerMethods<TLink extends Link>(
   handler: WorkerMessageHandler,
-  queryManager: QueryManager,
+  queryManager: QueryManager<TLink>,
 ): void {
   handler.registerMethod('queryManager.getById', async (args) => {
     const collection = args[0] as string

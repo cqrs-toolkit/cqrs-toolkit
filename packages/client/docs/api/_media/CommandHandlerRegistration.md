@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / CommandHandlerRegistration
 
-# Interface: CommandHandlerRegistration\<TEvent, TSchema\>
+# Interface: CommandHandlerRegistration\<TLink, TSchema, TEvent\>
 
 Registration for a single command handler.
 
@@ -30,17 +30,21 @@ specific data types are assignable to `CommandHandlerRegistration[]`
 
 ## Type Parameters
 
-### TEvent
+### TLink
 
-`TEvent` _extends_ [`IAnticipatedEvent`](IAnticipatedEvent.md) = [`IAnticipatedEvent`](IAnticipatedEvent.md)
-
-Anticipated event type produced by the handler.
+`TLink` _extends_ `Link`
 
 ### TSchema
 
 `TSchema` = `unknown`
 
 Schema type for structural validation (JSONSchema7, z.ZodType, etc.).
+
+### TEvent
+
+`TEvent` _extends_ [`IAnticipatedEvent`](IAnticipatedEvent.md) = [`IAnticipatedEvent`](IAnticipatedEvent.md)
+
+Anticipated event type produced by the handler.
 
 ## Properties
 
@@ -130,7 +134,7 @@ Phase 3: async validation querying local data (permissions, name conflicts, etc.
 
 ##### context
 
-[`AsyncValidationContext`](AsyncValidationContext.md)
+[`AsyncValidationContext`](AsyncValidationContext.md)\<`TLink`\>
 
 #### Returns
 
