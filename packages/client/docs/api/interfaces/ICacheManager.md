@@ -22,14 +22,14 @@ Parameterized on `TLink` so entity cache keys carry the app's link type
 
 ### acquire()
 
-> **acquire**(`identity`, `options?`): `Promise`\<`string`\>
+> **acquire**(`cacheKey`, `options?`): `Promise`\<`string`\>
 
 Acquire a cache key, returning only the UUID string.
 Convenience wrapper around [acquireKey](#acquirekey) for callers that only need the key.
 
 #### Parameters
 
-##### identity
+##### cacheKey
 
 [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
 
@@ -51,14 +51,14 @@ The cache key UUID string
 
 ### acquireKey()
 
-> **acquireKey**(`identity`, `options?`): `Promise`\<[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>\>
+> **acquireKey**(`cacheKey`, `options?`): `Promise`\<[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>\>
 
 Acquire a cache key identity. Creates the cache key in storage if it doesn't exist.
 Returns the full identity object with the derived UUID key and all source data.
 
 #### Parameters
 
-##### identity
+##### cacheKey
 
 [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
 
@@ -271,17 +271,19 @@ Cache key UUID
 
 ### touch()
 
-> **touch**(`key`): `Promise`\<`void`\>
+> **touch**(`cacheKey`): `Promise`\<`void`\>
 
 Touch a cache key to update its access time.
+Creates the key if it does not exist (spec §2.5.1).
+Does not place a hold.
 
 #### Parameters
 
-##### key
+##### cacheKey
 
-`string`
+[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
 
-Cache key UUID
+Cache key identity
 
 #### Returns
 

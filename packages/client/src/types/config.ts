@@ -4,7 +4,7 @@
 
 import type { IPersistedEvent, Link } from '@meticoeus/ddd-es'
 import type { AuthStrategy } from '../core/auth.js'
-import type { CacheKeyIdentity } from '../core/cache-manager/CacheKey.js'
+import type { CacheKeyIdentity, CacheKeyMatcher } from '../core/cache-manager/CacheKey.js'
 import type { IAnticipatedEvent } from '../core/command-lifecycle/AnticipatedEventShape.js'
 import type { ICommandSender } from '../core/command-queue/types.js'
 import type { ProcessorRegistration } from '../core/event-processor/types.js'
@@ -145,10 +145,13 @@ export interface CacheConfig {
  *
  * Collections may add their own headers (e.g., Accept-Profile for versioning,
  * x-tenant-id for tenant context) in their fetch implementations.
+ *
+ * Shared across multiple fetch calls within a sync cycle.
+ * Collections must not mutate this object — copy headers if custom headers are needed.
  */
 export interface FetchContext {
   readonly baseUrl: string
-  readonly headers: Record<string, string>
+  readonly headers: Readonly<Record<string, string>>
   readonly signal: AbortSignal
 }
 
@@ -184,19 +187,23 @@ export interface SeedEventPage {
 /**
  * Options for {@link Collection.fetchSeedRecords}.
  */
-export interface FetchSeedRecordOptions {
+export interface FetchSeedRecordOptions<TLink extends Link> {
   readonly ctx: FetchContext
   readonly cursor: string | null
   readonly limit: number
+  /** Cache key identity being seeded — extract scope params for query filtering */
+  readonly cacheKey: CacheKeyIdentity<TLink>
 }
 
 /**
  * Options for {@link Collection.fetchSeedEvents}.
  */
-export interface FetchSeedEventOptions {
+export interface FetchSeedEventOptions<TLink extends Link> {
   readonly ctx: FetchContext
   readonly cursor: string | null
   readonly limit: number
+  /** Cache key identity being seeded — extract scope params for query filtering */
+  readonly cacheKey: CacheKeyIdentity<TLink>
 }
 
 /**
@@ -206,6 +213,37 @@ export interface FetchStreamEventOptions {
   readonly ctx: FetchContext
   readonly streamId: string
   readonly afterRevision: bigint
+}
+
+export interface SeedOnInitConfig<TLink extends Link> {
+  /**
+   * Cache key identity to auto-seed on startup.
+   */
+  readonly cacheKey: CacheKeyIdentity<TLink>
+
+  /**
+   * Web socket topics subscribed to on startup for this collection.
+   */
+  readonly topics: readonly string[]
+}
+
+export interface SeedOnDemandConfig<TLink extends Link> {
+  /**
+   * Cache key types that activate this collection for on-demand seeding.
+   * When `client.seed(identity)` is called and the identity matches one of
+   * these matchers, this collection is seeded under that cache key.
+   */
+  readonly keyTypes: readonly CacheKeyMatcher<TLink>[]
+
+  /**
+   * Web socket topic patterns to subscribe to for a given cache key.
+   * Called when a cache key is acquired (seeded or on-demand).
+   * Return `[]` for no subscription.
+   *
+   * @param cacheKey - Cache key identity being subscribed
+   * @returns Topic patterns for WS subscription
+   */
+  subscribeTopics(cacheKey: CacheKeyIdentity<TLink>): string[]
 }
 
 /**
@@ -221,14 +259,28 @@ export interface Collection<TLink extends Link> {
   readonly name: string
 
   /**
-   * Cache key identity to auto-seed on startup.
+   * Derive cache key identities from WS event topics.
+   * Called at WS ingestion to resolve which cache keys an event belongs to.
+   * The returned identities are attached to the event before processing —
+   * no further topic resolution happens downstream.
+   *
+   * @param topics - Topic strings from the WS event message
+   * @returns Cache key identities this event should be associated with
+   */
+  cacheKeysFromTopics(topics: readonly string[]): CacheKeyIdentity<TLink>[]
+
+  /**
+   * Auto-seed this collection on startup.
    * If undefined, this collection is not seeded on init — data must be
    * loaded on demand (e.g., via consumer-driven seeding on navigation).
    */
-  readonly seedCacheKey?: CacheKeyIdentity<TLink>
+  readonly seedOnInit?: SeedOnInitConfig<TLink>
 
-  /** WS topic patterns to subscribe to. Return [] for no subscription. */
-  getTopics(): string[]
+  /**
+   * On-demand seeding configuration.
+   * If undefined, this collection does not support on-demand (lazily-loaded) seeding.
+   */
+  readonly seedOnDemand?: SeedOnDemandConfig<TLink>
 
   /**
    * Test whether a streamId belongs to this collection.
@@ -245,7 +297,7 @@ export interface Collection<TLink extends Link> {
    * If undefined, falls back to fetchSeedEvents (event-based seeding).
    * If neither is defined, seeding is skipped for this collection.
    */
-  fetchSeedRecords?(opts: FetchSeedRecordOptions): Promise<SeedRecordPage>
+  fetchSeedRecords?(opts: FetchSeedRecordOptions<TLink>): Promise<SeedRecordPage>
 
   /**
    * Fetch a page of events for initial seeding (fallback).
@@ -254,7 +306,7 @@ export interface Collection<TLink extends Link> {
    *
    * Only used if fetchSeedRecords is not defined.
    */
-  fetchSeedEvents?(opts: FetchSeedEventOptions): Promise<SeedEventPage>
+  fetchSeedEvents?(opts: FetchSeedEventOptions<TLink>): Promise<SeedEventPage>
 
   /**
    * Fetch per-stream events for gap recovery and command response processing.
@@ -288,6 +340,14 @@ export interface Collection<TLink extends Link> {
 
   /** Page size for seeding. Default: 100. */
   readonly seedPageSize?: number
+}
+
+export interface CollectionWithSeedOnInit<TLink extends Link> extends Collection<TLink> {
+  readonly seedOnInit: SeedOnInitConfig<TLink>
+}
+
+export interface CollectionWithSeedOnDemand<TLink extends Link> extends Collection<TLink> {
+  readonly seedOnDemand: SeedOnDemandConfig<TLink>
 }
 
 /**
@@ -352,7 +412,7 @@ export interface CqrsConfig<
    * Command sender for submitting commands to the server.
    * If not provided, commands are queued but not sent.
    */
-  commandSender?: ICommandSender
+  commandSender?: ICommandSender<TLink>
 
   /**
    * Event processors to register.
@@ -459,7 +519,7 @@ export interface ResolvedConfig<
   >
 > {
   commandHandlers: CommandHandlerRegistration<TLink, TSchema, TEvent>[]
-  commandSender?: ICommandSender
+  commandSender?: ICommandSender<TLink>
   schemaValidator?: SchemaValidator<unknown>
   workerSetup?: string[]
   collections: Collection<TLink>[]

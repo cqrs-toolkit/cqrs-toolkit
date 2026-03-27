@@ -2,10 +2,22 @@
  * Unit tests for StableRefQueryManager.
  */
 
+import { ServiceLink } from '@meticoeus/ddd-es'
 import { firstValueFrom, Subject, timeout } from 'rxjs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { CacheKeyIdentity } from '../cache-manager/CacheKey.js'
+import { deriveScopeKey } from '../cache-manager/index.js'
 import { StableRefQueryManager } from './StableRefQueryManager.js'
-import type { IQueryManager, ItemMeta, ListQueryResult, QueryResult } from './types.js'
+import type {
+  CollectionSignal,
+  GetByIdParams,
+  GetByIdsParams,
+  IQueryManager,
+  ItemMeta,
+  ListParams,
+  ListQueryResult,
+  QueryResult,
+} from './types.js'
 
 interface Todo {
   id: string
@@ -13,37 +25,41 @@ interface Todo {
   done: boolean
 }
 
+const TODOS_CACHE_KEY = deriveScopeKey({ scopeType: 'todos' })
+
 describe('StableRefQueryManager', () => {
-  let inner: IQueryManager & {
-    setListResult: (result: ListQueryResult<Todo>) => void
-    setGetByIdResult: (result: QueryResult<Todo>) => void
+  let inner: IQueryManager<ServiceLink> & {
+    setListResult: (result: ListQueryResult<ServiceLink, Todo>) => void
+    setGetByIdResult: (result: QueryResult<ServiceLink, Todo>) => void
     emitCollectionUpdate: (ids: string[]) => void
   }
-  let stableQm: StableRefQueryManager
-  let collectionUpdate$: Subject<string[]>
+  let stableQm: StableRefQueryManager<ServiceLink>
+  let collectionUpdate$: Subject<CollectionSignal>
 
   beforeEach(() => {
-    collectionUpdate$ = new Subject<string[]>()
-    let listResult: ListQueryResult<Todo>
-    let getByIdResult: QueryResult<Todo>
+    collectionUpdate$ = new Subject<CollectionSignal>()
+    let listResult: ListQueryResult<ServiceLink, Todo>
+    let getByIdResult: QueryResult<ServiceLink, Todo>
 
     inner = {
-      setListResult(result: ListQueryResult<Todo>) {
+      setListResult(result: ListQueryResult<ServiceLink, Todo>) {
         listResult = result
       },
-      setGetByIdResult(result: QueryResult<Todo>) {
+      setGetByIdResult(result: QueryResult<ServiceLink, Todo>) {
         getByIdResult = result
       },
       emitCollectionUpdate(ids: string[]) {
-        collectionUpdate$.next(ids)
+        collectionUpdate$.next({ type: 'updated', ids })
       },
 
-      async getById<T>(): Promise<QueryResult<T>> {
-        return getByIdResult as unknown as QueryResult<T>
+      async getById<T>(_params: GetByIdParams<ServiceLink>): Promise<QueryResult<ServiceLink, T>> {
+        return getByIdResult as unknown as QueryResult<ServiceLink, T>
       },
-      async getByIds<T>(_collection: string, ids: string[]): Promise<Map<string, QueryResult<T>>> {
-        const results = new Map<string, QueryResult<T>>()
-        for (const id of ids) {
+      async getByIds<T>(
+        params: GetByIdsParams<ServiceLink>,
+      ): Promise<Map<string, QueryResult<ServiceLink, T>>> {
+        const results = new Map<string, QueryResult<ServiceLink, T>>()
+        for (const id of params.ids) {
           // For simplicity, build a result from the list result
           const idx = listResult.data.findIndex((d) => d.id === id)
           if (idx !== -1) {
@@ -53,21 +69,21 @@ describe('StableRefQueryManager', () => {
               data: item as unknown as T,
               meta,
               hasLocalChanges: false,
-              cacheKey: 'ck',
+              cacheKey: deriveScopeKey({ scopeType: 'ck' }),
             })
           } else {
             results.set(id, {
               data: undefined,
               meta: undefined,
               hasLocalChanges: false,
-              cacheKey: 'ck',
+              cacheKey: deriveScopeKey({ scopeType: 'ck' }),
             })
           }
         }
         return results
       },
-      async list<T>(): Promise<ListQueryResult<T>> {
-        return listResult as unknown as ListQueryResult<T>
+      async list<T>(_params: ListParams<ServiceLink>): Promise<ListQueryResult<ServiceLink, T>> {
+        return listResult as unknown as ListQueryResult<ServiceLink, T>
       },
       watchCollection() {
         return collectionUpdate$.asObservable()
@@ -81,7 +97,7 @@ describe('StableRefQueryManager', () => {
       async count() {
         return 0
       },
-      async touch() {},
+      async touch(_cacheKey: CacheKeyIdentity<ServiceLink>) {},
       async hold() {},
       async release() {},
       async releaseAll() {},
@@ -96,23 +112,23 @@ describe('StableRefQueryManager', () => {
   })
 
   describe('list', () => {
-    it('returns same reference when (id, updatedAt) unchanged', async () => {
+    it('returns same reference when (id, revision) unchanged', async () => {
       const todo1: Todo = { id: '1', title: 'Buy milk', done: false }
       const todo2: Todo = { id: '2', title: 'Walk dog', done: true }
-      const meta1: ItemMeta = { id: '1', updatedAt: 1000 }
-      const meta2: ItemMeta = { id: '2', updatedAt: 2000 }
+      const meta1: ItemMeta = { id: '1', updatedAt: 1000, revision: '1' }
+      const meta2: ItemMeta = { id: '2', updatedAt: 2000, revision: '2' }
 
       inner.setListResult({
         data: [todo1, todo2],
         meta: [meta1, meta2],
         total: 2,
         hasLocalChanges: false,
-        cacheKey: 'ck',
+        cacheKey: deriveScopeKey({ scopeType: 'ck' }),
       })
 
-      const result1 = await stableQm.list<Todo>('todos')
+      const result1 = await stableQm.list<Todo>({ collection: 'todos', cacheKey: TODOS_CACHE_KEY })
 
-      // Second call with new object references but same updatedAt
+      // Second call with new object references but same revision
       const todo1Copy: Todo = { id: '1', title: 'Buy milk', done: false }
       const todo2Copy: Todo = { id: '2', title: 'Walk dog', done: true }
 
@@ -121,41 +137,41 @@ describe('StableRefQueryManager', () => {
         meta: [meta1, meta2],
         total: 2,
         hasLocalChanges: false,
-        cacheKey: 'ck',
+        cacheKey: deriveScopeKey({ scopeType: 'ck' }),
       })
 
-      const result2 = await stableQm.list<Todo>('todos')
+      const result2 = await stableQm.list<Todo>({ collection: 'todos', cacheKey: TODOS_CACHE_KEY })
 
       // References should be the same as the first call
       expect(result2.data[0]).toBe(result1.data[0])
       expect(result2.data[1]).toBe(result1.data[1])
     })
 
-    it('returns new reference when updatedAt changes', async () => {
+    it('returns new reference when revision changes', async () => {
       const todo1: Todo = { id: '1', title: 'Buy milk', done: false }
 
       inner.setListResult({
         data: [todo1],
-        meta: [{ id: '1', updatedAt: 1000 }],
+        meta: [{ id: '1', updatedAt: 1000, revision: '1' }],
         total: 1,
         hasLocalChanges: false,
-        cacheKey: 'ck',
+        cacheKey: deriveScopeKey({ scopeType: 'ck' }),
       })
 
-      const result1 = await stableQm.list<Todo>('todos')
+      const result1 = await stableQm.list<Todo>({ collection: 'todos', cacheKey: TODOS_CACHE_KEY })
 
-      // Same id, different updatedAt
+      // Same id, different revision
       const todo1Updated: Todo = { id: '1', title: 'Buy oat milk', done: false }
 
       inner.setListResult({
         data: [todo1Updated],
-        meta: [{ id: '1', updatedAt: 2000 }],
+        meta: [{ id: '1', updatedAt: 2000, revision: '2' }],
         total: 1,
         hasLocalChanges: false,
-        cacheKey: 'ck',
+        cacheKey: deriveScopeKey({ scopeType: 'ck' }),
       })
 
-      const result2 = await stableQm.list<Todo>('todos')
+      const result2 = await stableQm.list<Todo>({ collection: 'todos', cacheKey: TODOS_CACHE_KEY })
 
       expect(result2.data[0]).not.toBe(result1.data[0])
       expect(result2.data[0]).toBe(todo1Updated)
@@ -168,15 +184,15 @@ describe('StableRefQueryManager', () => {
       inner.setListResult({
         data: [todo1, todo2],
         meta: [
-          { id: '1', updatedAt: 1000 },
-          { id: '2', updatedAt: 1000 },
+          { id: '1', updatedAt: 1000, revision: '1' },
+          { id: '2', updatedAt: 1000, revision: '1' },
         ],
         total: 2,
         hasLocalChanges: false,
-        cacheKey: 'ck',
+        cacheKey: deriveScopeKey({ scopeType: 'ck' }),
       })
 
-      const result1 = await stableQm.list<Todo>('todos')
+      const result1 = await stableQm.list<Todo>({ collection: 'todos', cacheKey: TODOS_CACHE_KEY })
 
       // Second call: item 2 removed, item 3 added
       const todo3: Todo = { id: '3', title: 'C', done: false }
@@ -184,15 +200,15 @@ describe('StableRefQueryManager', () => {
       inner.setListResult({
         data: [todo1, todo3],
         meta: [
-          { id: '1', updatedAt: 1000 },
-          { id: '3', updatedAt: 1000 },
+          { id: '1', updatedAt: 1000, revision: '1' },
+          { id: '3', updatedAt: 1000, revision: '1' },
         ],
         total: 2,
         hasLocalChanges: false,
-        cacheKey: 'ck',
+        cacheKey: deriveScopeKey({ scopeType: 'ck' }),
       })
 
-      const result2 = await stableQm.list<Todo>('todos')
+      const result2 = await stableQm.list<Todo>({ collection: 'todos', cacheKey: TODOS_CACHE_KEY })
 
       // Item 1 should still be the same reference
       expect(result2.data[0]).toBe(result1.data[0])
@@ -202,10 +218,11 @@ describe('StableRefQueryManager', () => {
 
     it('preserves meta field from inner result', async () => {
       const meta: ItemMeta[] = [
-        { id: '1', updatedAt: 1000 },
-        { id: '2', updatedAt: 2000 },
+        { id: '1', updatedAt: 1000, revision: '1' },
+        { id: '2', updatedAt: 2000, revision: '2' },
       ]
 
+      const cacheKey = deriveScopeKey({ scopeType: 'ck-abc' })
       inner.setListResult({
         data: [
           { id: '1', title: 'A', done: false },
@@ -214,65 +231,77 @@ describe('StableRefQueryManager', () => {
         meta,
         total: 2,
         hasLocalChanges: true,
-        cacheKey: 'ck-abc',
+        cacheKey,
       })
 
-      const result = await stableQm.list<Todo>('todos')
+      const result = await stableQm.list<Todo>({ collection: 'todos', cacheKey: TODOS_CACHE_KEY })
 
       expect(result.meta).toEqual(meta)
       expect(result.total).toBe(2)
       expect(result.hasLocalChanges).toBe(true)
-      expect(result.cacheKey).toBe('ck-abc')
+      expect(result.cacheKey.key).toBe(cacheKey.key)
     })
   })
 
   describe('getById', () => {
-    it('returns same reference when (id, updatedAt) unchanged', async () => {
+    it('returns same reference when (id, revision) unchanged', async () => {
       const todo: Todo = { id: '1', title: 'Buy milk', done: false }
 
       inner.setGetByIdResult({
         data: todo,
-        meta: { id: '1', updatedAt: 1000 },
+        meta: { id: '1', updatedAt: 1000, revision: '1' },
         hasLocalChanges: false,
-        cacheKey: 'ck',
+        cacheKey: deriveScopeKey({ scopeType: 'ck' }),
       })
 
-      const result1 = await stableQm.getById<Todo>('todos', '1')
+      const result1 = await stableQm.getById<Todo>({
+        collection: 'todos',
+        id: '1',
+        cacheKey: TODOS_CACHE_KEY,
+      })
 
       // New object, same updatedAt
       const todoCopy: Todo = { id: '1', title: 'Buy milk', done: false }
 
       inner.setGetByIdResult({
         data: todoCopy,
-        meta: { id: '1', updatedAt: 1000 },
+        meta: { id: '1', updatedAt: 1000, revision: '1' },
         hasLocalChanges: false,
-        cacheKey: 'ck',
+        cacheKey: deriveScopeKey({ scopeType: 'ck' }),
       })
 
-      const result2 = await stableQm.getById<Todo>('todos', '1')
+      const result2 = await stableQm.getById<Todo>({
+        collection: 'todos',
+        id: '1',
+        cacheKey: TODOS_CACHE_KEY,
+      })
 
       expect(result2.data).toBe(result1.data)
     })
 
-    it('returns new reference when updatedAt changes', async () => {
+    it('returns new reference when revision changes', async () => {
       inner.setGetByIdResult({
         data: { id: '1', title: 'Old', done: false },
-        meta: { id: '1', updatedAt: 1000 },
+        meta: { id: '1', updatedAt: 1000, revision: '1' },
         hasLocalChanges: false,
-        cacheKey: 'ck',
+        cacheKey: deriveScopeKey({ scopeType: 'ck' }),
       })
 
-      await stableQm.getById<Todo>('todos', '1')
+      await stableQm.getById<Todo>({ collection: 'todos', id: '1', cacheKey: TODOS_CACHE_KEY })
 
       const updated: Todo = { id: '1', title: 'New', done: false }
       inner.setGetByIdResult({
         data: updated,
-        meta: { id: '1', updatedAt: 2000 },
+        meta: { id: '1', updatedAt: 2000, revision: '2' },
         hasLocalChanges: false,
-        cacheKey: 'ck',
+        cacheKey: deriveScopeKey({ scopeType: 'ck' }),
       })
 
-      const result2 = await stableQm.getById<Todo>('todos', '1')
+      const result2 = await stableQm.getById<Todo>({
+        collection: 'todos',
+        id: '1',
+        cacheKey: TODOS_CACHE_KEY,
+      })
 
       expect(result2.data).toBe(updated)
     })
@@ -282,10 +311,14 @@ describe('StableRefQueryManager', () => {
         data: undefined,
         meta: undefined,
         hasLocalChanges: false,
-        cacheKey: 'ck',
+        cacheKey: deriveScopeKey({ scopeType: 'ck' }),
       })
 
-      const result = await stableQm.getById<Todo>('todos', 'missing')
+      const result = await stableQm.getById<Todo>({
+        collection: 'todos',
+        id: 'missing',
+        cacheKey: TODOS_CACHE_KEY,
+      })
 
       expect(result.data).toBeUndefined()
       expect(result.meta).toBeUndefined()
@@ -301,17 +334,21 @@ describe('StableRefQueryManager', () => {
       inner.setListResult({
         data: [todo1, todo2],
         meta: [
-          { id: '1', updatedAt: 1000 },
-          { id: '2', updatedAt: 2000 },
+          { id: '1', updatedAt: 1000, revision: '1' },
+          { id: '2', updatedAt: 2000, revision: '2' },
         ],
         total: 2,
         hasLocalChanges: false,
-        cacheKey: 'ck',
+        cacheKey: deriveScopeKey({ scopeType: 'ck' }),
       })
-      await stableQm.list<Todo>('todos')
+      await stableQm.list<Todo>({ collection: 'todos', cacheKey: TODOS_CACHE_KEY })
 
-      // getByIds with same updatedAt — should reuse references
-      const results = await stableQm.getByIds<Todo>('todos', ['1', '2'])
+      // getByIds with same revision — should reuse references
+      const results = await stableQm.getByIds<Todo>({
+        collection: 'todos',
+        ids: ['1', '2'],
+        cacheKey: TODOS_CACHE_KEY,
+      })
 
       expect(results.get('1')?.data).toBe(todo1)
       expect(results.get('2')?.data).toBe(todo2)
@@ -324,43 +361,49 @@ describe('StableRefQueryManager', () => {
 
       inner.setGetByIdResult({
         data: todo,
-        meta: { id: '1', updatedAt: 1000 },
+        meta: { id: '1', updatedAt: 1000, revision: '1' },
         hasLocalChanges: false,
-        cacheKey: 'ck',
+        cacheKey: deriveScopeKey({ scopeType: 'ck' }),
       })
 
-      const value = await firstValueFrom(stableQm.watchById<Todo>('todos', '1').pipe(timeout(100)))
+      const value = await firstValueFrom(
+        stableQm
+          .watchById<Todo>({ collection: 'todos', id: '1', cacheKey: TODOS_CACHE_KEY })
+          .pipe(timeout(100)),
+      )
 
       expect(value).toBe(todo)
     })
 
-    it('reuses stable reference on update with same updatedAt', async () => {
+    it('reuses stable reference on update with same revision', async () => {
       const todo: Todo = { id: '1', title: 'Buy milk', done: false }
 
       inner.setGetByIdResult({
         data: todo,
-        meta: { id: '1', updatedAt: 1000 },
+        meta: { id: '1', updatedAt: 1000, revision: '1' },
         hasLocalChanges: false,
-        cacheKey: 'ck',
+        cacheKey: deriveScopeKey({ scopeType: 'ck' }),
       })
 
       const values: (Todo | undefined)[] = []
 
-      stableQm.watchById<Todo>('todos', '1').subscribe((v) => {
-        values.push(v)
-      })
+      stableQm
+        .watchById<Todo>({ collection: 'todos', id: '1', cacheKey: TODOS_CACHE_KEY })
+        .subscribe((v) => {
+          values.push(v)
+        })
 
       // Wait for initial value
       await new Promise((r) => setTimeout(r, 10))
       expect(values).toHaveLength(1)
 
-      // Emit update with new object but same updatedAt
+      // Emit update with new object but same revision
       const todoCopy: Todo = { id: '1', title: 'Buy milk', done: false }
       inner.setGetByIdResult({
         data: todoCopy,
-        meta: { id: '1', updatedAt: 1000 },
+        meta: { id: '1', updatedAt: 1000, revision: '1' },
         hasLocalChanges: false,
-        cacheKey: 'ck',
+        cacheKey: deriveScopeKey({ scopeType: 'ck' }),
       })
       inner.emitCollectionUpdate(['1'])
 
@@ -370,29 +413,31 @@ describe('StableRefQueryManager', () => {
       expect(values).toHaveLength(1)
     })
 
-    it('emits new value when updatedAt changes', async () => {
+    it('emits new value when revision changes', async () => {
       inner.setGetByIdResult({
         data: { id: '1', title: 'Old', done: false },
-        meta: { id: '1', updatedAt: 1000 },
+        meta: { id: '1', updatedAt: 1000, revision: '1' },
         hasLocalChanges: false,
-        cacheKey: 'ck',
+        cacheKey: deriveScopeKey({ scopeType: 'ck' }),
       })
 
       const values: (Todo | undefined)[] = []
 
-      stableQm.watchById<Todo>('todos', '1').subscribe((v) => {
-        values.push(v)
-      })
+      stableQm
+        .watchById<Todo>({ collection: 'todos', id: '1', cacheKey: TODOS_CACHE_KEY })
+        .subscribe((v) => {
+          values.push(v)
+        })
 
       await new Promise((r) => setTimeout(r, 10))
 
-      // Emit update with changed updatedAt
+      // Emit update with changed revision
       const updated: Todo = { id: '1', title: 'New', done: false }
       inner.setGetByIdResult({
         data: updated,
-        meta: { id: '1', updatedAt: 2000 },
+        meta: { id: '1', updatedAt: 2000, revision: '2' },
         hasLocalChanges: false,
-        cacheKey: 'ck',
+        cacheKey: deriveScopeKey({ scopeType: 'ck' }),
       })
       inner.emitCollectionUpdate(['1'])
 
@@ -418,8 +463,8 @@ describe('StableRefQueryManager', () => {
 
     it('delegates touch to inner', async () => {
       const spy = vi.spyOn(inner, 'touch')
-      await stableQm.touch('todos')
-      expect(spy).toHaveBeenCalledWith('todos')
+      await stableQm.touch(TODOS_CACHE_KEY)
+      expect(spy).toHaveBeenCalledWith(TODOS_CACHE_KEY)
     })
 
     it('delegates hold to inner', async () => {
@@ -448,12 +493,12 @@ describe('StableRefQueryManager', () => {
       // Seed cache
       inner.setListResult({
         data: [{ id: '1', title: 'A', done: false }],
-        meta: [{ id: '1', updatedAt: 1000 }],
+        meta: [{ id: '1', updatedAt: 1000, revision: '1' }],
         total: 1,
         hasLocalChanges: false,
-        cacheKey: 'ck',
+        cacheKey: deriveScopeKey({ scopeType: 'ck' }),
       })
-      await stableQm.list<Todo>('todos')
+      await stableQm.list<Todo>({ collection: 'todos', cacheKey: TODOS_CACHE_KEY })
 
       await stableQm.destroy()
 
@@ -464,12 +509,12 @@ describe('StableRefQueryManager', () => {
       const todo: Todo = { id: '1', title: 'A', done: false }
       inner.setListResult({
         data: [todo],
-        meta: [{ id: '1', updatedAt: 1000 }],
+        meta: [{ id: '1', updatedAt: 1000, revision: '1' }],
         total: 1,
         hasLocalChanges: false,
-        cacheKey: 'ck',
+        cacheKey: deriveScopeKey({ scopeType: 'ck' }),
       })
-      const result = await stableQm.list<Todo>('todos')
+      const result = await stableQm.list<Todo>({ collection: 'todos', cacheKey: TODOS_CACHE_KEY })
       expect(result.data[0]).toBe(todo)
     })
   })

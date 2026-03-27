@@ -6,14 +6,18 @@ import type { CacheKeyRecord } from '../../storage/IStorage.js'
 import { deriveCacheKey } from '../../utils/uuid.js'
 
 /**
- * Create a test cache key record.
+ * Create a test cache key record with sensible defaults.
+ *
+ * Enforces coherence between `frozen` and `frozenAt`:
+ * - `frozen: true` without explicit `frozenAt` → `frozenAt` set to current time
+ * - `frozen: false` → `frozenAt` forced to `null`
  *
  * @param overrides - Optional field overrides
  * @returns Cache key record
  */
 export function createTestCacheKey(overrides: Partial<CacheKeyRecord> = {}): CacheKeyRecord {
   const now = Date.now()
-  return {
+  const base: CacheKeyRecord = {
     key: deriveCacheKey('test-collection'),
     kind: 'scope',
     linkService: null,
@@ -25,12 +29,24 @@ export function createTestCacheKey(overrides: Partial<CacheKeyRecord> = {}): Cac
     parentKey: null,
     evictionPolicy: 'persistent',
     frozen: false,
+    frozenAt: null,
+    inheritedFrozen: false,
     lastAccessedAt: now,
     expiresAt: null,
     createdAt: now,
     holdCount: 0,
+    estimatedSizeBytes: null,
     ...overrides,
   }
+
+  // Enforce frozen ↔ frozenAt coherence
+  if (base.frozen && base.frozenAt === null) {
+    base.frozenAt = now
+  } else if (!base.frozen) {
+    base.frozenAt = null
+  }
+
+  return base
 }
 
 /**

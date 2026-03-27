@@ -16,12 +16,6 @@ Reactive state returned by `createListQuery`.
 
 ## Properties
 
-### error
-
-> `readonly` **error**: `unknown`
-
----
-
 ### hasLocalChanges
 
 > `readonly` **hasLocalChanges**: `boolean`
@@ -30,7 +24,9 @@ Reactive state returned by `createListQuery`.
 
 ### items
 
-> `readonly` **items**: readonly `T`[]
+> `readonly` **items**: `T`[]
+
+Current items (may be stale during `sync-failed`, empty during `seed-failed`)
 
 ---
 
@@ -38,11 +34,13 @@ Reactive state returned by `createListQuery`.
 
 > `readonly` **loading**: `boolean`
 
+Convenience: `true` when `state.status` is `'loading'` or `'seeding'`
+
 ---
 
 ### reconciled
 
-> `readonly` **reconciled**: readonly [`ReconciledId`](ReconciledId.md)[]
+> `readonly` **reconciled**: [`ReconciledId`](ReconciledId.md)[]
 
 Recent ID reconciliations for this collection.
 Contains entries where a client-generated temp ID was replaced by a server ID.
@@ -55,6 +53,14 @@ createEffect(() => {
   }
 })
 ```
+
+---
+
+### state
+
+> `readonly` **state**: `ListQueryStatus`
+
+Lifecycle state with status-specific data
 
 ---
 

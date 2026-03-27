@@ -19,17 +19,18 @@ import { isAnticipatedEventShape } from './AnticipatedEventShape.js'
  * or cancellation, reverts those read models to their server baseline.
  */
 export function createAnticipatedEventHandler<TLink extends Link>(
-  eventCache: EventCache,
+  eventCache: EventCache<TLink>,
   cacheManager: CacheManager<TLink>,
-  eventProcessorRunner: EventProcessorRunner,
-  readModelStore: ReadModelStore,
+  eventProcessorRunner: EventProcessorRunner<TLink>,
+  readModelStore: ReadModelStore<TLink>,
   collections: Collection<TLink>[],
 ): IAnticipatedEventHandler {
   /** commandId → ["collection:id", ...] tracking which entities were optimistically updated. */
   const anticipatedUpdates = new Map<string, string[]>()
 
   return {
-    async cache(commandId: string, events: unknown[], clientId?: string): Promise<void> {
+    async cache(params): Promise<void> {
+      const { commandId, events, clientId, cacheKey } = params
       const updatedIds: string[] = []
 
       for (const raw of events) {
@@ -44,20 +45,9 @@ export function createAnticipatedEventHandler<TLink extends Link>(
           continue
         }
 
-        // TODO(lazy-load): The cache key for lazily-loaded collections should come from
-        // the active scope the command was issued against, not from a static seedCacheKey.
-        if (!collection.seedCacheKey) {
-          logProvider.log.warn(
-            { streamId: raw.streamId, commandId },
-            'Collection has no seedCacheKey for anticipated event',
-          )
-          continue
-        }
-        const cacheKey = await cacheManager.acquire(collection.seedCacheKey)
-
         const eventId = await eventCache.cacheAnticipatedEvent(
           { type: raw.type, data: raw.data, streamId: raw.streamId, commandId },
-          { cacheKey, commandId },
+          { cacheKeys: [cacheKey], commandId },
         )
 
         const parsed: ParsedEvent = {
@@ -126,7 +116,7 @@ export function createAnticipatedEventHandler<TLink extends Link>(
       }
     },
 
-    async regenerate(commandId: string, newEvents: unknown[]): Promise<void> {
+    async regenerate(commandId: string, newEvents: unknown[], cacheKey: string): Promise<void> {
       await eventCache.deleteAnticipatedEvents(commandId)
       const tracked = anticipatedUpdates.get(commandId)
       anticipatedUpdates.delete(commandId)
@@ -139,7 +129,7 @@ export function createAnticipatedEventHandler<TLink extends Link>(
           await readModelStore.clearLocalChanges(collection, id)
         }
       }
-      await this.cache(commandId, newEvents)
+      await this.cache({ commandId, events: newEvents, cacheKey })
     },
 
     getTrackedEntries(commandId: string): string[] | undefined {
@@ -155,6 +145,8 @@ export function createAnticipatedEventHandler<TLink extends Link>(
       for (const record of allEvents) {
         if (record.persistence !== 'Anticipated') continue
         if (record.commandId === excludeCommandId) continue
+        const cacheKey = record.cacheKeys[0]
+        if (!cacheKey) continue
         parsed.push({
           id: record.id,
           type: record.type,
@@ -162,7 +154,7 @@ export function createAnticipatedEventHandler<TLink extends Link>(
           persistence: 'Anticipated',
           data: typeof record.data === 'string' ? JSON.parse(record.data) : record.data,
           commandId: record.commandId ?? undefined,
-          cacheKey: record.cacheKey,
+          cacheKey,
         })
       }
       return parsed

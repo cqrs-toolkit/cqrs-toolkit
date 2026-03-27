@@ -14,24 +14,33 @@ import {
   filter,
   from,
   map,
+  merge,
   of,
   startWith,
   switchMap,
   takeUntil,
 } from 'rxjs'
-import { deriveScopeKey } from '../cache-manager/CacheKey.js'
+import type { CacheKeyIdentity } from '../cache-manager/CacheKey.js'
 import type { CacheManager } from '../cache-manager/CacheManager.js'
 import type { EventBus } from '../events/EventBus.js'
 import type { ReadModelStore } from '../read-model-store/index.js'
-import type { IQueryManager, ListQueryResult, QueryOptions, QueryResult } from './types.js'
+import type {
+  CollectionSignal,
+  GetByIdParams,
+  GetByIdsParams,
+  IQueryManager,
+  ListParams,
+  ListQueryResult,
+  QueryResult,
+} from './types.js'
 
 /**
  * Query manager configuration.
  */
 export interface QueryManagerConfig<TLink extends Link> {
-  eventBus: EventBus
+  eventBus: EventBus<TLink>
   cacheManager: CacheManager<TLink>
-  readModelStore: ReadModelStore
+  readModelStore: ReadModelStore<TLink>
 }
 
 // Re-export types for backwards compatibility
@@ -41,9 +50,9 @@ export type { ListQueryResult, QueryOptions, QueryResult } from './types.js'
  * Query manager.
  */
 export class QueryManager<TLink extends Link> implements IQueryManager<TLink> {
-  private readonly eventBus: EventBus
+  private readonly eventBus: EventBus<TLink>
   private readonly cacheManager: CacheManager<TLink>
-  private readonly readModelStore: ReadModelStore
+  private readonly readModelStore: ReadModelStore<TLink>
 
   private readonly destroy$ = new Subject<void>()
   private readonly activeHolds = new Map<string, number>()
@@ -62,19 +71,12 @@ export class QueryManager<TLink extends Link> implements IQueryManager<TLink> {
    * @param options - Query options
    * @returns Query result
    */
-  async getById<T>(
-    collection: string,
-    id: string,
-    options?: QueryOptions,
-  ): Promise<QueryResult<TLink, T>> {
-    // TODO(lazy-load): The caller should provide the cache key identity instead of
-    // QueryManager deriving a 1:1 collection→scope key mapping.
-    const identity = deriveScopeKey({ scopeType: collection })
-    const cacheKeyIdentity = await this.cacheManager.acquireKey(identity, {
-      hold: options?.hold,
+  async getById<T>(params: GetByIdParams<TLink>): Promise<QueryResult<TLink, T>> {
+    const cacheKeyIdentity = await this.cacheManager.acquireKey(params.cacheKey, {
+      hold: params.hold ?? false,
     })
 
-    const model = await this.readModelStore.getById<T>(collection, id)
+    const model = await this.readModelStore.getById<T>(params.collection, params.id)
 
     return {
       data: model?.data,
@@ -99,22 +101,15 @@ export class QueryManager<TLink extends Link> implements IQueryManager<TLink> {
    * @param options - Query options
    * @returns Map of ID to query result
    */
-  async getByIds<T>(
-    collection: string,
-    ids: string[],
-    options?: QueryOptions,
-  ): Promise<Map<string, QueryResult<TLink, T>>> {
-    // TODO(lazy-load): The caller should provide the cache key identity instead of
-    // QueryManager deriving a 1:1 collection→scope key mapping.
-    const identity = deriveScopeKey({ scopeType: collection })
-    const cacheKeyIdentity = await this.cacheManager.acquireKey(identity, {
-      hold: options?.hold,
+  async getByIds<T>(params: GetByIdsParams<TLink>): Promise<Map<string, QueryResult<TLink, T>>> {
+    const cacheKeyIdentity = await this.cacheManager.acquireKey(params.cacheKey, {
+      hold: params.hold ?? false,
     })
 
-    const models = await this.readModelStore.getByIds<T>(collection, ids)
+    const models = await this.readModelStore.getByIds<T>(params.collection, params.ids)
     const results = new Map<string, QueryResult<TLink, T>>()
 
-    for (const id of ids) {
+    for (const id of params.ids) {
       const model = models.get(id)
       results.set(id, {
         data: model?.data,
@@ -136,21 +131,18 @@ export class QueryManager<TLink extends Link> implements IQueryManager<TLink> {
    * @param options - Query options
    * @returns List query result
    */
-  async list<T>(collection: string, options?: QueryOptions): Promise<ListQueryResult<TLink, T>> {
-    // TODO(lazy-load): The caller should provide the cache key identity instead of
-    // QueryManager deriving a 1:1 collection→scope key mapping.
-    const identity = deriveScopeKey({ scopeType: collection })
-    const cacheKeyIdentity = await this.cacheManager.acquireKey(identity, {
-      hold: options?.hold,
+  async list<T>(params: ListParams<TLink>): Promise<ListQueryResult<TLink, T>> {
+    const cacheKeyIdentity = await this.cacheManager.acquireKey(params.cacheKey, {
+      hold: params.hold ?? false,
     })
 
-    // Don't filter by cache key - list all entities in the collection
-    const models = await this.readModelStore.list<T>(collection, {
-      limit: options?.limit,
-      offset: options?.offset,
+    const models = await this.readModelStore.list<T>(params.collection, {
+      limit: params.limit,
+      offset: params.offset,
+      cacheKey: cacheKeyIdentity.key,
     })
 
-    const total = await this.readModelStore.count(collection)
+    const total = await this.readModelStore.count(params.collection, cacheKeyIdentity.key)
 
     return {
       data: models.map((m) => m.data),
@@ -173,12 +165,20 @@ export class QueryManager<TLink extends Link> implements IQueryManager<TLink> {
    * @param collection - Collection name
    * @returns Observable of update notifications
    */
-  watchCollection(collection: string): Observable<string[]> {
-    return this.eventBus.on('readmodel:updated').pipe(
-      filter((event) => event.data.collection === collection),
-      map((event) => event.data.ids),
-      takeUntil(this.destroy$),
+  watchCollection(collection: string): Observable<CollectionSignal> {
+    const updated$ = this.eventBus.on('readmodel:updated').pipe(
+      filter((e) => e.data.collection === collection),
+      map((e): CollectionSignal => ({ type: 'updated', ids: e.data.ids })),
     )
+    const seedCompleted$ = this.eventBus.on('sync:seed-completed').pipe(
+      filter((e) => e.data.collection === collection),
+      map((e): CollectionSignal => ({ type: 'seed-completed', recordCount: e.data.recordCount })),
+    )
+    const syncFailed$ = this.eventBus.on('sync:failed').pipe(
+      filter((e) => e.data.collection === collection),
+      map((e): CollectionSignal => ({ type: 'sync-failed', error: e.data.error })),
+    )
+    return merge(updated$, seedCompleted$, syncFailed$).pipe(takeUntil(this.destroy$))
   }
 
   /**
@@ -188,15 +188,21 @@ export class QueryManager<TLink extends Link> implements IQueryManager<TLink> {
    * @param id - Entity ID
    * @returns Observable of the entity data
    */
-  watchById<T>(collection: string, id: string): Observable<T | undefined> {
+  watchById<T>(params: GetByIdParams<TLink>): Observable<T | undefined> {
     return this.eventBus.on('readmodel:updated').pipe(
-      filter((event) => event.data.collection === collection && event.data.ids.includes(id)),
+      filter(
+        (event) =>
+          event.data.collection === params.collection && event.data.ids.includes(params.id),
+      ),
       startWith(undefined),
       switchMap(() =>
-        from(this.readModelStore.getById<T>(collection, id)).pipe(
+        from(this.readModelStore.getById<T>(params.collection, params.id)).pipe(
           map((model) => model?.data),
           catchError((err) => {
-            logProvider.log.error({ err, collection, id }, 'Failed to load value for watchById')
+            logProvider.log.error(
+              { err, collection: params.collection, id: params.id },
+              'Failed to load value for watchById',
+            )
             return of(undefined)
           }),
         ),
@@ -233,9 +239,8 @@ export class QueryManager<TLink extends Link> implements IQueryManager<TLink> {
    *
    * @param collection - Collection name
    */
-  async touch(collection: string): Promise<void> {
-    const key = await this.cacheManager.acquire(deriveScopeKey({ scopeType: collection }))
-    await this.cacheManager.touch(key)
+  async touch(cacheKey: CacheKeyIdentity<TLink>): Promise<void> {
+    await this.cacheManager.touch(cacheKey)
   }
 
   /**

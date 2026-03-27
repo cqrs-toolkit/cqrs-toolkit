@@ -4,9 +4,15 @@
 
 [@cqrs-toolkit/client](../globals.md) / LibraryEventData
 
-# Interface: LibraryEventData
+# Interface: LibraryEventData\<TLink\>
 
 Library event data types.
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
 
 ## Properties
 
@@ -16,7 +22,7 @@ Library event data types.
 
 #### cacheKey
 
-> **cacheKey**: `string`
+> **cacheKey**: [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
 
 #### reason
 
@@ -24,25 +30,91 @@ Library event data types.
 
 ---
 
-### cache:key-acquired
+### cache:frozen-changed
 
-> **cache:key-acquired**: `object`
+> **cache:frozen-changed**: `object`
 
 #### cacheKey
 
-> **cacheKey**: `string`
+> **cacheKey**: [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
 
-#### collection
+#### frozen
 
-> **collection**: `string`
+> **frozen**: `boolean`
+
+#### frozenAt
+
+> **frozenAt**: `number` \| `null`
+
+---
+
+### cache:key-accessed
+
+> **cache:key-accessed**: `object`
+
+#### cacheKey
+
+> **cacheKey**: [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
+---
+
+### cache:key-added
+
+> **cache:key-added**: `object`
+
+#### cacheKey
+
+> **cacheKey**: [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
 
 #### evictionPolicy
 
-> **evictionPolicy**: `string`
+> **evictionPolicy**: `"persistent"` \| `"ephemeral"`
 
-#### params?
+---
 
-> `optional` **params**: `Record`\<`string`, `unknown`\>
+### cache:quota-critical
+
+> **cache:quota-critical**: `object`
+
+#### totalBytes
+
+> **totalBytes**: `number`
+
+#### usedBytes
+
+> **usedBytes**: `number`
+
+---
+
+### cache:quota-low
+
+> **cache:quota-low**: `object`
+
+#### totalBytes
+
+> **totalBytes**: `number`
+
+#### usedBytes
+
+> **usedBytes**: `number`
+
+---
+
+### cache:seed-settled
+
+> **cache:seed-settled**: `object`
+
+#### cacheKey
+
+> **cacheKey**: [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
+#### collections
+
+> **collections**: `object`[]
+
+#### status
+
+> **status**: `"succeeded"` \| `"failed"`
 
 ---
 
@@ -78,6 +150,10 @@ Library event data types.
 
 > **command:completed**: `object`
 
+#### cacheKey
+
+> **cacheKey**: [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
 #### commandId
 
 > **commandId**: `string`
@@ -92,6 +168,10 @@ Library event data types.
 
 > **command:enqueued**: `object`
 
+#### cacheKey
+
+> **cacheKey**: [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
 #### commandId
 
 > **commandId**: `string`
@@ -105,6 +185,10 @@ Library event data types.
 ### command:failed
 
 > **command:failed**: `object`
+
+#### cacheKey
+
+> **cacheKey**: [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
 
 #### commandId
 
@@ -167,6 +251,10 @@ Library event data types.
 ### command:status-changed
 
 > **command:status-changed**: `object`
+
+#### cacheKey
+
+> **cacheKey**: [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
 
 #### commandId
 
@@ -366,7 +454,7 @@ Library event data types.
 
 #### cacheKey
 
-> **cacheKey**: `string`
+> **cacheKey**: [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
 
 #### collection
 

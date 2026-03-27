@@ -23,10 +23,10 @@ import type {
   CommandFilter,
   CommandRecord,
   CommandStatus,
-  EnqueueAndWaitOptions,
+  EnqueueAndWaitParams,
   EnqueueAndWaitResult,
   EnqueueCommand,
-  EnqueueOptions,
+  EnqueueParams,
   EnqueueResult,
   TerminalCommandStatus,
   WaitOptions,
@@ -59,18 +59,25 @@ import { CommandSendError } from './types.js'
 export interface IAnticipatedEventHandler {
   /**
    * Cache anticipated events in EventCache and send through event processor pipeline.
-   *
-   * @param commandId - Command that produced these events
-   * @param events - Anticipated events to cache
-   * @param clientId - For creates with temporary ID: the client-generated entity ID.
-   *   When provided, sets `_clientMetadata` on the created read model entries so the
-   *   original ID can be tracked through server ID reconciliation.
    */
-  cache(commandId: string, events: unknown[], clientId?: string): Promise<void>
+  cache(params: {
+    /** Command that produced these events */
+    commandId: string
+    /** Anticipated events to cache */
+    events: unknown[]
+    /**
+     * For creates with temporary ID: the client-generated entity ID.
+     * When provided, sets `_clientMetadata` on the created read model entries so the
+     * original ID can be tracked through server ID reconciliation.
+     */
+    clientId?: string
+    /** Cache key string for associating anticipated events with the correct data scope. */
+    cacheKey: string
+  }): Promise<void>
   /** Clean up anticipated events when command reaches terminal state. Clears local changes for tracked entries. */
   cleanup(commandId: string, terminalStatus: TerminalCommandStatus): Promise<void>
   /** Replace anticipated events for a command (used when data is rewritten after a dependency succeeds). */
-  regenerate(commandId: string, newEvents: unknown[]): Promise<void>
+  regenerate(commandId: string, newEvents: unknown[], cacheKey: string): Promise<void>
   /** Get tracked read model entries for a command (e.g., ["todos:client-abc"]). */
   getTrackedEntries(commandId: string): string[] | undefined
   /** Get anticipated events for a stream, excluding a specific command's events. For re-applying overlays during reconciliation. */
@@ -83,16 +90,16 @@ export interface IAnticipatedEventHandler {
  * Command queue configuration.
  */
 export interface CommandQueueConfig<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent> {
-  storage: IStorage
-  eventBus: EventBus
+  storage: IStorage<TLink>
+  eventBus: EventBus<TLink>
   anticipatedEventHandler: IAnticipatedEventHandler
   domainExecutor?: IDomainExecutor
   /** Metadata lookup for command handler registrations (creates config). */
   handlerMetadata?: ICommandHandlerMetadata<TLink, TSchema, TEvent>
-  commandSender?: ICommandSender
+  commandSender?: ICommandSender<TLink>
   retryConfig?: RetryConfig
   defaultService?: string
-  onCommandResponse?: (command: CommandRecord, response: unknown) => Promise<void>
+  onCommandResponse?: (command: CommandRecord<TLink>, response: unknown) => Promise<void>
   /** When true, terminal commands are retained in storage instead of being cleaned up. */
   retainTerminal?: boolean
   /** TTL for command ID mappings in milliseconds. Default: 5 minutes. */
@@ -137,20 +144,23 @@ export class CommandQueue<
   TLink extends Link,
   TSchema,
   TEvent extends IAnticipatedEvent,
-> implements ICommandQueue {
-  private readonly storage: IStorage
-  private readonly eventBus: EventBus
+> implements ICommandQueue<TLink> {
+  private readonly storage: IStorage<TLink>
+  private readonly eventBus: EventBus<TLink>
   private readonly anticipatedEventHandler: IAnticipatedEventHandler
   private readonly domainExecutor?: IDomainExecutor
   private readonly handlerMetadata?: ICommandHandlerMetadata<TLink, TSchema, TEvent>
-  private readonly commandSender?: ICommandSender
+  private readonly commandSender?: ICommandSender<TLink>
   private readonly retryConfig: RetryConfig
   private readonly defaultService: string
-  private readonly onCommandResponse?: (command: CommandRecord, response: unknown) => Promise<void>
+  private readonly onCommandResponse?: (
+    command: CommandRecord<TLink>,
+    response: unknown,
+  ) => Promise<void>
   private readonly retainTerminal: boolean
   private readonly commandIdMappingTtl: number
 
-  private readonly commandEvents = new Subject<CommandEvent>()
+  protected readonly commandEvents = new Subject<CommandEvent>()
   private readonly destroy$ = new Subject<void>()
 
   private readonly retryTimers = new Set<ReturnType<typeof setTimeout>>()
@@ -185,10 +195,10 @@ export class CommandQueue<
   }
 
   async enqueue<TData, TEvent>(
-    command: EnqueueCommand<TData>,
-    options?: EnqueueOptions,
+    params: EnqueueParams<TLink, TData>,
   ): Promise<EnqueueResult<TEvent>> {
-    const commandId = options?.commandId ?? generateId()
+    const { command, cacheKey, skipValidation } = params
+    const commandId = params.commandId ?? generateId()
     const now = Date.now()
 
     // Look up handler registration metadata (creates, revisionField)
@@ -201,9 +211,9 @@ export class CommandQueue<
 
     // Run domain validation if executor is available and not skipped
     let anticipatedEvents: TEvent[] = []
-    let postProcess: CommandRecord['postProcess']
+    let postProcess: CommandRecord<TLink>['postProcess']
 
-    if (this.domainExecutor && !options?.skipValidation) {
+    if (this.domainExecutor && !skipValidation) {
       // Trust boundary: the consumer-provided domainExecutor is expected to produce
       // TEvent-compatible anticipated events. TypeScript cannot verify this without
       // making CommandQueue generic in TEvent, which would propagate through the
@@ -246,8 +256,9 @@ export class CommandQueue<
     const initialStatus: CommandStatus = blockedBy.length > 0 ? 'blocked' : 'pending'
 
     // Create command record
-    const record: CommandRecord<TData> = {
+    const record: CommandRecord<TLink, TData> = {
       commandId,
+      cacheKey,
       service: command.service ?? this.defaultService,
       type: command.type,
       data: patchedCommand.data,
@@ -276,7 +287,12 @@ export class CommandQueue<
           : undefined
 
       try {
-        await this.anticipatedEventHandler.cache(commandId, anticipatedEvents, clientId)
+        await this.anticipatedEventHandler.cache({
+          commandId,
+          events: anticipatedEvents,
+          clientId,
+          cacheKey: cacheKey.key, // string for EventCache and ReadModelStore
+        })
       } catch (err) {
         logProvider.log.error(
           { err, commandId },
@@ -294,7 +310,11 @@ export class CommandQueue<
     this.emitCommandEvent('enqueued', record)
 
     // Also emit to library event bus
-    this.eventBus.emit('command:enqueued', { commandId, type: command.type })
+    this.eventBus.emit('command:enqueued', {
+      commandId,
+      type: command.type,
+      cacheKey,
+    })
 
     // Trigger processing for the newly enqueued command
     if (!this._paused && initialStatus === 'pending') {
@@ -336,17 +356,16 @@ export class CommandQueue<
   }
 
   async enqueueAndWait<TData, TEvent, TResponse>(
-    command: EnqueueCommand<TData>,
-    options?: EnqueueAndWaitOptions,
+    params: EnqueueAndWaitParams<TLink, TData>,
   ): Promise<EnqueueAndWaitResult<TResponse>> {
-    const enqueueResult = await this.enqueue<TData, TEvent>(command, options)
+    const enqueueResult = await this.enqueue<TData, TEvent>(params)
 
     if (!enqueueResult.ok) {
       const errors: ValidationError[] = enqueueResult.error.details ?? []
       return Err(new EnqueueAndWaitException(errors, 'local'))
     }
 
-    const completionResult = await this.waitForCompletion(enqueueResult.value.commandId, options)
+    const completionResult = await this.waitForCompletion(enqueueResult.value.commandId, params)
 
     switch (completionResult.status) {
       case 'succeeded':
@@ -378,11 +397,11 @@ export class CommandQueue<
     return this.events$.pipe(filter((event) => event.commandId === commandId))
   }
 
-  async getCommand(commandId: string): Promise<CommandRecord | undefined> {
+  async getCommand(commandId: string): Promise<CommandRecord<TLink> | undefined> {
     return this.storage.getCommand(commandId)
   }
 
-  async listCommands(filter?: CommandFilter): Promise<CommandRecord[]> {
+  async listCommands(filter?: CommandFilter): Promise<CommandRecord<TLink>[]> {
     return this.storage.getCommands(filter)
   }
 
@@ -464,7 +483,7 @@ export class CommandQueue<
     }
   }
 
-  private async processCommand(command: CommandRecord): Promise<void> {
+  private async processCommand(command: CommandRecord<TLink>): Promise<void> {
     if (!this.commandSender) {
       return
     }
@@ -546,6 +565,7 @@ export class CommandQueue<
       this.eventBus.emit('command:completed', {
         commandId: current.commandId,
         type: current.type,
+        cacheKey: current.cacheKey,
       })
     } catch (error) {
       const commandError = this.toCommandError(error)
@@ -582,12 +602,13 @@ export class CommandQueue<
           commandId: current.commandId,
           type: current.type,
           error: commandError.message,
+          cacheKey: current.cacheKey,
         })
       }
     }
   }
 
-  private async unblockDependentCommands(parentCommand: CommandRecord): Promise<void> {
+  private async unblockDependentCommands(parentCommand: CommandRecord<TLink>): Promise<void> {
     const blockedCommands = await this.storage.getCommandsBlockedBy(parentCommand.commandId)
     if (blockedCommands.length === 0) return
 
@@ -666,6 +687,7 @@ export class CommandQueue<
               await this.anticipatedEventHandler.regenerate(
                 command.commandId,
                 result.value.anticipatedEvents as unknown[],
+                command.cacheKey.key,
               )
             } catch (err) {
               logProvider.log.error(
@@ -696,7 +718,9 @@ export class CommandQueue<
    * Called unconditionally when any command succeeds. Returns a non-empty map only for
    * create commands with temporary IDs.
    */
-  private async reconcileCreateIds(command: CommandRecord): Promise<Record<string, IdMapEntry>> {
+  private async reconcileCreateIds(
+    command: CommandRecord<TLink>,
+  ): Promise<Record<string, IdMapEntry>> {
     const map: Record<string, IdMapEntry> = {}
     if (!command.creates || command.creates.idStrategy !== 'temporary') return map
     if (!command.serverResponse) return map
@@ -743,7 +767,7 @@ export class CommandQueue<
    * Extract the revision from a command's server response body.
    * Reads the `nextExpectedRevision` field (globally configured default).
    */
-  private extractRevisionFromResponse(command: CommandRecord): string | undefined {
+  private extractRevisionFromResponse(command: CommandRecord<TLink>): string | undefined {
     if (!command.serverResponse) return undefined
     return this.readResponseField(command.serverResponse, 'nextExpectedRevision')
   }
@@ -765,7 +789,7 @@ export class CommandQueue<
    * ID replacement is handled by rewriteCommandsWithStaleIds — this only handles revision.
    */
   private async resolveDependentRevision(
-    command: CommandRecord,
+    command: CommandRecord<TLink>,
     parentRevision: string | undefined,
   ): Promise<void> {
     if (command.revision === undefined || parentRevision === undefined) return
@@ -787,6 +811,7 @@ export class CommandQueue<
           await this.anticipatedEventHandler.regenerate(
             command.commandId,
             result.value.anticipatedEvents as unknown[],
+            command.cacheKey.key,
           )
         } catch (err) {
           logProvider.log.error(
@@ -828,7 +853,7 @@ export class CommandQueue<
     command: EnqueueCommand<TData>,
     registration:
       | {
-          creates?: CommandRecord['creates']
+          creates?: CommandRecord<TLink>['creates']
           parentRef?: ParentRefConfig[]
         }
       | undefined,
@@ -929,7 +954,7 @@ export class CommandQueue<
    * Resolve AUTO_REVISION marker in a command's revision before sending to the server.
    * Returns a new command record with the resolved revision (or the original if no resolution needed).
    */
-  private resolveAutoRevisionForSend(command: CommandRecord): CommandRecord {
+  private resolveAutoRevisionForSend(command: CommandRecord<TLink>): CommandRecord<TLink> {
     if (!isAutoRevision(command.revision)) return command
 
     // Use the fallback revision from the marker (the read model revision the consumer passed)
@@ -949,7 +974,7 @@ export class CommandQueue<
     commandType: string,
     data: unknown,
     anticipatedEvents: TEvent[],
-    registration: { creates?: CommandRecord['creates'] } | undefined,
+    registration: { creates?: CommandRecord<TLink>['creates'] } | undefined,
   ): string[] {
     if (!registration) return []
 
@@ -1028,7 +1053,7 @@ export class CommandQueue<
    * For mutate commands, the entity ID comes from data.id.
    */
   private buildUpdatingContext(
-    command: CommandRecord,
+    command: CommandRecord<TLink>,
     data: Record<string, unknown>,
   ): HandlerContext {
     const entityId = command.creates
@@ -1048,12 +1073,12 @@ export class CommandQueue<
   }
 
   private async updateCommandStatus(
-    command: CommandRecord,
+    command: CommandRecord<TLink>,
     newStatus: CommandStatus,
-    additionalUpdates?: Partial<CommandRecord>,
-  ): Promise<CommandRecord> {
+    additionalUpdates?: Partial<CommandRecord<TLink>>,
+  ): Promise<CommandRecord<TLink>> {
     const previousStatus = command.status
-    const updates: Partial<CommandRecord> = {
+    const updates: Partial<CommandRecord<TLink>> = {
       status: newStatus,
       updatedAt: Date.now(),
       ...additionalUpdates,
@@ -1086,6 +1111,7 @@ export class CommandQueue<
         commandId: command.commandId,
         status: newStatus,
         previousStatus,
+        cacheKey: command.cacheKey,
       })
     }
 
@@ -1094,7 +1120,7 @@ export class CommandQueue<
 
   private emitCommandEvent(
     eventType: CommandEvent['eventType'],
-    command: CommandRecord,
+    command: CommandRecord<TLink>,
     previousStatus?: CommandStatus,
   ): void {
     const event: CommandEvent = {
@@ -1111,7 +1137,7 @@ export class CommandQueue<
     this.commandEvents.next(event)
   }
 
-  private toCompletionResult(command: CommandRecord): CommandCompletionResult {
+  private toCompletionResult(command: CommandRecord<TLink>): CommandCompletionResult {
     switch (command.status) {
       case 'succeeded':
         return { status: 'succeeded', response: command.serverResponse }

@@ -1,11 +1,11 @@
-import { IQueryManager } from '@cqrs-toolkit/client'
+import { type CacheKeyIdentity, IQueryManager } from '@cqrs-toolkit/client'
 import {
   createItemQuery,
   createListQuery,
   type Identifiable,
-  type ItemQueryOptions,
+  type ItemQueryParams,
   type ItemQueryState,
-  type ListQueryOptions,
+  type ListQueryParams,
   type ListQueryState,
 } from '@cqrs-toolkit/client-solid'
 import { ServiceLink } from '@meticoeus/ddd-es'
@@ -13,16 +13,27 @@ import { ServiceLink } from '@meticoeus/ddd-es'
 export function appCreateListQuery<T extends Identifiable>(
   queryManager: IQueryManager<ServiceLink>,
   collection: string,
-  options?: ListQueryOptions,
+  cacheKey: CacheKeyIdentity<ServiceLink> | (() => CacheKeyIdentity<ServiceLink> | undefined),
+  options?: { limit?: number; offset?: number },
 ): ListQueryState<T> {
-  return createListQuery<ServiceLink, T>(queryManager, collection, options)
+  const params: ListQueryParams<ServiceLink> = {
+    collection,
+    cacheKey,
+    ...options,
+  }
+  return createListQuery<ServiceLink, T>(queryManager, params)
 }
 
 export function appCreateItemQuery<T extends Identifiable>(
   queryManager: IQueryManager<ServiceLink>,
   collection: string,
-  id: () => string,
-  options?: ItemQueryOptions,
+  id: string | (() => string),
+  cacheKey: CacheKeyIdentity<ServiceLink> | (() => CacheKeyIdentity<ServiceLink> | undefined),
 ): ItemQueryState<T> {
-  return createItemQuery<ServiceLink, T>(queryManager, collection, id, options)
+  const params: ItemQueryParams<ServiceLink> = {
+    collection,
+    id,
+    cacheKey,
+  }
+  return createItemQuery<ServiceLink, T>(queryManager, params)
 }

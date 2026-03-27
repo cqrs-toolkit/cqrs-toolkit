@@ -14,15 +14,15 @@ import type { Link } from '@meticoeus/ddd-es'
 import type { CacheKeyRecord, IStorage } from '../../storage/IStorage.js'
 import type { CacheConfig } from '../../types/config.js'
 import type { EventBus } from '../events/EventBus.js'
-import { type CacheKeyIdentity, identityToRecord } from './CacheKey.js'
+import { type CacheKeyIdentity, hydrateCacheKeyIdentity, identityToRecord } from './CacheKey.js'
 import type { AcquireCacheKeyOptions, ICacheManager } from './types.js'
 
 /**
  * Cache manager configuration.
  */
-export interface CacheManagerConfig {
-  storage: IStorage
-  eventBus: EventBus
+export interface CacheManagerConfig<TLink extends Link> {
+  storage: IStorage<TLink>
+  eventBus: EventBus<TLink>
   cacheConfig?: CacheConfig
   /** Unique identifier for this window/tab */
   windowId: string
@@ -35,8 +35,8 @@ export type { AcquireCacheKeyOptions } from './types.js'
  * Cache manager implementation.
  */
 export class CacheManager<TLink extends Link> implements ICacheManager<TLink> {
-  private readonly storage: IStorage
-  private readonly eventBus: EventBus
+  private readonly storage: IStorage<TLink>
+  private readonly eventBus: EventBus<TLink>
   private readonly maxCacheKeys: number
   private readonly defaultTtl: number
   private readonly evictionPolicy: 'lru' | 'fifo'
@@ -49,7 +49,7 @@ export class CacheManager<TLink extends Link> implements ICacheManager<TLink> {
   /** Registered windows (for capacity guard) */
   private readonly registeredWindows = new Set<string>()
 
-  constructor(config: CacheManagerConfig) {
+  constructor(config: CacheManagerConfig<TLink>) {
     this.storage = config.storage
     this.eventBus = config.eventBus
     this.maxCacheKeys = config.cacheConfig?.maxCacheKeys ?? 1000
@@ -76,7 +76,10 @@ export class CacheManager<TLink extends Link> implements ICacheManager<TLink> {
     for (const record of allKeys) {
       if (record.evictionPolicy === 'ephemeral') {
         await this.storage.deleteCacheKey(record.key)
-        this.eventBus.emit('cache:evicted', { cacheKey: record.key, reason: 'explicit' })
+        this.eventBus.emit('cache:evicted', {
+          cacheKey: hydrateCacheKeyIdentity(record),
+          reason: 'explicit',
+        })
       }
     }
 
@@ -89,10 +92,10 @@ export class CacheManager<TLink extends Link> implements ICacheManager<TLink> {
    * Convenience wrapper around {@link acquireKey} for callers that only need the key.
    */
   async acquire(
-    identity: CacheKeyIdentity<TLink>,
+    cacheKey: CacheKeyIdentity<TLink>,
     options?: AcquireCacheKeyOptions,
   ): Promise<string> {
-    const result = await this.acquireKey(identity, options)
+    const result = await this.acquireKey(cacheKey, options)
     return result.key
   }
 
@@ -101,18 +104,19 @@ export class CacheManager<TLink extends Link> implements ICacheManager<TLink> {
    * Returns the full identity object with the derived UUID key and all source data.
    */
   async acquireKey(
-    identity: CacheKeyIdentity<TLink>,
+    cacheKey: CacheKeyIdentity<TLink>,
     options?: AcquireCacheKeyOptions,
   ): Promise<CacheKeyIdentity<TLink>> {
-    const key = identity.key
+    const key = cacheKey.key
     let record = await this.storage.getCacheKey(key)
     const now = Date.now()
+    const isNew = !record
 
     if (!record) {
       await this.maybeEvict()
 
       const ttl = options?.ttl ?? this.defaultTtl
-      record = identityToRecord(identity, {
+      record = identityToRecord(cacheKey, {
         evictionPolicy: options?.evictionPolicy ?? 'persistent',
         expiresAt: ttl > 0 ? now + ttl : null,
         now,
@@ -126,13 +130,16 @@ export class CacheManager<TLink extends Link> implements ICacheManager<TLink> {
       await this.hold(key)
     }
 
-    this.eventBus.emitDebug('cache:key-acquired', {
-      cacheKey: key,
-      collection: identity.kind === 'entity' ? identity.link.type : identity.scopeType,
-      evictionPolicy: record.evictionPolicy,
-    })
+    if (isNew) {
+      this.eventBus.emit('cache:key-added', {
+        cacheKey: cacheKey,
+        evictionPolicy: record.evictionPolicy,
+      })
+    } else {
+      this.eventBus.emit('cache:key-accessed', { cacheKey })
+    }
 
-    return identity
+    return cacheKey
   }
 
   async exists(key: string): Promise<boolean> {
@@ -144,8 +151,8 @@ export class CacheManager<TLink extends Link> implements ICacheManager<TLink> {
     return this.storage.getCacheKey(key)
   }
 
-  async touch(key: string): Promise<void> {
-    await this.storage.touchCacheKey(key)
+  async touch(cacheKey: CacheKeyIdentity<TLink>): Promise<void> {
+    await this.acquireKey(cacheKey, { hold: false })
   }
 
   /**
@@ -192,7 +199,10 @@ export class CacheManager<TLink extends Link> implements ICacheManager<TLink> {
       const record = await this.storage.getCacheKey(key)
       if (record?.evictionPolicy === 'ephemeral') {
         await this.storage.deleteCacheKey(key)
-        this.eventBus.emit('cache:evicted', { cacheKey: key, reason: 'explicit' })
+        this.eventBus.emit('cache:evicted', {
+          cacheKey: hydrateCacheKeyIdentity(record),
+          reason: 'explicit',
+        })
       }
     }
   }
@@ -216,7 +226,10 @@ export class CacheManager<TLink extends Link> implements ICacheManager<TLink> {
         const record = await this.storage.getCacheKey(key)
         if (record?.evictionPolicy === 'ephemeral') {
           await this.storage.deleteCacheKey(key)
-          this.eventBus.emit('cache:evicted', { cacheKey: key, reason: 'explicit' })
+          this.eventBus.emit('cache:evicted', {
+            cacheKey: hydrateCacheKeyIdentity(record),
+            reason: 'explicit',
+          })
         }
       }
     }
@@ -253,15 +266,28 @@ export class CacheManager<TLink extends Link> implements ICacheManager<TLink> {
 
   async freeze(key: string): Promise<void> {
     const record = await this.storage.getCacheKey(key)
-    if (record && record.evictionPolicy !== 'ephemeral') {
-      await this.storage.saveCacheKey({ ...record, frozen: true })
+    if (record && record.evictionPolicy !== 'ephemeral' && !record.frozen) {
+      const frozenAt = Date.now()
+      await this.storage.saveCacheKey({ ...record, frozen: true, frozenAt })
+      this.eventBus.emit('cache:frozen-changed', {
+        cacheKey: hydrateCacheKeyIdentity(record),
+        frozen: true,
+        frozenAt,
+      })
+      await this.propagateInheritedFrozen(key, true)
     }
   }
 
   async unfreeze(key: string): Promise<void> {
     const record = await this.storage.getCacheKey(key)
-    if (record) {
-      await this.storage.saveCacheKey({ ...record, frozen: false })
+    if (record && record.frozen) {
+      await this.storage.saveCacheKey({ ...record, frozen: false, frozenAt: null })
+      this.eventBus.emit('cache:frozen-changed', {
+        cacheKey: hydrateCacheKeyIdentity(record),
+        frozen: false,
+        frozenAt: null,
+      })
+      await this.reevaluateInheritedFrozen(key)
     }
   }
 
@@ -280,23 +306,40 @@ export class CacheManager<TLink extends Link> implements ICacheManager<TLink> {
       return false
     }
 
-    if (record.frozen) {
+    if (record.frozen || record.inheritedFrozen) {
+      return false
+    }
+
+    // Cannot evict a parent while children exist
+    const children = await this.storage.getChildCacheKeys(key)
+    if (children.length > 0) {
       return false
     }
 
     await this.storage.deleteCacheKey(key)
-    this.eventBus.emit('cache:evicted', { cacheKey: key, reason: 'explicit' })
+    this.eventBus.emit('cache:evicted', {
+      cacheKey: hydrateCacheKeyIdentity(record),
+      reason: 'explicit',
+    })
     return true
   }
 
   async evictAll(): Promise<number> {
-    const evictable = await this.storage.getEvictableCacheKeys(Number.MAX_SAFE_INTEGER)
     let count = 0
 
-    for (const record of evictable) {
-      await this.storage.deleteCacheKey(record.key)
-      this.eventBus.emit('cache:evicted', { cacheKey: record.key, reason: 'explicit' })
-      count++
+    // Bottom-up: repeatedly evict leaf keys until no more are evictable.
+    // Each pass only returns leaf keys (no children) that are eligible.
+    let evictable = await this.storage.getEvictableCacheKeys(Number.MAX_SAFE_INTEGER)
+    while (evictable.length > 0) {
+      for (const record of evictable) {
+        await this.storage.deleteCacheKey(record.key)
+        this.eventBus.emit('cache:evicted', {
+          cacheKey: hydrateCacheKeyIdentity(record),
+          reason: 'explicit',
+        })
+        count++
+      }
+      evictable = await this.storage.getEvictableCacheKeys(Number.MAX_SAFE_INTEGER)
     }
 
     return count
@@ -308,9 +351,18 @@ export class CacheManager<TLink extends Link> implements ICacheManager<TLink> {
     let count = 0
 
     for (const record of allKeys) {
-      if (record.expiresAt !== null && record.expiresAt <= now && record.holdCount === 0) {
+      if (
+        record.expiresAt !== null &&
+        record.expiresAt <= now &&
+        record.holdCount === 0 &&
+        !record.frozen &&
+        !record.inheritedFrozen
+      ) {
         await this.storage.deleteCacheKey(record.key)
-        this.eventBus.emit('cache:evicted', { cacheKey: record.key, reason: 'expired' })
+        this.eventBus.emit('cache:evicted', {
+          cacheKey: hydrateCacheKeyIdentity(record),
+          reason: 'expired',
+        })
         count++
       }
     }
@@ -349,7 +401,10 @@ export class CacheManager<TLink extends Link> implements ICacheManager<TLink> {
     const allKeys = await this.storage.getAllCacheKeys()
     for (const record of allKeys) {
       await this.storage.deleteCacheKey(record.key)
-      this.eventBus.emit('cache:evicted', { cacheKey: record.key, reason: 'session-change' })
+      this.eventBus.emit('cache:evicted', {
+        cacheKey: hydrateCacheKeyIdentity(record),
+        reason: 'session-change',
+      })
     }
     this.holdsByKey.clear()
   }
@@ -357,6 +412,53 @@ export class CacheManager<TLink extends Link> implements ICacheManager<TLink> {
   // ---------------------------------------------------------------------------
   // Private
   // ---------------------------------------------------------------------------
+
+  /**
+   * Propagate inheritedFrozen = true to all descendants of a key.
+   * Called when a key is frozen — all children (recursively) inherit the frozen state.
+   */
+  private async propagateInheritedFrozen(key: string, frozen: boolean): Promise<void> {
+    const children = await this.storage.getChildCacheKeys(key)
+    for (const child of children) {
+      // §2.6: Ephemeral keys never contribute to or receive inherited freeze state
+      if (child.evictionPolicy === 'ephemeral') continue
+      if (child.inheritedFrozen !== frozen) {
+        await this.storage.saveCacheKey({ ...child, inheritedFrozen: frozen })
+      }
+      await this.propagateInheritedFrozen(child.key, frozen)
+    }
+  }
+
+  /**
+   * Re-evaluate inheritedFrozen for all descendants of a key.
+   * Called when a key is unfrozen — children may still inherit freeze from other ancestors.
+   */
+  private async reevaluateInheritedFrozen(key: string): Promise<void> {
+    const children = await this.storage.getChildCacheKeys(key)
+    for (const child of children) {
+      // §2.6: Ephemeral keys never contribute to or receive inherited freeze state
+      if (child.evictionPolicy === 'ephemeral') continue
+      const shouldBeInherited = await this.isAncestorFrozen(child.key)
+      if (child.inheritedFrozen !== shouldBeInherited) {
+        await this.storage.saveCacheKey({ ...child, inheritedFrozen: shouldBeInherited })
+      }
+      await this.reevaluateInheritedFrozen(child.key)
+    }
+  }
+
+  /**
+   * Check if any ancestor in the parent chain is frozen.
+   */
+  private async isAncestorFrozen(key: string): Promise<boolean> {
+    const record = await this.storage.getCacheKey(key)
+    if (!record?.parentKey) return false
+
+    const parent = await this.storage.getCacheKey(record.parentKey)
+    if (!parent) return false
+    if (parent.frozen) return true
+
+    return this.isAncestorFrozen(parent.key)
+  }
 
   private async maybeEvict(): Promise<void> {
     const count = await this.getCount()
@@ -367,7 +469,10 @@ export class CacheManager<TLink extends Link> implements ICacheManager<TLink> {
     const evictable = await this.storage.getEvictableCacheKeys(1)
     for (const record of evictable) {
       await this.storage.deleteCacheKey(record.key)
-      this.eventBus.emit('cache:evicted', { cacheKey: record.key, reason: 'lru' })
+      this.eventBus.emit('cache:evicted', {
+        cacheKey: hydrateCacheKeyIdentity(record),
+        reason: 'lru',
+      })
     }
   }
 }

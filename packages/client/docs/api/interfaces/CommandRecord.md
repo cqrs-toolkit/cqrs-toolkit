@@ -4,11 +4,15 @@
 
 [@cqrs-toolkit/client](../globals.md) / CommandRecord
 
-# Interface: CommandRecord\<TData, TResponse\>
+# Interface: CommandRecord\<TLink, TData, TResponse\>
 
 Persisted command record.
 
 ## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
 
 ### TData
 
@@ -33,6 +37,14 @@ Number of send attempts
 > **blockedBy**: `string`[]
 
 Commands blocked by this command
+
+---
+
+### cacheKey
+
+> **cacheKey**: [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
+Cache key identity — associates this command's events with the correct data scope. Serialized as JSON in SQL storage.
 
 ---
 

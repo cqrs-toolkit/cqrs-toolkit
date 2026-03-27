@@ -62,6 +62,28 @@ export class NoteRepository extends Repository<NoteServerEvent, NoteAggregate> {
     return Array.from(this.readModels.values()).filter((n) => n.notebookId === notebookId)
   }
 
+  listByNotebook(
+    notebookId: string,
+    cursor?: string,
+    limit = 50,
+  ): { items: Note[]; nextCursor: string | null } {
+    const filtered = this.findByNotebookId(notebookId)
+    const sorted = filtered.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+
+    let startIndex = 0
+    if (cursor) {
+      startIndex = sorted.findIndex((n) => n.id === cursor)
+      if (startIndex === -1) startIndex = 0
+      else startIndex += 1
+    }
+
+    const items = sorted.slice(startIndex, startIndex + limit)
+    const hasMore = startIndex + limit < sorted.length
+    const nextCursor = hasMore ? (items[items.length - 1]?.id ?? null) : null
+
+    return { items, nextCursor }
+  }
+
   list(cursor?: string, limit = 50): { items: Note[]; nextCursor: string | null } {
     const sorted = Array.from(this.readModels.values()).sort((a, b) =>
       a.createdAt.localeCompare(b.createdAt),

@@ -4,12 +4,68 @@
 
 [@cqrs-toolkit/client](../globals.md) / IStorage
 
-# Interface: IStorage
+# Interface: IStorage\<TLink\>
 
 Storage interface.
 All methods are async to support both sync (in-memory) and async (SQLite) backends.
 
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
+
 ## Methods
+
+### addCacheKeysToEvent()
+
+> **addCacheKeysToEvent**(`eventId`, `cacheKeys`): `Promise`\<`void`\>
+
+Add cache key associations to an existing event.
+Used when a WS event is relevant to additional active cache keys.
+
+#### Parameters
+
+##### eventId
+
+`string`
+
+##### cacheKeys
+
+`string`[]
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
+### addCacheKeysToReadModel()
+
+> **addCacheKeysToReadModel**(`collection`, `id`, `cacheKeys`): `Promise`\<`void`\>
+
+Add cache key associations to an existing read model.
+Used when a read model is relevant to additional active cache keys.
+
+#### Parameters
+
+##### collection
+
+`string`
+
+##### id
+
+`string`
+
+##### cacheKeys
+
+`string`[]
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
 
 ### beginTransaction()?
 
@@ -66,6 +122,28 @@ Commit a transaction.
 
 ---
 
+### countReadModels()
+
+> **countReadModels**(`collection`, `cacheKey?`): `Promise`\<`number`\>
+
+Count read model records in a collection, optionally filtered by cache key.
+
+#### Parameters
+
+##### collection
+
+`string`
+
+##### cacheKey?
+
+`string`
+
+#### Returns
+
+`Promise`\<`number`\>
+
+---
+
 ### deleteAllCommandIdMappings()
 
 > **deleteAllCommandIdMappings**(): `Promise`\<`void`\>
@@ -117,24 +195,6 @@ Delete a cached event.
 #### Parameters
 
 ##### id
-
-`string`
-
-#### Returns
-
-`Promise`\<`void`\>
-
----
-
-### deleteCachedEventsByCacheKey()
-
-> **deleteCachedEventsByCacheKey**(`cacheKey`): `Promise`\<`void`\>
-
-Delete all cached events for a cache key.
-
-#### Parameters
-
-##### cacheKey
 
 `string`
 
@@ -211,24 +271,6 @@ Delete a read model record.
 `string`
 
 ##### id
-
-`string`
-
-#### Returns
-
-`Promise`\<`void`\>
-
----
-
-### deleteReadModelsByCacheKey()
-
-> **deleteReadModelsByCacheKey**(`cacheKey`): `Promise`\<`void`\>
-
-Delete all read model records for a cache key.
-
-#### Parameters
-
-##### cacheKey
 
 `string`
 
@@ -370,9 +412,27 @@ Get a cache key record.
 
 ---
 
+### getChildCacheKeys()
+
+> **getChildCacheKeys**(`parentKey`): `Promise`\<[`CacheKeyRecord`](CacheKeyRecord.md)[]\>
+
+Get child cache keys whose parentKey matches the given key.
+
+#### Parameters
+
+##### parentKey
+
+`string`
+
+#### Returns
+
+`Promise`\<[`CacheKeyRecord`](CacheKeyRecord.md)[]\>
+
+---
+
 ### getCommand()
 
-> **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`unknown`, `unknown`\> \| `undefined`\>
+> **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `unknown`, `unknown`\> \| `undefined`\>
 
 Get a command by ID.
 
@@ -384,7 +444,7 @@ Get a command by ID.
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](CommandRecord.md)\<`unknown`, `unknown`\> \| `undefined`\>
+`Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `unknown`, `unknown`\> \| `undefined`\>
 
 ---
 
@@ -426,7 +486,7 @@ Get a command ID mapping by server ID.
 
 ### getCommands()
 
-> **getCommands**(`filter?`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`unknown`, `unknown`\>[]\>
+> **getCommands**(`filter?`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
 
 Get commands matching a filter.
 
@@ -438,13 +498,13 @@ Get commands matching a filter.
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](CommandRecord.md)\<`unknown`, `unknown`\>[]\>
+`Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
 
 ---
 
 ### getCommandsBlockedBy()
 
-> **getCommandsBlockedBy**(`commandId`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`unknown`, `unknown`\>[]\>
+> **getCommandsBlockedBy**(`commandId`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
 
 Get commands blocked by a specific command.
 
@@ -456,13 +516,13 @@ Get commands blocked by a specific command.
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](CommandRecord.md)\<`unknown`, `unknown`\>[]\>
+`Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
 
 ---
 
 ### getCommandsByStatus()
 
-> **getCommandsByStatus**(`status`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`unknown`, `unknown`\>[]\>
+> **getCommandsByStatus**(`status`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
 
 Get commands by status.
 
@@ -474,7 +534,7 @@ Get commands by status.
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](CommandRecord.md)\<`unknown`, `unknown`\>[]\>
+`Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
 
 ---
 
@@ -482,7 +542,7 @@ Get commands by status.
 
 > **getEvictableCacheKeys**(`limit`): `Promise`\<[`CacheKeyRecord`](CacheKeyRecord.md)[]\>
 
-Get cache keys eligible for eviction (holdCount = 0, not frozen).
+Get cache keys eligible for eviction (leaf keys with holdCount = 0, not frozen or inheritedFrozen).
 
 #### Parameters
 
@@ -581,7 +641,7 @@ Get all read model records for a collection.
 
 ##### options?
 
-[`QueryOptions`](QueryOptions.md)
+[`IStorageQueryOptions`](IStorageQueryOptions.md)
 
 #### Returns
 
@@ -641,6 +701,45 @@ Decrement hold count for a cache key.
 #### Parameters
 
 ##### key
+
+`string`
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
+### removeCacheKeyFromEvents()
+
+> **removeCacheKeyFromEvents**(`cacheKey`): `Promise`\<`string`[]\>
+
+Remove a cache key association from all events.
+Deletes events that have no remaining cache key associations.
+Returns the IDs of events that were fully deleted.
+
+#### Parameters
+
+##### cacheKey
+
+`string`
+
+#### Returns
+
+`Promise`\<`string`[]\>
+
+---
+
+### removeCacheKeyFromReadModels()
+
+> **removeCacheKeyFromReadModels**(`cacheKey`): `Promise`\<`void`\>
+
+Remove a cache key association from all read models.
+Deletes read models that have no remaining cache key associations.
+
+#### Parameters
+
+##### cacheKey
 
 `string`
 
@@ -732,7 +831,7 @@ Save a new command.
 
 ##### command
 
-[`CommandRecord`](CommandRecord.md)
+[`CommandRecord`](CommandRecord.md)\<`TLink`\>
 
 #### Returns
 
@@ -856,7 +955,7 @@ Update an existing command.
 
 ##### updates
 
-`Partial`\<[`CommandRecord`](CommandRecord.md)\>
+`Partial`\<[`CommandRecord`](CommandRecord.md)\<`TLink`\>\>
 
 #### Returns
 

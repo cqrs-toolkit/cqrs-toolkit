@@ -38,7 +38,7 @@ All fields are available immediately — the client is fully initialized at cons
 
 ##### commandQueue
 
-[`ICommandQueue`](../interfaces/ICommandQueue.md)
+[`ICommandQueue`](../interfaces/ICommandQueue.md)\<`TLink`\>
 
 ##### queryManager
 
@@ -46,7 +46,7 @@ All fields are available immediately — the client is fully initialized at cons
 
 ##### syncManager
 
-[`CqrsClientSyncManager`](../interfaces/CqrsClientSyncManager.md)
+[`CqrsClientSyncManager`](../interfaces/CqrsClientSyncManager.md)\<`TLink`\>
 
 ##### closeResources
 
@@ -72,7 +72,7 @@ Cache manager for cache key lifecycle and eviction.
 
 ### commandQueue
 
-> `readonly` **commandQueue**: [`ICommandQueue`](../interfaces/ICommandQueue.md)
+> `readonly` **commandQueue**: [`ICommandQueue`](../interfaces/ICommandQueue.md)\<`TLink`\>
 
 Command queue for enqueuing and tracking commands.
 
@@ -96,7 +96,7 @@ Query manager for reading cached data.
 
 ### syncManager
 
-> `readonly` **syncManager**: [`CqrsClientSyncManager`](../interfaces/CqrsClientSyncManager.md)
+> `readonly` **syncManager**: [`CqrsClientSyncManager`](../interfaces/CqrsClientSyncManager.md)\<`TLink`\>
 
 Sync manager for collection sync status and manual triggers.
 
@@ -106,13 +106,13 @@ Sync manager for collection sync status and manual triggers.
 
 #### Get Signature
 
-> **get** **events$**(): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
+> **get** **events$**(): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<`TLink`, [`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
 Observable of all library events.
 
 ##### Returns
 
-`Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
+`Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<`TLink`, [`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
 ---
 
@@ -173,9 +173,35 @@ Array of entity IDs. Empty if the command has no tracked entries
 
 ---
 
+### seed()
+
+> **seed**(`cacheKey`): `Promise`\<`void`\>
+
+Seed all collections whose keyTypes match the given cache key identity.
+Acquires the cache key if needed and waits for all matching collections to settle.
+
+- If already seeded, returns immediately.
+- If unseeded, acquires the cache key (which triggers seeding via events) then waits.
+- If seeding is in progress, waits for settlement.
+- If settlement fails, throws with collection-level error details.
+
+#### Parameters
+
+##### cacheKey
+
+[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
+Cache key identity to seed for
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
 ### submit()
 
-> **submit**\<`TResponse`\>(`command`, `options?`): `Promise`\<[`SubmitResult`](../type-aliases/SubmitResult.md)\<`TResponse`\>\>
+> **submit**\<`TResponse`\>(`params`): `Promise`\<[`SubmitResult`](../type-aliases/SubmitResult.md)\<`TResponse`\>\>
 
 Network-aware command submission.
 
@@ -196,13 +222,9 @@ If `options.commandId` is provided, checks the queue first:
 
 #### Parameters
 
-##### command
+##### params
 
-`TCommand`
-
-##### options?
-
-[`SubmitOptions`](../interfaces/SubmitOptions.md)
+[`SubmitParams`](../interfaces/SubmitParams.md)\<`TLink`, `TCommand`\>
 
 #### Returns
 

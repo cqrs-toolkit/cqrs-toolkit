@@ -4,27 +4,56 @@
 
 [@cqrs-toolkit/client](../globals.md) / EventCache
 
-# Class: EventCache
+# Class: EventCache\<TLink\>
 
 Event cache implementation.
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
 
 ## Constructors
 
 ### Constructor
 
-> **new EventCache**(`config`): `EventCache`
+> **new EventCache**\<`TLink`\>(`config`): `EventCache`\<`TLink`\>
 
 #### Parameters
 
 ##### config
 
-[`EventCacheConfig`](../interfaces/EventCacheConfig.md)
+[`EventCacheConfig`](../interfaces/EventCacheConfig.md)\<`TLink`\>
 
 #### Returns
 
-`EventCache`
+`EventCache`\<`TLink`\>
 
 ## Methods
+
+### addCacheKeysToEvent()
+
+> **addCacheKeysToEvent**(`eventId`, `cacheKeys`): `Promise`\<`void`\>
+
+Add cache key associations to an existing event.
+Used when a duplicate WS event is relevant to additional active cache keys.
+
+#### Parameters
+
+##### eventId
+
+`string`
+
+##### cacheKeys
+
+`string`[]
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
 
 ### cacheAnticipatedEvent()
 
@@ -176,10 +205,7 @@ Number of events submitted (duplicates are silently skipped by storage)
 
 ### clearByCacheKey()
 
-> **clearByCacheKey**(`cacheKey`): `string`[]
-
-Clear gap buffer entries for all streams associated with a cache key.
-Returns the affected streamIds so callers can clean up their own per-stream state.
+> **clearByCacheKey**(`cacheKey`): `Promise`\<`string`[]\>
 
 #### Parameters
 
@@ -187,13 +213,9 @@ Returns the affected streamIds so callers can clean up their own per-stream stat
 
 `string`
 
-Cache key to clear
-
 #### Returns
 
-`string`[]
-
-Array of streamIds that were cleared
+`Promise`\<`string`[]\>
 
 ---
 

@@ -77,6 +77,23 @@ export function startSqliteWorker(): void {
           return
         }
 
+        case 'sqlite:batch': {
+          if (!db) {
+            respond(respondTo, request.requestId, false, undefined, 'Database not initialized')
+            return
+          }
+
+          const results = await db.execBatch(
+            request.statements.map((s) => ({
+              sql: s.sql,
+              bind: s.params,
+              returnRows: s.returnRows,
+            })),
+          )
+          respond(respondTo, request.requestId, true, results)
+          return
+        }
+
         case 'sqlite:close': {
           if (db) {
             await db.close()

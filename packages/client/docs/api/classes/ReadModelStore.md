@@ -4,25 +4,31 @@
 
 [@cqrs-toolkit/client](../globals.md) / ReadModelStore
 
-# Class: ReadModelStore
+# Class: ReadModelStore\<TLink\>
 
 Read model store implementation.
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
 
 ## Constructors
 
 ### Constructor
 
-> **new ReadModelStore**(`config`): `ReadModelStore`
+> **new ReadModelStore**\<`TLink`\>(`config`): `ReadModelStore`\<`TLink`\>
 
 #### Parameters
 
 ##### config
 
-[`ReadModelStoreConfig`](../interfaces/ReadModelStoreConfig.md)
+[`ReadModelStoreConfig`](../interfaces/ReadModelStoreConfig.md)\<`TLink`\>
 
 #### Returns
 
-`ReadModelStore`
+`ReadModelStore`\<`TLink`\>
 
 ## Methods
 
@@ -98,7 +104,7 @@ Entity ID
 
 ### count()
 
-> **count**(`collection`): `Promise`\<`number`\>
+> **count**(`collection`, `cacheKey?`): `Promise`\<`number`\>
 
 Get the count of read models in a collection.
 
@@ -109,6 +115,10 @@ Get the count of read models in a collection.
 `string`
 
 Collection name
+
+##### cacheKey?
+
+`string`
 
 #### Returns
 

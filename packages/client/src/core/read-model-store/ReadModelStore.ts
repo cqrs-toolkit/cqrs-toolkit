@@ -7,18 +7,19 @@
  * - Local changes are overlaid on server baseline
  */
 
+import type { Link } from '@meticoeus/ddd-es'
 import type {
   ClientMetadata,
   IStorage,
-  QueryOptions,
+  IStorageQueryOptions,
   ReadModelRecord,
 } from '../../storage/IStorage.js'
 
 /**
  * Read model store configuration.
  */
-export interface ReadModelStoreConfig {
-  storage: IStorage
+export interface ReadModelStoreConfig<TLink extends Link> {
+  storage: IStorage<TLink>
 }
 
 /**
@@ -56,7 +57,7 @@ export interface ReadModel<T = unknown> {
 /**
  * Query options for listing read models.
  */
-export interface ReadModelQueryOptions extends QueryOptions {
+export interface ReadModelQueryOptions extends IStorageQueryOptions {
   /** Filter by cache key */
   cacheKey?: string
   /** Only include models with local changes */
@@ -66,10 +67,10 @@ export interface ReadModelQueryOptions extends QueryOptions {
 /**
  * Read model store implementation.
  */
-export class ReadModelStore {
-  private readonly storage: IStorage
+export class ReadModelStore<TLink extends Link> {
+  private readonly storage: IStorage<TLink>
 
-  constructor(config: ReadModelStoreConfig) {
+  constructor(config: ReadModelStoreConfig<TLink>) {
     this.storage = config.storage
   }
 
@@ -188,9 +189,8 @@ export class ReadModelStore {
    * @param collection - Collection name
    * @returns Count of read models
    */
-  async count(collection: string): Promise<number> {
-    const records = await this.storage.getReadModelsByCollection(collection)
-    return records.length
+  async count(collection: string, cacheKey?: string): Promise<number> {
+    return this.storage.countReadModels(collection, cacheKey)
   }
 
   /**
@@ -261,7 +261,7 @@ export class ReadModelStore {
     const record: ReadModelRecord = {
       id,
       collection,
-      cacheKey,
+      cacheKeys: existing ? existing.cacheKeys : [cacheKey],
       serverData: dataJson,
       effectiveData,
       hasLocalChanges,
@@ -272,6 +272,9 @@ export class ReadModelStore {
     }
 
     await this.storage.saveReadModel(record)
+    if (existing) {
+      await this.storage.addCacheKeysToReadModel(collection, id, [cacheKey])
+    }
     return true
   }
 
@@ -307,7 +310,7 @@ export class ReadModelStore {
     const record: ReadModelRecord = {
       id,
       collection,
-      cacheKey: existing?.cacheKey ?? cacheKey,
+      cacheKeys: existing ? existing.cacheKeys : [cacheKey],
       serverData: existing?.serverData ?? null,
       effectiveData,
       hasLocalChanges: true,
@@ -318,6 +321,9 @@ export class ReadModelStore {
     }
 
     await this.storage.saveReadModel(record)
+    if (existing) {
+      await this.storage.addCacheKeysToReadModel(collection, id, [cacheKey])
+    }
     return true
   }
 
@@ -348,7 +354,7 @@ export class ReadModelStore {
     const record: ReadModelRecord = {
       id,
       collection,
-      cacheKey: existing?.cacheKey ?? cacheKey,
+      cacheKeys: existing ? existing.cacheKeys : [cacheKey],
       serverData: existing?.serverData ?? null,
       effectiveData,
       hasLocalChanges: true,
@@ -359,6 +365,9 @@ export class ReadModelStore {
     }
 
     await this.storage.saveReadModel(record)
+    if (existing) {
+      await this.storage.addCacheKeysToReadModel(collection, id, [cacheKey])
+    }
     return true
   }
 
@@ -435,7 +444,7 @@ export class ReadModelStore {
     const record: ReadModelRecord = {
       id,
       collection,
-      cacheKey: existing?.cacheKey ?? cacheKey,
+      cacheKeys: existing ? existing.cacheKeys : [cacheKey],
       serverData: serverDataJson,
       effectiveData,
       hasLocalChanges,
@@ -446,6 +455,9 @@ export class ReadModelStore {
     }
 
     await this.storage.saveReadModel(record)
+    if (existing) {
+      await this.storage.addCacheKeysToReadModel(collection, id, [cacheKey])
+    }
     return true
   }
 

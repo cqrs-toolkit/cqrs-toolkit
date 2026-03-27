@@ -4,26 +4,90 @@
 
 [@cqrs-toolkit/client](../globals.md) / InMemoryStorage
 
-# Class: InMemoryStorage
+# Class: InMemoryStorage\<TLink\>
 
 In-memory storage implementation.
 Thread-safe within a single JavaScript context.
 
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
+
 ## Implements
 
-- [`IStorage`](../interfaces/IStorage.md)
+- [`IStorage`](../interfaces/IStorage.md)\<`TLink`\>
 
 ## Constructors
 
 ### Constructor
 
-> **new InMemoryStorage**(): `InMemoryStorage`
+> **new InMemoryStorage**\<`TLink`\>(): `InMemoryStorage`\<`TLink`\>
 
 #### Returns
 
-`InMemoryStorage`
+`InMemoryStorage`\<`TLink`\>
 
 ## Methods
+
+### addCacheKeysToEvent()
+
+> **addCacheKeysToEvent**(`eventId`, `cacheKeys`): `Promise`\<`void`\>
+
+Add cache key associations to an existing event.
+Used when a WS event is relevant to additional active cache keys.
+
+#### Parameters
+
+##### eventId
+
+`string`
+
+##### cacheKeys
+
+`string`[]
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`addCacheKeysToEvent`](../interfaces/IStorage.md#addcachekeystoevent)
+
+---
+
+### addCacheKeysToReadModel()
+
+> **addCacheKeysToReadModel**(`collection`, `id`, `cacheKeys`): `Promise`\<`void`\>
+
+Add cache key associations to an existing read model.
+Used when a read model is relevant to additional active cache keys.
+
+#### Parameters
+
+##### collection
+
+`string`
+
+##### id
+
+`string`
+
+##### cacheKeys
+
+`string`[]
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`addCacheKeysToReadModel`](../interfaces/IStorage.md#addcachekeystoreadmodel)
+
+---
 
 ### clear()
 
@@ -54,6 +118,32 @@ Close the storage backend and release resources.
 #### Implementation of
 
 [`IStorage`](../interfaces/IStorage.md).[`close`](../interfaces/IStorage.md#close)
+
+---
+
+### countReadModels()
+
+> **countReadModels**(`collection`, `cacheKey?`): `Promise`\<`number`\>
+
+Count read model records in a collection, optionally filtered by cache key.
+
+#### Parameters
+
+##### collection
+
+`string`
+
+##### cacheKey?
+
+`string`
+
+#### Returns
+
+`Promise`\<`number`\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`countReadModels`](../interfaces/IStorage.md#countreadmodels)
 
 ---
 
@@ -130,28 +220,6 @@ Delete a cached event.
 #### Implementation of
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteCachedEvent`](../interfaces/IStorage.md#deletecachedevent)
-
----
-
-### deleteCachedEventsByCacheKey()
-
-> **deleteCachedEventsByCacheKey**(`cacheKey`): `Promise`\<`void`\>
-
-Delete all cached events for a cache key.
-
-#### Parameters
-
-##### cacheKey
-
-`string`
-
-#### Returns
-
-`Promise`\<`void`\>
-
-#### Implementation of
-
-[`IStorage`](../interfaces/IStorage.md).[`deleteCachedEventsByCacheKey`](../interfaces/IStorage.md#deletecachedeventsbycachekey)
 
 ---
 
@@ -244,28 +312,6 @@ Delete a read model record.
 #### Implementation of
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteReadModel`](../interfaces/IStorage.md#deletereadmodel)
-
----
-
-### deleteReadModelsByCacheKey()
-
-> **deleteReadModelsByCacheKey**(`cacheKey`): `Promise`\<`void`\>
-
-Delete all read model records for a cache key.
-
-#### Parameters
-
-##### cacheKey
-
-`string`
-
-#### Returns
-
-`Promise`\<`void`\>
-
-#### Implementation of
-
-[`IStorage`](../interfaces/IStorage.md).[`deleteReadModelsByCacheKey`](../interfaces/IStorage.md#deletereadmodelsbycachekey)
 
 ---
 
@@ -433,9 +479,31 @@ Get a cache key record.
 
 ---
 
+### getChildCacheKeys()
+
+> **getChildCacheKeys**(`parentKey`): `Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md)[]\>
+
+Get child cache keys whose parentKey matches the given key.
+
+#### Parameters
+
+##### parentKey
+
+`string`
+
+#### Returns
+
+`Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md)[]\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`getChildCacheKeys`](../interfaces/IStorage.md#getchildcachekeys)
+
+---
+
 ### getCommand()
 
-> **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\> \| `undefined`\>
+> **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `unknown`, `unknown`\> \| `undefined`\>
 
 Get a command by ID.
 
@@ -447,7 +515,7 @@ Get a command by ID.
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\> \| `undefined`\>
+`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `unknown`, `unknown`\> \| `undefined`\>
 
 #### Implementation of
 
@@ -501,7 +569,7 @@ Get a command ID mapping by server ID.
 
 ### getCommands()
 
-> **getCommands**(`filter?`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\>[]\>
+> **getCommands**(`filter?`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
 
 Get commands matching a filter.
 
@@ -513,7 +581,7 @@ Get commands matching a filter.
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\>[]\>
+`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
 
 #### Implementation of
 
@@ -523,7 +591,7 @@ Get commands matching a filter.
 
 ### getCommandsBlockedBy()
 
-> **getCommandsBlockedBy**(`commandId`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\>[]\>
+> **getCommandsBlockedBy**(`commandId`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
 
 Get commands blocked by a specific command.
 
@@ -535,7 +603,7 @@ Get commands blocked by a specific command.
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\>[]\>
+`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
 
 #### Implementation of
 
@@ -545,7 +613,7 @@ Get commands blocked by a specific command.
 
 ### getCommandsByStatus()
 
-> **getCommandsByStatus**(`status`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\>[]\>
+> **getCommandsByStatus**(`status`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
 
 Get commands by status.
 
@@ -557,7 +625,7 @@ Get commands by status.
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\>[]\>
+`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
 
 #### Implementation of
 
@@ -569,7 +637,7 @@ Get commands by status.
 
 > **getEvictableCacheKeys**(`limit`): `Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md)[]\>
 
-Get cache keys eligible for eviction (holdCount = 0, not frozen).
+Get cache keys eligible for eviction (leaf keys with holdCount = 0, not frozen or inheritedFrozen).
 
 #### Parameters
 
@@ -688,7 +756,7 @@ Get all read model records for a collection.
 
 ##### options?
 
-[`QueryOptions`](../interfaces/QueryOptions.md)
+[`IStorageQueryOptions`](../interfaces/IStorageQueryOptions.md)
 
 #### Returns
 
@@ -777,6 +845,53 @@ Decrement hold count for a cache key.
 
 ---
 
+### removeCacheKeyFromEvents()
+
+> **removeCacheKeyFromEvents**(`cacheKey`): `Promise`\<`string`[]\>
+
+Remove a cache key association from all events.
+Deletes events that have no remaining cache key associations.
+Returns the IDs of events that were fully deleted.
+
+#### Parameters
+
+##### cacheKey
+
+`string`
+
+#### Returns
+
+`Promise`\<`string`[]\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`removeCacheKeyFromEvents`](../interfaces/IStorage.md#removecachekeyfromevents)
+
+---
+
+### removeCacheKeyFromReadModels()
+
+> **removeCacheKeyFromReadModels**(`cacheKey`): `Promise`\<`void`\>
+
+Remove a cache key association from all read models.
+Deletes read models that have no remaining cache key associations.
+
+#### Parameters
+
+##### cacheKey
+
+`string`
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`removeCacheKeyFromReadModels`](../interfaces/IStorage.md#removecachekeyfromreadmodels)
+
+---
+
 ### saveCachedEvent()
 
 > **saveCachedEvent**(`event`): `Promise`\<`void`\>
@@ -853,7 +968,7 @@ Save a new command.
 
 ##### command
 
-[`CommandRecord`](../interfaces/CommandRecord.md)
+[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`\>
 
 #### Returns
 
@@ -1005,7 +1120,7 @@ Update an existing command.
 
 ##### updates
 
-`Partial`\<[`CommandRecord`](../interfaces/CommandRecord.md)\>
+`Partial`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`\>\>
 
 #### Returns
 

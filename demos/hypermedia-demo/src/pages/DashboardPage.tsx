@@ -1,33 +1,42 @@
-import { type CollectionSyncStatus, type LibraryEvent } from '@cqrs-toolkit/client'
-import { useClient } from '@cqrs-toolkit/client-solid'
+import { type CollectionSyncStatus, deriveScopeKey, type LibraryEvent } from '@cqrs-toolkit/client'
 import { appCreateListQuery } from '@cqrs-toolkit/demo-base/common/components'
-import type { Note } from '@cqrs-toolkit/demo-base/notes/shared'
+import { NOTEBOOK_SEED_KEY } from '@cqrs-toolkit/demo-base/notebooks/domain'
+import type { Notebook } from '@cqrs-toolkit/demo-base/notebooks/shared'
 import type { Todo } from '@cqrs-toolkit/demo-base/todos/shared'
 import { ServiceLink } from '@meticoeus/ddd-es'
 import { A } from '@solidjs/router'
 import { filter } from 'rxjs'
 import { createSignal, For, onCleanup, onMount, Show } from 'solid-js'
+import { useClient } from '../bootstrap/typed-client.js'
 
 type PanelState = 'loading' | 'ready' | 'error'
 
 export default function DashboardPage() {
-  const client = useClient<ServiceLink>()
-  const todosQuery = appCreateListQuery<Todo>(client.queryManager, 'todos')
-  const notesQuery = appCreateListQuery<Note>(client.queryManager, 'notes')
+  const client = useClient()
+  const todosQuery = appCreateListQuery<Todo>(
+    client.queryManager,
+    'todos',
+    deriveScopeKey({ scopeType: 'todos' }),
+  )
+  const notebooksQuery = appCreateListQuery<Notebook>(
+    client.queryManager,
+    'notebooks',
+    NOTEBOOK_SEED_KEY,
+  )
   const [todosState, setTodosState] = createSignal<PanelState>('loading')
-  const [notesState, setNotesState] = createSignal<PanelState>('loading')
+  const [notebooksState, setNotebooksState] = createSignal<PanelState>('loading')
   const [todosSync, setTodosSync] = createSignal<CollectionSyncStatus>()
   const [notebooksSync, setNotebooksSync] = createSignal<CollectionSyncStatus>()
   const [notesSync, setNotesSync] = createSignal<CollectionSyncStatus>()
 
   function markReady(collection: string): void {
     if (collection === 'todos') setTodosState('ready')
-    if (collection === 'notes') setNotesState('ready')
+    if (collection === 'notebooks') setNotebooksState('ready')
   }
 
   function markError(collection: string): void {
     if (collection === 'todos') setTodosState('error')
-    if (collection === 'notes') setNotesState('error')
+    if (collection === 'notebooks') setNotebooksState('error')
   }
 
   function refreshSyncStatus(): void {
@@ -43,8 +52,8 @@ export default function DashboardPage() {
       .reverse()
   }
 
-  function recentNotes(): Note[] {
-    return notesQuery.items.slice(-5).reverse()
+  function recentNotebooks(): Notebook[] {
+    return notebooksQuery.items.slice(-5).reverse()
   }
 
   function syncLabel(status: CollectionSyncStatus | undefined): string {
@@ -62,7 +71,11 @@ export default function DashboardPage() {
     const syncSub = client.events$
       .pipe(
         filter(
-          (e): e is LibraryEvent<'sync:completed'> | LibraryEvent<'sync:failed'> =>
+          (
+            e,
+          ): e is
+            | LibraryEvent<ServiceLink, 'sync:completed'>
+            | LibraryEvent<ServiceLink, 'sync:failed'> =>
             e.type === 'sync:completed' || e.type === 'sync:failed',
         ),
       )
@@ -82,10 +95,10 @@ export default function DashboardPage() {
     // the worker. Skip only when seeded is explicitly false (sync registered but
     // not yet complete).
     const todosStatus = client.syncManager.getCollectionStatus('todos')
-    const notesStatus = client.syncManager.getCollectionStatus('notes')
+    const notebooksStatus = client.syncManager.getCollectionStatus('notebooks')
 
     if (todosStatus?.seeded !== false) setTodosState('ready')
-    if (notesStatus?.seeded !== false) setNotesState('ready')
+    if (notebooksStatus?.seeded !== false) setNotebooksState('ready')
 
     onCleanup(() => {
       syncSub.unsubscribe()
@@ -144,35 +157,47 @@ export default function DashboardPage() {
           </Show>
         </div>
 
-        {/* Notes panel */}
+        {/* Notebooks panel */}
         <div
-          class={`rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 dash-notes-${notesState()}`}
+          class={`rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 dash-notebooks-${notebooksState()}`}
         >
           <A
             href="/notes"
             class="block text-center text-lg font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 mb-4"
           >
-            Notes &rarr;
+            Notebooks &rarr;
           </A>
           <Show
-            when={notesState() === 'ready'}
+            when={notebooksState() === 'ready'}
             fallback={
               <p class="text-neutral-400 text-sm">
-                {notesState() === 'error' ? 'Sync failed.' : 'Loading...'}
+                {notebooksState() === 'error' ? 'Sync failed.' : 'Loading...'}
               </p>
             }
           >
             <Show
-              when={recentNotes().length > 0}
-              fallback={<p class="dash-note-empty text-neutral-400 text-sm">No notes yet.</p>}
+              when={recentNotebooks().length > 0}
+              fallback={
+                <p class="dash-notebook-empty text-neutral-400 text-sm">No notebooks yet.</p>
+              }
             >
               <ul class="space-y-2 p-0">
-                <For each={recentNotes()}>
-                  {(note) => (
-                    <li class="dash-note-item text-sm">
-                      <span class="dash-note-title font-medium truncate block">{note.title}</span>
-                      <Show when={note.body.length > 0}>
-                        <span class="text-neutral-500 truncate block">{note.body}</span>
+                <For each={recentNotebooks()}>
+                  {(notebook) => (
+                    <li class="dash-notebook-item text-sm">
+                      <span class="dash-notebook-name font-medium truncate block">
+                        {notebook.name}
+                      </span>
+                      <Show when={notebook.tags.length > 0}>
+                        <div class="dash-notebook-tags flex flex-wrap gap-1 mt-0.5">
+                          <For each={notebook.tags}>
+                            {(tag) => (
+                              <span class="dash-notebook-tag inline-block px-1.5 py-0.5 text-xs rounded bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300">
+                                {tag}
+                              </span>
+                            )}
+                          </For>
+                        </div>
                       </Show>
                     </li>
                   )}

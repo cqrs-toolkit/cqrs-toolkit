@@ -6,11 +6,15 @@
 
 # Function: createTestCommand()
 
-> **createTestCommand**\<`TData`, `TResponse`\>(`overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TData`, `TResponse`\>
+> **createTestCommand**\<`TLink`, `TData`, `TResponse`\>(`overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TLink`, `TData`, `TResponse`\>
 
 Create a test command record.
 
 ## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`\<`string`, `string`\>
 
 ### TData
 
@@ -24,12 +28,12 @@ Create a test command record.
 
 ### overrides?
 
-`Partial`\<[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TData`, `TResponse`\>\> = `{}`
+`Partial`\<[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TLink`, `TData`, `TResponse`\>\> = `{}`
 
 Optional field overrides
 
 ## Returns
 
-[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TData`, `TResponse`\>
+[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TLink`, `TData`, `TResponse`\>
 
 Command record

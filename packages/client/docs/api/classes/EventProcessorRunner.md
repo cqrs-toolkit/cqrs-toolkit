@@ -4,25 +4,31 @@
 
 [@cqrs-toolkit/client](../globals.md) / EventProcessorRunner
 
-# Class: EventProcessorRunner
+# Class: EventProcessorRunner\<TLink\>
 
 Event processor runner.
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
 
 ## Constructors
 
 ### Constructor
 
-> **new EventProcessorRunner**(`config`): `EventProcessorRunner`
+> **new EventProcessorRunner**\<`TLink`\>(`config`): `EventProcessorRunner`\<`TLink`\>
 
 #### Parameters
 
 ##### config
 
-[`EventProcessorRunnerConfig`](../interfaces/EventProcessorRunnerConfig.md)
+[`EventProcessorRunnerConfig`](../interfaces/EventProcessorRunnerConfig.md)\<`TLink`\>
 
 #### Returns
 
-`EventProcessorRunner`
+`EventProcessorRunner`\<`TLink`\>
 
 ## Methods
 

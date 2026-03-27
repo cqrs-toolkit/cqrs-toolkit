@@ -19,6 +19,14 @@ Creation timestamp
 
 ---
 
+### estimatedSizeBytes
+
+> **estimatedSizeBytes**: `number` \| `null`
+
+Estimated size in bytes for quota-aware eviction prioritization
+
+---
+
 ### evictionPolicy
 
 > **evictionPolicy**: `"persistent"` \| `"ephemeral"`
@@ -43,11 +51,27 @@ Whether the cache key is frozen
 
 ---
 
+### frozenAt
+
+> **frozenAt**: `number` \| `null`
+
+Timestamp when the key was frozen (null if not frozen)
+
+---
+
 ### holdCount
 
 > **holdCount**: `number`
 
 Hold count (prevents eviction when > 0)
+
+---
+
+### inheritedFrozen
+
+> **inheritedFrozen**: `boolean`
+
+Whether the cache key inherits frozen state from an ancestor
 
 ---
 

@@ -2,18 +2,16 @@
  * Unit tests for InMemoryStorage.
  */
 
+import type { ServiceLink } from '@meticoeus/ddd-es'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { deriveScopeKey } from '../core/cache-manager/CacheKey.js'
+import { createTestCacheKey } from '../testing/factories/cacheKey.js'
 import type { CommandRecord } from '../types/commands.js'
 import { InMemoryStorage } from './InMemoryStorage.js'
-import type {
-  CacheKeyRecord,
-  CachedEventRecord,
-  ReadModelRecord,
-  SessionRecord,
-} from './IStorage.js'
+import type { CachedEventRecord, ReadModelRecord, SessionRecord } from './IStorage.js'
 
 describe('InMemoryStorage', () => {
-  let storage: InMemoryStorage
+  let storage: InMemoryStorage<ServiceLink>
 
   beforeEach(async () => {
     storage = new InMemoryStorage()
@@ -53,15 +51,7 @@ describe('InMemoryStorage', () => {
       const session: SessionRecord = { id: 1, userId: 'user-1', createdAt: 1000, lastSeenAt: 1000 }
       await storage.saveSession(session)
 
-      const cacheKey: CacheKeyRecord = {
-        key: 'cache-1',
-        lastAccessedAt: 1000,
-        holdCount: 0,
-        frozen: false,
-        expiresAt: null,
-        createdAt: 1000,
-        evictionPolicy: 'persistent',
-      }
+      const cacheKey = createTestCacheKey({ key: 'cache-1' })
       await storage.saveCacheKey(cacheKey)
 
       await storage.deleteSession()
@@ -84,15 +74,7 @@ describe('InMemoryStorage', () => {
   })
 
   describe('cache key operations', () => {
-    const baseCacheKey: CacheKeyRecord = {
-      key: 'cache-1',
-      lastAccessedAt: 1000,
-      holdCount: 0,
-      frozen: false,
-      expiresAt: null,
-      createdAt: 1000,
-      evictionPolicy: 'persistent',
-    }
+    const baseCacheKey = createTestCacheKey({ key: 'cache-1' })
 
     it('saves and retrieves cache key', async () => {
       await storage.saveCacheKey(baseCacheKey)
@@ -158,7 +140,7 @@ describe('InMemoryStorage', () => {
         position: null,
         revision: null,
         commandId: null,
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         createdAt: 1000,
       }
       await storage.saveCachedEvent(event)
@@ -199,8 +181,11 @@ describe('InMemoryStorage', () => {
   })
 
   describe('command operations', () => {
-    const baseCommand: CommandRecord = {
+    const TEST_CACHE_KEY = deriveScopeKey({ scopeType: 'test' })
+
+    const baseCommand: CommandRecord<ServiceLink> = {
       commandId: 'cmd-1',
+      cacheKey: TEST_CACHE_KEY,
       service: 'test-service',
       type: 'TestCommand',
       data: { foo: 'bar' },
@@ -276,7 +261,7 @@ describe('InMemoryStorage', () => {
         position: null,
         revision: null,
         commandId: 'cmd-1',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         createdAt: 1000,
       }
       await storage.saveCachedEvent(event)
@@ -308,7 +293,7 @@ describe('InMemoryStorage', () => {
       position: '100',
       revision: '1',
       commandId: null,
-      cacheKey: 'cache-1',
+      cacheKeys: ['cache-1'],
       createdAt: 1000,
     }
 
@@ -329,7 +314,7 @@ describe('InMemoryStorage', () => {
 
     it('gets events by cache key', async () => {
       await storage.saveCachedEvent(baseEvent)
-      await storage.saveCachedEvent({ ...baseEvent, id: 'event-2', cacheKey: 'cache-2' })
+      await storage.saveCachedEvent({ ...baseEvent, id: 'event-2', cacheKeys: ['cache-2'] })
 
       const events = await storage.getCachedEventsByCacheKey('cache-1')
       expect(events).toHaveLength(1)
@@ -376,13 +361,52 @@ describe('InMemoryStorage', () => {
 
       expect(await storage.getAnticipatedEventsByCommand('cmd-1')).toHaveLength(0)
     })
+
+    it('stores event with multiple cache keys', async () => {
+      await storage.saveCachedEvent({ ...baseEvent, cacheKeys: ['key-a', 'key-b'] })
+
+      const byA = await storage.getCachedEventsByCacheKey('key-a')
+      const byB = await storage.getCachedEventsByCacheKey('key-b')
+      expect(byA).toHaveLength(1)
+      expect(byB).toHaveLength(1)
+      expect(byA[0]?.id).toBe('event-1')
+    })
+
+    it('adds cache key associations to existing event', async () => {
+      await storage.saveCachedEvent(baseEvent) // cacheKeys: ['cache-1']
+      await storage.addCacheKeysToEvent('event-1', ['cache-2', 'cache-3'])
+
+      const event = await storage.getCachedEvent('event-1')
+      expect(event?.cacheKeys).toContain('cache-1')
+      expect(event?.cacheKeys).toContain('cache-2')
+      expect(event?.cacheKeys).toContain('cache-3')
+    })
+
+    it('removeCacheKeyFromEvents keeps event if other keys remain', async () => {
+      await storage.saveCachedEvent({ ...baseEvent, cacheKeys: ['key-a', 'key-b'] })
+
+      const deleted = await storage.removeCacheKeyFromEvents('key-a')
+      expect(deleted).toHaveLength(0) // event still has key-b
+
+      const event = await storage.getCachedEvent('event-1')
+      expect(event?.cacheKeys).toEqual(['key-b'])
+    })
+
+    it('removeCacheKeyFromEvents deletes event when no keys remain', async () => {
+      await storage.saveCachedEvent({ ...baseEvent, cacheKeys: ['key-a'] })
+
+      const deleted = await storage.removeCacheKeyFromEvents('key-a')
+      expect(deleted).toEqual(['event-1'])
+
+      expect(await storage.getCachedEvent('event-1')).toBeUndefined()
+    })
   })
 
   describe('read model operations', () => {
     const baseReadModel: ReadModelRecord = {
       id: 'entity-1',
       collection: 'todos',
-      cacheKey: 'cache-1',
+      cacheKeys: ['cache-1'],
       serverData: '{"title":"Test"}',
       effectiveData: '{"title":"Test"}',
       hasLocalChanges: false,
@@ -422,7 +446,7 @@ describe('InMemoryStorage', () => {
 
     it('gets read models by cache key', async () => {
       await storage.saveReadModel(baseReadModel)
-      await storage.saveReadModel({ ...baseReadModel, id: 'entity-2', cacheKey: 'cache-2' })
+      await storage.saveReadModel({ ...baseReadModel, id: 'entity-2', cacheKeys: ['cache-2'] })
 
       const models = await storage.getReadModelsByCacheKey('cache-1')
       expect(models).toHaveLength(1)
@@ -444,14 +468,37 @@ describe('InMemoryStorage', () => {
       expect(await storage.getReadModel('todos', 'entity-1')).toBeUndefined()
     })
 
-    it('deletes read models by cache key', async () => {
+    it('removes cache key from read models and deletes orphans', async () => {
       await storage.saveReadModel(baseReadModel)
-      await storage.saveReadModel({ ...baseReadModel, id: 'entity-2', cacheKey: 'cache-2' })
+      await storage.saveReadModel({ ...baseReadModel, id: 'entity-2', cacheKeys: ['cache-2'] })
 
-      await storage.deleteReadModelsByCacheKey('cache-1')
+      await storage.removeCacheKeyFromReadModels('cache-1')
 
       expect(await storage.getReadModel('todos', 'entity-1')).toBeUndefined()
       expect(await storage.getReadModel('todos', 'entity-2')).toBeTruthy()
+    })
+
+    it('keeps read model when other cache keys remain', async () => {
+      await storage.saveReadModel({
+        ...baseReadModel,
+        cacheKeys: ['cache-1', 'cache-2'],
+      })
+
+      await storage.removeCacheKeyFromReadModels('cache-1')
+
+      const record = await storage.getReadModel('todos', 'entity-1')
+      expect(record).toBeTruthy()
+      expect(record?.cacheKeys).toEqual(['cache-2'])
+    })
+
+    it('adds cache key associations to existing read model', async () => {
+      await storage.saveReadModel(baseReadModel)
+      await storage.addCacheKeysToReadModel('todos', 'entity-1', ['cache-2', 'cache-3'])
+
+      const record = await storage.getReadModel('todos', 'entity-1')
+      expect(record?.cacheKeys).toContain('cache-1')
+      expect(record?.cacheKeys).toContain('cache-2')
+      expect(record?.cacheKeys).toContain('cache-3')
     })
 
     it('deletes read models by collection', async () => {

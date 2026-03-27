@@ -149,7 +149,7 @@ The library never parses stream IDs, constructs URLs, or interprets HTTP respons
 Required members:
 
 - `name: string` — unique collection identifier
-- `getTopics(): string[]` — WS topic patterns to subscribe to (return `[]` for no subscription)
+- `subscribeTopics(cacheKey)` — WS topic patterns to subscribe/unsubscribe to derived from cacheKey
 - `matchesStream(streamId: string): boolean` — test whether a streamId belongs to this collection; multiple collections may match the same streamId
 
 Optional fetch methods (implement at least one for seeding):
@@ -160,6 +160,7 @@ Optional fetch methods (implement at least one for seeding):
 
 Optional configuration:
 
+- `keyTypes` — which cache key types activate this collection - these are partial matches omitting specific IDs
 - `seedOnInit?: boolean` — whether to seed on initial sync (default: `true`)
 - `seedPageSize?: number` — page size for seeding (default: `100`)
 
@@ -170,7 +171,6 @@ Collections may add their own headers (e.g., `Accept-Profile`, `x-tenant-id`) in
 
 ### Future work
 
-- `subscribeTopics(cacheKey)` — cache-key-scoped topic subscriptions (current design uses static `getTopics()`)
 - `keyTypes` — which cache key types activate this collection
 - `detectAffectedCollectionsForStateful(event)` — for stateful invalidation/refetch
 

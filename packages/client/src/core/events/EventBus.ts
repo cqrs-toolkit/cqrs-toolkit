@@ -3,6 +3,7 @@
  * Provides a centralized way to emit and subscribe to library-level events.
  */
 
+import type { Link } from '@meticoeus/ddd-es'
 import { Observable, Subject, filter, share } from 'rxjs'
 import type { LibraryEvent, LibraryEventData, LibraryEventType } from '../../types/events.js'
 
@@ -10,8 +11,8 @@ import type { LibraryEvent, LibraryEventData, LibraryEventType } from '../../typ
  * Event bus for library-level events.
  * All components can emit events, and consumers can subscribe to specific event types.
  */
-export class EventBus {
-  private readonly subject = new Subject<LibraryEvent>()
+export class EventBus<TLink extends Link> {
+  private readonly subject = new Subject<LibraryEvent<TLink>>()
 
   /**
    * Whether debug events are enabled.
@@ -23,7 +24,7 @@ export class EventBus {
   /**
    * Observable of all library events.
    */
-  readonly events$: Observable<LibraryEvent>
+  readonly events$: Observable<LibraryEvent<TLink>>
 
   constructor() {
     // Share the subject so multiple subscribers get the same events
@@ -36,8 +37,8 @@ export class EventBus {
    * @param type - Event type
    * @param data - Event data
    */
-  emit<T extends LibraryEventType>(type: T, data: LibraryEventData[T]): void {
-    const event: LibraryEvent<T> = {
+  emit<T extends LibraryEventType>(type: T, data: LibraryEventData<TLink>[T]): void {
+    const event: LibraryEvent<TLink, T> = {
       type,
       data,
       timestamp: Date.now(),
@@ -53,9 +54,9 @@ export class EventBus {
    * @param type - Event type
    * @param data - Event data
    */
-  emitDebug<T extends LibraryEventType>(type: T, data: LibraryEventData[T]): void {
+  emitDebug<T extends LibraryEventType>(type: T, data: LibraryEventData<TLink>[T]): void {
     if (!this.debug) return
-    const event: LibraryEvent<T> = {
+    const event: LibraryEvent<TLink, T> = {
       type,
       data,
       timestamp: Date.now(),
@@ -70,8 +71,10 @@ export class EventBus {
    * @param type - Event type to filter for
    * @returns Observable of events of that type
    */
-  on<T extends LibraryEventType>(type: T): Observable<LibraryEvent<T>> {
-    return this.events$.pipe(filter((event): event is LibraryEvent<T> => event.type === type))
+  on<T extends LibraryEventType>(type: T): Observable<LibraryEvent<TLink, T>> {
+    return this.events$.pipe(
+      filter((event): event is LibraryEvent<TLink, T> => event.type === type),
+    )
   }
 
   /**
@@ -80,9 +83,9 @@ export class EventBus {
    * @param types - Event types to filter for
    * @returns Observable of events of those types
    */
-  onAny<T extends LibraryEventType>(types: T[]): Observable<LibraryEvent<T>> {
+  onAny<T extends LibraryEventType>(types: T[]): Observable<LibraryEvent<TLink, T>> {
     return this.events$.pipe(
-      filter((event): event is LibraryEvent<T> => types.includes(event.type as T)),
+      filter((event): event is LibraryEvent<TLink, T> => types.includes(event.type as T)),
     )
   }
 

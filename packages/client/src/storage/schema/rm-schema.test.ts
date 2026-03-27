@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import Database from 'better-sqlite3'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import type { SchemaMigration } from '../../types/config.js'
 import { clientSchema } from './client-schema.js'
@@ -185,25 +186,109 @@ describe('validateSchemaMigrations', () => {
   })
 })
 
-describe('generateCollectionDDL', () => {
-  it('generates CREATE TABLE and index for a collection', () => {
-    const ddl = generateCollectionDDL('todos')
-    expect(ddl).toHaveLength(2)
-    expect(ddl[0]).toContain('CREATE TABLE rm_todos')
-    expect(ddl[0]).toContain('id TEXT PRIMARY KEY')
-    expect(ddl[0]).toContain('cache_key TEXT NOT NULL')
-    expect(ddl[0]).toContain('_server_data TEXT')
-    expect(ddl[0]).toContain('_effective_data TEXT NOT NULL')
-    expect(ddl[0]).toContain('_has_local_changes INTEGER NOT NULL DEFAULT 0')
-    expect(ddl[0]).toContain('updated_at INTEGER NOT NULL')
-    expect(ddl[1]).toContain('CREATE INDEX idx_rm_todos_cache_key ON rm_todos (cache_key)')
+describe('generateCollectionDDL (SQLite execution)', () => {
+  let db: Database.Database
+
+  beforeEach(() => {
+    db = new Database(':memory:')
   })
 
-  it('uses the collection name in table and index names', () => {
-    const ddl = generateCollectionDDL('user_profiles')
-    expect(ddl[0]).toContain('CREATE TABLE rm_user_profiles')
-    expect(ddl[1]).toContain('idx_rm_user_profiles_cache_key')
-    expect(ddl[1]).toContain('ON rm_user_profiles')
+  afterEach(() => {
+    db.close()
+  })
+
+  it('creates read model table and junction table without errors', () => {
+    const ddl = generateCollectionDDL('todos')
+    for (const sql of ddl) {
+      db.exec(sql)
+    }
+
+    const tables = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+      .all() as { name: string }[]
+    const tableNames = tables.map((t) => t.name)
+
+    expect(tableNames).toContain('rm_todos')
+    expect(tableNames).toContain('rm_todos_cache_keys')
+  })
+
+  it('creates correct columns on read model table', () => {
+    for (const sql of generateCollectionDDL('todos')) {
+      db.exec(sql)
+    }
+
+    const columns = db.prepare('PRAGMA table_info(rm_todos)').all() as { name: string }[]
+    const columnNames = columns.map((c) => c.name)
+
+    expect(columnNames).toContain('id')
+    expect(columnNames).toContain('_server_data')
+    expect(columnNames).toContain('_effective_data')
+    expect(columnNames).toContain('_has_local_changes')
+    expect(columnNames).toContain('_revision')
+    expect(columnNames).toContain('_position')
+    expect(columnNames).toContain('updated_at')
+    // cache_key is NOT on the main table — it's in the junction table
+    expect(columnNames).not.toContain('cache_key')
+  })
+
+  it('creates correct columns on junction table', () => {
+    for (const sql of generateCollectionDDL('todos')) {
+      db.exec(sql)
+    }
+
+    const columns = db.prepare('PRAGMA table_info(rm_todos_cache_keys)').all() as {
+      name: string
+    }[]
+    const columnNames = columns.map((c) => c.name)
+
+    expect(columnNames).toContain('entity_id')
+    expect(columnNames).toContain('cache_key')
+  })
+
+  it('creates index on junction table', () => {
+    for (const sql of generateCollectionDDL('todos')) {
+      db.exec(sql)
+    }
+
+    const indexes = db
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='rm_todos_cache_keys'",
+      )
+      .all() as { name: string }[]
+    const indexNames = indexes.map((i) => i.name)
+
+    expect(indexNames).toContain('idx_rm_todos_cks_cache_key')
+  })
+
+  it('full migration with clientSchema.init + managed collection executes without errors', () => {
+    // Run all library init DDL
+    for (const sql of clientSchema.init.sql) {
+      db.exec(sql)
+    }
+    // Run managed collection DDL
+    for (const sql of generateCollectionDDL('todos')) {
+      db.exec(sql)
+    }
+    for (const sql of generateCollectionDDL('notes')) {
+      db.exec(sql)
+    }
+
+    const tables = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+      .all() as { name: string }[]
+    const tableNames = tables.map((t) => t.name)
+
+    // Library tables
+    expect(tableNames).toContain('session')
+    expect(tableNames).toContain('cache_keys')
+    expect(tableNames).toContain('commands')
+    expect(tableNames).toContain('cached_events')
+    expect(tableNames).toContain('cached_event_cache_keys')
+    // Managed collection tables
+    expect(tableNames).toContain('rm_todos')
+    expect(tableNames).toContain('rm_todos_cache_keys')
+    expect(tableNames).toContain('rm_notes')
+    expect(tableNames).toContain('rm_notes_cache_keys')
   })
 })
 
@@ -238,9 +323,19 @@ describe('getSqlForStep', () => {
     expect(sql).toBe(clientSchema.init.sql)
   })
 
-  it('returns generated DDL for managed steps', () => {
-    const sql = getSqlForStep({ type: 'managed', name: 'todos' })
-    expect(sql).toHaveLength(2)
-    expect(sql[0]).toContain('CREATE TABLE rm_todos')
+  it('returns generated DDL for managed steps that executes without errors', () => {
+    const db = new Database(':memory:')
+    try {
+      const sql = getSqlForStep({ type: 'managed', name: 'todos' })
+      for (const stmt of sql) {
+        db.exec(stmt)
+      }
+      const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as {
+        name: string
+      }[]
+      expect(tables.map((t) => t.name)).toContain('rm_todos')
+    } finally {
+      db.close()
+    }
   })
 })

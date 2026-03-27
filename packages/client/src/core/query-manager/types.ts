@@ -5,14 +5,52 @@
 import type { Link } from '@meticoeus/ddd-es'
 import type { Observable } from 'rxjs'
 import type { CacheKeyIdentity } from '../cache-manager/CacheKey.js'
-import type { ReadModelQueryOptions } from '../read-model-store/index.js'
 
 /**
- * Query options.
+ * Signal emitted by `watchCollection`.
+ * Discriminated union covering data updates, seed completion, and sync failures.
  */
-export interface QueryOptions extends ReadModelQueryOptions {
+export type CollectionSignal =
+  | { type: 'updated'; ids: string[] }
+  | { type: 'seed-completed'; recordCount: number }
+  | { type: 'sync-failed'; error: string }
+
+/**
+ * Common query parameters shared by all query methods.
+ */
+export interface QueryOptions<TLink extends Link> {
+  /** Collection name */
+  collection: string
+  /** Cache key identity — determines which cached data scope to query */
+  cacheKey: CacheKeyIdentity<TLink>
   /** Place a hold on the cache key while query is active */
   hold?: boolean
+}
+
+/**
+ * Parameters for {@link IQueryManager.getById}.
+ */
+export interface GetByIdParams<TLink extends Link> extends QueryOptions<TLink> {
+  /** Entity ID */
+  id: string
+}
+
+/**
+ * Parameters for {@link IQueryManager.getByIds}.
+ */
+export interface GetByIdsParams<TLink extends Link> extends QueryOptions<TLink> {
+  /** Entity IDs */
+  ids: string[]
+}
+
+/**
+ * Parameters for {@link IQueryManager.list}.
+ */
+export interface ListParams<TLink extends Link> extends QueryOptions<TLink> {
+  /** Limit number of results */
+  limit?: number
+  /** Offset for pagination */
+  offset?: number
 }
 
 /**
@@ -79,47 +117,31 @@ export interface IQueryManager<TLink extends Link> {
    * @param options - Query options
    * @returns Query result
    */
-  getById<T>(collection: string, id: string, options?: QueryOptions): Promise<QueryResult<TLink, T>>
+  getById<T>(params: GetByIdParams<TLink>): Promise<QueryResult<TLink, T>>
 
   /**
    * Get multiple entities by IDs.
-   *
-   * @param collection - Collection name
-   * @param ids - Entity IDs
-   * @param options - Query options
-   * @returns Map of ID to query result
    */
-  getByIds<T>(
-    collection: string,
-    ids: string[],
-    options?: QueryOptions,
-  ): Promise<Map<string, QueryResult<TLink, T>>>
+  getByIds<T>(params: GetByIdsParams<TLink>): Promise<Map<string, QueryResult<TLink, T>>>
 
   /**
    * List entities in a collection.
-   *
-   * @param collection - Collection name
-   * @param options - Query options
-   * @returns List query result
    */
-  list<T>(collection: string, options?: QueryOptions): Promise<ListQueryResult<TLink, T>>
+  list<T>(params: ListParams<TLink>): Promise<ListQueryResult<TLink, T>>
 
   /**
-   * Get an observable that emits when data in a collection changes.
+   * Get an observable of collection lifecycle signals.
+   * Emits for data updates, seed completion, and sync failures.
    *
    * @param collection - Collection name
-   * @returns Observable of updated entity IDs
+   * @returns Observable of collection signals
    */
-  watchCollection(collection: string): Observable<string[]>
+  watchCollection(collection: string): Observable<CollectionSignal>
 
   /**
    * Get an observable that emits when a specific entity changes.
-   *
-   * @param collection - Collection name
-   * @param id - Entity ID
-   * @returns Observable of the entity data
    */
-  watchById<T>(collection: string, id: string): Observable<T | undefined>
+  watchById<T>(params: GetByIdParams<TLink>): Observable<T | undefined>
 
   /**
    * Check if an entity exists.
@@ -139,11 +161,9 @@ export interface IQueryManager<TLink extends Link> {
   count(collection: string): Promise<number>
 
   /**
-   * Touch the cache key for a collection.
-   *
-   * @param collection - Collection name
+   * Touch a cache key to extend its lifetime.
    */
-  touch(collection: string): Promise<void>
+  touch(cacheKey: CacheKeyIdentity<TLink>): Promise<void>
 
   /**
    * Place a hold on a cache key.

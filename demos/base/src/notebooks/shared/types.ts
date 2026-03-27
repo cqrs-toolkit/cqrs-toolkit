@@ -19,6 +19,7 @@ export class DuplicateNotebookNameException extends Exception<ValidationError[]>
 export interface Notebook {
   readonly id: string
   readonly name: string
+  readonly tags: string[]
   readonly createdAt: string
   readonly updatedAt: string
   readonly latestRevision?: string | undefined

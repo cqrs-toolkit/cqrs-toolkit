@@ -1,4 +1,5 @@
 CACHE = ./scripts/cache-run.sh
+DOCS = ./scripts/docs-run.sh
 WITH_HM_SERVER = ./demos/hypermedia-demo/scripts/with-server.sh
 .PHONY: build docs clean-cache hm-generate hm-init
 
@@ -16,8 +17,8 @@ build-client-solid:
 	$(CACHE) packages/client-solid client -- npm run build -w packages/client-solid
 build-devtools:
 	$(CACHE) packages/devtools client -- npm run build -w packages/devtools
-compile-base:
-	$(CACHE) demos/base client client-solid -- npm run build -w @cqrs-toolkit/demo-base
+COMPILE = CACHE_NS=compile $(CACHE)
+
 compile-todo-demo:
 	$(CACHE) demos/todo-demo client client-solid -- npx tsc -p demos/todo-demo/tsconfig.json --noEmit
 	$(CACHE) demos/todo-demo-server client -- npx tsc -p demos/todo-demo/tsconfig.server.json --noEmit
@@ -26,19 +27,31 @@ compile-hypermedia-demo:
 	$(CACHE) demos/hypermedia-demo-server client hypermedia -- npx tsc -p demos/hypermedia-demo/tsconfig.server.json --noEmit
 
 clean-cache:
-	rm -rf node_modules/.cache/build-hashes
+	rm -rf node_modules/.cache/build-hashes node_modules/.cache/compile-hashes node_modules/.cache/docs-hashes
+
+docs-realtime:
+	$(DOCS) packages/realtime -- npm run docs -w packages/realtime
+docs-schema:
+	$(DOCS) packages/schema -- npm run docs -w packages/schema
+docs-hypermedia:
+	$(DOCS) packages/hypermedia -- npm run docs -w packages/hypermedia
+docs-client:
+	$(DOCS) packages/client realtime -- npm run docs -w packages/client
+docs-client-solid:
+	$(DOCS) packages/client-solid client -- npm run docs -w packages/client-solid
+docs-hypermedia-client:
+	$(DOCS) packages/hypermedia-client client -- npm run docs -w packages/hypermedia-client
 
 docs:
-	npm run docs --workspaces --if-present
+	@rm -f node_modules/.cache/docs-hashes/docs-staged
+	make -j docs-realtime docs-schema docs-hypermedia docs-client docs-hypermedia-client docs-client-solid
+	@./scripts/docs-stage.sh
 
 build:
 	make -j build-realtime build-schema build-hypermedia
 	make build-client
 	make -j build-client-solid build-hypermedia-client
-	make build-devtools
-	make compile-base
-	make -j compile-todo-demo compile-hypermedia-demo
-	make docs
+	make -j build-devtools compile-todo-demo compile-hypermedia-demo
 
 hm-generate:
 	$(WITH_HM_SERVER) npm run cqrs-generate -w @cqrs-toolkit/hypermedia-demo

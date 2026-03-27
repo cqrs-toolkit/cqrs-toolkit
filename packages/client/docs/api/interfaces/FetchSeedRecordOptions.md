@@ -4,11 +4,25 @@
 
 [@cqrs-toolkit/client](../globals.md) / FetchSeedRecordOptions
 
-# Interface: FetchSeedRecordOptions
+# Interface: FetchSeedRecordOptions\<TLink\>
 
 Options for [Collection.fetchSeedRecords](Collection.md#fetchseedrecords).
 
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
+
 ## Properties
+
+### cacheKey
+
+> `readonly` **cacheKey**: [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
+Cache key identity being seeded — extract scope params for query filtering
+
+---
 
 ### ctx
 

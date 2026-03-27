@@ -13,15 +13,15 @@ export function registerCacheManagerMethods<TLink extends Link>(
   cacheManager: CacheManager<TLink>,
 ): void {
   handler.registerMethod('cacheManager.acquireKey', async (args) => {
-    const identity = args[0] as CacheKeyIdentity<TLink>
+    const cacheKey = args[0] as CacheKeyIdentity<TLink>
     const options = args[1] as AcquireCacheKeyOptions | undefined
-    return cacheManager.acquireKey(identity, options)
+    return cacheManager.acquireKey(cacheKey, options)
   })
 
   handler.registerMethod('cacheManager.acquire', async (args) => {
-    const identity = args[0] as CacheKeyIdentity<TLink>
+    const cacheKey = args[0] as CacheKeyIdentity<TLink>
     const options = args[1] as AcquireCacheKeyOptions | undefined
-    return cacheManager.acquire(identity, options)
+    return cacheManager.acquire(cacheKey, options)
   })
 
   handler.registerMethod('cacheManager.exists', async (args) => {
@@ -33,7 +33,7 @@ export function registerCacheManagerMethods<TLink extends Link>(
   })
 
   handler.registerMethod('cacheManager.touch', async (args) => {
-    return cacheManager.touch(args[0] as string)
+    return cacheManager.touch(args[0] as CacheKeyIdentity<TLink>)
   })
 
   handler.registerMethod('cacheManager.hold', async (args) => {

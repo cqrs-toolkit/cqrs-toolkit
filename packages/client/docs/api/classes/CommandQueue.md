@@ -25,7 +25,7 @@ Provides form-friendly async patterns for command handling.
 
 ## Implements
 
-- [`ICommandQueue`](../interfaces/ICommandQueue.md)
+- [`ICommandQueue`](../interfaces/ICommandQueue.md)\<`TLink`\>
 
 ## Constructors
 
@@ -44,6 +44,12 @@ Provides form-friendly async patterns for command handling.
 `CommandQueue`\<`TLink`, `TSchema`, `TEvent`\>
 
 ## Properties
+
+### commandEvents
+
+> `protected` `readonly` **commandEvents**: `Subject`\<[`CommandEvent`](../interfaces/CommandEvent.md)\>
+
+---
 
 ### events$
 
@@ -138,7 +144,7 @@ Waits for any in-flight command processing to settle before returning.
 
 ### enqueue()
 
-> **enqueue**\<`TData`, `TEvent`\>(`command`, `options?`): `Promise`\<[`EnqueueResult`](../type-aliases/EnqueueResult.md)\<`TEvent`\>\>
+> **enqueue**\<`TData`, `TEvent`\>(`params`): `Promise`\<[`EnqueueResult`](../type-aliases/EnqueueResult.md)\<`TEvent`\>\>
 
 Enqueue a command with local validation.
 Returns immediately with either validation errors or the queued command.
@@ -157,17 +163,9 @@ For forms: check result.ok to show validation errors immediately.
 
 #### Parameters
 
-##### command
+##### params
 
-[`EnqueueCommand`](../interfaces/EnqueueCommand.md)\<`TData`\>
-
-Command to enqueue
-
-##### options?
-
-[`EnqueueOptions`](../interfaces/EnqueueOptions.md)
-
-Optional enqueue options
+`EnqueueParams`\<`TLink`, `TData`\>
 
 #### Returns
 
@@ -183,7 +181,7 @@ Enqueue result with validation status
 
 ### enqueueAndWait()
 
-> **enqueueAndWait**\<`TData`, `TEvent`, `TResponse`\>(`command`, `options?`): `Promise`\<[`EnqueueAndWaitResult`](../type-aliases/EnqueueAndWaitResult.md)\<`TResponse`\>\>
+> **enqueueAndWait**\<`TData`, `TEvent`, `TResponse`\>(`params`): `Promise`\<[`EnqueueAndWaitResult`](../type-aliases/EnqueueAndWaitResult.md)\<`TResponse`\>\>
 
 Convenience: enqueue and wait for completion in one call.
 Best for simple form submissions.
@@ -204,17 +202,9 @@ Best for simple form submissions.
 
 #### Parameters
 
-##### command
+##### params
 
-[`EnqueueCommand`](../interfaces/EnqueueCommand.md)\<`TData`\>
-
-Command to enqueue
-
-##### options?
-
-[`EnqueueAndWaitOptions`](../interfaces/EnqueueAndWaitOptions.md)
-
-Optional combined options
+`EnqueueAndWaitParams`\<`TLink`, `TData`\>
 
 #### Returns
 
@@ -230,7 +220,7 @@ Combined enqueue and completion result
 
 ### getCommand()
 
-> **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\> \| `undefined`\>
+> **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `unknown`, `unknown`\> \| `undefined`\>
 
 Get a command by ID.
 
@@ -244,7 +234,7 @@ Command ID
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\> \| `undefined`\>
+`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `unknown`, `unknown`\> \| `undefined`\>
 
 Command record or undefined
 
@@ -304,7 +294,7 @@ Check if command processing is paused.
 
 ### listCommands()
 
-> **listCommands**(`filter?`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\>[]\>
+> **listCommands**(`filter?`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
 
 List commands matching a filter.
 
@@ -318,7 +308,7 @@ Optional filter criteria
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`unknown`, `unknown`\>[]\>
+`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
 
 Matching commands
 

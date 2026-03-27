@@ -14,6 +14,11 @@ Consumer code implements the fetch methods to control HTTP conventions.
 Parameterized on `TLink` so multi-service apps using `ServiceLink`
 get typed entity cache keys with required `service` field.
 
+## Extended by
+
+- [`CollectionWithSeedOnDemand`](CollectionWithSeedOnDemand.md)
+- [`CollectionWithSeedOnInit`](CollectionWithSeedOnInit.md)
+
 ## Type Parameters
 
 ### TLink
@@ -28,11 +33,20 @@ get typed entity cache keys with required `service` field.
 
 ---
 
-### seedCacheKey?
+### seedOnDemand?
 
-> `readonly` `optional` **seedCacheKey**: [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+> `readonly` `optional` **seedOnDemand**: [`SeedOnDemandConfig`](SeedOnDemandConfig.md)\<`TLink`\>
 
-Cache key identity to auto-seed on startup.
+On-demand seeding configuration.
+If undefined, this collection does not support on-demand (lazily-loaded) seeding.
+
+---
+
+### seedOnInit?
+
+> `readonly` `optional` **seedOnInit**: [`SeedOnInitConfig`](SeedOnInitConfig.md)\<`TLink`\>
+
+Auto-seed this collection on startup.
 If undefined, this collection is not seeded on init — data must be
 loaded on demand (e.g., via consumer-driven seeding on navigation).
 
@@ -45,6 +59,31 @@ loaded on demand (e.g., via consumer-driven seeding on navigation).
 Page size for seeding. Default: 100.
 
 ## Methods
+
+### cacheKeysFromTopics()
+
+> **cacheKeysFromTopics**(`topics`): [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>[]
+
+Derive cache key identities from WS event topics.
+Called at WS ingestion to resolve which cache keys an event belongs to.
+The returned identities are attached to the event before processing —
+no further topic resolution happens downstream.
+
+#### Parameters
+
+##### topics
+
+readonly `string`[]
+
+Topic strings from the WS event message
+
+#### Returns
+
+[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>[]
+
+Cache key identities this event should be associated with
+
+---
 
 ### fetchSeedEvents()?
 
@@ -60,7 +99,7 @@ Only used if fetchSeedRecords is not defined.
 
 ##### opts
 
-[`FetchSeedEventOptions`](FetchSeedEventOptions.md)
+[`FetchSeedEventOptions`](FetchSeedEventOptions.md)\<`TLink`\>
 
 #### Returns
 
@@ -83,7 +122,7 @@ If neither is defined, seeding is skipped for this collection.
 
 ##### opts
 
-[`FetchSeedRecordOptions`](FetchSeedRecordOptions.md)
+[`FetchSeedRecordOptions`](FetchSeedRecordOptions.md)\<`TLink`\>
 
 #### Returns
 
@@ -144,18 +183,6 @@ If composite read models are introduced, the following need extension:
 #### Returns
 
 `string`
-
----
-
-### getTopics()
-
-> **getTopics**(): `string`[]
-
-WS topic patterns to subscribe to. Return [] for no subscription.
-
-#### Returns
-
-`string`[]
 
 ---
 

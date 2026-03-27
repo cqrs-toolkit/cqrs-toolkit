@@ -7,6 +7,7 @@
 
 import type { CommandRecord, ICommandSender } from '@cqrs-toolkit/client'
 import { CommandSendError } from '@cqrs-toolkit/client'
+import type { Link } from '@meticoeus/ddd-es'
 import type { CommandManifest, CommandRouting, HypermediaCommandSenderOptions } from './types.js'
 
 /**
@@ -17,13 +18,13 @@ import type { CommandManifest, CommandRouting, HypermediaCommandSenderOptions } 
  * const sender = createHypermediaCommandSender(manifest, { baseUrl: 'http://localhost:3000' })
  * ```
  */
-export function createHypermediaCommandSender(
+export function createHypermediaCommandSender<TLink extends Link>(
   manifest: CommandManifest,
   options: HypermediaCommandSenderOptions,
-): ICommandSender {
+): ICommandSender<TLink> {
   const doFetch = options.fetch ?? globalThis.fetch
 
-  const sender: ICommandSender = {
+  const sender: ICommandSender<TLink> = {
     async send(command) {
       const routing = manifest.commands[command.type]
       if (!routing) {
@@ -99,7 +100,10 @@ function expandTemplate(baseUrl: string, routing: CommandRouting, path: unknown)
  * - `create`: body is `command.data` directly
  * - `command` / other: body is an envelope `{ type, data, revision }`
  */
-function formatBody<TData>(routing: CommandRouting, command: CommandRecord<TData>): unknown {
+function formatBody<TLink extends Link, TData>(
+  routing: CommandRouting,
+  command: CommandRecord<TLink, TData>,
+): unknown {
   if (routing.dispatch === 'create') {
     return command.data
   }

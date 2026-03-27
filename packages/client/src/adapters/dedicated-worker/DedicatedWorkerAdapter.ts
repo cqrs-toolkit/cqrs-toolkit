@@ -68,11 +68,11 @@ export class DedicatedWorkerAdapter<TLink extends Link> implements IWorkerAdapte
   private readonly destroy$ = new Subject<void>()
 
   private _status: AdapterStatus = 'uninitialized'
-  private _commandQueue: CommandQueueProxy | undefined
+  private _commandQueue: CommandQueueProxy<TLink> | undefined
   private _queryManager: QueryManagerProxy<TLink> | undefined
   private _cacheManager: CacheManagerProxy<TLink> | undefined
-  private _syncManager: SyncManagerProxy | undefined
-  private _events$: Observable<LibraryEvent> | undefined
+  private _syncManager: SyncManagerProxy<TLink> | undefined
+  private _events$: Observable<LibraryEvent<TLink>> | undefined
 
   private worker: Worker | undefined
   private channel: WorkerMessageChannel | undefined
@@ -85,12 +85,12 @@ export class DedicatedWorkerAdapter<TLink extends Link> implements IWorkerAdapte
     return this._status
   }
 
-  get events$(): Observable<LibraryEvent> {
+  get events$(): Observable<LibraryEvent<TLink>> {
     assert(this._events$, 'Adapter not initialized')
     return this._events$
   }
 
-  get commandQueue(): ICommandQueue {
+  get commandQueue(): ICommandQueue<TLink> {
     assert(this._commandQueue, 'Adapter not initialized')
     return this._commandQueue
   }
@@ -105,7 +105,7 @@ export class DedicatedWorkerAdapter<TLink extends Link> implements IWorkerAdapte
     return this._cacheManager
   }
 
-  get syncManager(): CqrsClientSyncManager {
+  get syncManager(): CqrsClientSyncManager<TLink> {
     assert(this._syncManager, 'Adapter not initialized')
     return this._syncManager
   }
@@ -161,9 +161,9 @@ export class DedicatedWorkerAdapter<TLink extends Link> implements IWorkerAdapte
       // Build events$ observable for consumers
       this._events$ = broadcastEvents$.pipe(
         map(
-          (event: EventMessage): LibraryEvent => ({
-            type: event.eventName as LibraryEvent['type'],
-            data: event.data as LibraryEvent['data'],
+          (event: EventMessage): LibraryEvent<TLink> => ({
+            type: event.eventName as LibraryEvent<TLink>['type'],
+            data: event.data as LibraryEvent<TLink>['data'],
             timestamp: Date.now(),
             debug: event.debug,
           }),
@@ -184,7 +184,7 @@ export class DedicatedWorkerAdapter<TLink extends Link> implements IWorkerAdapte
       this._commandQueue = new CommandQueueProxy(this.channel, broadcastEvents$)
       this._queryManager = new QueryManagerProxy<TLink>(this.channel, broadcastEvents$)
       this._cacheManager = new CacheManagerProxy<TLink>(this.channel)
-      this._syncManager = new SyncManagerProxy(this.channel, broadcastEvents$)
+      this._syncManager = new SyncManagerProxy<TLink>(this.channel, broadcastEvents$)
 
       // Sync connectivity state from worker
       await this._syncManager.syncState()

@@ -10,11 +10,11 @@ Options for caching an event.
 
 ## Properties
 
-### cacheKey
+### cacheKeys
 
-> **cacheKey**: `string`
+> **cacheKeys**: `string`[]
 
-Cache key to associate with
+Cache keys to associate with
 
 ---
 

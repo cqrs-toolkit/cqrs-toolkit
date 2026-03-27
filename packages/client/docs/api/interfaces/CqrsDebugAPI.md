@@ -34,7 +34,7 @@ Cache manager interface for inspection.
 
 ### commandQueue
 
-> `readonly` **commandQueue**: [`ICommandQueue`](ICommandQueue.md)
+> `readonly` **commandQueue**: [`ICommandQueue`](ICommandQueue.md)\<`TLink`\>
 
 Command queue interface for inspection.
 
@@ -58,7 +58,7 @@ Raw SQL debug access (only available in worker modes).
 
 ### events$
 
-> `readonly` **events$**: `Observable`\<[`LibraryEvent`](LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
+> `readonly` **events$**: `Observable`\<[`LibraryEvent`](LibraryEvent.md)\<`TLink`, [`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
 Observable of all library events (including debug events).
 
@@ -82,7 +82,7 @@ Role of this client instance.
 
 ### storage?
 
-> `readonly` `optional` **storage**: [`IStorage`](IStorage.md)
+> `readonly` `optional` **storage**: [`IStorage`](IStorage.md)\<`TLink`\>
 
 Storage interface (only available in online-only mode).
 
@@ -90,6 +90,6 @@ Storage interface (only available in online-only mode).
 
 ### syncManager
 
-> `readonly` **syncManager**: [`CqrsClientSyncManager`](CqrsClientSyncManager.md)
+> `readonly` **syncManager**: [`CqrsClientSyncManager`](CqrsClientSyncManager.md)\<`TLink`\>
 
 Sync manager interface for inspection.

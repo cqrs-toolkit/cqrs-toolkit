@@ -75,17 +75,16 @@ export function validateSchemaMigrations(
 }
 
 /**
- * Generate DDL for a managed collection table.
+ * Generate DDL for a managed collection table and its junction table.
  *
  * Column conventions:
- * - Non-prefixed (`id`, `cache_key`, `updated_at`): public columns
+ * - Non-prefixed (`id`, `updated_at`): public columns
  * - `_` prefixed (`_server_data`, `_effective_data`, `_has_local_changes`): library-private
  */
 export function generateCollectionDDL(name: string): string[] {
   return [
     `CREATE TABLE rm_${name} (
   id TEXT PRIMARY KEY,
-  cache_key TEXT NOT NULL,
   _server_data TEXT,
   _effective_data TEXT NOT NULL,
   _has_local_changes INTEGER NOT NULL DEFAULT 0,
@@ -95,7 +94,12 @@ export function generateCollectionDDL(name: string): string[] {
   __client_id TEXT,
   __reconciled_at INTEGER
 )`,
-    `CREATE INDEX idx_rm_${name}_cache_key ON rm_${name} (cache_key)`,
+    `CREATE TABLE rm_${name}_cache_keys (
+  entity_id TEXT NOT NULL,
+  cache_key TEXT NOT NULL,
+  PRIMARY KEY (entity_id, cache_key)
+)`,
+    `CREATE INDEX idx_rm_${name}_cks_cache_key ON rm_${name}_cache_keys (cache_key)`,
   ]
 }
 

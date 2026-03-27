@@ -4,10 +4,16 @@
 
 [@cqrs-toolkit/client](../globals.md) / CqrsClientSyncManager
 
-# Interface: CqrsClientSyncManager
+# Interface: CqrsClientSyncManager\<TLink\>
 
 Restricted view of SyncManager exposed to consumers.
 Start/stop are managed internally by the client lifecycle.
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
 
 ## Properties
 
@@ -46,6 +52,42 @@ Get sync status for a specific collection.
 #### Returns
 
 [`CollectionSyncStatus`](CollectionSyncStatus.md) \| `undefined`
+
+---
+
+### getSeedStatus()
+
+> **getSeedStatus**(`cacheKey`): `Promise`\<`"seeded"` \| `"seeding"` \| `"unseeded"`\>
+
+Get the aggregate seed status for a cache key identity.
+
+#### Parameters
+
+##### cacheKey
+
+[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
+#### Returns
+
+`Promise`\<`"seeded"` \| `"seeding"` \| `"unseeded"`\>
+
+---
+
+### seed()
+
+> **seed**(`cacheKey`): `Promise`\<`void`\>
+
+Seed all collections whose keyTypes match the given cache key identity.
+
+#### Parameters
+
+##### cacheKey
+
+[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
+#### Returns
+
+`Promise`\<`void`\>
 
 ---
 

@@ -18,6 +18,7 @@ export namespace GetNotesV1_0_0 {
       properties: {
         cursor: { type: 'string' },
         limit: { type: 'string' },
+        notebookId: { type: 'string' },
       },
       additionalProperties: false,
     },
@@ -37,8 +38,11 @@ export namespace GetNotesV1_0_0 {
     const queryParams = request.query
     const limit = parseInt((queryParams?.['limit'] as string) ?? '50', 10)
     const cursor = queryParams?.['cursor'] as string | undefined
+    const notebookId = queryParams?.['notebookId'] as string | undefined
 
-    const result = noteRepo.list(cursor, limit)
+    const result = notebookId
+      ? noteRepo.listByNotebook(notebookId, cursor, limit)
+      : noteRepo.list(cursor, limit)
 
     const connection: CursorPagination.Connection<Note> = {
       entities: result.items,

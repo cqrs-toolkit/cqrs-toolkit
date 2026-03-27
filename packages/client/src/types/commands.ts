@@ -5,10 +5,12 @@
 import {
   type ErrResult,
   Exception,
+  type Link,
   type OkResult,
   type Result,
   ValidationException,
 } from '@meticoeus/ddd-es'
+import type { CacheKeyIdentity } from '../core/cache-manager/CacheKey.js'
 import type { AutoRevision, CreateCommandConfig, PostProcessPlan } from './domain.js'
 import type { ValidationError } from './validation.js'
 
@@ -47,9 +49,11 @@ export interface CommandError {
 /**
  * Persisted command record.
  */
-export interface CommandRecord<TData = unknown, TResponse = unknown> {
+export interface CommandRecord<TLink extends Link, TData = unknown, TResponse = unknown> {
   /** Unique command identifier (client-generated) */
   commandId: string
+  /** Cache key identity — associates this command's events with the correct data scope. Serialized as JSON in SQL storage. */
+  cacheKey: CacheKeyIdentity<TLink>
   /** Target service for the command */
   service: string
   /** Command type (e.g., 'CreateTodo', 'UpdateUser') */
@@ -105,11 +109,21 @@ export interface EnqueueCommand<TData = unknown> {
 /**
  * Options for enqueue operation.
  */
-export interface EnqueueOptions {
+export interface EnqueueOptions<TLink extends Link> {
   /** Skip local domain validation */
   skipValidation?: boolean
   /** Custom command ID (defaults to generated UUID) */
   commandId?: string
+  /** Cache key identity — associates anticipated events and response events with the correct data scope. */
+  cacheKey: CacheKeyIdentity<TLink>
+}
+
+/**
+ * Parameters for {@link ICommandQueue.enqueue}.
+ */
+export interface EnqueueParams<TLink extends Link, TData = unknown> extends EnqueueOptions<TLink> {
+  /** Command to enqueue */
+  command: EnqueueCommand<TData>
 }
 
 /**
@@ -123,7 +137,19 @@ export interface WaitOptions {
 /**
  * Options for enqueueAndWait operation.
  */
-export interface EnqueueAndWaitOptions extends EnqueueOptions, WaitOptions {}
+export interface EnqueueAndWaitOptions<TLink extends Link>
+  extends EnqueueOptions<TLink>, WaitOptions {}
+
+/**
+ * Parameters for {@link ICommandQueue.enqueueAndWait}.
+ */
+export interface EnqueueAndWaitParams<
+  TLink extends Link,
+  TData = unknown,
+> extends EnqueueAndWaitOptions<TLink> {
+  /** Command to enqueue and wait for */
+  command: EnqueueCommand<TData>
+}
 
 /**
  * Successful enqueue data.
@@ -299,7 +325,18 @@ export function isTerminalStatus(status: CommandStatus): status is TerminalComma
 /**
  * Options for the network-aware submit operation.
  */
-export interface SubmitOptions extends EnqueueOptions, WaitOptions {}
+export interface SubmitOptions<TLink extends Link> extends EnqueueOptions<TLink>, WaitOptions {}
+
+/**
+ * Parameters for {@link CqrsClient.submit}.
+ */
+export interface SubmitParams<
+  TLink extends Link,
+  TCommand extends EnqueueCommand = EnqueueCommand,
+> extends SubmitOptions<TLink> {
+  /** Command to submit */
+  command: TCommand
+}
 
 /**
  * Successful submit result — discriminated by lifecycle stage.

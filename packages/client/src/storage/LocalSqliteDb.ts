@@ -7,7 +7,7 @@
  */
 
 import { assert } from '../utils/assert.js'
-import type { ISqliteDb } from './ISqliteDb.js'
+import type { ISqliteDb, SqliteBatchStatement } from './ISqliteDb.js'
 
 /**
  * VFS type for SQLite storage.
@@ -112,6 +112,34 @@ export class LocalSqliteDb implements ISqliteDb {
       })
     }
     this.rawDb.exec(sql, { bind: options?.bind })
+    return undefined
+  }
+
+  async execBatch(statements: SqliteBatchStatement[]): Promise<unknown[]> {
+    if (statements.length <= 1) {
+      return statements.map((stmt) => this.execOne(stmt))
+    }
+
+    this.rawDb.exec('BEGIN')
+    try {
+      const results = statements.map((stmt) => this.execOne(stmt))
+      this.rawDb.exec('COMMIT')
+      return results
+    } catch (error) {
+      this.rawDb.exec('ROLLBACK')
+      throw error
+    }
+  }
+
+  private execOne(stmt: SqliteBatchStatement): unknown {
+    if (stmt.returnRows) {
+      return this.rawDb.exec(stmt.sql, {
+        bind: stmt.bind,
+        rowMode: 'object',
+        returnValue: 'resultRows',
+      })
+    }
+    this.rawDb.exec(stmt.sql, { bind: stmt.bind })
     return undefined
   }
 

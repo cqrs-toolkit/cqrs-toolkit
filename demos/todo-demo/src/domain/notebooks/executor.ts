@@ -4,14 +4,17 @@
 
 import {
   createEntityId,
+  deriveScopeKey,
   domainSuccess,
   type AsyncValidationContext,
   type HandlerContext,
   type ValidationError,
 } from '@cqrs-toolkit/client'
 import {
+  addNotebookTagPayloadSchema,
   createNotebookPayloadSchema,
   deleteNotebookPayloadSchema,
+  removeNotebookTagPayloadSchema,
   updateNotebookNamePayloadSchema,
   type Notebook,
 } from '@cqrs-toolkit/demo-base/notebooks/shared'
@@ -23,7 +26,10 @@ async function checkNameUniqueness(
   excludeId: string | undefined,
   { queryManager }: AsyncValidationContext<ServiceLink>,
 ): Promise<Result<unknown, ValidationException<ValidationError[]>>> {
-  const result = await queryManager.list<Notebook>('notebooks')
+  const result = await queryManager.list<Notebook>({
+    collection: 'notebooks',
+    cacheKey: deriveScopeKey({ scopeType: 'notebooks' }),
+  })
   const duplicate = result.data.find(
     (n) => n.name === name && (excludeId === undefined || n.id !== excludeId),
   )
@@ -86,6 +92,32 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
     handler(data: { id: string }) {
       return domainSuccess([
         { type: 'NotebookDeleted', data: { id: data.id }, streamId: `Notebook-${data.id}` },
+      ])
+    },
+  },
+  {
+    commandType: 'AddNotebookTag',
+    schema: addNotebookTagPayloadSchema,
+    handler(data: { id: string; tag: string }) {
+      return domainSuccess([
+        {
+          type: 'NotebookTagAdded',
+          data: { id: data.id, tag: data.tag },
+          streamId: `Notebook-${data.id}`,
+        },
+      ])
+    },
+  },
+  {
+    commandType: 'RemoveNotebookTag',
+    schema: removeNotebookTagPayloadSchema,
+    handler(data: { id: string; tag: string }) {
+      return domainSuccess([
+        {
+          type: 'NotebookTagRemoved',
+          data: { id: data.id, tag: data.tag },
+          streamId: `Notebook-${data.id}`,
+        },
       ])
     },
   },

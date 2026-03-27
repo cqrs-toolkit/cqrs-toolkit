@@ -6,6 +6,7 @@
  */
 
 import type { CommandStatus } from '@cqrs-toolkit/client'
+import type { Link } from '@meticoeus/ddd-es'
 import { createSignal } from 'solid-js'
 import type { SanitizedEvent, SerializedCommandRecord } from '../../shared/protocol.js'
 
@@ -56,7 +57,7 @@ const ALL_STATUSES: CommandStatus[] = [
   'cancelled',
 ]
 
-export function createCommandsStore(): CommandsStore {
+export function createCommandsStore<TLink extends Link>(): CommandsStore {
   const [entries, setEntries] = createSignal<Map<string, CommandEntry>>(new Map())
   const [filterStatuses, setFilterStatuses] = createSignal<Set<CommandStatus>>(
     new Set(ALL_STATUSES),
@@ -133,6 +134,7 @@ export function createCommandsStore(): CommandsStore {
           if (!existing) {
             const record: SerializedCommandRecord = {
               commandId,
+              cacheKey: { kind: 'scope', key: '', scopeType: '' },
               service: '',
               type,
               data: {},

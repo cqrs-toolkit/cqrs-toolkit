@@ -2,9 +2,11 @@
  * Unit tests for CommandQueue.
  */
 
+import type { AggregateEventData, ServiceLink } from '@meticoeus/ddd-es'
+import { Subject } from 'rxjs'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
-import type { CommandRecord } from '../../types/commands.js'
+import type { CommandEvent, CommandRecord } from '../../types/commands.js'
 import type { HandlerContext, IDomainExecutor } from '../../types/domain.js'
 import {
   autoRevision,
@@ -13,21 +15,31 @@ import {
   domainSuccess,
 } from '../../types/domain.js'
 import { generateId } from '../../utils/uuid.js'
+import { deriveScopeKey } from '../cache-manager/CacheKey.js'
+import { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventShape.js'
 import { EventBus } from '../events/EventBus.js'
 import type { IAnticipatedEventHandler } from './CommandQueue.js'
 import { CommandQueue } from './CommandQueue.js'
 import type { ICommandSender } from './types.js'
 import { CommandSendError } from './types.js'
 
+const TODOS_CACHE_KEY = deriveScopeKey({ scopeType: 'todos' })
+
+class TestCommandQueue extends CommandQueue<ServiceLink, unknown, IAnticipatedEvent> {
+  getCommandEvents(): Subject<CommandEvent> {
+    return this.commandEvents
+  }
+}
+
 describe('CommandQueue', () => {
-  let storage: InMemoryStorage
-  let eventBus: EventBus
+  let storage: InMemoryStorage<ServiceLink>
+  let eventBus: EventBus<ServiceLink>
   let anticipatedEventHandler: IAnticipatedEventHandler & {
     cache: ReturnType<typeof vi.fn>
     cleanup: ReturnType<typeof vi.fn>
     clearAll: ReturnType<typeof vi.fn>
   }
-  let commandQueue: CommandQueue
+  let commandQueue: TestCommandQueue
 
   beforeEach(async () => {
     storage = new InMemoryStorage()
@@ -41,14 +53,14 @@ describe('CommandQueue', () => {
       getAnticipatedEventsForStream: vi.fn().mockResolvedValue([]),
       clearAll: vi.fn().mockResolvedValue(undefined),
     }
-    commandQueue = new CommandQueue({ storage, eventBus, anticipatedEventHandler })
+    commandQueue = new TestCommandQueue({ storage, eventBus, anticipatedEventHandler })
   })
 
   describe('enqueue', () => {
     it('enqueues a command and returns success', async () => {
       const result = await commandQueue.enqueue({
-        type: 'CreateTodo',
-        data: { title: 'Test todo' },
+        command: { type: 'CreateTodo', data: { title: 'Test todo' } },
+        cacheKey: TODOS_CACHE_KEY,
       })
 
       expect(result.ok).toBe(true)
@@ -59,10 +71,11 @@ describe('CommandQueue', () => {
     })
 
     it('uses provided commandId', async () => {
-      const result = await commandQueue.enqueue(
-        { type: 'CreateTodo', data: {} },
-        { commandId: 'custom-id-123' },
-      )
+      const result = await commandQueue.enqueue({
+        command: { type: 'CreateTodo', data: {} },
+        commandId: 'custom-id-123',
+        cacheKey: TODOS_CACHE_KEY,
+      })
 
       expect(result.ok).toBe(true)
       if (result.ok) {
@@ -72,9 +85,8 @@ describe('CommandQueue', () => {
 
     it('saves command to storage', async () => {
       const result = await commandQueue.enqueue({
-        type: 'CreateTodo',
-        data: { title: 'Test' },
-        service: 'todo-service',
+        command: { type: 'CreateTodo', data: { title: 'Test' }, service: 'todo-service' },
+        cacheKey: TODOS_CACHE_KEY,
       })
 
       if (!result.ok) throw new Error('Expected success')
@@ -92,7 +104,10 @@ describe('CommandQueue', () => {
       const events: unknown[] = []
       commandQueue.events$.subscribe((e) => events.push(e))
 
-      await commandQueue.enqueue({ type: 'CreateTodo', data: {} })
+      await commandQueue.enqueue({
+        command: { type: 'CreateTodo', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
 
       expect(events).toHaveLength(1)
       expect(events[0]).toMatchObject({
@@ -106,7 +121,10 @@ describe('CommandQueue', () => {
       const events: unknown[] = []
       eventBus.on('command:enqueued').subscribe((e) => events.push(e))
 
-      await commandQueue.enqueue({ type: 'CreateTodo', data: {} })
+      await commandQueue.enqueue({
+        command: { type: 'CreateTodo', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
 
       expect(events).toHaveLength(1)
     })
@@ -119,7 +137,7 @@ describe('CommandQueue', () => {
       domainExecutor = {
         execute: vi.fn(),
       }
-      commandQueue = new CommandQueue({
+      commandQueue = new TestCommandQueue({
         storage,
         eventBus,
         anticipatedEventHandler,
@@ -129,12 +147,12 @@ describe('CommandQueue', () => {
 
     it('returns validation errors when domain validation fails', async () => {
       vi.mocked(domainExecutor.execute).mockReturnValue(
-        domainFailure([{ path: 'title', message: 'Title is required' }]),
+        Promise.resolve(domainFailure([{ path: 'title', message: 'Title is required' }])),
       )
 
       const result = await commandQueue.enqueue({
-        type: 'CreateTodo',
-        data: { title: '' },
+        command: { type: 'CreateTodo', data: { title: '' } },
+        cacheKey: TODOS_CACHE_KEY,
       })
 
       expect(result.ok).toBe(false)
@@ -147,12 +165,12 @@ describe('CommandQueue', () => {
 
     it('returns anticipated events on successful validation', async () => {
       vi.mocked(domainExecutor.execute).mockReturnValue(
-        domainSuccess([{ type: 'TodoCreated', data: { id: '1', title: 'Test' } }]),
+        Promise.resolve(domainSuccess([{ type: 'TodoCreated', data: { id: '1', title: 'Test' } }])),
       )
 
       const result = await commandQueue.enqueue({
-        type: 'CreateTodo',
-        data: { title: 'Test' },
+        command: { type: 'CreateTodo', data: { title: 'Test' } },
+        cacheKey: TODOS_CACHE_KEY,
       })
 
       expect(result.ok).toBe(true)
@@ -167,13 +185,14 @@ describe('CommandQueue', () => {
 
     it('skips validation when skipValidation is true', async () => {
       vi.mocked(domainExecutor.execute).mockReturnValue(
-        domainFailure([{ path: 'title', message: 'Title is required' }]),
+        Promise.resolve(domainFailure([{ path: 'title', message: 'Title is required' }])),
       )
 
-      const result = await commandQueue.enqueue(
-        { type: 'CreateTodo', data: { title: '' } },
-        { skipValidation: true },
-      )
+      const result = await commandQueue.enqueue({
+        command: { type: 'CreateTodo', data: { title: '' } },
+        skipValidation: true,
+        cacheKey: TODOS_CACHE_KEY,
+      })
 
       expect(result.ok).toBe(true)
       expect(domainExecutor.execute).not.toHaveBeenCalled()
@@ -183,14 +202,16 @@ describe('CommandQueue', () => {
   describe('enqueue with dependencies', () => {
     it('marks command as blocked when it has unresolved dependencies', async () => {
       // First command
-      const first = await commandQueue.enqueue({ type: 'First', data: {} })
+      const first = await commandQueue.enqueue({
+        command: { type: 'First', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!first.ok) throw new Error('Expected success')
 
       // Second command depends on first
       const second = await commandQueue.enqueue({
-        type: 'Second',
-        data: {},
-        dependsOn: [first.value.commandId],
+        command: { type: 'Second', data: {}, dependsOn: [first.value.commandId] },
+        cacheKey: TODOS_CACHE_KEY,
       })
 
       if (!second.ok) throw new Error('Expected success')
@@ -202,8 +223,9 @@ describe('CommandQueue', () => {
 
     it('marks command as pending when all dependencies are resolved', async () => {
       // Create and complete first command
-      const first: CommandRecord = {
+      const first: CommandRecord<ServiceLink> = {
         commandId: 'cmd-1',
+        cacheKey: TODOS_CACHE_KEY,
         service: 'test',
         type: 'First',
         data: {},
@@ -219,9 +241,8 @@ describe('CommandQueue', () => {
 
       // Second command depends on first (which is already completed)
       const second = await commandQueue.enqueue({
-        type: 'Second',
-        data: {},
-        dependsOn: ['cmd-1'],
+        command: { type: 'Second', data: {}, dependsOn: ['cmd-1'] },
+        cacheKey: TODOS_CACHE_KEY,
       })
 
       if (!second.ok) throw new Error('Expected success')
@@ -234,8 +255,9 @@ describe('CommandQueue', () => {
 
   describe('waitForCompletion', () => {
     it('returns immediately if command is already succeeded', async () => {
-      const command: CommandRecord = {
+      const command: CommandRecord<ServiceLink> = {
         commandId: 'cmd-1',
+        cacheKey: TODOS_CACHE_KEY,
         service: 'test',
         type: 'Test',
         data: {},
@@ -259,8 +281,9 @@ describe('CommandQueue', () => {
     })
 
     it('returns immediately if command is already failed', async () => {
-      const command: CommandRecord = {
+      const command: CommandRecord<ServiceLink> = {
         commandId: 'cmd-1',
+        cacheKey: TODOS_CACHE_KEY,
         service: 'test',
         type: 'Test',
         data: {},
@@ -293,7 +316,10 @@ describe('CommandQueue', () => {
     })
 
     it('times out if command does not complete', async () => {
-      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
+      const result = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!result.ok) throw new Error('Expected success')
 
       const completionResult = await commandQueue.waitForCompletion(result.value.commandId, {
@@ -304,7 +330,10 @@ describe('CommandQueue', () => {
     })
 
     it('waits for command to complete', async () => {
-      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
+      const result = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!result.ok) throw new Error('Expected success')
 
       // Simulate completion in background
@@ -313,8 +342,7 @@ describe('CommandQueue', () => {
           status: 'succeeded',
           serverResponse: { done: true },
         })
-        // Manually emit event since we're updating storage directly
-        ;(commandQueue as any).commandEvents.next({
+        commandQueue.getCommandEvents().next({
           eventType: 'status-changed',
           commandId: result.value.commandId,
           type: 'Test',
@@ -335,9 +363,9 @@ describe('CommandQueue', () => {
   describe('enqueueAndWait', () => {
     it('returns validation errors immediately', async () => {
       const domainExecutor: IDomainExecutor = {
-        execute: () => domainFailure([{ path: 'email', message: 'Invalid email' }]),
+        execute: async () => domainFailure([{ path: 'email', message: 'Invalid email' }]),
       }
-      commandQueue = new CommandQueue({
+      commandQueue = new TestCommandQueue({
         storage,
         eventBus,
         anticipatedEventHandler,
@@ -345,8 +373,8 @@ describe('CommandQueue', () => {
       })
 
       const result = await commandQueue.enqueueAndWait({
-        type: 'CreateUser',
-        data: { email: 'invalid' },
+        command: { type: 'CreateUser', data: { email: 'invalid' } },
+        cacheKey: TODOS_CACHE_KEY,
       })
 
       expect(result.ok).toBe(false)
@@ -360,12 +388,18 @@ describe('CommandQueue', () => {
   describe('commandEvents$', () => {
     it('filters events to specific command', async () => {
       const events: unknown[] = []
-      const result1 = await commandQueue.enqueue({ type: 'First', data: {} })
+      const result1 = await commandQueue.enqueue({
+        command: { type: 'First', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!result1.ok) throw new Error('Expected success')
 
       commandQueue.commandEvents$(result1.value.commandId).subscribe((e) => events.push(e))
 
-      await commandQueue.enqueue({ type: 'Second', data: {} })
+      await commandQueue.enqueue({
+        command: { type: 'Second', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
 
       // Only the first command event was already emitted before subscribing
       // New events for second command should not appear
@@ -375,7 +409,10 @@ describe('CommandQueue', () => {
 
   describe('cancelCommand', () => {
     it('cancels a pending command', async () => {
-      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
+      const result = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!result.ok) throw new Error('Expected success')
 
       await commandQueue.cancelCommand(result.value.commandId)
@@ -389,8 +426,9 @@ describe('CommandQueue', () => {
     })
 
     it('throws when command is already succeeded', async () => {
-      const command: CommandRecord = {
+      const command: CommandRecord<ServiceLink> = {
         commandId: 'cmd-1',
+        cacheKey: TODOS_CACHE_KEY,
         service: 'test',
         type: 'Test',
         data: {},
@@ -408,7 +446,10 @@ describe('CommandQueue', () => {
     })
 
     it('emits cancelled event', async () => {
-      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
+      const result = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!result.ok) throw new Error('Expected success')
 
       const events: unknown[] = []
@@ -425,7 +466,10 @@ describe('CommandQueue', () => {
     })
 
     it('emits command:status-changed to library event bus', async () => {
-      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
+      const result = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!result.ok) throw new Error('Expected success')
 
       const events: unknown[] = []
@@ -447,8 +491,9 @@ describe('CommandQueue', () => {
 
   describe('retryCommand', () => {
     it('retries a failed command', async () => {
-      const command: CommandRecord = {
+      const command: CommandRecord<ServiceLink> = {
         commandId: 'cmd-1',
+        cacheKey: TODOS_CACHE_KEY,
         service: 'test',
         type: 'Test',
         data: {},
@@ -471,7 +516,10 @@ describe('CommandQueue', () => {
     })
 
     it('throws when command is not failed', async () => {
-      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
+      const result = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!result.ok) throw new Error('Expected success')
 
       await expect(commandQueue.retryCommand(result.value.commandId)).rejects.toThrow(
@@ -481,13 +529,13 @@ describe('CommandQueue', () => {
   })
 
   describe('command processing', () => {
-    let commandSender: ICommandSender
+    let commandSender: ICommandSender<ServiceLink>
 
     beforeEach(() => {
       commandSender = {
         send: vi.fn().mockResolvedValue({ id: '123' }),
       }
-      commandQueue = new CommandQueue({
+      commandQueue = new TestCommandQueue({
         storage,
         eventBus,
         anticipatedEventHandler,
@@ -497,7 +545,10 @@ describe('CommandQueue', () => {
     })
 
     it('processes pending commands when resumed', async () => {
-      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
+      const result = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!result.ok) throw new Error('Expected success')
 
       commandQueue.resume()
@@ -511,7 +562,10 @@ describe('CommandQueue', () => {
     })
 
     it('does not process commands when paused', async () => {
-      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
+      const result = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!result.ok) throw new Error('Expected success')
 
       // Queue starts paused
@@ -526,7 +580,10 @@ describe('CommandQueue', () => {
         .mockRejectedValueOnce(new CommandSendError('Network error', 'NETWORK', true))
         .mockResolvedValueOnce({ id: '123' })
 
-      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
+      const result = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!result.ok) throw new Error('Expected success')
 
       commandQueue.resume()
@@ -545,7 +602,10 @@ describe('CommandQueue', () => {
         new CommandSendError('Network error', 'NETWORK', true),
       )
 
-      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
+      const result = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!result.ok) throw new Error('Expected success')
 
       commandQueue.resume()
@@ -564,7 +624,10 @@ describe('CommandQueue', () => {
         new CommandSendError('Validation error', 'VALIDATION', false),
       )
 
-      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
+      const result = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!result.ok) throw new Error('Expected success')
 
       commandQueue.resume()
@@ -577,13 +640,15 @@ describe('CommandQueue', () => {
     })
 
     it('unblocks dependent commands on success', async () => {
-      const first = await commandQueue.enqueue({ type: 'First', data: {} })
+      const first = await commandQueue.enqueue({
+        command: { type: 'First', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!first.ok) throw new Error('Expected success')
 
       const second = await commandQueue.enqueue({
-        type: 'Second',
-        data: {},
-        dependsOn: [first.value.commandId],
+        command: { type: 'Second', data: {}, dependsOn: [first.value.commandId] },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!second.ok) throw new Error('Expected success')
 
@@ -614,7 +679,10 @@ describe('CommandQueue', () => {
       // Let resume's empty processing pass complete before enqueuing
       await new Promise((resolve) => setTimeout(resolve, 0))
 
-      const first = await commandQueue.enqueue({ type: 'First', data: {} })
+      const first = await commandQueue.enqueue({
+        command: { type: 'First', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!first.ok) throw new Error('Expected success')
 
       // First command is now in-flight (send is blocked)
@@ -622,7 +690,10 @@ describe('CommandQueue', () => {
       expect(commandSender.send).toHaveBeenCalledTimes(1)
 
       // Enqueue a second command while the first is still processing
-      const second = await commandQueue.enqueue({ type: 'Second', data: {} })
+      const second = await commandQueue.enqueue({
+        command: { type: 'Second', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!second.ok) throw new Error('Expected success')
 
       // Complete the first send — this should trigger reprocessing of the second
@@ -644,10 +715,16 @@ describe('CommandQueue', () => {
         .mockResolvedValue({ id: '2' })
 
       // Enqueue both commands while paused so they are in the same batch
-      const first = await commandQueue.enqueue({ type: 'First', data: {} })
+      const first = await commandQueue.enqueue({
+        command: { type: 'First', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!first.ok) throw new Error('Expected success')
 
-      const second = await commandQueue.enqueue({ type: 'Second', data: {} })
+      const second = await commandQueue.enqueue({
+        command: { type: 'Second', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!second.ok) throw new Error('Expected success')
 
       // Resume — processing snapshots both commands
@@ -672,7 +749,7 @@ describe('CommandQueue', () => {
 
     it('clears retry timers on destroy', async () => {
       // Use a long retry delay so the timer is still pending when we destroy
-      commandQueue = new CommandQueue({
+      commandQueue = new TestCommandQueue({
         storage,
         eventBus,
         anticipatedEventHandler,
@@ -684,7 +761,10 @@ describe('CommandQueue', () => {
         new CommandSendError('Network error', 'NETWORK', true),
       )
 
-      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
+      const result = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!result.ok) throw new Error('Expected success')
 
       commandQueue.resume()
@@ -709,7 +789,10 @@ describe('CommandQueue', () => {
         () => new Promise((resolve) => (resolveSend = resolve)),
       )
 
-      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
+      const result = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!result.ok) throw new Error('Expected success')
 
       commandQueue.resume()
@@ -738,13 +821,15 @@ describe('CommandQueue', () => {
     it('cancels dependent commands on failure', async () => {
       vi.mocked(commandSender.send).mockRejectedValue(new CommandSendError('Error', 'ERROR', false))
 
-      const first = await commandQueue.enqueue({ type: 'First', data: {} })
+      const first = await commandQueue.enqueue({
+        command: { type: 'First', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!first.ok) throw new Error('Expected success')
 
       const second = await commandQueue.enqueue({
-        type: 'Second',
-        data: {},
-        dependsOn: [first.value.commandId],
+        command: { type: 'Second', data: {}, dependsOn: [first.value.commandId] },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!second.ok) throw new Error('Expected success')
 
@@ -761,8 +846,14 @@ describe('CommandQueue', () => {
 
   describe('listCommands', () => {
     it('returns all commands', async () => {
-      await commandQueue.enqueue({ type: 'First', data: {} })
-      await commandQueue.enqueue({ type: 'Second', data: {} })
+      await commandQueue.enqueue({
+        command: { type: 'First', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      await commandQueue.enqueue({
+        command: { type: 'Second', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
 
       const commands = await commandQueue.listCommands()
 
@@ -770,8 +861,14 @@ describe('CommandQueue', () => {
     })
 
     it('filters by status', async () => {
-      await commandQueue.enqueue({ type: 'First', data: {} })
-      const second = await commandQueue.enqueue({ type: 'Second', data: {} })
+      await commandQueue.enqueue({
+        command: { type: 'First', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      const second = await commandQueue.enqueue({
+        command: { type: 'Second', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!second.ok) throw new Error('Expected success')
 
       await commandQueue.cancelCommand(second.value.commandId)
@@ -786,7 +883,7 @@ describe('CommandQueue', () => {
 
   describe('retainTerminal', () => {
     it('stores retainTerminal config flag', () => {
-      const queue = new CommandQueue({
+      const queue = new TestCommandQueue({
         storage,
         eventBus,
         anticipatedEventHandler,
@@ -822,7 +919,7 @@ describe('CommandQueue', () => {
       domainExecutor = {
         execute: vi.fn(),
       }
-      commandQueue = new CommandQueue({
+      commandQueue = new TestCommandQueue({
         storage,
         eventBus,
         anticipatedEventHandler,
@@ -832,47 +929,54 @@ describe('CommandQueue', () => {
 
     it('calls cache() with correct commandId and events when domain executor succeeds', async () => {
       const events = [{ type: 'TodoCreated', data: { id: '1', title: 'Test' }, streamId: 'todo-1' }]
-      vi.mocked(domainExecutor.execute).mockReturnValue(domainSuccess(events))
+      vi.mocked(domainExecutor.execute).mockReturnValue(Promise.resolve(domainSuccess(events)))
 
       const result = await commandQueue.enqueue({
-        type: 'CreateTodo',
-        data: { title: 'Test' },
+        command: { type: 'CreateTodo', data: { title: 'Test' } },
+        cacheKey: TODOS_CACHE_KEY,
       })
 
       if (!result.ok) throw new Error('Expected success')
 
       expect(anticipatedEventHandler.cache).toHaveBeenCalledTimes(1)
-      expect(anticipatedEventHandler.cache).toHaveBeenCalledWith(
-        result.value.commandId,
+      expect(anticipatedEventHandler.cache).toHaveBeenCalledWith({
+        commandId: result.value.commandId,
         events,
-        undefined,
-      )
+        clientId: undefined,
+        cacheKey: TODOS_CACHE_KEY.key,
+      })
     })
 
     it('does not call cache() when domain executor is not configured', async () => {
-      commandQueue = new CommandQueue({ storage, eventBus, anticipatedEventHandler })
+      commandQueue = new TestCommandQueue({ storage, eventBus, anticipatedEventHandler })
 
-      await commandQueue.enqueue({ type: 'CreateTodo', data: {} })
+      await commandQueue.enqueue({
+        command: { type: 'CreateTodo', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
 
       expect(anticipatedEventHandler.cache).not.toHaveBeenCalled()
     })
 
     it('does not call cache() when anticipated events array is empty', async () => {
-      vi.mocked(domainExecutor.execute).mockReturnValue(domainSuccess([]))
+      vi.mocked(domainExecutor.execute).mockReturnValue(Promise.resolve(domainSuccess([])))
 
-      await commandQueue.enqueue({ type: 'CreateTodo', data: {} })
+      await commandQueue.enqueue({
+        command: { type: 'CreateTodo', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
 
       expect(anticipatedEventHandler.cache).not.toHaveBeenCalled()
     })
 
     it('enqueue succeeds even if cache() throws', async () => {
       const events = [{ type: 'TodoCreated', data: { id: '1', title: 'Test' }, streamId: 'todo-1' }]
-      vi.mocked(domainExecutor.execute).mockReturnValue(domainSuccess(events))
+      vi.mocked(domainExecutor.execute).mockReturnValue(Promise.resolve(domainSuccess(events)))
       anticipatedEventHandler.cache.mockRejectedValue(new Error('Cache failure'))
 
       const result = await commandQueue.enqueue({
-        type: 'CreateTodo',
-        data: { title: 'Test' },
+        command: { type: 'CreateTodo', data: { title: 'Test' } },
+        cacheKey: TODOS_CACHE_KEY,
       })
 
       expect(result.ok).toBe(true)
@@ -883,13 +987,13 @@ describe('CommandQueue', () => {
   })
 
   describe('anticipated event cleanup', () => {
-    let commandSender: ICommandSender
+    let commandSender: ICommandSender<ServiceLink>
 
     beforeEach(() => {
       commandSender = {
         send: vi.fn().mockResolvedValue({ id: '123' }),
       }
-      commandQueue = new CommandQueue({
+      commandQueue = new TestCommandQueue({
         storage,
         eventBus,
         anticipatedEventHandler,
@@ -899,7 +1003,10 @@ describe('CommandQueue', () => {
     })
 
     it('calls cleanup() when command succeeds', async () => {
-      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
+      const result = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!result.ok) throw new Error('Expected success')
 
       commandQueue.resume()
@@ -916,7 +1023,10 @@ describe('CommandQueue', () => {
         new CommandSendError('Validation error', 'VALIDATION', false),
       )
 
-      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
+      const result = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!result.ok) throw new Error('Expected success')
 
       commandQueue.resume()
@@ -926,7 +1036,10 @@ describe('CommandQueue', () => {
     })
 
     it('calls cleanup() when command is cancelled', async () => {
-      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
+      const result = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!result.ok) throw new Error('Expected success')
 
       await commandQueue.cancelCommand(result.value.commandId)
@@ -940,13 +1053,15 @@ describe('CommandQueue', () => {
     it('calls cleanup() for cascaded cancellations', async () => {
       vi.mocked(commandSender.send).mockRejectedValue(new CommandSendError('Error', 'ERROR', false))
 
-      const first = await commandQueue.enqueue({ type: 'First', data: {} })
+      const first = await commandQueue.enqueue({
+        command: { type: 'First', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!first.ok) throw new Error('Expected success')
 
       const second = await commandQueue.enqueue({
-        type: 'Second',
-        data: {},
-        dependsOn: [first.value.commandId],
+        command: { type: 'Second', data: {}, dependsOn: [first.value.commandId] },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!second.ok) throw new Error('Expected success')
 
@@ -966,7 +1081,10 @@ describe('CommandQueue', () => {
         .mockRejectedValueOnce(new CommandSendError('Network error', 'NETWORK', true))
         .mockResolvedValueOnce({ id: '123' })
 
-      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
+      const result = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!result.ok) throw new Error('Expected success')
 
       commandQueue.resume()
@@ -994,10 +1112,10 @@ describe('CommandQueue', () => {
     })
 
     it('clears pending retry timers', async () => {
-      const commandSender: ICommandSender = {
+      const commandSender: ICommandSender<ServiceLink> = {
         send: vi.fn().mockRejectedValue(new CommandSendError('Error', 'NETWORK', true)),
       }
-      commandQueue = new CommandQueue({
+      commandQueue = new TestCommandQueue({
         storage,
         eventBus,
         anticipatedEventHandler,
@@ -1005,7 +1123,10 @@ describe('CommandQueue', () => {
         retryConfig: { maxAttempts: 3, initialDelay: 500 },
       })
 
-      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
+      const result = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!result.ok) throw new Error('Expected success')
 
       commandQueue.resume()
@@ -1026,17 +1147,20 @@ describe('CommandQueue', () => {
 
     it('waits for in-flight processing', async () => {
       let resolveSend: ((value: unknown) => void) | undefined
-      const commandSender: ICommandSender = {
+      const commandSender: ICommandSender<ServiceLink> = {
         send: vi.fn().mockImplementation(() => new Promise((resolve) => (resolveSend = resolve))),
       }
-      commandQueue = new CommandQueue({
+      commandQueue = new TestCommandQueue({
         storage,
         eventBus,
         anticipatedEventHandler,
         commandSender,
       })
 
-      const result = await commandQueue.enqueue({ type: 'Test', data: {} })
+      const result = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!result.ok) throw new Error('Expected success')
 
       commandQueue.resume()
@@ -1063,8 +1187,14 @@ describe('CommandQueue', () => {
   describe('clearAll', () => {
     it('pauses the queue, clears anticipated tracking, and deletes all commands', async () => {
       commandQueue.resume()
-      await commandQueue.enqueue({ type: 'First', data: {} })
-      await commandQueue.enqueue({ type: 'Second', data: {} })
+      await commandQueue.enqueue({
+        command: { type: 'First', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      await commandQueue.enqueue({
+        command: { type: 'Second', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
 
       await commandQueue.clearAll()
 
@@ -1077,18 +1207,11 @@ describe('CommandQueue', () => {
   })
 
   describe('cross-aggregate parent-child reconciliation', () => {
-    // Handler registrations for two aggregate types
-    interface AnticipatedEvent {
-      type: string
-      data: Record<string, unknown>
-      streamId: string
-    }
-
     function setupCrossAggregateQueue(senderResponses: Map<string, unknown>): {
-      queue: CommandQueue
-      sender: ICommandSender
+      queue: TestCommandQueue
+      sender: ICommandSender<ServiceLink>
     } {
-      const executor = createDomainExecutor<AnticipatedEvent>([
+      const executor = createDomainExecutor<ServiceLink, unknown, IAnticipatedEvent>([
         {
           commandType: 'CreateFolder',
           creates: { eventType: 'FolderCreated', idStrategy: 'temporary' },
@@ -1156,8 +1279,8 @@ describe('CommandQueue', () => {
         },
       ])
 
-      const sender: ICommandSender = {
-        async send(command: CommandRecord) {
+      const sender: ICommandSender<ServiceLink> = {
+        async send(command: CommandRecord<ServiceLink>) {
           const response = senderResponses.get(command.type)
           if (typeof response === 'function') return response(command)
           if (response !== undefined) return response
@@ -1165,7 +1288,7 @@ describe('CommandQueue', () => {
         },
       }
 
-      const queue = new CommandQueue({
+      const queue = new TestCommandQueue({
         storage,
         eventBus,
         anticipatedEventHandler,
@@ -1198,24 +1321,26 @@ describe('CommandQueue', () => {
 
       // Enqueue parent create
       const folderResult = await queue.enqueue({
-        type: 'CreateFolder',
-        data: { name: 'F' },
+        command: { type: 'CreateFolder', data: { name: 'F' } },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!folderResult.ok) throw new Error('Expected success')
-      const folderClientId = (folderResult.value.anticipatedEvents[0] as AnticipatedEvent).data
-        .id as string
+      const folderClientId = (folderResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
       // Enqueue child create with dependency on parent
       const noteResult = await queue.enqueue({
-        type: 'CreateNote',
-        data: { parentId: folderClientId, title: 'N' },
-        dependsOn: [folderResult.value.commandId],
+        command: {
+          type: 'CreateNote',
+          data: { parentId: folderClientId, title: 'N' },
+          dependsOn: [folderResult.value.commandId],
+        },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!noteResult.ok) throw new Error('Expected success')
 
       // Capture the original client ID from the child's anticipated events
-      const originalNoteClientId = (noteResult.value.anticipatedEvents[0] as AnticipatedEvent).data
-        .id as string
+      const originalNoteClientId = (noteResult.value.anticipatedEvents[0] as IAnticipatedEvent).data
+        .id
 
       // Process — folder succeeds, triggers regeneration of note's anticipated events
       queue.resume()
@@ -1229,7 +1354,10 @@ describe('CommandQueue', () => {
       expect(noteRegenerateCall).toBeDefined()
 
       // Extract the NoteCreated event from the regenerated anticipated events
-      const regeneratedEvents = noteRegenerateCall![1] as AnticipatedEvent[]
+      const regeneratedEvents = noteRegenerateCall![1] as IAnticipatedEvent<
+        string,
+        AggregateEventData & Record<string, string>
+      >[]
       const noteCreatedEvent = regeneratedEvents.find((e) => e.type === 'NoteCreated')
       expect(noteCreatedEvent).toBeDefined()
 
@@ -1260,20 +1388,22 @@ describe('CommandQueue', () => {
 
       // Enqueue parent create
       const folderResult = await queue.enqueue({
-        type: 'CreateFolder',
-        data: { name: 'My Folder' },
+        command: { type: 'CreateFolder', data: { name: 'My Folder' } },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!folderResult.ok) throw new Error('Expected success')
 
       // Get the client-generated folder ID from anticipated events
-      const folderClientId = (folderResult.value.anticipatedEvents[0] as AnticipatedEvent).data
-        .id as string
+      const folderClientId = (folderResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
       // Enqueue child create with explicit dependency and parent's client ID
       const noteResult = await queue.enqueue({
-        type: 'CreateNote',
-        data: { parentId: folderClientId, title: 'My Note' },
-        dependsOn: [folderResult.value.commandId],
+        command: {
+          type: 'CreateNote',
+          data: { parentId: folderClientId, title: 'My Note' },
+          dependsOn: [folderResult.value.commandId],
+        },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!noteResult.ok) throw new Error('Expected success')
 
@@ -1317,21 +1447,22 @@ describe('CommandQueue', () => {
       const { queue } = setupCrossAggregateQueue(senderResponses)
 
       const folderResult = await queue.enqueue({
-        type: 'CreateFolder',
-        data: { name: 'F' },
+        command: { type: 'CreateFolder', data: { name: 'F' } },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!folderResult.ok) throw new Error('Expected success')
-      const folderClientId = (folderResult.value.anticipatedEvents[0] as AnticipatedEvent).data
-        .id as string
+      const folderClientId = (folderResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
       const noteResult = await queue.enqueue({
-        type: 'CreateNote',
-        data: { parentId: folderClientId, title: 'N' },
-        dependsOn: [folderResult.value.commandId],
+        command: {
+          type: 'CreateNote',
+          data: { parentId: folderClientId, title: 'N' },
+          dependsOn: [folderResult.value.commandId],
+        },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!noteResult.ok) throw new Error('Expected success')
-      const noteClientId = (noteResult.value.anticipatedEvents[0] as AnticipatedEvent).data
-        .id as string
+      const noteClientId = (noteResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
       queue.resume()
       await new Promise((resolve) => setTimeout(resolve, 50))
@@ -1386,27 +1517,34 @@ describe('CommandQueue', () => {
       const { queue } = setupCrossAggregateQueue(senderResponses)
 
       // A: CreateFolder
-      const folderResult = await queue.enqueue({ type: 'CreateFolder', data: { name: 'F' } })
+      const folderResult = await queue.enqueue({
+        command: { type: 'CreateFolder', data: { name: 'F' } },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!folderResult.ok) throw new Error('Expected success')
-      const folderClientId = (folderResult.value.anticipatedEvents[0] as AnticipatedEvent).data
-        .id as string
+      const folderClientId = (folderResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
       // B: CreateNote depends on A
       const noteResult = await queue.enqueue({
-        type: 'CreateNote',
-        data: { parentId: folderClientId, title: 'N' },
-        dependsOn: [folderResult.value.commandId],
+        command: {
+          type: 'CreateNote',
+          data: { parentId: folderClientId, title: 'N' },
+          dependsOn: [folderResult.value.commandId],
+        },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!noteResult.ok) throw new Error('Expected success')
-      const noteClientId = (noteResult.value.anticipatedEvents[0] as AnticipatedEvent).data
-        .id as string
+      const noteClientId = (noteResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
       // C: UpdateNote depends on B
       const updateResult = await queue.enqueue({
-        type: 'UpdateNote',
-        data: { id: noteClientId, title: 'Updated' },
-        revision: autoRevision(),
-        dependsOn: [noteResult.value.commandId],
+        command: {
+          type: 'UpdateNote',
+          data: { id: noteClientId, title: 'Updated' },
+          revision: autoRevision(),
+          dependsOn: [noteResult.value.commandId],
+        },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!updateResult.ok) throw new Error('Expected success')
 
@@ -1452,10 +1590,12 @@ describe('CommandQueue', () => {
       const { queue } = setupCrossAggregateQueue(senderResponses)
 
       // Create folder and let it succeed
-      const folderResult = await queue.enqueue({ type: 'CreateFolder', data: { name: 'F' } })
+      const folderResult = await queue.enqueue({
+        command: { type: 'CreateFolder', data: { name: 'F' } },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!folderResult.ok) throw new Error('Expected success')
-      const folderClientId = (folderResult.value.anticipatedEvents[0] as AnticipatedEvent).data
-        .id as string
+      const folderClientId = (folderResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
       queue.resume()
       await new Promise((resolve) => setTimeout(resolve, 50))
@@ -1466,8 +1606,8 @@ describe('CommandQueue', () => {
 
       // Now enqueue a note with the STALE client ID (simulating UI race condition)
       const noteResult = await queue.enqueue({
-        type: 'CreateNote',
-        data: { parentId: folderClientId, title: 'Late Note' },
+        command: { type: 'CreateNote', data: { parentId: folderClientId, title: 'Late Note' } },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!noteResult.ok) throw new Error('Expected success')
 
@@ -1497,7 +1637,10 @@ describe('CommandQueue', () => {
       const { queue } = setupCrossAggregateQueue(senderResponses)
 
       // Create and succeed
-      const folderResult = await queue.enqueue({ type: 'CreateFolder', data: { name: 'F' } })
+      const folderResult = await queue.enqueue({
+        command: { type: 'CreateFolder', data: { name: 'F' } },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!folderResult.ok) throw new Error('Expected success')
 
       queue.resume()
@@ -1506,9 +1649,12 @@ describe('CommandQueue', () => {
       // Enqueue an UpdateNote with the CORRECT server ID but undefined revision fallback
       // (simulating the race where UI has server ID but stale revision)
       const updateResult = await queue.enqueue({
-        type: 'UpdateNote',
-        data: { id: 'folder-server-1', title: 'Updated' },
-        revision: autoRevision(),
+        command: {
+          type: 'UpdateNote',
+          data: { id: 'folder-server-1', title: 'Updated' },
+          revision: autoRevision(),
+        },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!updateResult.ok) throw new Error('Expected success')
 
@@ -1538,31 +1684,38 @@ describe('CommandQueue', () => {
       const { queue } = setupCrossAggregateQueue(senderResponses)
 
       // A: CreateFolder
-      const folderResult = await queue.enqueue({ type: 'CreateFolder', data: { name: 'F' } })
+      const folderResult = await queue.enqueue({
+        command: { type: 'CreateFolder', data: { name: 'F' } },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!folderResult.ok) throw new Error('Expected success')
-      const folderClientId = (folderResult.value.anticipatedEvents[0] as AnticipatedEvent).data
-        .id as string
+      const folderClientId = (folderResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
       // B: CreateNote depends on folder
       const noteResult = await queue.enqueue({
-        type: 'CreateNote',
-        data: { parentId: folderClientId, title: 'N' },
-        dependsOn: [folderResult.value.commandId],
+        command: {
+          type: 'CreateNote',
+          data: { parentId: folderClientId, title: 'N' },
+          dependsOn: [folderResult.value.commandId],
+        },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!noteResult.ok) throw new Error('Expected success')
-      const noteClientId = (noteResult.value.anticipatedEvents[0] as AnticipatedEvent).data
-        .id as string
+      const noteClientId = (noteResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
       // C: MoveNote depends on note, references folder's client ID in fromFolderId
       const moveResult = await queue.enqueue({
-        type: 'MoveNote',
-        data: {
-          id: noteClientId,
-          fromFolderId: folderClientId,
-          toFolderId: 'existing-folder',
+        command: {
+          type: 'MoveNote',
+          data: {
+            id: noteClientId,
+            fromFolderId: folderClientId,
+            toFolderId: 'existing-folder',
+          },
+          revision: autoRevision(),
+          dependsOn: [noteResult.value.commandId],
         },
-        revision: autoRevision(),
-        dependsOn: [noteResult.value.commandId],
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!moveResult.ok) throw new Error('Expected success')
 
@@ -1619,32 +1772,35 @@ describe('CommandQueue', () => {
 
       // Create source folder (folder1)
       const folder1Result = await queue.enqueue({
-        type: 'CreateFolder',
-        data: { name: 'Source' },
+        command: { type: 'CreateFolder', data: { name: 'Source' } },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!folder1Result.ok) throw new Error('Expected success')
-      const folder1ClientId = (folder1Result.value.anticipatedEvents[0] as AnticipatedEvent).data
-        .id as string
+      const folder1ClientId = (folder1Result.value.anticipatedEvents[0] as IAnticipatedEvent).data
+        .id
 
       // Create target folder (folder2)
       const folder2Result = await queue.enqueue({
-        type: 'CreateFolder',
-        data: { name: 'Target' },
+        command: { type: 'CreateFolder', data: { name: 'Target' } },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!folder2Result.ok) throw new Error('Expected success')
-      const folder2ClientId = (folder2Result.value.anticipatedEvents[0] as AnticipatedEvent).data
-        .id as string
+      const folder2ClientId = (folder2Result.value.anticipatedEvents[0] as IAnticipatedEvent).data
+        .id
 
       // MoveNote depends on BOTH folders — fromFolderId and toFolderId each reference a different folder
       const moveResult = await queue.enqueue({
-        type: 'MoveNote',
-        data: {
-          id: 'existing-note-1',
-          fromFolderId: folder1ClientId,
-          toFolderId: folder2ClientId,
+        command: {
+          type: 'MoveNote',
+          data: {
+            id: 'existing-note-1',
+            fromFolderId: folder1ClientId,
+            toFolderId: folder2ClientId,
+          },
+          revision: autoRevision('3'),
+          dependsOn: [folder1Result.value.commandId, folder2Result.value.commandId],
         },
-        revision: autoRevision('3'),
-        dependsOn: [folder1Result.value.commandId, folder2Result.value.commandId],
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!moveResult.ok) throw new Error('Expected success')
 
@@ -1682,14 +1838,10 @@ describe('CommandQueue', () => {
   })
 
   describe('same-aggregate auto-chaining', () => {
-    interface AnticipatedEvent {
-      type: string
-      data: Record<string, unknown>
-      streamId: string
-    }
-
-    function setupItemQueue(senderResponses: Map<string, unknown>): CommandQueue {
-      const executor = createDomainExecutor<AnticipatedEvent>([
+    function setupItemQueue(
+      senderResponses: Map<string, unknown>,
+    ): CommandQueue<ServiceLink, unknown, IAnticipatedEvent> {
+      const executor = createDomainExecutor<ServiceLink, unknown, IAnticipatedEvent>([
         {
           commandType: 'CreateItem',
           creates: { eventType: 'ItemCreated', idStrategy: 'temporary' },
@@ -1719,8 +1871,8 @@ describe('CommandQueue', () => {
         },
       ])
 
-      const sender: ICommandSender = {
-        async send(command: CommandRecord) {
+      const sender: ICommandSender<ServiceLink> = {
+        async send(command: CommandRecord<ServiceLink>) {
           const response = senderResponses.get(command.type)
           if (typeof response === 'function') return response(command)
           if (response !== undefined) return response
@@ -1728,7 +1880,7 @@ describe('CommandQueue', () => {
         },
       }
 
-      return new CommandQueue({
+      return new TestCommandQueue({
         storage,
         eventBus,
         anticipatedEventHandler,
@@ -1742,17 +1894,19 @@ describe('CommandQueue', () => {
       const queue = setupItemQueue(new Map())
 
       const createResult = await queue.enqueue({
-        type: 'CreateItem',
-        data: { name: 'Test' },
+        command: { type: 'CreateItem', data: { name: 'Test' } },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!createResult.ok) throw new Error('Expected success')
-      const clientId = (createResult.value.anticipatedEvents[0] as AnticipatedEvent).data
-        .id as string
+      const clientId = (createResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
       const updateResult = await queue.enqueue({
-        type: 'UpdateItem',
-        data: { id: clientId, title: 'New Title' },
-        revision: autoRevision(),
+        command: {
+          type: 'UpdateItem',
+          data: { id: clientId, title: 'New Title' },
+          revision: autoRevision(),
+        },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!updateResult.ok) throw new Error('Expected success')
 
@@ -1780,17 +1934,19 @@ describe('CommandQueue', () => {
       const queue = setupItemQueue(responses)
 
       const createResult = await queue.enqueue({
-        type: 'CreateItem',
-        data: { name: 'Test' },
+        command: { type: 'CreateItem', data: { name: 'Test' } },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!createResult.ok) throw new Error('Expected success')
-      const clientId = (createResult.value.anticipatedEvents[0] as AnticipatedEvent).data
-        .id as string
+      const clientId = (createResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
       await queue.enqueue({
-        type: 'UpdateItem',
-        data: { id: clientId, title: 'New' },
-        revision: autoRevision(),
+        command: {
+          type: 'UpdateItem',
+          data: { id: clientId, title: 'New' },
+          revision: autoRevision(),
+        },
+        cacheKey: TODOS_CACHE_KEY,
       })
 
       queue.resume()
@@ -1809,16 +1965,18 @@ describe('CommandQueue', () => {
       const queue = setupItemQueue(new Map())
 
       const update1 = await queue.enqueue({
-        type: 'UpdateItem',
-        data: { id: 'existing-1', title: 'First' },
-        revision: autoRevision('1'),
+        command: {
+          type: 'UpdateItem',
+          data: { id: 'existing-1', title: 'First' },
+          revision: autoRevision('1'),
+        },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!update1.ok) throw new Error('Expected success')
 
       const delete1 = await queue.enqueue({
-        type: 'DeleteItem',
-        data: { id: 'existing-1' },
-        revision: autoRevision('1'),
+        command: { type: 'DeleteItem', data: { id: 'existing-1' }, revision: autoRevision('1') },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!delete1.ok) throw new Error('Expected success')
 
@@ -1837,16 +1995,18 @@ describe('CommandQueue', () => {
       const queue = setupItemQueue(responses)
 
       const update1 = await queue.enqueue({
-        type: 'UpdateItem',
-        data: { id: 'existing-1', title: 'First' },
-        revision: autoRevision('1'),
+        command: {
+          type: 'UpdateItem',
+          data: { id: 'existing-1', title: 'First' },
+          revision: autoRevision('1'),
+        },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!update1.ok) throw new Error('Expected success')
 
       const delete1 = await queue.enqueue({
-        type: 'DeleteItem',
-        data: { id: 'existing-1' },
-        revision: autoRevision('1'),
+        command: { type: 'DeleteItem', data: { id: 'existing-1' }, revision: autoRevision('1') },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!delete1.ok) throw new Error('Expected success')
 
@@ -1887,23 +2047,24 @@ describe('CommandQueue', () => {
       const queue = setupItemQueue(responses)
 
       const createResult = await queue.enqueue({
-        type: 'CreateItem',
-        data: { name: 'X' },
+        command: { type: 'CreateItem', data: { name: 'X' } },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!createResult.ok) throw new Error('Expected success')
-      const clientId = (createResult.value.anticipatedEvents[0] as AnticipatedEvent).data
-        .id as string
+      const clientId = (createResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
       await queue.enqueue({
-        type: 'UpdateItem',
-        data: { id: clientId, title: 'Updated' },
-        revision: autoRevision(),
+        command: {
+          type: 'UpdateItem',
+          data: { id: clientId, title: 'Updated' },
+          revision: autoRevision(),
+        },
+        cacheKey: TODOS_CACHE_KEY,
       })
 
       await queue.enqueue({
-        type: 'DeleteItem',
-        data: { id: clientId },
-        revision: autoRevision(),
+        command: { type: 'DeleteItem', data: { id: clientId }, revision: autoRevision() },
+        cacheKey: TODOS_CACHE_KEY,
       })
 
       queue.resume()
@@ -1931,18 +2092,21 @@ describe('CommandQueue', () => {
     })
 
     it('auto-revision fallback used when no chain exists', async () => {
-      let sentCommand: CommandRecord | undefined
+      let sentCommand: CommandRecord<ServiceLink> | undefined
       const responses = new Map<string, unknown>()
-      responses.set('UpdateItem', (cmd: CommandRecord) => {
+      responses.set('UpdateItem', (cmd: CommandRecord<ServiceLink>) => {
         sentCommand = cmd
         return { id: 'existing-1', nextExpectedRevision: '6', events: [] }
       })
       const queue = setupItemQueue(responses)
 
       await queue.enqueue({
-        type: 'UpdateItem',
-        data: { id: 'existing-1', title: 'Solo' },
-        revision: autoRevision('5'),
+        command: {
+          type: 'UpdateItem',
+          data: { id: 'existing-1', title: 'Solo' },
+          revision: autoRevision('5'),
+        },
+        cacheKey: TODOS_CACHE_KEY,
       })
 
       queue.resume()
@@ -1971,19 +2135,24 @@ describe('CommandQueue', () => {
       const queue = setupItemQueue(responses)
 
       // Create and succeed
-      const createResult = await queue.enqueue({ type: 'CreateItem', data: { name: 'X' } })
+      const createResult = await queue.enqueue({
+        command: { type: 'CreateItem', data: { name: 'X' } },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!createResult.ok) throw new Error('Expected success')
-      const clientId = (createResult.value.anticipatedEvents[0] as AnticipatedEvent).data
-        .id as string
+      const clientId = (createResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
       queue.resume()
       await new Promise((resolve) => setTimeout(resolve, 50))
 
       // Enqueue with stale client ID (race condition)
       const updateResult = await queue.enqueue({
-        type: 'UpdateItem',
-        data: { id: clientId, title: 'Late' },
-        revision: autoRevision(),
+        command: {
+          type: 'UpdateItem',
+          data: { id: clientId, title: 'Late' },
+          revision: autoRevision(),
+        },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!updateResult.ok) throw new Error('Expected success')
 
@@ -2011,7 +2180,10 @@ describe('CommandQueue', () => {
       })
       const queue = setupItemQueue(responses)
 
-      const createResult = await queue.enqueue({ type: 'CreateItem', data: { name: 'X' } })
+      const createResult = await queue.enqueue({
+        command: { type: 'CreateItem', data: { name: 'X' } },
+        cacheKey: TODOS_CACHE_KEY,
+      })
       if (!createResult.ok) throw new Error('Expected success')
 
       queue.resume()
@@ -2019,9 +2191,12 @@ describe('CommandQueue', () => {
 
       // Enqueue with correct server ID but undefined revision (race condition)
       const updateResult = await queue.enqueue({
-        type: 'UpdateItem',
-        data: { id: 'server-1', title: 'Race' },
-        revision: autoRevision(),
+        command: {
+          type: 'UpdateItem',
+          data: { id: 'server-1', title: 'Race' },
+          revision: autoRevision(),
+        },
+        cacheKey: TODOS_CACHE_KEY,
       })
       if (!updateResult.ok) throw new Error('Expected success')
 

@@ -2,7 +2,7 @@
  * Unit tests for EventCache and GapDetector.
  */
 
-import type { IPersistedEvent } from '@meticoeus/ddd-es'
+import type { IPersistedEvent, ServiceLink } from '@meticoeus/ddd-es'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import { EventBus } from '../events/EventBus.js'
@@ -24,9 +24,9 @@ function createPersistedEvent(overrides: Partial<IPersistedEvent> = {}): IPersis
 }
 
 describe('EventCache', () => {
-  let storage: InMemoryStorage
-  let eventBus: EventBus
-  let eventCache: EventCache
+  let storage: InMemoryStorage<ServiceLink>
+  let eventBus: EventBus<ServiceLink>
+  let eventCache: EventCache<ServiceLink>
 
   beforeEach(async () => {
     storage = new InMemoryStorage()
@@ -44,7 +44,7 @@ describe('EventCache', () => {
         data: { id: 'todo-1', title: 'Test' },
       })
 
-      const cached = await eventCache.cacheServerEvent(event, { cacheKey: 'cache-1' })
+      const cached = await eventCache.cacheServerEvent(event, { cacheKeys: ['cache-1'] })
 
       expect(cached).toBe(true)
 
@@ -76,8 +76,8 @@ describe('EventCache', () => {
         revision: BigInt(2),
       })
 
-      await eventCache.cacheServerEvent(event1, { cacheKey: 'cache-1' })
-      await eventCache.cacheServerEvent(event2, { cacheKey: 'cache-1' })
+      await eventCache.cacheServerEvent(event1, { cacheKeys: ['cache-1'] })
+      await eventCache.cacheServerEvent(event2, { cacheKeys: ['cache-1'] })
 
       expect(eventCache.hasGaps()).toBe(false)
     })
@@ -90,8 +90,8 @@ describe('EventCache', () => {
         data: { id: 'todo-1', title: 'Test' },
       })
 
-      await eventCache.cacheServerEvent(event, { cacheKey: 'cache-1' })
-      const cached = await eventCache.cacheServerEvent(event, { cacheKey: 'cache-1' })
+      await eventCache.cacheServerEvent(event, { cacheKeys: ['cache-1'] })
+      const cached = await eventCache.cacheServerEvent(event, { cacheKeys: ['cache-1'] })
 
       expect(cached).toBe(false)
     })
@@ -118,7 +118,7 @@ describe('EventCache', () => {
         }),
       ]
 
-      const count = await eventCache.cacheServerEvents(events, { cacheKey: 'cache-1' })
+      const count = await eventCache.cacheServerEvents(events, { cacheKeys: ['cache-1'] })
 
       expect(count).toBe(2)
       expect(await eventCache.getEvent('event-1')).toBeTruthy()
@@ -133,11 +133,11 @@ describe('EventCache', () => {
         data: { id: 'todo-1', title: 'Test' },
       })
 
-      await eventCache.cacheServerEvent(event, { cacheKey: 'cache-1' })
+      await eventCache.cacheServerEvent(event, { cacheKeys: ['cache-1'] })
 
       const count = await eventCache.cacheServerEvents(
         [event, createPersistedEvent({ id: 'event-2', position: BigInt(101) })],
-        { cacheKey: 'cache-1' },
+        { cacheKeys: ['cache-1'] },
       )
 
       expect(count).toBe(2) // Returns total count; duplicates are silently ignored by storage
@@ -154,7 +154,7 @@ describe('EventCache', () => {
       }
 
       const id = await eventCache.cacheAnticipatedEvent(eventData, {
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         commandId: 'cmd-1',
       })
 
@@ -187,7 +187,7 @@ describe('EventCache', () => {
       ]
 
       const ids = await eventCache.cacheAnticipatedEvents(events, {
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         commandId: 'cmd-1',
       })
 
@@ -212,8 +212,8 @@ describe('EventCache', () => {
         revision: BigInt(2),
       })
 
-      await eventCache.cacheServerEvent(event1, { cacheKey: 'cache-1' })
-      await eventCache.cacheServerEvent(event2, { cacheKey: 'cache-2' })
+      await eventCache.cacheServerEvent(event1, { cacheKeys: ['cache-1'] })
+      await eventCache.cacheServerEvent(event2, { cacheKeys: ['cache-2'] })
 
       const events = await eventCache.getEventsByCacheKey('cache-1')
       expect(events).toHaveLength(1)
@@ -242,7 +242,7 @@ describe('EventCache', () => {
       ]
 
       for (const event of events) {
-        await eventCache.cacheServerEvent(event, { cacheKey: 'cache-1' })
+        await eventCache.cacheServerEvent(event, { cacheKeys: ['cache-1'] })
       }
 
       const sorted = await eventCache.getEventsByStream('stream-1')
@@ -254,11 +254,11 @@ describe('EventCache', () => {
     it('returns anticipated events for a command', async () => {
       await eventCache.cacheAnticipatedEvent(
         { type: 'Event1', streamId: 'stream-1', data: {}, commandId: 'cmd-1' },
-        { cacheKey: 'cache-1', commandId: 'cmd-1' },
+        { cacheKeys: ['cache-1'], commandId: 'cmd-1' },
       )
       await eventCache.cacheAnticipatedEvent(
         { type: 'Event2', streamId: 'stream-1', data: {}, commandId: 'cmd-2' },
-        { cacheKey: 'cache-1', commandId: 'cmd-2' },
+        { cacheKeys: ['cache-1'], commandId: 'cmd-2' },
       )
 
       const events = await eventCache.getAnticipatedEventsByCommand('cmd-1')
@@ -271,7 +271,7 @@ describe('EventCache', () => {
     it('deletes anticipated events for a command', async () => {
       const id = await eventCache.cacheAnticipatedEvent(
         { type: 'Event1', streamId: 'stream-1', data: {}, commandId: 'cmd-1' },
-        { cacheKey: 'cache-1', commandId: 'cmd-1' },
+        { cacheKeys: ['cache-1'], commandId: 'cmd-1' },
       )
 
       await eventCache.deleteAnticipatedEvents('cmd-1')
@@ -295,10 +295,10 @@ describe('EventCache', () => {
         position: 101n,
       })
 
-      await eventCache.cacheServerEvent(event1, { cacheKey: 'cache-1' })
-      await eventCache.cacheServerEvent(event2, { cacheKey: 'cache-1' })
+      await eventCache.cacheServerEvent(event1, { cacheKeys: ['cache-1'] })
+      await eventCache.cacheServerEvent(event2, { cacheKeys: ['cache-1'] })
 
-      const cleared = eventCache.clearByCacheKey('cache-1')
+      const cleared = await eventCache.clearByCacheKey('cache-1')
 
       expect(cleared).toContain('stream-1')
       expect(cleared).toContain('stream-2')
@@ -306,8 +306,8 @@ describe('EventCache', () => {
       expect(eventCache.getBufferedEvents('stream-2')).toHaveLength(0)
     })
 
-    it('returns empty array for unknown cache key', () => {
-      const cleared = eventCache.clearByCacheKey('unknown')
+    it('returns empty array for unknown cache key', async () => {
+      const cleared = await eventCache.clearByCacheKey('unknown')
       expect(cleared).toHaveLength(0)
     })
 
@@ -325,10 +325,10 @@ describe('EventCache', () => {
         position: 101n,
       })
 
-      await eventCache.cacheServerEvent(event1, { cacheKey: 'cache-1' })
-      await eventCache.cacheServerEvent(event2, { cacheKey: 'cache-2' })
+      await eventCache.cacheServerEvent(event1, { cacheKeys: ['cache-1'] })
+      await eventCache.cacheServerEvent(event2, { cacheKeys: ['cache-2'] })
 
-      eventCache.clearByCacheKey('cache-1')
+      await eventCache.clearByCacheKey('cache-1')
 
       expect(eventCache.getBufferedEvents('stream-1')).toHaveLength(0)
       expect(eventCache.getBufferedEvents('stream-2')).toHaveLength(1)
@@ -378,7 +378,7 @@ describe('EventCache', () => {
         position: 100n,
       })
 
-      const cached = await eventCache.cacheServerEvent(wsEvent, { cacheKey: 'cache-1' })
+      const cached = await eventCache.cacheServerEvent(wsEvent, { cacheKeys: ['cache-1'] })
       expect(cached).toBe(false)
     })
   })
@@ -392,13 +392,13 @@ describe('EventCache', () => {
         position: 100n,
       })
 
-      await eventCache.cacheServerEvent(event, { cacheKey: 'cache-1' })
+      await eventCache.cacheServerEvent(event, { cacheKeys: ['cache-1'] })
 
       // Full clear (no arguments)
       eventCache.clearGapBuffer()
 
       // clearByCacheKey should return empty since cacheKeyStreams was cleared
-      const cleared = eventCache.clearByCacheKey('cache-1')
+      const cleared = await eventCache.clearByCacheKey('cache-1')
       expect(cleared).toHaveLength(0)
     })
   })
@@ -411,12 +411,12 @@ describe('EventCache', () => {
         revision: 0n,
         position: 100n,
       })
-      await eventCache.cacheServerEvent(event, { cacheKey: 'cache-1' })
+      await eventCache.cacheServerEvent(event, { cacheKeys: ['cache-1'] })
 
       eventCache.destroy()
 
       expect(eventCache.getBufferedEvents('stream-1')).toHaveLength(0)
-      expect(eventCache.clearByCacheKey('cache-1')).toHaveLength(0)
+      expect(await eventCache.clearByCacheKey('cache-1')).toHaveLength(0)
     })
   })
 })

@@ -6,11 +6,15 @@
 
 # Function: createFailedCommand()
 
-> **createFailedCommand**\<`TData`\>(`error`, `overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TData`\>
+> **createFailedCommand**\<`TLink`, `TData`\>(`error`, `overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TLink`, `TData`\>
 
 Create a failed command.
 
 ## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`\<`string`, `string`\>
 
 ### TData
 
@@ -24,8 +28,8 @@ Create a failed command.
 
 ### overrides?
 
-`Partial`\<[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TData`\>\> = `{}`
+`Partial`\<[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TLink`, `TData`\>\> = `{}`
 
 ## Returns
 
-[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TData`\>
+[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TLink`, `TData`\>

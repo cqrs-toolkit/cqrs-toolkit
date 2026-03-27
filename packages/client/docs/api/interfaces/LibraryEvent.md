@@ -4,11 +4,15 @@
 
 [@cqrs-toolkit/client](../globals.md) / LibraryEvent
 
-# Interface: LibraryEvent\<T\>
+# Interface: LibraryEvent\<TLink, T\>
 
 Typed library event.
 
 ## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
 
 ### T
 
@@ -18,7 +22,7 @@ Typed library event.
 
 ### data
 
-> **data**: [`LibraryEventData`](LibraryEventData.md)\[`T`\]
+> **data**: [`LibraryEventData`](LibraryEventData.md)\<`TLink`\>\[`T`\]
 
 ---
 

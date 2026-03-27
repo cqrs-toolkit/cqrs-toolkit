@@ -11,7 +11,7 @@ worker; createCqrsClient just wraps the proxies.
 
 ## Extends
 
-- `IAdapterBase`
+- `IAdapterBase`\<`TLink`\>
 
 ## Type Parameters
 
@@ -29,13 +29,13 @@ worker; createCqrsClient just wraps the proxies.
 
 ### commandQueue
 
-> `readonly` **commandQueue**: [`ICommandQueue`](ICommandQueue.md)
+> `readonly` **commandQueue**: [`ICommandQueue`](ICommandQueue.md)\<`TLink`\>
 
 ---
 
 ### events$
 
-> `readonly` **events$**: `Observable`\<[`LibraryEvent`](LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
+> `readonly` **events$**: `Observable`\<[`LibraryEvent`](LibraryEvent.md)\<`TLink`, [`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
 Observable of library events.
 
@@ -85,7 +85,7 @@ Current adapter status.
 
 ### syncManager
 
-> `readonly` **syncManager**: [`CqrsClientSyncManager`](CqrsClientSyncManager.md)
+> `readonly` **syncManager**: [`CqrsClientSyncManager`](CqrsClientSyncManager.md)\<`TLink`\>
 
 ## Methods
 

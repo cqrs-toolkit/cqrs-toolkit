@@ -40,7 +40,7 @@ TTL for command ID mappings in milliseconds. Default: 5 minutes.
 
 ### commandSender?
 
-> `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)
+> `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)\<`TLink`\>
 
 ---
 
@@ -58,7 +58,7 @@ TTL for command ID mappings in milliseconds. Default: 5 minutes.
 
 ### eventBus
 
-> **eventBus**: [`EventBus`](../classes/EventBus.md)
+> **eventBus**: [`EventBus`](../classes/EventBus.md)\<`TLink`\>
 
 ---
 
@@ -78,7 +78,7 @@ Metadata lookup for command handler registrations (creates config).
 
 ##### command
 
-[`CommandRecord`](CommandRecord.md)
+[`CommandRecord`](CommandRecord.md)\<`TLink`\>
 
 ##### response
 
@@ -106,4 +106,4 @@ When true, terminal commands are retained in storage instead of being cleaned up
 
 ### storage
 
-> **storage**: [`IStorage`](IStorage.md)
+> **storage**: [`IStorage`](IStorage.md)\<`TLink`\>

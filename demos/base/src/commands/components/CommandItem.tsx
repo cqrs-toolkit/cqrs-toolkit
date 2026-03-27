@@ -1,4 +1,5 @@
 import type { CommandRecord, CommandStatus } from '@cqrs-toolkit/client'
+import { ServiceLink } from '@meticoeus/ddd-es'
 import { Show } from 'solid-js'
 
 const STATUS_BADGE_CLASSES: Record<CommandStatus, string> = {
@@ -11,7 +12,7 @@ const STATUS_BADGE_CLASSES: Record<CommandStatus, string> = {
 }
 
 interface CommandItemProps {
-  command: CommandRecord
+  command: CommandRecord<ServiceLink>
   expanded: boolean
   onToggle: () => void
 }

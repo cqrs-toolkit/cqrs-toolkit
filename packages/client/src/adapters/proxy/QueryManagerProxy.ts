@@ -13,15 +13,20 @@ import {
   filter,
   from,
   map,
+  merge,
   of,
   startWith,
   switchMap,
   takeUntil,
 } from 'rxjs'
+import type { CacheKeyIdentity } from '../../core/cache-manager/CacheKey.js'
 import type {
+  CollectionSignal,
+  GetByIdParams,
+  GetByIdsParams,
   IQueryManager,
+  ListParams,
   ListQueryResult,
-  QueryOptions,
   QueryResult,
 } from '../../core/query-manager/types.js'
 import type { WorkerMessageChannel } from '../../protocol/MessageChannel.js'
@@ -40,60 +45,70 @@ export class QueryManagerProxy<TLink extends Link> implements IQueryManager<TLin
     this.broadcastEvents$ = broadcastEvents$
   }
 
-  async getById<T>(
-    collection: string,
-    id: string,
-    options?: QueryOptions,
-  ): Promise<QueryResult<TLink, T>> {
-    return this.channel.request<QueryResult<TLink, T>>('queryManager.getById', [
-      collection,
-      id,
-      options,
-    ])
+  async getById<T>(params: GetByIdParams<TLink>): Promise<QueryResult<TLink, T>> {
+    return this.channel.request<QueryResult<TLink, T>>('queryManager.getById', [params])
   }
 
-  async getByIds<T>(
-    collection: string,
-    ids: string[],
-    options?: QueryOptions,
-  ): Promise<Map<string, QueryResult<TLink, T>>> {
+  async getByIds<T>(params: GetByIdsParams<TLink>): Promise<Map<string, QueryResult<TLink, T>>> {
     return this.channel.request<Map<string, QueryResult<TLink, T>>>('queryManager.getByIds', [
-      collection,
-      ids,
-      options,
+      params,
     ])
   }
 
-  async list<T>(collection: string, options?: QueryOptions): Promise<ListQueryResult<TLink, T>> {
-    return this.channel.request<ListQueryResult<TLink, T>>('queryManager.list', [
-      collection,
-      options,
-    ])
+  async list<T>(params: ListParams<TLink>): Promise<ListQueryResult<TLink, T>> {
+    return this.channel.request<ListQueryResult<TLink, T>>('queryManager.list', [params])
   }
 
-  watchCollection(collection: string): Observable<string[]> {
-    return this.broadcastEvents$.pipe(
+  watchCollection(collection: string): Observable<CollectionSignal> {
+    const updated$ = this.broadcastEvents$.pipe(
       filter(
         (event) =>
           event.eventName === 'readmodel:updated' &&
           (event.data as { collection: string }).collection === collection,
       ),
-      map((event) => (event.data as { ids: string[] }).ids),
-      takeUntil(this.destroy$),
+      map(
+        (event): CollectionSignal => ({
+          type: 'updated',
+          ids: (event.data as { ids: string[] }).ids,
+        }),
+      ),
     )
-  }
-
-  watchById<T>(collection: string, id: string): Observable<T | undefined> {
-    return this.broadcastEvents$.pipe(
+    const seedCompleted$ = this.broadcastEvents$.pipe(
       filter(
         (event) =>
-          event.eventName === 'readmodel:updated' &&
-          (event.data as { collection: string }).collection === collection &&
-          (event.data as { ids: string[] }).ids.includes(id),
+          event.eventName === 'sync:seed-completed' &&
+          (event.data as { collection: string }).collection === collection,
       ),
+      map(
+        (event): CollectionSignal => ({
+          type: 'seed-completed',
+          recordCount: (event.data as { recordCount: number }).recordCount,
+        }),
+      ),
+    )
+    const syncFailed$ = this.broadcastEvents$.pipe(
+      filter(
+        (event) =>
+          event.eventName === 'sync:failed' &&
+          (event.data as { collection: string }).collection === collection,
+      ),
+      map(
+        (event): CollectionSignal => ({
+          type: 'sync-failed',
+          error: (event.data as { error: string }).error,
+        }),
+      ),
+    )
+    return merge(updated$, seedCompleted$, syncFailed$).pipe(takeUntil(this.destroy$))
+  }
+
+  watchById<T>(params: GetByIdParams<TLink>): Observable<T | undefined> {
+    const { collection, id } = params
+    return this.watchCollection(collection).pipe(
+      filter((signal) => signal.type === 'updated' && signal.ids.includes(id)),
       startWith(undefined),
       switchMap(() =>
-        from(this.getById<T>(collection, id)).pipe(
+        from(this.getById<T>(params)).pipe(
           map((result) => result.data),
           catchError((err) => {
             logProvider.log.error({ err, collection, id }, 'Failed to load value for watchById')
@@ -114,8 +129,8 @@ export class QueryManagerProxy<TLink extends Link> implements IQueryManager<TLin
     return this.channel.request<number>('queryManager.count', [collection])
   }
 
-  async touch(collection: string): Promise<void> {
-    return this.channel.request<void>('queryManager.touch', [collection])
+  async touch(cacheKey: CacheKeyIdentity<TLink>): Promise<void> {
+    return this.channel.request<void>('queryManager.touch', [cacheKey])
   }
 
   async hold(cacheKey: string): Promise<void> {

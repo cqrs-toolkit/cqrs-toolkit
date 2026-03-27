@@ -6,9 +6,15 @@
 
 # Interface: CollectionSyncStatus
 
-Sync status for a collection.
+Sync status for a single (collection, cacheKey) pair.
 
 ## Properties
+
+### cacheKey
+
+> **cacheKey**: `string`
+
+---
 
 ### collection
 

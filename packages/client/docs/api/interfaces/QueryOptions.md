@@ -4,34 +4,42 @@
 
 [@cqrs-toolkit/client](../globals.md) / QueryOptions
 
-# Interface: QueryOptions
+# Interface: QueryOptions\<TLink\>
 
-Query options for list operations.
+Common query parameters shared by all query methods.
 
 ## Extended by
 
-- [`ReadModelQueryOptions`](ReadModelQueryOptions.md)
+- [`GetByIdParams`](GetByIdParams.md)
+- [`GetByIdsParams`](GetByIdsParams.md)
+- [`ListParams`](ListParams.md)
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
 
 ## Properties
 
-### limit?
+### cacheKey
 
-> `optional` **limit**: `number`
+> **cacheKey**: [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
 
----
-
-### offset?
-
-> `optional` **offset**: `number`
+Cache key identity — determines which cached data scope to query
 
 ---
 
-### orderBy?
+### collection
 
-> `optional` **orderBy**: `string`
+> **collection**: `string`
+
+Collection name
 
 ---
 
-### orderDirection?
+### hold?
 
-> `optional` **orderDirection**: `"asc"` \| `"desc"`
+> `optional` **hold**: `boolean`
+
+Place a hold on the cache key while query is active

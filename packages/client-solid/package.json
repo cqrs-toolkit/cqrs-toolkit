@@ -24,7 +24,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "rm -rf dist && rollup -c && tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.json --noEmit && rm -rf dist && rollup -c && tsc -p tsconfig.build.json",
     "compile": "tsc -p tsconfig.json --noEmit",
     "docs": "typedoc",
     "test": "vitest"

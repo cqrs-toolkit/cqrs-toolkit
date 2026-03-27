@@ -20,20 +20,20 @@ export class CacheManagerProxy<TLink extends Link> implements ICacheManager<TLin
   }
 
   async acquireKey(
-    identity: CacheKeyIdentity<TLink>,
+    cacheKey: CacheKeyIdentity<TLink>,
     options?: AcquireCacheKeyOptions,
   ): Promise<CacheKeyIdentity<TLink>> {
     return this.channel.request<CacheKeyIdentity<TLink>>('cacheManager.acquireKey', [
-      identity,
+      cacheKey,
       options,
     ])
   }
 
   async acquire(
-    identity: CacheKeyIdentity<TLink>,
+    cacheKey: CacheKeyIdentity<TLink>,
     options?: AcquireCacheKeyOptions,
   ): Promise<string> {
-    return this.channel.request<string>('cacheManager.acquire', [identity, options])
+    return this.channel.request<string>('cacheManager.acquire', [cacheKey, options])
   }
 
   async exists(key: string): Promise<boolean> {
@@ -44,8 +44,8 @@ export class CacheManagerProxy<TLink extends Link> implements ICacheManager<TLin
     return this.channel.request<CacheKeyRecord | undefined>('cacheManager.get', [key])
   }
 
-  async touch(key: string): Promise<void> {
-    return this.channel.request<void>('cacheManager.touch', [key])
+  async touch(cacheKey: CacheKeyIdentity<TLink>): Promise<void> {
+    return this.channel.request<void>('cacheManager.touch', [cacheKey])
   }
 
   async hold(key: string): Promise<void> {

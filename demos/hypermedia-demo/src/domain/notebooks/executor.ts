@@ -4,6 +4,7 @@
 
 import {
   createEntityId,
+  deriveScopeKey,
   domainSuccess,
   type AsyncValidationContext,
   type HandlerContext,
@@ -18,7 +19,10 @@ async function checkNameUniqueness(
   excludeId: string | undefined,
   { queryManager }: AsyncValidationContext<ServiceLink>,
 ): Promise<Result<unknown, ValidationException<ValidationError[]>>> {
-  const result = await queryManager.list<Notebook>('notebooks')
+  const result = await queryManager.list<Notebook>({
+    collection: 'notebooks',
+    cacheKey: deriveScopeKey({ scopeType: 'notebooks' }),
+  })
   const duplicate = result.data.find(
     (n) => n.name === name && (excludeId === undefined || n.id !== excludeId),
   )
@@ -77,6 +81,32 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
     handler(_data: unknown, context: HandlerContext) {
       const { id } = context.path as { id: string }
       return domainSuccess([{ type: 'NotebookDeleted', data: { id }, streamId: `Notebook-${id}` }])
+    },
+  },
+  {
+    commandType: 'AddNotebookTag',
+    handler(data: { tag: string }, context: HandlerContext) {
+      const { id } = context.path as { id: string }
+      return domainSuccess([
+        {
+          type: 'NotebookTagAdded',
+          data: { id, tag: data.tag },
+          streamId: `Notebook-${id}`,
+        },
+      ])
+    },
+  },
+  {
+    commandType: 'RemoveNotebookTag',
+    handler(data: { tag: string }, context: HandlerContext) {
+      const { id } = context.path as { id: string }
+      return domainSuccess([
+        {
+          type: 'NotebookTagRemoved',
+          data: { id, tag: data.tag },
+          streamId: `Notebook-${id}`,
+        },
+      ])
     },
   },
 ]

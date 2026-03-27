@@ -6,8 +6,9 @@
  */
 
 import type { Link } from '@meticoeus/ddd-es'
+import type { CacheKeyIdentity } from '../../core/cache-manager/CacheKey.js'
 import type { QueryManager } from '../../core/query-manager/QueryManager.js'
-import type { QueryOptions } from '../../core/query-manager/types.js'
+import type { GetByIdParams, GetByIdsParams, ListParams } from '../../core/query-manager/types.js'
 import type { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
 
 export function registerQueryManagerMethods<TLink extends Link>(
@@ -15,23 +16,15 @@ export function registerQueryManagerMethods<TLink extends Link>(
   queryManager: QueryManager<TLink>,
 ): void {
   handler.registerMethod('queryManager.getById', async (args) => {
-    const collection = args[0] as string
-    const id = args[1] as string
-    const options = args[2] as QueryOptions | undefined
-    return queryManager.getById(collection, id, options)
+    return queryManager.getById(args[0] as GetByIdParams<TLink>)
   })
 
   handler.registerMethod('queryManager.getByIds', async (args) => {
-    const collection = args[0] as string
-    const ids = args[1] as string[]
-    const options = args[2] as QueryOptions | undefined
-    return queryManager.getByIds(collection, ids, options)
+    return queryManager.getByIds(args[0] as GetByIdsParams<TLink>)
   })
 
   handler.registerMethod('queryManager.list', async (args) => {
-    const collection = args[0] as string
-    const options = args[1] as QueryOptions | undefined
-    return queryManager.list(collection, options)
+    return queryManager.list(args[0] as ListParams<TLink>)
   })
 
   handler.registerMethod('queryManager.exists', async (args) => {
@@ -43,7 +36,7 @@ export function registerQueryManagerMethods<TLink extends Link>(
   })
 
   handler.registerMethod('queryManager.touch', async (args) => {
-    return queryManager.touch(args[0] as string)
+    return queryManager.touch(args[0] as CacheKeyIdentity<TLink>)
   })
 
   handler.registerMethod('queryManager.hold', async (args) => {

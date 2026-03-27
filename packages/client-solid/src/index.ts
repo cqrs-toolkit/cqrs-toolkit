@@ -11,9 +11,9 @@ export { createItemQuery } from './createItemQuery.js'
 export { createListQuery } from './createListQuery.js'
 export type {
   Identifiable,
-  ItemQueryOptions,
+  ItemQueryParams,
   ItemQueryState,
-  ListQueryOptions,
+  ListQueryParams,
   ListQueryState,
   ReconciledId,
 } from './types.js'

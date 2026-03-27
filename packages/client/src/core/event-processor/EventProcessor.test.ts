@@ -2,6 +2,7 @@
  * Unit tests for EventProcessorRegistry and EventProcessorRunner.
  */
 
+import type { ServiceLink } from '@meticoeus/ddd-es'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import type { IAnticipatedEventHandler } from '../command-queue/CommandQueue.js'
@@ -149,11 +150,11 @@ describe('EventProcessorRegistry', () => {
 })
 
 describe('EventProcessorRunner', () => {
-  let storage: InMemoryStorage
-  let eventBus: EventBus
+  let storage: InMemoryStorage<ServiceLink>
+  let eventBus: EventBus<ServiceLink>
   let registry: EventProcessorRegistry
-  let readModelStore: ReadModelStore
-  let runner: EventProcessorRunner
+  let readModelStore: ReadModelStore<ServiceLink>
+  let runner: EventProcessorRunner<ServiceLink>
 
   beforeEach(async () => {
     storage = new InMemoryStorage()
@@ -253,7 +254,7 @@ describe('EventProcessorRunner', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-1', title: 'Original', done: false }),
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Original', done: false }),
         hasLocalChanges: false,
@@ -291,7 +292,7 @@ describe('EventProcessorRunner', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-1', title: 'Test' }),
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test' }),
         hasLocalChanges: false,
@@ -328,7 +329,7 @@ describe('EventProcessorRunner', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-1', count: 5 }),
         effectiveData: JSON.stringify({ id: 'todo-1', count: 5 }),
         hasLocalChanges: false,
@@ -403,7 +404,7 @@ describe('EventProcessorRunner', () => {
       await storage.saveReadModel({
         id: 'counter-1',
         collection: 'counters',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'counter-1', value: 10 }),
         effectiveData: JSON.stringify({ id: 'counter-1', value: 10 }),
         hasLocalChanges: false,
@@ -532,7 +533,7 @@ describe('EventProcessorRunner', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-1', title: 'Original', done: false }),
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Optimistic Title', done: false }),
         hasLocalChanges: true,
@@ -575,7 +576,7 @@ describe('EventProcessorRunner', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-1', title: 'Original', done: false, count: 0 }),
         effectiveData: JSON.stringify({
           id: 'todo-1',
@@ -621,7 +622,7 @@ describe('EventProcessorRunner', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-1', title: 'Test' }),
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test' }),
         hasLocalChanges: false,
@@ -853,7 +854,7 @@ describe('EventProcessorRunner', () => {
       await storage.saveReadModel({
         id: CLIENT_ID,
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: null,
         effectiveData: JSON.stringify({ id: CLIENT_ID, title: 'Optimistic' }),
         hasLocalChanges: true,
@@ -940,7 +941,7 @@ describe('EventProcessorRunner', () => {
       await storage.saveReadModel({
         id: CLIENT_ID,
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: null,
         effectiveData: JSON.stringify({ id: CLIENT_ID, title: 'Optimistic' }),
         hasLocalChanges: true,

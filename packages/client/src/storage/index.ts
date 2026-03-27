@@ -7,7 +7,7 @@ export type {
   CachedEventRecord,
   ClientMetadata,
   IStorage,
-  QueryOptions,
+  IStorageQueryOptions,
   ReadModelRecord,
   SessionRecord,
 } from './IStorage.js'

@@ -58,6 +58,11 @@
   --gap-started-bg: #fef3c7;
   --gap-completed: #16a34a;
   --gap-completed-bg: #dcfce7;
+
+  --bus-ws: #0891b2;
+  --bus-ws-bg: #cffafe;
+  --bus-readmodel: #0d9488;
+  --bus-readmodel-bg: #ccfbf1;
 }
 
 .theme-dark {
@@ -116,6 +121,11 @@
   --gap-started-bg: #422006;
   --gap-completed: #4ade80;
   --gap-completed-bg: #052e16;
+
+  --bus-ws: #22d3ee;
+  --bus-ws-bg: #083344;
+  --bus-readmodel: #2dd4bf;
+  --bus-readmodel-bg: #042f2e;
 }
 
 /* ------------------------------------------------------------------ */
@@ -1484,6 +1494,183 @@ body {
 .sync-ws-disconnected {
   color: var(--status-failed);
   background: var(--status-failed-bg);
+}
+
+/* ------------------------------------------------------------------ */
+/* EventBus tab                                                        */
+/* ------------------------------------------------------------------ */
+
+.bus-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.bus-toolbar .count {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.bus-debug-toggle {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.bus-debug-toggle.active {
+  background: var(--chip-active-bg);
+  color: var(--chip-active-text);
+  border-color: var(--chip-active-bg);
+}
+
+.bus-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.bus-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.bus-scroll-wrap {
+  overflow-x: auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.bus-header {
+  padding: 3px 6px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  user-select: none;
+  flex-shrink: 0;
+  column-gap: 12px;
+}
+
+.bus-row {
+  padding: 0 6px;
+  height: 22px;
+  align-items: center;
+  cursor: pointer;
+  font-size: 11px;
+  border-bottom: 1px solid var(--border);
+  column-gap: 12px;
+}
+
+.bus-row:hover {
+  background: var(--bg-hover);
+}
+
+.bus-row.selected {
+  background: var(--bg-selected);
+}
+
+.bus-col-time {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.bus-col-type {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bus-col-debug {
+  font-size: 9px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.bus-col-data {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.bus-type-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.bus-prefix-command {
+  color: var(--status-sending);
+  background: var(--status-sending-bg);
+}
+
+.bus-prefix-sync {
+  color: var(--status-succeeded);
+  background: var(--status-succeeded-bg);
+}
+
+.bus-prefix-cache {
+  color: var(--status-blocked);
+  background: var(--status-blocked-bg);
+}
+
+.bus-prefix-ws {
+  color: var(--bus-ws);
+  background: var(--bus-ws-bg);
+}
+
+.bus-prefix-connectivity {
+  color: var(--status-pending);
+  background: var(--status-pending-bg);
+}
+
+.bus-prefix-session {
+  color: var(--status-cancelled);
+  background: var(--status-cancelled-bg);
+}
+
+.bus-prefix-readmodel {
+  color: var(--bus-readmodel);
+  background: var(--bus-readmodel-bg);
+}
+
+.bus-prefix-error {
+  color: var(--status-failed);
+  background: var(--status-failed-bg);
+}
+
+.bus-prefix-neutral {
+  color: var(--text-secondary);
+  background: var(--chip-bg);
+}
+
+.bus-detail {
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  background: var(--bg-primary);
+  flex-shrink: 0;
 }
 
 /* ------------------------------------------------------------------ */

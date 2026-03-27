@@ -53,6 +53,61 @@ export interface ScopeCacheKey {
 export type CacheKeyIdentity<TLink extends Link> = EntityCacheKey<TLink> | ScopeCacheKey
 
 // ---------------------------------------------------------------------------
+// Cache key matchers (for Collection.keyTypes)
+// ---------------------------------------------------------------------------
+
+/**
+ * Entity key matcher — matches entity cache keys by the link's identifying fields
+ * (type, and service if ServiceLink), ignoring the instance-specific id.
+ */
+export interface EntityKeyMatcher<TLink extends Link> {
+  kind: 'entity'
+  /** Link fields minus id — { type } for Link, { service, type } for ServiceLink */
+  link: Omit<TLink, 'id'>
+}
+
+/**
+ * Scope key matcher — matches scope cache keys by scopeType,
+ * ignoring instance-specific scopeParams.
+ */
+export interface ScopeKeyMatcher {
+  kind: 'scope'
+  scopeType: string
+}
+
+/**
+ * Discriminated union of cache key matchers.
+ * Used by Collection.keyTypes to declare which cache key shapes activate a collection.
+ */
+export type CacheKeyMatcher<TLink extends Link> = EntityKeyMatcher<TLink> | ScopeKeyMatcher
+
+/**
+ * Test whether a cache key identity matches a cache key matcher.
+ * Compares the structural shape (kind + type/scopeType) without instance-specific data (id, scopeParams).
+ */
+export function matchesCacheKey<TLink extends Link>(
+  cacheKey: CacheKeyIdentity<TLink>,
+  matcher: CacheKeyMatcher<TLink>,
+): boolean {
+  if (cacheKey.kind !== matcher.kind) return false
+
+  if (cacheKey.kind === 'entity' && matcher.kind === 'entity') {
+    if (cacheKey.link.type !== matcher.link.type) return false
+    if ('service' in matcher.link) {
+      if (!('service' in cacheKey.link)) return false
+      if (cacheKey.link.service !== matcher.link.service) return false
+    }
+    return true
+  }
+
+  if (cacheKey.kind === 'scope' && matcher.kind === 'scope') {
+    return cacheKey.scopeType === matcher.scopeType
+  }
+
+  return false
+}
+
+// ---------------------------------------------------------------------------
 // Derivation functions
 // ---------------------------------------------------------------------------
 
@@ -130,16 +185,16 @@ export function hydrateCacheKeyIdentity<TLink extends Link>(
     if (record.linkService) {
       link['service'] = record.linkService
     }
-    const identity: EntityCacheKey<TLink> = {
+    const cacheKey: EntityCacheKey<TLink> = {
       kind: 'entity',
       key: record.key,
       link: link as unknown as TLink,
       parentKey: record.parentKey ?? undefined,
     }
-    return identity
+    return cacheKey
   }
 
-  const identity: ScopeCacheKey = {
+  const cacheKey: ScopeCacheKey = {
     kind: 'scope',
     key: record.key,
     service: record.service ?? undefined,
@@ -149,7 +204,7 @@ export function hydrateCacheKeyIdentity<TLink extends Link>(
       : undefined,
     parentKey: record.parentKey ?? undefined,
   }
-  return identity
+  return cacheKey
 }
 
 // ---------------------------------------------------------------------------
@@ -160,7 +215,7 @@ export function hydrateCacheKeyIdentity<TLink extends Link>(
  * Convert a CacheKeyIdentity to a CacheKeyRecord for persistence.
  */
 export function identityToRecord<TLink extends Link>(
-  identity: CacheKeyIdentity<TLink>,
+  cacheKey: CacheKeyIdentity<TLink>,
   opts: {
     evictionPolicy: 'persistent' | 'ephemeral'
     expiresAt: number | null
@@ -168,36 +223,39 @@ export function identityToRecord<TLink extends Link>(
   },
 ): CacheKeyRecord {
   const base: CacheKeyRecord = {
-    key: identity.key,
-    kind: identity.kind,
+    key: cacheKey.key,
+    kind: cacheKey.kind,
     linkService: null,
     linkType: null,
     linkId: null,
     service: null,
     scopeType: null,
     scopeParams: null,
-    parentKey: identity.parentKey ?? null,
+    parentKey: cacheKey.parentKey ?? null,
     evictionPolicy: opts.evictionPolicy,
     frozen: false,
+    frozenAt: null,
+    inheritedFrozen: false,
     lastAccessedAt: opts.now,
     expiresAt: opts.expiresAt,
     createdAt: opts.now,
     holdCount: 0,
+    estimatedSizeBytes: null,
   }
 
-  if (identity.kind === 'entity') {
-    const link = identity.link
+  if (cacheKey.kind === 'entity') {
+    const link = cacheKey.link
     base.linkType = link.type
     base.linkId = link.id
     if ('service' in link && typeof link.service === 'string') {
       base.linkService = link.service
     }
   } else {
-    base.service = identity.service ?? null
-    base.scopeType = identity.scopeType
+    base.service = cacheKey.service ?? null
+    base.scopeType = cacheKey.scopeType
     base.scopeParams =
-      identity.scopeParams && Object.keys(identity.scopeParams).length > 0
-        ? JSON.stringify(identity.scopeParams)
+      cacheKey.scopeParams && Object.keys(cacheKey.scopeParams).length > 0
+        ? JSON.stringify(cacheKey.scopeParams)
         : null
   }
 

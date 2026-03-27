@@ -2,6 +2,9 @@
  * Shared types for SolidJS reactive query primitives.
  */
 
+import type { CacheKeyIdentity } from '@cqrs-toolkit/client'
+import type { Link } from '@meticoeus/ddd-es'
+
 /**
  * Constraint for queryable items — must have a string `id` property.
  */
@@ -10,17 +13,29 @@ export interface Identifiable {
 }
 
 /**
- * Options for `createListQuery`.
+ * Parameters for `createListQuery`.
+ *
+ * `cacheKey` is required and can be either a static identity or a reactive accessor.
+ * When the accessor returns `undefined`, the query enters an inactive state (loading, no data).
  */
-export interface ListQueryOptions {
+export interface ListQueryParams<TLink extends Link> {
+  collection: string
+  cacheKey: CacheKeyIdentity<TLink> | (() => CacheKeyIdentity<TLink> | undefined)
   limit?: number
   offset?: number
 }
 
 /**
- * Options for `createItemQuery`.
+ * Parameters for `createItemQuery`.
+ *
+ * `id` can be a static string or a reactive accessor.
+ * `cacheKey` can be a static identity or a reactive accessor.
  */
-export interface ItemQueryOptions {}
+export interface ItemQueryParams<TLink extends Link> {
+  collection: string
+  id: string | (() => string)
+  cacheKey: CacheKeyIdentity<TLink> | (() => CacheKeyIdentity<TLink> | undefined)
+}
 
 /**
  * A client ID → server ID mapping from a recent ID reconciliation.
@@ -31,14 +46,33 @@ export interface ReconciledId {
 }
 
 /**
+ * Discriminated union representing the lifecycle state of a list query.
+ *
+ * - `loading` — Initial state, checking local cache
+ * - `seeding` — No local data, seed in progress for this collection
+ * - `ready` — Data loaded (may be empty if collection is genuinely empty)
+ * - `seed-failed` — First seed attempt failed, no data was ever loaded
+ * - `sync-failed` — Had data, subsequent sync failed — stale data still displayed
+ */
+export type ListQueryStatus =
+  | { status: 'loading' }
+  | { status: 'seeding' }
+  | { status: 'ready' }
+  | { status: 'seed-failed'; error: string }
+  | { status: 'sync-failed'; error: string }
+
+/**
  * Reactive state returned by `createListQuery`.
  */
 export interface ListQueryState<T extends Identifiable> {
-  readonly items: readonly T[]
+  /** Current items (may be stale during `sync-failed`, empty during `seed-failed`) */
+  readonly items: T[]
+  /** Convenience: `true` when `state.status` is `'loading'` or `'seeding'` */
   readonly loading: boolean
   readonly total: number
   readonly hasLocalChanges: boolean
-  readonly error: unknown
+  /** Lifecycle state with status-specific data */
+  readonly state: ListQueryStatus
   /**
    * Recent ID reconciliations for this collection.
    * Contains entries where a client-generated temp ID was replaced by a server ID.
@@ -52,7 +86,7 @@ export interface ListQueryState<T extends Identifiable> {
    * })
    * ```
    */
-  readonly reconciled: readonly ReconciledId[]
+  readonly reconciled: ReconciledId[]
 }
 
 /**

@@ -13,7 +13,7 @@ async function clickAndWaitForSelector(page: Page, linkText: string, selector: s
 export const testNavigator = {
   Dashboard: {
     goToTodos: (page: Page) => clickAndWaitForHeading(page, 'Todos', 'Todos'),
-    goToNotes: (page: Page) => clickAndWaitForSelector(page, 'Notes', '.notebook-list'),
+    goToNotes: (page: Page) => clickAndWaitForSelector(page, 'Notebooks', '.notebook-list'),
     goToCommands: (page: Page) =>
       clickAndWaitForHeading(page, 'Command Queue Inspector', 'Command Queue'),
   },

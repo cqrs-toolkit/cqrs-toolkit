@@ -15,6 +15,8 @@ export const NotebookCommandIds = {
   CreateNotebook: 'demo.CreateNotebook',
   UpdateNotebookName: 'demo.UpdateNotebookName',
   DeleteNotebook: 'demo.DeleteNotebook',
+  AddNotebookTag: 'demo.AddNotebookTag',
+  RemoveNotebookTag: 'demo.RemoveNotebookTag',
 } as const
 
 // ---------------------------------------------------------------------------
@@ -33,6 +35,24 @@ const updateNotebookNameDataSchema: JSONSchema7 = {
 const deleteNotebookDataSchema: JSONSchema7 = {
   type: 'object',
   properties: {},
+  additionalProperties: false,
+}
+
+const addNotebookTagDataSchema: JSONSchema7 = {
+  type: 'object',
+  properties: {
+    tag: { type: 'string', minLength: 1 },
+  },
+  required: ['tag'],
+  additionalProperties: false,
+}
+
+const removeNotebookTagDataSchema: JSONSchema7 = {
+  type: 'object',
+  properties: {
+    tag: { type: 'string', minLength: 1 },
+  },
+  required: ['tag'],
   additionalProperties: false,
 }
 
@@ -64,6 +84,18 @@ export const NotebookCommands = new HydraDoc.CommandsDef<never>({
       stableId: NotebookCommandIds.DeleteNotebook,
       dispatch: 'command',
       commandType: 'delete',
+    }),
+    addCommandCapabilitySchema(addNotebookTagDataSchema, {
+      id: 'urn:command:demo.AddNotebookTag:1.0.0',
+      stableId: NotebookCommandIds.AddNotebookTag,
+      dispatch: 'command',
+      commandType: 'addTag',
+    }),
+    addCommandCapabilitySchema(removeNotebookTagDataSchema, {
+      id: 'urn:command:demo.RemoveNotebookTag:1.0.0',
+      stableId: NotebookCommandIds.RemoveNotebookTag,
+      dispatch: 'command',
+      commandType: 'removeTag',
     }),
   ],
 })

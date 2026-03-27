@@ -3,7 +3,7 @@
  * Executes event processors and applies results to read model store.
  */
 
-import { logProvider } from '@meticoeus/ddd-es'
+import { Link, logProvider } from '@meticoeus/ddd-es'
 import type { EventPersistence } from '../../types/events.js'
 import type { IAnticipatedEventHandler } from '../command-queue/CommandQueue.js'
 import type { EventBus } from '../events/EventBus.js'
@@ -19,9 +19,9 @@ import type {
 /**
  * Event processor runner configuration.
  */
-export interface EventProcessorRunnerConfig {
-  readModelStore: ReadModelStore
-  eventBus: EventBus
+export interface EventProcessorRunnerConfig<TLink extends Link> {
+  readModelStore: ReadModelStore<TLink>
+  eventBus: EventBus<TLink>
   registry: EventProcessorRegistry
   /** Anticipated event handler for create reconciliation. Optional — only needed with command handlers. */
   anticipatedEventHandler?: IAnticipatedEventHandler
@@ -53,13 +53,13 @@ export interface ProcessEventResult {
 /**
  * Event processor runner.
  */
-export class EventProcessorRunner {
-  private readonly readModelStore: ReadModelStore
-  private readonly eventBus: EventBus
+export class EventProcessorRunner<TLink extends Link> {
+  private readonly readModelStore: ReadModelStore<TLink>
+  private readonly eventBus: EventBus<TLink>
   private readonly registry: EventProcessorRegistry
   private anticipatedEventHandler?: IAnticipatedEventHandler
 
-  constructor(config: EventProcessorRunnerConfig) {
+  constructor(config: EventProcessorRunnerConfig<TLink>) {
     this.readModelStore = config.readModelStore
     this.eventBus = config.eventBus
     this.registry = config.registry

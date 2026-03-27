@@ -2,18 +2,25 @@
  * Unit tests for CacheManager.
  */
 
+import { ServiceLink } from '@meticoeus/ddd-es'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import { EventBus } from '../events/EventBus.js'
-import { deriveScopeKey } from './CacheKey.js'
+import {
+  deriveEntityKey,
+  deriveScopeKey,
+  matchesCacheKey,
+  type EntityKeyMatcher,
+  type ScopeKeyMatcher,
+} from './CacheKey.js'
 import { CacheManager } from './CacheManager.js'
 
 const WINDOW_ID = 'window-1'
 
 describe('CacheManager', () => {
-  let storage: InMemoryStorage
-  let eventBus: EventBus
-  let cacheManager: CacheManager
+  let storage: InMemoryStorage<ServiceLink>
+  let eventBus: EventBus<ServiceLink>
+  let cacheManager: CacheManager<ServiceLink>
 
   beforeEach(async () => {
     storage = new InMemoryStorage()
@@ -314,9 +321,8 @@ describe('CacheManager', () => {
     })
 
     it('emits cache:evicted for each ephemeral key', async () => {
-      const ephemeralKey = await cacheManager.acquire(deriveScopeKey({ scopeType: 'ephemeral' }), {
-        evictionPolicy: 'ephemeral',
-      })
+      const cacheKey = deriveScopeKey({ scopeType: 'ephemeral' })
+      await cacheManager.acquire(cacheKey, { evictionPolicy: 'ephemeral' })
 
       const events: unknown[] = []
       eventBus.on('cache:evicted').subscribe((e) => events.push(e))
@@ -331,7 +337,10 @@ describe('CacheManager', () => {
 
       expect(events).toHaveLength(1)
       expect(events[0]).toMatchObject({
-        data: { cacheKey: ephemeralKey, reason: 'explicit' },
+        data: {
+          cacheKey: { kind: 'scope', key: cacheKey.key, scopeType: 'ephemeral' },
+          reason: 'explicit',
+        },
       })
     })
   })
@@ -525,15 +534,19 @@ describe('CacheManager', () => {
     })
 
     it('emits cache:evicted event', async () => {
-      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
+      const cacheKey = deriveScopeKey({ scopeType: 'todos' })
+      await cacheManager.acquire(cacheKey)
       const events: unknown[] = []
       eventBus.on('cache:evicted').subscribe((e) => events.push(e))
 
-      await cacheManager.evict(key)
+      await cacheManager.evict(cacheKey.key)
 
       expect(events).toHaveLength(1)
       expect(events[0]).toMatchObject({
-        data: { cacheKey: key, reason: 'explicit' },
+        data: {
+          cacheKey: { kind: 'scope', key: cacheKey.key, scopeType: 'todos' },
+          reason: 'explicit',
+        },
       })
     })
   })
@@ -556,7 +569,7 @@ describe('CacheManager', () => {
       const key3 = await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-3' }))
 
       // Touch key1 to make it more recent
-      await cacheManager.touch(key1)
+      await cacheManager.touch(deriveScopeKey({ scopeType: 'collection-1' }))
       await new Promise((r) => setTimeout(r, 10))
 
       // Add 4th key - should evict key2 (oldest access time)
@@ -614,7 +627,8 @@ describe('CacheManager', () => {
     })
 
     it('emits cache:evicted with reason expired', async () => {
-      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), { ttl: 1 })
+      const cacheKey = deriveScopeKey({ scopeType: 'todos' })
+      await cacheManager.acquire(cacheKey, { ttl: 1 })
       const events: unknown[] = []
       eventBus.on('cache:evicted').subscribe((e) => events.push(e))
 
@@ -623,7 +637,10 @@ describe('CacheManager', () => {
 
       expect(events).toHaveLength(1)
       expect(events[0]).toMatchObject({
-        data: { cacheKey: key, reason: 'expired' },
+        data: {
+          cacheKey: { kind: 'scope', key: cacheKey.key, scopeType: 'todos' },
+          reason: 'expired',
+        },
       })
     })
 
@@ -693,6 +710,309 @@ describe('CacheManager', () => {
       expect(record?.holdCount).toBe(0)
     })
   })
+
+  describe('lifecycle events', () => {
+    it('emits cache:key-added on first acquire with cacheKey', async () => {
+      const events: unknown[] = []
+      eventBus.on('cache:key-added').subscribe((e) => events.push(e))
+
+      const cacheKey = deriveScopeKey({ scopeType: 'todos' })
+      await cacheManager.acquire(cacheKey)
+
+      expect(events).toHaveLength(1)
+      expect(events[0]).toMatchObject({
+        data: {
+          cacheKey: { kind: 'scope', scopeType: 'todos', key: cacheKey.key },
+          evictionPolicy: 'persistent',
+        },
+      })
+    })
+
+    it('emits cache:key-accessed on re-acquire', async () => {
+      const cacheKey = deriveScopeKey({ scopeType: 'todos' })
+      await cacheManager.acquire(cacheKey)
+
+      const events: unknown[] = []
+      eventBus.on('cache:key-accessed').subscribe((e) => events.push(e))
+
+      await cacheManager.acquire(cacheKey)
+
+      expect(events).toHaveLength(1)
+      expect(events[0]).toMatchObject({
+        data: { cacheKey: cacheKey },
+      })
+    })
+
+    it('does not emit cache:key-added on re-acquire', async () => {
+      const cacheKey = deriveScopeKey({ scopeType: 'todos' })
+      await cacheManager.acquire(cacheKey)
+
+      const events: unknown[] = []
+      eventBus.on('cache:key-added').subscribe((e) => events.push(e))
+
+      await cacheManager.acquire(cacheKey)
+
+      expect(events).toHaveLength(0)
+    })
+
+    it('emits cache:key-accessed on touch of existing key', async () => {
+      const cacheKey = deriveScopeKey({ scopeType: 'todos' })
+      await cacheManager.acquire(cacheKey)
+
+      const events: unknown[] = []
+      eventBus.on('cache:key-accessed').subscribe((e) => events.push(e))
+
+      await cacheManager.touch(cacheKey)
+
+      expect(events).toHaveLength(1)
+      expect(events[0]).toMatchObject({
+        data: { cacheKey: cacheKey },
+      })
+    })
+
+    it('emits cache:key-added on touch of nonexistent key', async () => {
+      const cacheKey = deriveScopeKey({ scopeType: 'new-collection' })
+
+      const addedEvents: unknown[] = []
+      eventBus.on('cache:key-added').subscribe((e) => addedEvents.push(e))
+
+      await cacheManager.touch(cacheKey)
+
+      expect(addedEvents).toHaveLength(1)
+      expect(await cacheManager.exists(cacheKey.key)).toBe(true)
+    })
+
+    it('emits cache:frozen-changed on freeze with frozenAt timestamp', async () => {
+      const cacheKey = deriveScopeKey({ scopeType: 'todos' })
+      await cacheManager.acquire(cacheKey)
+
+      const events: unknown[] = []
+      eventBus.on('cache:frozen-changed').subscribe((e) => events.push(e))
+
+      await cacheManager.freeze(cacheKey.key)
+
+      expect(events).toHaveLength(1)
+      const event = events[0] as {
+        data: { cacheKey: { kind: string; key: string }; frozen: boolean; frozenAt: number }
+      }
+      expect(event.data.cacheKey.key).toBe(cacheKey.key)
+      expect(event.data.cacheKey.kind).toBe('scope')
+      expect(event.data.frozen).toBe(true)
+      expect(typeof event.data.frozenAt).toBe('number')
+
+      // Verify frozenAt is persisted
+      const record = await cacheManager.get(cacheKey.key)
+      expect(record?.frozenAt).toBe(event.data.frozenAt)
+    })
+
+    it('emits cache:frozen-changed on unfreeze with frozenAt null', async () => {
+      const cacheKey = deriveScopeKey({ scopeType: 'todos' })
+      await cacheManager.acquire(cacheKey)
+      await cacheManager.freeze(cacheKey.key)
+
+      const events: unknown[] = []
+      eventBus.on('cache:frozen-changed').subscribe((e) => events.push(e))
+
+      await cacheManager.unfreeze(cacheKey.key)
+
+      expect(events).toHaveLength(1)
+      expect(events[0]).toMatchObject({
+        data: {
+          cacheKey: { kind: 'scope', key: cacheKey.key, scopeType: 'todos' },
+          frozen: false,
+          frozenAt: null,
+        },
+      })
+
+      // Verify frozenAt is cleared in storage
+      const record = await cacheManager.get(cacheKey.key)
+      expect(record?.frozenAt).toBeNull()
+    })
+
+    it('does not emit cache:frozen-changed when re-freezing already frozen key', async () => {
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
+      await cacheManager.freeze(key)
+
+      const events: unknown[] = []
+      eventBus.on('cache:frozen-changed').subscribe((e) => events.push(e))
+
+      await cacheManager.freeze(key)
+
+      expect(events).toHaveLength(0)
+    })
+
+    it('does not emit cache:frozen-changed when unfreezing non-frozen key', async () => {
+      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
+
+      const events: unknown[] = []
+      eventBus.on('cache:frozen-changed').subscribe((e) => events.push(e))
+
+      await cacheManager.unfreeze(key)
+
+      expect(events).toHaveLength(0)
+    })
+  })
+
+  describe('hierarchical cache keys', () => {
+    it('propagates inheritedFrozen to children when parent is frozen', async () => {
+      const parent = deriveScopeKey({ scopeType: 'workspace' })
+      const child = deriveScopeKey({ scopeType: 'todos', parentKey: parent.key })
+
+      await cacheManager.acquireKey(parent)
+      await cacheManager.acquireKey(child)
+
+      await cacheManager.freeze(parent.key)
+
+      const childRecord = await cacheManager.get(child.key)
+      expect(childRecord?.inheritedFrozen).toBe(true)
+    })
+
+    it('clears inheritedFrozen on children when parent is unfrozen', async () => {
+      const parent = deriveScopeKey({ scopeType: 'workspace' })
+      const child = deriveScopeKey({ scopeType: 'todos', parentKey: parent.key })
+
+      await cacheManager.acquireKey(parent)
+      await cacheManager.acquireKey(child)
+      await cacheManager.freeze(parent.key)
+
+      await cacheManager.unfreeze(parent.key)
+
+      const childRecord = await cacheManager.get(child.key)
+      expect(childRecord?.inheritedFrozen).toBe(false)
+    })
+
+    it('propagates inheritedFrozen through multiple levels', async () => {
+      const grandparent = deriveScopeKey({ scopeType: 'org' })
+      const parent = deriveScopeKey({ scopeType: 'workspace', parentKey: grandparent.key })
+      const child = deriveScopeKey({ scopeType: 'todos', parentKey: parent.key })
+
+      await cacheManager.acquireKey(grandparent)
+      await cacheManager.acquireKey(parent)
+      await cacheManager.acquireKey(child)
+
+      await cacheManager.freeze(grandparent.key)
+
+      const parentRecord = await cacheManager.get(parent.key)
+      const childRecord = await cacheManager.get(child.key)
+      expect(parentRecord?.inheritedFrozen).toBe(true)
+      expect(childRecord?.inheritedFrozen).toBe(true)
+    })
+
+    it('keeps inheritedFrozen when unfreezing middle node with frozen grandparent', async () => {
+      const grandparent = deriveScopeKey({ scopeType: 'org' })
+      const parent = deriveScopeKey({ scopeType: 'workspace', parentKey: grandparent.key })
+      const child = deriveScopeKey({ scopeType: 'todos', parentKey: parent.key })
+
+      await cacheManager.acquireKey(grandparent)
+      await cacheManager.acquireKey(parent)
+      await cacheManager.acquireKey(child)
+
+      // Freeze both grandparent and parent
+      await cacheManager.freeze(grandparent.key)
+      await cacheManager.freeze(parent.key)
+
+      // Unfreeze parent — child still inherits from grandparent
+      await cacheManager.unfreeze(parent.key)
+
+      const childRecord = await cacheManager.get(child.key)
+      expect(childRecord?.inheritedFrozen).toBe(true)
+    })
+
+    it('does not evict inheritedFrozen keys', async () => {
+      const parent = deriveScopeKey({ scopeType: 'workspace' })
+      const child = deriveScopeKey({ scopeType: 'todos', parentKey: parent.key })
+
+      await cacheManager.acquireKey(parent)
+      await cacheManager.acquireKey(child)
+      await cacheManager.freeze(parent.key)
+
+      const evicted = await cacheManager.evict(child.key)
+      expect(evicted).toBe(false)
+    })
+
+    it('cannot evict a parent while children exist', async () => {
+      const parent = deriveScopeKey({ scopeType: 'workspace' })
+      const child = deriveScopeKey({ scopeType: 'todos', parentKey: parent.key })
+
+      await cacheManager.acquireKey(parent)
+      await cacheManager.acquireKey(child)
+
+      const evicted = await cacheManager.evict(parent.key)
+      expect(evicted).toBe(false)
+    })
+
+    it('can evict parent after all children are evicted', async () => {
+      const parent = deriveScopeKey({ scopeType: 'workspace' })
+      const child = deriveScopeKey({ scopeType: 'todos', parentKey: parent.key })
+
+      await cacheManager.acquireKey(parent)
+      await cacheManager.acquireKey(child)
+
+      await cacheManager.evict(child.key)
+      const evicted = await cacheManager.evict(parent.key)
+      expect(evicted).toBe(true)
+    })
+
+    it('does not propagate inheritedFrozen to ephemeral children', async () => {
+      const parent = deriveScopeKey({ scopeType: 'workspace' })
+      const child = deriveScopeKey({ scopeType: 'temp-view', parentKey: parent.key })
+
+      await cacheManager.acquireKey(parent)
+      await cacheManager.acquireKey(child, { evictionPolicy: 'ephemeral', hold: true })
+      await cacheManager.freeze(parent.key)
+
+      const childRecord = await cacheManager.get(child.key)
+      expect(childRecord?.inheritedFrozen).toBe(false)
+    })
+
+    it('does not evict expired frozen keys', async () => {
+      const cacheKey = deriveScopeKey({ scopeType: 'todos' })
+      await cacheManager.acquireKey(cacheKey, { ttl: 1 })
+
+      // Wait for TTL to expire
+      await new Promise((r) => setTimeout(r, 10))
+
+      await cacheManager.freeze(cacheKey.key)
+
+      const count = await cacheManager.evictExpired()
+      expect(count).toBe(0)
+      expect(await cacheManager.exists(cacheKey.key)).toBe(true)
+    })
+
+    it('does not evict expired inheritedFrozen keys', async () => {
+      const parent = deriveScopeKey({ scopeType: 'workspace' })
+      const child = deriveScopeKey({ scopeType: 'todos', parentKey: parent.key })
+
+      await cacheManager.acquireKey(parent)
+      await cacheManager.acquireKey(child, { ttl: 1 })
+
+      // Wait for TTL to expire
+      await new Promise((r) => setTimeout(r, 10))
+
+      await cacheManager.freeze(parent.key)
+
+      const count = await cacheManager.evictExpired()
+      expect(count).toBe(0)
+      expect(await cacheManager.exists(child.key)).toBe(true)
+    })
+
+    it('evictAll evicts leaves before parents (bottom-up)', async () => {
+      const parent = deriveScopeKey({ scopeType: 'workspace' })
+      const child = deriveScopeKey({ scopeType: 'todos', parentKey: parent.key })
+
+      await cacheManager.acquireKey(parent)
+      await cacheManager.acquireKey(child)
+
+      const evictedKeys: string[] = []
+      eventBus.on('cache:evicted').subscribe((e) => evictedKeys.push(e.data.cacheKey.key))
+
+      const count = await cacheManager.evictAll()
+
+      expect(count).toBe(2)
+      expect(evictedKeys[0]).toBe(child.key)
+      expect(evictedKeys[1]).toBe(parent.key)
+    })
+  })
 })
 
 describe('deriveScopeKey', () => {
@@ -718,5 +1038,58 @@ describe('deriveScopeKey', () => {
     const key1 = deriveScopeKey({ scopeType: 'todos', scopeParams: { a: 1, b: 2, c: 3 } })
     const key2 = deriveScopeKey({ scopeType: 'todos', scopeParams: { c: 3, a: 1, b: 2 } })
     expect(key1.key).toBe(key2.key)
+  })
+})
+
+describe('matchesCacheKey', () => {
+  it('matches scope key by scopeType', () => {
+    const cacheKey = deriveScopeKey({ scopeType: 'project', scopeParams: { id: '123' } })
+    const matcher: ScopeKeyMatcher = { kind: 'scope', scopeType: 'project' }
+
+    expect(matchesCacheKey(cacheKey, matcher)).toBe(true)
+  })
+
+  it('does not match scope key with different scopeType', () => {
+    const cacheKey = deriveScopeKey({ scopeType: 'project' })
+    const matcher: ScopeKeyMatcher = { kind: 'scope', scopeType: 'workspace' }
+
+    expect(matchesCacheKey(cacheKey, matcher)).toBe(false)
+  })
+
+  it('matches entity key by link type', () => {
+    const cacheKey = deriveEntityKey({ service: 'nb', type: 'Notebook', id: '456' })
+    const matcher: EntityKeyMatcher<ServiceLink> = {
+      kind: 'entity',
+      link: { service: 'nb', type: 'Notebook' },
+    }
+
+    expect(matchesCacheKey(cacheKey, matcher)).toBe(true)
+  })
+
+  it('does not match entity key with different type', () => {
+    const cacheKey = deriveEntityKey({ service: 'nb', type: 'Notebook', id: '456' })
+    const matcher: EntityKeyMatcher<ServiceLink> = {
+      kind: 'entity',
+      link: { service: 'nb', type: 'Project' },
+    }
+
+    expect(matchesCacheKey(cacheKey, matcher)).toBe(false)
+  })
+
+  it('does not match scope key against entity matcher', () => {
+    const cacheKey = deriveScopeKey({ scopeType: 'todos' })
+    const matcher: EntityKeyMatcher<ServiceLink> = {
+      kind: 'entity',
+      link: { service: 'nb', type: 'Todo' },
+    }
+
+    expect(matchesCacheKey(cacheKey, matcher)).toBe(false)
+  })
+
+  it('does not match entity key against scope matcher', () => {
+    const cacheKey = deriveEntityKey({ type: 'Todo', id: '1' })
+    const matcher: ScopeKeyMatcher = { kind: 'scope', scopeType: 'todos' }
+
+    expect(matchesCacheKey(cacheKey, matcher)).toBe(false)
   })
 })

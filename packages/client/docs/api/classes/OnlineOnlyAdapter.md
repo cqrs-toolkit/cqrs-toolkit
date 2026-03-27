@@ -25,7 +25,7 @@ where offline persistence is not required.
 
 ## Implements
 
-- [`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md)
+- [`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md)\<`TLink`\>
 
 ## Constructors
 
@@ -47,7 +47,7 @@ where offline persistence is not required.
 
 ### eventBus
 
-> `readonly` **eventBus**: [`EventBus`](EventBus.md)
+> `readonly` **eventBus**: [`EventBus`](EventBus.md)\<`TLink`\>
 
 #### Implementation of
 
@@ -83,13 +83,13 @@ Role of this client instance.
 
 #### Get Signature
 
-> **get** **events$**(): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
+> **get** **events$**(): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<`TLink`, [`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
 Observable of library events.
 
 ##### Returns
 
-`Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
+`Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<`TLink`, [`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
 Observable of library events.
 
@@ -103,11 +103,11 @@ Observable of library events.
 
 #### Get Signature
 
-> **get** **sessionManager**(): [`SessionManager`](SessionManager.md)
+> **get** **sessionManager**(): [`SessionManager`](SessionManager.md)\<`TLink`\>
 
 ##### Returns
 
-[`SessionManager`](SessionManager.md)
+[`SessionManager`](SessionManager.md)\<`TLink`\>
 
 #### Implementation of
 
@@ -139,11 +139,11 @@ Current adapter status.
 
 #### Get Signature
 
-> **get** **storage**(): [`IStorage`](../interfaces/IStorage.md)
+> **get** **storage**(): [`IStorage`](../interfaces/IStorage.md)\<`TLink`\>
 
 ##### Returns
 
-[`IStorage`](../interfaces/IStorage.md)
+[`IStorage`](../interfaces/IStorage.md)\<`TLink`\>
 
 #### Implementation of
 

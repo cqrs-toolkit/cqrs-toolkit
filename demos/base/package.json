@@ -13,12 +13,15 @@
     "./common/server": "./src/common/server/index.ts",
     "./common/shared": "./src/common/shared/index.ts",
     "./notebooks/components": "./src/notebooks/components/index.ts",
+    "./notebooks/domain": "./src/notebooks/domain/index.ts",
     "./notebooks/server": "./src/notebooks/server/index.ts",
     "./notebooks/shared": "./src/notebooks/shared/index.ts",
     "./notes/components": "./src/notes/components/index.ts",
+    "./notes/domain": "./src/notes/domain/index.ts",
     "./notes/server": "./src/notes/server/index.ts",
     "./notes/shared": "./src/notes/shared/index.ts",
     "./todos/components": "./src/todos/components/index.ts",
+    "./todos/domain": "./src/todos/domain/index.ts",
     "./todos/server": "./src/todos/server/index.ts",
     "./todos/shared": "./src/todos/shared/index.ts"
   },
@@ -28,17 +31,20 @@
     "#common/server": "./src/common/server/index.ts",
     "#common/shared": "./src/common/shared/index.ts",
     "#notebooks/components": "./src/notebooks/components/index.ts",
+    "#notebooks/domain": "./src/notebooks/domain/index.ts",
     "#notebooks/server": "./src/notebooks/server/index.ts",
     "#notebooks/shared": "./src/notebooks/shared/index.ts",
     "#notes/components": "./src/notes/components/index.ts",
+    "#notes/domain": "./src/notes/domain/index.ts",
     "#notes/server": "./src/notes/server/index.ts",
     "#notes/shared": "./src/notes/shared/index.ts",
     "#todos/components": "./src/todos/components/index.ts",
+    "#todos/domain": "./src/todos/domain/index.ts",
     "#todos/server": "./src/todos/server/index.ts",
     "#todos/shared": "./src/todos/shared/index.ts"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.build.json",
     "compile": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

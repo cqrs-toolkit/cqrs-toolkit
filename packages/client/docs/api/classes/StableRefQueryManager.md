@@ -113,7 +113,7 @@ Whether the entity exists
 
 ### getById()
 
-> **getById**\<`T`\>(`collection`, `id`, `options?`): `Promise`\<[`QueryResult`](../interfaces/QueryResult.md)\<`TLink`, `T`\>\>
+> **getById**\<`T`\>(`params`): `Promise`\<[`QueryResult`](../interfaces/QueryResult.md)\<`TLink`, `T`\>\>
 
 Get a single entity by ID.
 
@@ -125,23 +125,9 @@ Get a single entity by ID.
 
 #### Parameters
 
-##### collection
+##### params
 
-`string`
-
-Collection name
-
-##### id
-
-`string`
-
-Entity ID
-
-##### options?
-
-[`QueryManagerQueryOptions`](../interfaces/QueryManagerQueryOptions.md)
-
-Query options
+[`GetByIdParams`](../interfaces/GetByIdParams.md)\<`TLink`\>
 
 #### Returns
 
@@ -157,7 +143,7 @@ Query result
 
 ### getByIds()
 
-> **getByIds**\<`T`\>(`collection`, `ids`, `options?`): `Promise`\<`Map`\<`string`, [`QueryResult`](../interfaces/QueryResult.md)\<`TLink`, `T`\>\>\>
+> **getByIds**\<`T`\>(`params`): `Promise`\<`Map`\<`string`, [`QueryResult`](../interfaces/QueryResult.md)\<`TLink`, `T`\>\>\>
 
 Get multiple entities by IDs.
 
@@ -169,29 +155,13 @@ Get multiple entities by IDs.
 
 #### Parameters
 
-##### collection
+##### params
 
-`string`
-
-Collection name
-
-##### ids
-
-`string`[]
-
-Entity IDs
-
-##### options?
-
-[`QueryManagerQueryOptions`](../interfaces/QueryManagerQueryOptions.md)
-
-Query options
+[`GetByIdsParams`](../interfaces/GetByIdsParams.md)\<`TLink`\>
 
 #### Returns
 
 `Promise`\<`Map`\<`string`, [`QueryResult`](../interfaces/QueryResult.md)\<`TLink`, `T`\>\>\>
-
-Map of ID to query result
 
 #### Implementation of
 
@@ -225,7 +195,7 @@ Cache key UUID string
 
 ### list()
 
-> **list**\<`T`\>(`collection`, `options?`): `Promise`\<[`ListQueryResult`](../interfaces/ListQueryResult.md)\<`TLink`, `T`\>\>
+> **list**\<`T`\>(`params`): `Promise`\<[`ListQueryResult`](../interfaces/ListQueryResult.md)\<`TLink`, `T`\>\>
 
 List entities in a collection.
 
@@ -237,23 +207,13 @@ List entities in a collection.
 
 #### Parameters
 
-##### collection
+##### params
 
-`string`
-
-Collection name
-
-##### options?
-
-[`QueryManagerQueryOptions`](../interfaces/QueryManagerQueryOptions.md)
-
-Query options
+[`ListParams`](../interfaces/ListParams.md)\<`TLink`\>
 
 #### Returns
 
 `Promise`\<[`ListQueryResult`](../interfaces/ListQueryResult.md)\<`TLink`, `T`\>\>
-
-List query result
 
 #### Implementation of
 
@@ -303,17 +263,15 @@ Release all active holds.
 
 ### touch()
 
-> **touch**(`collection`): `Promise`\<`void`\>
+> **touch**(`cacheKey`): `Promise`\<`void`\>
 
-Touch the cache key for a collection.
+Touch a cache key to extend its lifetime.
 
 #### Parameters
 
-##### collection
+##### cacheKey
 
-`string`
-
-Collection name
+[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
 
 #### Returns
 
@@ -327,7 +285,7 @@ Collection name
 
 ### watchById()
 
-> **watchById**\<`T`\>(`collection`, `id`): `Observable`\<`T` \| `undefined`\>
+> **watchById**\<`T`\>(`params`): `Observable`\<`T` \| `undefined`\>
 
 Get an observable that emits when a specific entity changes.
 
@@ -339,23 +297,13 @@ Get an observable that emits when a specific entity changes.
 
 #### Parameters
 
-##### collection
+##### params
 
-`string`
-
-Collection name
-
-##### id
-
-`string`
-
-Entity ID
+[`GetByIdParams`](../interfaces/GetByIdParams.md)\<`TLink`\>
 
 #### Returns
 
 `Observable`\<`T` \| `undefined`\>
-
-Observable of the entity data
 
 #### Implementation of
 
@@ -365,9 +313,10 @@ Observable of the entity data
 
 ### watchCollection()
 
-> **watchCollection**(`collection`): `Observable`\<`string`[]\>
+> **watchCollection**(`collection`): `Observable`\<[`CollectionSignal`](../type-aliases/CollectionSignal.md)\>
 
-Get an observable that emits when data in a collection changes.
+Get an observable of collection lifecycle signals.
+Emits for data updates, seed completion, and sync failures.
 
 #### Parameters
 
@@ -379,9 +328,9 @@ Collection name
 
 #### Returns
 
-`Observable`\<`string`[]\>
+`Observable`\<[`CollectionSignal`](../type-aliases/CollectionSignal.md)\>
 
-Observable of updated entity IDs
+Observable of collection signals
 
 #### Implementation of
 

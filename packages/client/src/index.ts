@@ -37,8 +37,8 @@ export type {
   ClientMetadata,
   ISqliteDb,
   IStorage,
+  IStorageQueryOptions,
   LoadAndOpenDbConfig,
-  QueryOptions,
   ReadModelRecord,
   SQLiteStorageConfig,
   SessionRecord,
@@ -52,14 +52,18 @@ export {
   deriveEntityKey,
   deriveScopeKey,
   hydrateCacheKeyIdentity,
+  matchesCacheKey,
 } from './core/cache-manager/index.js'
 export type {
   AcquireCacheKeyOptions,
   CacheKeyIdentity,
+  CacheKeyMatcher,
   CacheManagerConfig,
   EntityCacheKey,
+  EntityKeyMatcher,
   ICacheManager,
   ScopeCacheKey,
+  ScopeKeyMatcher,
 } from './core/cache-manager/index.js'
 export { CommandQueue, CommandSendError } from './core/command-queue/index.js'
 export type {
@@ -85,11 +89,15 @@ export type {
 export { EventBus } from './core/events/index.js'
 export { QueryManager, StableRefQueryManager } from './core/query-manager/index.js'
 export type {
+  CollectionSignal,
+  GetByIdParams,
+  GetByIdsParams,
   IQueryManager,
   ItemMeta,
+  ListParams,
   ListQueryResult,
   QueryManagerConfig,
-  QueryOptions as QueryManagerQueryOptions,
+  QueryOptions,
   QueryResult,
 } from './core/query-manager/index.js'
 export { ReadModelStore } from './core/read-model-store/index.js'

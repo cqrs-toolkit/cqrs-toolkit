@@ -2,16 +2,16 @@
  * Command queue internal types.
  */
 
+import type { Link } from '@meticoeus/ddd-es'
 import type { Observable } from 'rxjs'
 import type {
   CommandCompletionResult,
   CommandEvent,
   CommandFilter,
   CommandRecord,
-  EnqueueAndWaitOptions,
+  EnqueueAndWaitParams,
   EnqueueAndWaitResult,
-  EnqueueCommand,
-  EnqueueOptions,
+  EnqueueParams,
   EnqueueResult,
   WaitOptions,
 } from '../../types/commands.js'
@@ -20,7 +20,7 @@ import type {
  * Command queue interface.
  * Provides form-friendly async patterns for command handling.
  */
-export interface ICommandQueue {
+export interface ICommandQueue<TLink extends Link> {
   /**
    * Enqueue a command with local validation.
    * Returns immediately with either validation errors or the queued command.
@@ -31,10 +31,7 @@ export interface ICommandQueue {
    * @param options - Optional enqueue options
    * @returns Enqueue result with validation status
    */
-  enqueue<TData, TEvent>(
-    command: EnqueueCommand<TData>,
-    options?: EnqueueOptions,
-  ): Promise<EnqueueResult<TEvent>>
+  enqueue<TData, TEvent>(params: EnqueueParams<TLink, TData>): Promise<EnqueueResult<TEvent>>
 
   /**
    * Wait for a specific command to reach a terminal state.
@@ -57,8 +54,7 @@ export interface ICommandQueue {
    * @returns Combined enqueue and completion result
    */
   enqueueAndWait<TData, TEvent, TResponse>(
-    command: EnqueueCommand<TData>,
-    options?: EnqueueAndWaitOptions,
+    params: EnqueueAndWaitParams<TLink, TData>,
   ): Promise<EnqueueAndWaitResult<TResponse>>
 
   /**
@@ -82,7 +78,7 @@ export interface ICommandQueue {
    * @param commandId - Command ID
    * @returns Command record or undefined
    */
-  getCommand(commandId: string): Promise<CommandRecord | undefined>
+  getCommand(commandId: string): Promise<CommandRecord<TLink> | undefined>
 
   /**
    * List commands matching a filter.
@@ -90,7 +86,7 @@ export interface ICommandQueue {
    * @param filter - Optional filter criteria
    * @returns Matching commands
    */
-  listCommands(filter?: CommandFilter): Promise<CommandRecord[]>
+  listCommands(filter?: CommandFilter): Promise<CommandRecord<TLink>[]>
 
   /**
    * Cancel a pending command.
@@ -142,7 +138,7 @@ export interface ICommandQueue {
  * HTTP command sender interface.
  * Abstracted for testability and different transport implementations.
  */
-export interface ICommandSender {
+export interface ICommandSender<TLink extends Link> {
   /**
    * Send a command to the server.
    *
@@ -150,7 +146,7 @@ export interface ICommandSender {
    * @returns Server response
    * @throws CommandSendError on failure
    */
-  send<TData, TResponse>(command: CommandRecord<TData>): Promise<TResponse>
+  send<TData, TResponse>(command: CommandRecord<TLink, TData>): Promise<TResponse>
 }
 
 /**

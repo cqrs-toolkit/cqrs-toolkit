@@ -69,10 +69,13 @@ export function noteRoutes(
 ): FastifyPluginAsync {
   return async function routes(app: FastifyInstance): Promise<void> {
     app.get<{
-      Querystring: { cursor?: string; limit?: string }
+      Querystring: { cursor?: string; limit?: string; notebookId?: string }
       Reply: ListNotesResponse
     }>('/notes', async (request) => {
       const limit = parseInt(request.query.limit ?? '50', 10)
+      if (request.query.notebookId) {
+        return noteRepo.listByNotebook(request.query.notebookId, request.query.cursor, limit)
+      }
       return noteRepo.list(request.query.cursor, limit)
     })
 

@@ -3,6 +3,7 @@
  * Creates pre-configured storage instances for testing.
  */
 
+import type { Link } from '@meticoeus/ddd-es'
 import { InMemoryStorage } from '../storage/InMemoryStorage.js'
 import type {
   CacheKeyRecord,
@@ -16,13 +17,13 @@ import type { CommandRecord } from '../types/commands.js'
 /**
  * Options for creating test storage.
  */
-export interface CreateTestStorageOptions {
+export interface CreateTestStorageOptions<TLink extends Link> {
   /** Pre-populate with a session */
   session?: SessionRecord
   /** Pre-populate with cache keys */
   cacheKeys?: CacheKeyRecord[]
   /** Pre-populate with commands */
-  commands?: CommandRecord[]
+  commands?: CommandRecord<TLink>[]
   /** Pre-populate with cached events */
   cachedEvents?: CachedEventRecord[]
   /** Pre-populate with read models */
@@ -35,8 +36,10 @@ export interface CreateTestStorageOptions {
  * @param options - Data to pre-populate
  * @returns Initialized storage instance
  */
-export async function createTestStorage(options: CreateTestStorageOptions = {}): Promise<IStorage> {
-  const storage = new InMemoryStorage()
+export async function createTestStorage<TLink extends Link>(
+  options: CreateTestStorageOptions<TLink> = {},
+): Promise<IStorage<TLink>> {
+  const storage = new InMemoryStorage<TLink>()
   await storage.initialize()
 
   // Pre-populate data

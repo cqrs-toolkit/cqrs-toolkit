@@ -4,20 +4,26 @@
 
 [@cqrs-toolkit/client](../globals.md) / EventBus
 
-# Class: EventBus
+# Class: EventBus\<TLink\>
 
 Event bus for library-level events.
 All components can emit events, and consumers can subscribe to specific event types.
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
 
 ## Constructors
 
 ### Constructor
 
-> **new EventBus**(): `EventBus`
+> **new EventBus**\<`TLink`\>(): `EventBus`\<`TLink`\>
 
 #### Returns
 
-`EventBus`
+`EventBus`\<`TLink`\>
 
 ## Properties
 
@@ -33,7 +39,7 @@ When false, `emitDebug()` is a no-op.
 
 ### events$
 
-> `readonly` **events$**: `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
+> `readonly` **events$**: `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<`TLink`, [`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
 Observable of all library events.
 
@@ -74,7 +80,7 @@ Event type
 
 ##### data
 
-[`LibraryEventData`](../interfaces/LibraryEventData.md)\[`T`\]
+[`LibraryEventData`](../interfaces/LibraryEventData.md)\<`TLink`\>\[`T`\]
 
 Event data
 
@@ -108,7 +114,7 @@ Event type
 
 ##### data
 
-[`LibraryEventData`](../interfaces/LibraryEventData.md)\[`T`\]
+[`LibraryEventData`](../interfaces/LibraryEventData.md)\<`TLink`\>\[`T`\]
 
 Event data
 
@@ -120,7 +126,7 @@ Event data
 
 ### on()
 
-> **on**\<`T`\>(`type`): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<`T`\>\>
+> **on**\<`T`\>(`type`): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<`TLink`, `T`\>\>
 
 Get an observable filtered to a specific event type.
 
@@ -140,7 +146,7 @@ Event type to filter for
 
 #### Returns
 
-`Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<`T`\>\>
+`Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<`TLink`, `T`\>\>
 
 Observable of events of that type
 
@@ -148,7 +154,7 @@ Observable of events of that type
 
 ### onAny()
 
-> **onAny**\<`T`\>(`types`): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<`T`\>\>
+> **onAny**\<`T`\>(`types`): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<`TLink`, `T`\>\>
 
 Get an observable filtered to multiple event types.
 
@@ -168,6 +174,6 @@ Event types to filter for
 
 #### Returns
 
-`Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<`T`\>\>
+`Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<`TLink`, `T`\>\>
 
 Observable of events of those types

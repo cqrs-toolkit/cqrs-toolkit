@@ -1,6 +1,6 @@
-import { useClient } from '@cqrs-toolkit/client-solid'
 import { A } from '@solidjs/router'
 import type { JSX } from 'solid-js'
+import { useClient } from '../bootstrap/typed-client.js'
 
 interface PageShellProps {
   title: string

@@ -30,12 +30,12 @@ export interface ICacheManager<TLink extends Link> {
    * Acquire a cache key identity. Creates the cache key in storage if it doesn't exist.
    * Returns the full identity object with the derived UUID key and all source data.
    *
-   * @param identity - The cache key identity to acquire
+   * @param cacheKey - The cache key identity to acquire
    * @param options - Acquisition options
    * @returns The acquired cache key identity
    */
   acquireKey(
-    identity: CacheKeyIdentity<TLink>,
+    cacheKey: CacheKeyIdentity<TLink>,
     options?: AcquireCacheKeyOptions,
   ): Promise<CacheKeyIdentity<TLink>>
 
@@ -43,11 +43,11 @@ export interface ICacheManager<TLink extends Link> {
    * Acquire a cache key, returning only the UUID string.
    * Convenience wrapper around {@link acquireKey} for callers that only need the key.
    *
-   * @param identity - The cache key identity to acquire
+   * @param cacheKey - The cache key identity to acquire
    * @param options - Acquisition options
    * @returns The cache key UUID string
    */
-  acquire(identity: CacheKeyIdentity<TLink>, options?: AcquireCacheKeyOptions): Promise<string>
+  acquire(cacheKey: CacheKeyIdentity<TLink>, options?: AcquireCacheKeyOptions): Promise<string>
 
   /**
    * Check if a cache key exists.
@@ -67,10 +67,12 @@ export interface ICacheManager<TLink extends Link> {
 
   /**
    * Touch a cache key to update its access time.
+   * Creates the key if it does not exist (spec §2.5.1).
+   * Does not place a hold.
    *
-   * @param key - Cache key UUID
+   * @param cacheKey - Cache key identity
    */
-  touch(key: string): Promise<void>
+  touch(cacheKey: CacheKeyIdentity<TLink>): Promise<void>
 
   /**
    * Place a hold on a cache key.

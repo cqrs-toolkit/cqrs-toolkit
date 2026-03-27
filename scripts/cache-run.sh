@@ -6,8 +6,13 @@ set -euo pipefail
 #
 # Hashes src/, package.json, tsconfig.json, and upstream dep hashes.
 # Skips the build command when the combined hash matches the stored value.
+#
+# Set CACHE_NS to namespace the cache (e.g. CACHE_NS=compile).
+# Own hashes are stored under <CACHE_NS>-hashes; dep lookups always use build-hashes.
 
-CACHE_DIR="node_modules/.cache/build-hashes"
+LABEL="${CACHE_NS:-build}"
+CACHE_DIR="node_modules/.cache/${LABEL}-hashes"
+DEPS_DIR="node_modules/.cache/build-hashes"
 
 # --- Parse arguments ---
 PKG_DIR="$1"; shift
@@ -35,9 +40,9 @@ for f in "$PKG_DIR/package.json" "$PKG_DIR/tsconfig.json"; do
   fi
 done
 
-# Upstream dependency hashes
+# Upstream dependency hashes (always from build-hashes)
 for dep in "${DEPS[@]}"; do
-  dep_hash_file="$CACHE_DIR/$dep"
+  dep_hash_file="$DEPS_DIR/$dep"
   if [[ -f "$dep_hash_file" ]]; then
     HASH_INPUT+="$(cat "$dep_hash_file")"
   else
@@ -51,12 +56,12 @@ FINAL_HASH="$(printf '%s' "$HASH_INPUT" | sha256sum | cut -d' ' -f1)"
 # --- Compare to stored hash ---
 STORED_HASH_FILE="$CACHE_DIR/$PKG_NAME"
 if [[ -f "$STORED_HASH_FILE" ]] && [[ "$(cat "$STORED_HASH_FILE")" == "$FINAL_HASH" ]]; then
-  echo "[cache] $PKG_NAME — up to date, skipping build"
+  echo "[$LABEL] $PKG_NAME — up to date, skipping"
   exit 0
 fi
 
-# --- Run build ---
-echo "[cache] $PKG_NAME — building"
+# --- Run ---
+echo "[$LABEL] $PKG_NAME — running"
 "${BUILD_CMD[@]}"
 
 # --- Store hash on success ---

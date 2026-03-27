@@ -4,15 +4,33 @@
 
 [@cqrs-toolkit/client](../globals.md) / EnqueueAndWaitOptions
 
-# Interface: EnqueueAndWaitOptions
+# Interface: EnqueueAndWaitOptions\<TLink\>
 
 Options for enqueueAndWait operation.
 
 ## Extends
 
-- [`EnqueueOptions`](EnqueueOptions.md).[`WaitOptions`](WaitOptions.md)
+- [`EnqueueOptions`](EnqueueOptions.md)\<`TLink`\>.[`WaitOptions`](WaitOptions.md)
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
 
 ## Properties
+
+### cacheKey
+
+> **cacheKey**: [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
+Cache key identity — associates anticipated events and response events with the correct data scope.
+
+#### Inherited from
+
+[`EnqueueOptions`](EnqueueOptions.md).[`cacheKey`](EnqueueOptions.md#cachekey)
+
+---
 
 ### commandId?
 

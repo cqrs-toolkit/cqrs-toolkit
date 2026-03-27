@@ -6,11 +6,15 @@
 
 # Function: createPendingCommand()
 
-> **createPendingCommand**\<`TData`\>(`overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TData`\>
+> **createPendingCommand**\<`TLink`, `TData`\>(`overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TLink`, `TData`\>
 
 Create a pending command.
 
 ## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`\<`string`, `string`\>
 
 ### TData
 
@@ -20,8 +24,8 @@ Create a pending command.
 
 ### overrides?
 
-`Partial`\<[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TData`\>\> = `{}`
+`Partial`\<[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TLink`, `TData`\>\> = `{}`
 
 ## Returns
 
-[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TData`\>
+[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TLink`, `TData`\>

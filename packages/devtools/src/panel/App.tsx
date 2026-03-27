@@ -2,6 +2,7 @@ import { createSignal, type Component } from 'solid-js'
 import { CacheTab } from './components/cache/CacheTab.js'
 import { CommandsTab } from './components/commands/CommandsTab.js'
 import { ConnectionBanner } from './components/ConnectionBanner.js'
+import { EventBusTab } from './components/event-bus/EventBusTab.js'
 import { EventsTab } from './components/events/EventsTab.js'
 import { ReadModelsTab } from './components/read-models/ReadModelsTab.js'
 import { StorageTab } from './components/storage/StorageTab.js'
@@ -11,6 +12,7 @@ import { downloadJson } from './downloadJson.js'
 import { createCacheStore } from './stores/cache.js'
 import { createCommandsStore } from './stores/commands.js'
 import { createConnectionStore } from './stores/connection.js'
+import { createEventBusStore } from './stores/eventBus.js'
 import { createEventsStore } from './stores/events.js'
 import { createReadModelsStore } from './stores/readModels.js'
 import { createStorageStore } from './stores/storage.js'
@@ -24,6 +26,7 @@ export const App: Component = () => {
   const cacheStore = createCacheStore()
   const readModelsStore = createReadModelsStore()
   const syncStore = createSyncStore()
+  const eventBusStore = createEventBusStore()
   const storageStore = createStorageStore()
 
   const connection = createConnectionStore({
@@ -33,6 +36,7 @@ export const App: Component = () => {
       cacheStore.handleEvent(event)
       readModelsStore.handleEvent(event)
       syncStore.handleEvent(event)
+      eventBusStore.handleEvent(event)
     },
     onCommandSnapshot(commands) {
       commandsStore.setCommands(commands)
@@ -47,6 +51,7 @@ export const App: Component = () => {
         cacheStore.handleEvent(event)
         readModelsStore.handleEvent(event)
         syncStore.handleEvent(event)
+        eventBusStore.handleEvent(event)
       }
     },
   })
@@ -101,6 +106,15 @@ export const App: Component = () => {
             onClear={() => {
               connection.clearBuffer()
               syncStore.clear()
+            }}
+          />
+        ) : activeTab() === 'EventBus' ? (
+          <EventBusTab
+            store={eventBusStore}
+            onExport={() => downloadJson(eventBusStore.exportJson(), 'event-bus')}
+            onClear={() => {
+              connection.clearBuffer()
+              eventBusStore.clear()
             }}
           />
         ) : activeTab() === 'Storage' ? (

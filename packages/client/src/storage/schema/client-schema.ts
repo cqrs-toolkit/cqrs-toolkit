@@ -28,10 +28,13 @@ CREATE TABLE cache_keys (
   parent_key TEXT,
   eviction_policy TEXT NOT NULL DEFAULT 'persistent',
   frozen INTEGER NOT NULL DEFAULT 0,
+  frozen_at INTEGER,
+  inherited_frozen INTEGER NOT NULL DEFAULT 0,
   last_accessed_at INTEGER NOT NULL,
   expires_at INTEGER,
   created_at INTEGER NOT NULL,
-  hold_count INTEGER NOT NULL DEFAULT 0
+  hold_count INTEGER NOT NULL DEFAULT 0,
+  estimated_size_bytes INTEGER
 )`
 
 const CACHE_KEYS_ACCESS_INDEX = `
@@ -40,6 +43,7 @@ CREATE INDEX idx_cache_keys_access ON cache_keys (last_accessed_at)`
 const COMMANDS_TABLE = `
 CREATE TABLE commands (
   command_id TEXT PRIMARY KEY,
+  cache_key TEXT NOT NULL,
   service TEXT NOT NULL,
   type TEXT NOT NULL,
   data TEXT NOT NULL,
@@ -74,12 +78,18 @@ CREATE TABLE cached_events (
   position TEXT,
   revision TEXT,
   command_id TEXT,
-  cache_key TEXT NOT NULL,
   created_at INTEGER NOT NULL
 )`
 
-const CACHED_EVENTS_CACHE_KEY_INDEX = `
-CREATE INDEX idx_cached_events_cache_key ON cached_events (cache_key)`
+const CACHED_EVENT_CACHE_KEYS_TABLE = `
+CREATE TABLE cached_event_cache_keys (
+  event_id TEXT NOT NULL,
+  cache_key TEXT NOT NULL,
+  PRIMARY KEY (event_id, cache_key)
+)`
+
+const CACHED_EVENT_CACHE_KEYS_INDEX = `
+CREATE INDEX idx_cecks_cache_key ON cached_event_cache_keys (cache_key)`
 
 const CACHED_EVENTS_STREAM_INDEX = `
 CREATE INDEX idx_cached_events_stream ON cached_events (stream_id, position)`
@@ -119,7 +129,8 @@ export const clientSchema = {
       COMMANDS_STATUS_INDEX,
       COMMANDS_TYPE_INDEX,
       CACHED_EVENTS_TABLE,
-      CACHED_EVENTS_CACHE_KEY_INDEX,
+      CACHED_EVENT_CACHE_KEYS_TABLE,
+      CACHED_EVENT_CACHE_KEYS_INDEX,
       CACHED_EVENTS_STREAM_INDEX,
       CACHED_EVENTS_COMMAND_INDEX,
       COMMAND_ID_MAPPINGS_TABLE,

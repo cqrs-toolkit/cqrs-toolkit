@@ -6,7 +6,7 @@
  * callbacks (topics, stream matching).
  */
 
-import type { CacheKeyIdentity, Collection } from '@cqrs-toolkit/client'
+import type { Collection } from '@cqrs-toolkit/client'
 import type { Link } from '@meticoeus/ddd-es'
 import { fetchEventPage, fetchStreamEvents } from './fetchHelpers.js'
 import type { RepresentationSurfaces } from './types.js'
@@ -17,10 +17,10 @@ import type { RepresentationSurfaces } from './types.js'
 export interface CreateCollectionOptions<TLink extends Link> {
   /** Collection name (e.g. 'todos') */
   name: string
+  /** Derive cache key identities from WS event topics. Forwarded to {@link Collection.cacheKeysFromTopics}. */
+  cacheKeysFromTopics: Collection<TLink>['cacheKeysFromTopics']
   /** Representation surface data from generated representations.ts */
   representation: RepresentationSurfaces
-  /** App-specific: WS topic patterns to subscribe to */
-  getTopics: () => string[]
   /** App-specific: test whether a streamId belongs to this collection */
   matchesStream: (streamId: string) => boolean
   /**
@@ -28,8 +28,10 @@ export interface CreateCollectionOptions<TLink extends Link> {
    * Default: splits on first '-' (convention: 'Todo-{uuid}' → '{uuid}')
    */
   aggregateId?: (streamId: string) => string
-  /** Cache key identity to auto-seed on startup. */
-  seedCacheKey?: CacheKeyIdentity<TLink>
+  /** Auto-seed config. Forwarded to {@link Collection.seedOnInit} */
+  seedOnInit?: Collection<TLink>['seedOnInit']
+  /** On-demand config. Forwarded to {@link Collection.seedOnDemand} */
+  seedOnDemand?: Collection<TLink>['seedOnDemand']
 }
 
 /**
@@ -59,16 +61,17 @@ function expandItemEventsPath(template: string, aggregateId: string): string {
 export function createCollection<TLink extends Link>(
   opts: CreateCollectionOptions<TLink>,
 ): Collection<TLink> {
-  const { name, representation, getTopics, matchesStream } = opts
+  const { name, representation, cacheKeysFromTopics, matchesStream } = opts
   const extractId = opts.aggregateId ?? defaultAggregateId
   const aggregateEventsHref =
     representation.aggregateEvents.href ?? representation.aggregateEvents.template
 
   return {
     name,
-    getTopics,
+    cacheKeysFromTopics,
     matchesStream,
-    seedCacheKey: opts.seedCacheKey,
+    seedOnInit: opts.seedOnInit,
+    seedOnDemand: opts.seedOnDemand,
     fetchSeedEvents: ({ ctx, cursor, limit }) =>
       fetchEventPage(ctx, aggregateEventsHref, cursor, limit),
     fetchStreamEvents: ({ ctx, streamId, afterRevision }) => {

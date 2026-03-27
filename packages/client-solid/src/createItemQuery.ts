@@ -2,11 +2,11 @@
  * SolidJS reactive primitive for single-item queries.
  */
 
-import type { IQueryManager, QueryManagerQueryOptions } from '@cqrs-toolkit/client'
+import type { IQueryManager } from '@cqrs-toolkit/client'
 import type { Link } from '@meticoeus/ddd-es'
 import { createComputed, onCleanup } from 'solid-js'
 import { createStore, reconcile } from 'solid-js/store'
-import type { Identifiable, ItemQueryOptions, ItemQueryState, ReconciledId } from './types.js'
+import type { Identifiable, ItemQueryParams, ItemQueryState, ReconciledId } from './types.js'
 
 interface ItemQueryStore<T extends Identifiable> {
   data: T | undefined
@@ -25,24 +25,20 @@ interface Session {
  *
  * Fetches the item immediately, subscribes to `watchCollection` filtered
  * by the target ID, and refetches on matching updates.
- * The `id` parameter is an accessor, so it re-subscribes when the ID changes
- * (e.g., route param changes).
+ * The `id` parameter can be a string or accessor — when an accessor,
+ * the query re-subscribes when the ID changes (e.g., route param changes).
  *
  * Handles ID reconciliation transparently: if the tracked client ID was replaced
  * by a server-assigned ID, the query follows the new ID automatically and exposes
  * the mapping via `reconciledId`.
  *
  * @param queryManager - The query manager
- * @param collection - Collection name
- * @param id - Accessor returning the entity ID (reactive)
- * @param options - Query options (scope)
+ * @param params - Query parameters (collection, id, cacheKey)
  * @returns Reactive store with data, loading, hasLocalChanges, error, reconciledId
  */
 export function createItemQuery<TLink extends Link, T extends Identifiable>(
   queryManager: IQueryManager<TLink>,
-  collection: string,
-  id: () => string,
-  options?: ItemQueryOptions,
+  params: ItemQueryParams<TLink>,
 ): ItemQueryState<T> {
   const initialState: ItemQueryStore<T> = {
     data: undefined,
@@ -53,6 +49,10 @@ export function createItemQuery<TLink extends Link, T extends Identifiable>(
   }
 
   const [store, setStore] = createStore<ItemQueryStore<T>>(initialState)
+
+  // Normalize id to an accessor
+  const idAccessor: () => string =
+    typeof params.id === 'function' ? params.id : () => params.id as string
 
   let currentSession: Session | undefined
   // Tracks the effective ID across sessions. Updated when reconciliation changes
@@ -68,7 +68,20 @@ export function createItemQuery<TLink extends Link, T extends Identifiable>(
     // The watchCollection subscription uses this to filter events.
     let trackingId = initialId
 
-    const queryOptions: QueryManagerQueryOptions = { hold: true }
+    // Resolve cacheKey: if it's a function, call it; otherwise use it directly
+    const cacheKeySignal =
+      typeof params.cacheKey === 'function' ? params.cacheKey() : params.cacheKey
+    if (!cacheKeySignal) {
+      // No cache key available — inactive state
+      setStore('data', undefined)
+      setStore('loading', true)
+      return {
+        cleanup() {
+          cancelled = true
+        },
+      }
+    }
+    const sessionCacheKey = cacheKeySignal
 
     setStore('data', undefined)
     setStore('loading', true)
@@ -79,7 +92,12 @@ export function createItemQuery<TLink extends Link, T extends Identifiable>(
       const version = fetchVersion
 
       try {
-        const result = await queryManager.getById<T>(collection, trackingId, queryOptions)
+        const result = await queryManager.getById<T>({
+          collection: params.collection,
+          id: trackingId,
+          cacheKey: sessionCacheKey,
+          hold: true,
+        })
 
         if (cancelled || version !== fetchVersion) {
           return
@@ -130,8 +148,8 @@ export function createItemQuery<TLink extends Link, T extends Identifiable>(
 
     void fetch()
 
-    const subscription = queryManager.watchCollection(collection).subscribe((ids) => {
-      if (ids.includes(trackingId)) {
+    const subscription = queryManager.watchCollection(params.collection).subscribe((signal) => {
+      if (signal.type === 'updated' && signal.ids.includes(trackingId)) {
         void fetch()
       }
     })
@@ -152,7 +170,7 @@ export function createItemQuery<TLink extends Link, T extends Identifiable>(
   // Skips restart if the ID already matches the effective tracking ID (e.g., after
   // reconciliation updated the tracking ID and then the parent prop caught up).
   createComputed(() => {
-    const currentId = id()
+    const currentId = idAccessor()
     if (effectiveTrackingId === currentId) return
     currentSession?.cleanup()
     effectiveTrackingId = currentId

@@ -4,6 +4,7 @@
  */
 
 import type { Link } from '@meticoeus/ddd-es'
+import type { CacheKeyIdentity } from '../../core/cache-manager/CacheKey.js'
 import type { IAnticipatedEvent } from '../../core/command-lifecycle/AnticipatedEventShape.js'
 import type { SessionManager } from '../../core/session/SessionManager.js'
 import type { SyncManager } from '../../core/sync-manager/SyncManager.js'
@@ -16,7 +17,7 @@ export function registerSyncManagerMethods<
 >(
   handler: WorkerMessageHandler,
   syncManager: SyncManager<TLink, TSchema, TEvent>,
-  sessionManager: SessionManager,
+  sessionManager: SessionManager<TLink>,
 ): void {
   // SyncManager methods (CqrsClientSyncManager interface)
   handler.registerMethod('syncManager.getCollectionStatus', async (args) => {
@@ -27,8 +28,16 @@ export function registerSyncManagerMethods<
     return syncManager.getAllStatus()
   })
 
+  handler.registerMethod('syncManager.getSeedStatus', async (args) => {
+    return syncManager.getSeedStatus(args[0] as CacheKeyIdentity<TLink>)
+  })
+
   handler.registerMethod('syncManager.syncCollection', async (args) => {
     return syncManager.syncCollection(args[0] as string)
+  })
+
+  handler.registerMethod('syncManager.seed', async (args) => {
+    return syncManager.seed(args[0] as CacheKeyIdentity<TLink>)
   })
 
   handler.registerMethod('syncManager.setAuthenticated', async (args) => {

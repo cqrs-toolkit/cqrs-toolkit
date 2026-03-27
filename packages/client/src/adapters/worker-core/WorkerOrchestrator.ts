@@ -50,17 +50,16 @@ export class WorkerOrchestrator<TLink extends Link, TSchema, TEvent extends IAnt
   private readonly messageHandler: WorkerMessageHandler
   private readonly config: ResolvedConfig<TLink, TSchema, TEvent>
 
-  private storage: IStorage | undefined
-  private eventBus: EventBus | undefined
-  private sessionManager: SessionManager | undefined
+  private storage: IStorage<TLink> | undefined
+  private eventBus: EventBus<TLink> | undefined
+  private sessionManager: SessionManager<TLink> | undefined
   private cacheManager: CacheManager<TLink> | undefined
-  private eventCache: EventCache | undefined
-  private readModelStore: ReadModelStore | undefined
+  private eventCache: EventCache<TLink> | undefined
+  private readModelStore: ReadModelStore<TLink> | undefined
   private commandQueue: CommandQueue<TLink, TSchema, TEvent> | undefined
   private queryManager: QueryManager<TLink> | undefined
   private syncManager: SyncManager<TLink, TSchema, TEvent> | undefined
   private eventBroadcastSub: Subscription | undefined
-  private evictionSub: Subscription | undefined
 
   constructor(
     messageHandler: WorkerMessageHandler,
@@ -103,12 +102,12 @@ export class WorkerOrchestrator<TLink extends Link, TSchema, TEvent extends IAnt
       db = await loadAndOpenDb({ dbName, vfs })
     }
 
-    const storage = new SQLiteStorage({ db, migrations: config.storage.migrations })
+    const storage = new SQLiteStorage<TLink>({ db, migrations: config.storage.migrations })
     await storage.initialize()
     this.storage = storage
 
     // 3. Create EventBus and bridge to broadcast
-    const eventBus = new EventBus()
+    const eventBus = new EventBus<TLink>()
     this.eventBus = eventBus
     this.eventBroadcastSub = eventBus.events$.subscribe((event) => {
       this.messageHandler.broadcastEvent(event.type, event.data, event.debug)
@@ -187,7 +186,6 @@ export class WorkerOrchestrator<TLink extends Link, TSchema, TEvent extends IAnt
       retainTerminal: config.retainTerminal,
       onCommandResponse: createCommandResponseHandler<TLink, TSchema, TEvent>(
         () => syncManagerRef,
-        cacheManager,
         config.collections,
       ),
     })
@@ -210,20 +208,40 @@ export class WorkerOrchestrator<TLink extends Link, TSchema, TEvent extends IAnt
     syncManagerRef = syncManager
     this.syncManager = syncManager
 
-    // 13. Subscribe to cache:evicted for cross-component cleanup
-    this.evictionSub = eventBus.on('cache:evicted').subscribe((event) => {
-      const streamIds = eventCache.clearByCacheKey(event.data.cacheKey)
-      syncManager.clearKnownRevisions(streamIds)
-      queryManager.releaseForCacheKey(event.data.cacheKey)
-    })
-
-    // 14. Register RPC methods for all components
+    // 13. Register RPC methods for all components
     registerCommandQueueMethods(this.messageHandler, commandQueue)
     registerQueryManagerMethods(this.messageHandler, queryManager)
     registerCacheManagerMethods(this.messageHandler, cacheManager)
     registerSyncManagerMethods(this.messageHandler, syncManager, sessionManager)
 
-    // 15b. Register debug.enable RPC — enables debug events and lazily registers
+    // 14. Wire stale window cleanup (§10.5) — when heartbeat detects a dead window,
+    // release all its cache key holds so ephemeral keys can be evicted.
+    // TODO: also wire cacheManager.registerWindow(windowId) on window connect
+    // for capacity tracking (currently only tracked in online-only mode)
+    this.messageHandler.onWindowRemoved(async (windowId: string) => {
+      await cacheManager.unregisterWindow(windowId)
+    })
+
+    // 15. Register hold restoration handler (§10.6.4) — windows restore their
+    // held cache keys after detecting a worker restart.
+    this.messageHandler.setRestoreHoldsHandler(async (data) => {
+      const restoredKeys: string[] = []
+      const failedKeys: string[] = []
+
+      for (const key of data.cacheKeys) {
+        const exists = await cacheManager.exists(key)
+        if (exists) {
+          await cacheManager.hold(key)
+          restoredKeys.push(key)
+        } else {
+          failedKeys.push(key)
+        }
+      }
+
+      return { restoredKeys, failedKeys }
+    })
+
+    // 16. Register debug.enable RPC — enables debug events and lazily registers
     // debug snapshot methods on first call.
     let debugRegistered = false
     this.messageHandler.registerMethod('debug.enable', async () => {
@@ -248,7 +266,6 @@ export class WorkerOrchestrator<TLink extends Link, TSchema, TEvent extends IAnt
    * Close all CQRS components and release resources.
    */
   async close(): Promise<void> {
-    this.evictionSub?.unsubscribe()
     this.eventCache?.destroy()
     await this.syncManager?.destroy()
     await this.queryManager?.destroy()

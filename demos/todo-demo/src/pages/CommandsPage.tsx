@@ -1,6 +1,7 @@
 import type { CommandRecord, CommandStatus } from '@cqrs-toolkit/client'
 import { useClient } from '@cqrs-toolkit/client-solid'
 import { CommandItem, StatusFilter } from '@cqrs-toolkit/demo-base/commands/components'
+import { ServiceLink } from '@meticoeus/ddd-es'
 import { createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
 import PageShell from '../components/PageShell.js'
 
@@ -14,8 +15,8 @@ const ALL_STATUSES = new Set<CommandStatus>([
 ])
 
 export default function CommandsPage() {
-  const client = useClient()
-  const [commands, setCommands] = createSignal<CommandRecord[]>([])
+  const client = useClient<ServiceLink>()
+  const [commands, setCommands] = createSignal<CommandRecord<ServiceLink>[]>([])
   const [searchText, setSearchText] = createSignal('')
   const [selectedStatuses, setSelectedStatuses] = createSignal<Set<CommandStatus>>(
     new Set(ALL_STATUSES),

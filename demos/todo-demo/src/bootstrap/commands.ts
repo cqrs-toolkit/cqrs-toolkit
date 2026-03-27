@@ -1,4 +1,5 @@
 import { CommandSendError, ICommandSender } from '@cqrs-toolkit/client'
+import { ServiceLink } from '@meticoeus/ddd-es'
 import { notebookCommandEndpoints } from '../domain/notebooks/processor.js'
 import { noteCommandEndpoints } from '../domain/notes/processor.js'
 import { todoCommandEndpoints } from '../domain/todos/processor.js'
@@ -9,7 +10,7 @@ const commandEndpoints: Record<string, string> = {
   ...notebookCommandEndpoints,
 }
 
-export const commandSender: ICommandSender = {
+export const commandSender: ICommandSender<ServiceLink> = {
   async send(command) {
     const endpoint = commandEndpoints[command.type]
     if (typeof endpoint !== 'string') {

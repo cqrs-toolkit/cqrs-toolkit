@@ -4,10 +4,16 @@
 
 [@cqrs-toolkit/client](../globals.md) / ConnectivityManager
 
-# Class: ConnectivityManager
+# Class: ConnectivityManager\<TLink\>
 
 Connectivity manager.
 Tracks browser online status and API reachability.
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
 
 ## Implements
 
@@ -17,17 +23,17 @@ Tracks browser online status and API reachability.
 
 ### Constructor
 
-> **new ConnectivityManager**(`config`): `ConnectivityManager`
+> **new ConnectivityManager**\<`TLink`\>(`config`): `ConnectivityManager`\<`TLink`\>
 
 #### Parameters
 
 ##### config
 
-[`ConnectivityManagerConfig`](../interfaces/ConnectivityManagerConfig.md)
+[`ConnectivityManagerConfig`](../interfaces/ConnectivityManagerConfig.md)\<`TLink`\>
 
 #### Returns
 
-`ConnectivityManager`
+`ConnectivityManager`\<`TLink`\>
 
 ## Accessors
 

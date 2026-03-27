@@ -2,6 +2,7 @@
  * Unit tests for ReadModelStore.
  */
 
+import type { ServiceLink } from '@meticoeus/ddd-es'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import { EventBus } from '../events/EventBus.js'
@@ -14,9 +15,9 @@ interface Todo {
 }
 
 describe('ReadModelStore', () => {
-  let storage: InMemoryStorage
-  let eventBus: EventBus
-  let store: ReadModelStore
+  let storage: InMemoryStorage<ServiceLink>
+  let eventBus: EventBus<ServiceLink>
+  let store: ReadModelStore<ServiceLink>
 
   beforeEach(async () => {
     storage = new InMemoryStorage()
@@ -35,7 +36,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-1', title: 'Test', done: false }),
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test', done: false }),
         hasLocalChanges: false,
@@ -59,7 +60,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-1', title: 'Original', done: false }),
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Modified', done: false }),
         hasLocalChanges: true,
@@ -82,7 +83,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-1', title: 'First', done: false }),
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'First', done: false }),
         hasLocalChanges: false,
@@ -94,7 +95,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-2',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-2', title: 'Second', done: true }),
         effectiveData: JSON.stringify({ id: 'todo-2', title: 'Second', done: true }),
         hasLocalChanges: false,
@@ -118,7 +119,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-1', title: 'First', done: false }),
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'First', done: false }),
         hasLocalChanges: false,
@@ -130,7 +131,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-2',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-2', title: 'Second', done: true }),
         effectiveData: JSON.stringify({ id: 'todo-2', title: 'Second', done: true }),
         hasLocalChanges: true,
@@ -142,7 +143,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'user-1',
         collection: 'users',
-        cacheKey: 'cache-2',
+        cacheKeys: ['cache-2'],
         serverData: JSON.stringify({ id: 'user-1', name: 'Alice' }),
         effectiveData: JSON.stringify({ id: 'user-1', name: 'Alice' }),
         hasLocalChanges: false,
@@ -183,7 +184,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-3',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-3', title: 'Third', done: false }),
         effectiveData: JSON.stringify({ id: 'todo-3', title: 'Third', done: false }),
         hasLocalChanges: false,
@@ -193,7 +194,11 @@ describe('ReadModelStore', () => {
         _clientMetadata: null,
       })
 
-      const models = await store.list<Todo>('todos', { cacheKey: 'cache-1', limit: 1, offset: 1 })
+      const models = await store.list<Todo>('todos', {
+        cacheKey: 'cache-1',
+        limit: 1,
+        offset: 1,
+      })
 
       expect(models).toHaveLength(1)
     })
@@ -221,7 +226,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-1', title: 'Original', description: 'A note' }),
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Original' }),
         hasLocalChanges: true,
@@ -254,7 +259,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-1', title: 'Original', done: false }),
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Modified', done: false }),
         hasLocalChanges: true,
@@ -289,7 +294,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-1', title: 'Test', done: false }),
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test', done: false }),
         hasLocalChanges: false,
@@ -328,7 +333,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-1', title: 'Original', done: false }),
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Modified', done: true }),
         hasLocalChanges: true,
@@ -349,7 +354,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: null,
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Local Only' }),
         hasLocalChanges: true,
@@ -369,7 +374,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-1', title: 'Test', done: false }),
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test', done: false }),
         hasLocalChanges: false,
@@ -391,7 +396,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: null,
         effectiveData: '{}',
         hasLocalChanges: false,
@@ -414,7 +419,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: null,
         effectiveData: '{}',
         hasLocalChanges: false,
@@ -426,7 +431,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-2',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: null,
         effectiveData: '{}',
         hasLocalChanges: false,
@@ -465,7 +470,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-1', title: 'Server', done: false }),
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Server', done: false }),
         hasLocalChanges: false,
@@ -500,7 +505,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: null,
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test' }),
         hasLocalChanges: true,
@@ -526,7 +531,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-1', title: 'Original', done: false }),
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Original', done: false }),
         hasLocalChanges: false,
@@ -557,7 +562,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-1', title: 'Original', done: false, count: 0 }),
         effectiveData: JSON.stringify({
           id: 'todo-1',
@@ -630,7 +635,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-1', title: 'Test', done: false }),
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test', done: true }),
         hasLocalChanges: true,
@@ -658,7 +663,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: null,
         effectiveData: '{}',
         hasLocalChanges: false,
@@ -677,7 +682,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-1', title: 'Test', done: false }),
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Test', done: false }),
         hasLocalChanges: false,
@@ -697,7 +702,7 @@ describe('ReadModelStore', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: null,
         effectiveData: '{}',
         hasLocalChanges: false,

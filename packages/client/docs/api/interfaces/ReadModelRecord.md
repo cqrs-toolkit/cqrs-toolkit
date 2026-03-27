@@ -22,11 +22,11 @@ Null for server-seeded entries and non-create commands.
 
 ---
 
-### cacheKey
+### cacheKeys
 
-> **cacheKey**: `string`
+> **cacheKeys**: `string`[]
 
-Cache key this record belongs to
+Cache keys this record is associated with (junction table in SQL, array in memory)
 
 ---
 

@@ -24,14 +24,14 @@ export class OnlineOnlyAdapter<
   TLink extends Link,
   TSchema,
   TEvent extends IAnticipatedEvent,
-> implements IOnlineOnlyAdapter {
+> implements IOnlineOnlyAdapter<TLink> {
   readonly mode = 'online-only' as const
   readonly role = 'leader' as const
-  readonly eventBus: EventBus
+  readonly eventBus: EventBus<TLink>
 
   private _status: AdapterStatus = 'uninitialized'
-  private _storage: IStorage | undefined
-  private _sessionManager: SessionManager | undefined
+  private _storage: IStorage<TLink> | undefined
+  private _sessionManager: SessionManager<TLink> | undefined
 
   constructor(config: ResolvedConfig<TLink, TSchema, TEvent>) {
     this.eventBus = new EventBus()
@@ -42,16 +42,16 @@ export class OnlineOnlyAdapter<
     return this._status
   }
 
-  get events$(): Observable<LibraryEvent> {
+  get events$(): Observable<LibraryEvent<TLink>> {
     return this.eventBus.events$
   }
 
-  get sessionManager(): SessionManager {
+  get sessionManager(): SessionManager<TLink> {
     assert(this._sessionManager, 'Adapter not initialized')
     return this._sessionManager
   }
 
-  get storage(): IStorage {
+  get storage(): IStorage<TLink> {
     assert(this._storage, 'Adapter not initialized')
     return this._storage
   }

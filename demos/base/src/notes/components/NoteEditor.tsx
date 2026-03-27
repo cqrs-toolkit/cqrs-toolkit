@@ -1,6 +1,7 @@
 import { appCreateItemQuery, SaveIcon, TrashIcon } from '#common/components'
 import type { Note } from '#notes/shared'
 import type { AutoRevision, SubmitResult } from '@cqrs-toolkit/client'
+import { deriveEntityKey } from '@cqrs-toolkit/client'
 import { useClient } from '@cqrs-toolkit/client-solid'
 import { ServiceLink } from '@meticoeus/ddd-es'
 import { createEffect, createSignal, Show } from 'solid-js'
@@ -34,7 +35,12 @@ type SaveState = 'idle' | 'saving' | 'deleting'
 
 export function NoteEditor(props: NoteEditorProps) {
   const client = useClient<ServiceLink>()
-  const query = appCreateItemQuery<Note>(client.queryManager, 'notes', () => props.noteId)
+  const query = appCreateItemQuery<Note>(
+    client.queryManager,
+    'notes',
+    () => props.noteId,
+    deriveEntityKey({ service: 'nb', type: 'Notebook', id: props.notebookId }),
+  )
 
   const [title, setTitle] = createSignal('')
   const [body, setBody] = createSignal('')

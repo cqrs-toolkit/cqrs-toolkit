@@ -80,3 +80,29 @@ getting — not a speculative cast.
 ##### Returns
 
 `Promise`\<`void`\>
+
+---
+
+### execBatch()
+
+> **execBatch**(`statements`): `Promise`\<`unknown`[]\>
+
+Execute multiple statements inside a single transaction.
+
+The entire batch is wrapped in BEGIN / COMMIT. On failure the
+transaction is rolled back and the error is rethrown.
+
+Returns one result slot per input statement in the same order:
+
+- `undefined` when `returnRows` was false/omitted
+- the row-object array when `returnRows` was true
+
+#### Parameters
+
+##### statements
+
+`SqliteBatchStatement`[]
+
+#### Returns
+
+`Promise`\<`unknown`[]\>

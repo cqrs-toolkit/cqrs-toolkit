@@ -8,7 +8,12 @@
 
 > **createTestCacheKey**(`overrides?`): [`CacheKeyRecord`](../../../../interfaces/CacheKeyRecord.md)
 
-Create a test cache key record.
+Create a test cache key record with sensible defaults.
+
+Enforces coherence between `frozen` and `frozenAt`:
+
+- `frozen: true` without explicit `frozenAt` → `frozenAt` set to current time
+- `frozen: false` → `frozenAt` forced to `null`
 
 ## Parameters
 

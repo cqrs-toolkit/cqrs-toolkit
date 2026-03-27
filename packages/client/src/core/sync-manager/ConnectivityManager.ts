@@ -2,7 +2,7 @@
  * Connectivity manager tracks network status.
  */
 
-import { logProvider } from '@meticoeus/ddd-es'
+import { type Link, logProvider } from '@meticoeus/ddd-es'
 import {
   BehaviorSubject,
   Observable,
@@ -35,8 +35,8 @@ export interface ConnectivityState {
 /**
  * Connectivity manager configuration.
  */
-export interface ConnectivityManagerConfig {
-  eventBus: EventBus
+export interface ConnectivityManagerConfig<TLink extends Link> {
+  eventBus: EventBus<TLink>
   /** Interval to check API connectivity (ms) */
   checkInterval?: number
   /** API health check URL */
@@ -63,8 +63,8 @@ export interface IConnectivity {
  * Connectivity manager.
  * Tracks browser online status and API reachability.
  */
-export class ConnectivityManager implements IConnectivity {
-  private readonly eventBus: EventBus
+export class ConnectivityManager<TLink extends Link> implements IConnectivity {
+  private readonly eventBus: EventBus<TLink>
   private readonly checkInterval: number
   private readonly healthCheckUrl: string | undefined
 
@@ -81,7 +81,7 @@ export class ConnectivityManager implements IConnectivity {
   private wsConnectionState: WsConnectionState = 'disconnected'
   private wsTopicList: string[] = []
 
-  constructor(config: ConnectivityManagerConfig) {
+  constructor(config: ConnectivityManagerConfig<TLink>) {
     this.eventBus = config.eventBus
     this.checkInterval = config.checkInterval ?? 30000
     this.healthCheckUrl = config.healthCheckUrl

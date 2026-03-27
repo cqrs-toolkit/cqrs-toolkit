@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / IOnlineOnlyAdapter
 
-# Interface: IOnlineOnlyAdapter
+# Interface: IOnlineOnlyAdapter\<TLink\>
 
 Online-only adapter provides raw components for main-thread wiring.
 createCqrsClient uses storage, eventBus, and sessionManager to wire
@@ -12,19 +12,25 @@ CommandQueue, CacheManager, QueryManager, SyncManager etc.
 
 ## Extends
 
-- `IAdapterBase`
+- `IAdapterBase`\<`TLink`\>
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
 
 ## Properties
 
 ### eventBus
 
-> `readonly` **eventBus**: [`EventBus`](../classes/EventBus.md)
+> `readonly` **eventBus**: [`EventBus`](../classes/EventBus.md)\<`TLink`\>
 
 ---
 
 ### events$
 
-> `readonly` **events$**: `Observable`\<[`LibraryEvent`](LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
+> `readonly` **events$**: `Observable`\<[`LibraryEvent`](LibraryEvent.md)\<`TLink`, [`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
 Observable of library events.
 
@@ -56,7 +62,7 @@ Role of this client instance.
 
 ### sessionManager
 
-> `readonly` **sessionManager**: [`SessionManager`](../classes/SessionManager.md)
+> `readonly` **sessionManager**: [`SessionManager`](../classes/SessionManager.md)\<`TLink`\>
 
 ---
 
@@ -74,7 +80,7 @@ Current adapter status.
 
 ### storage
 
-> `readonly` **storage**: [`IStorage`](IStorage.md)
+> `readonly` **storage**: [`IStorage`](IStorage.md)\<`TLink`\>
 
 ## Methods
 

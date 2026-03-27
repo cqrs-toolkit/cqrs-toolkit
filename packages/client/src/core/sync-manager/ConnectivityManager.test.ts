@@ -2,14 +2,15 @@
  * Unit tests for ConnectivityManager.
  */
 
+import type { ServiceLink } from '@meticoeus/ddd-es'
 import { take } from 'rxjs'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { EventBus } from '../events/EventBus.js'
 import { ConnectivityManager } from './ConnectivityManager.js'
 
 describe('ConnectivityManager', () => {
-  let eventBus: EventBus
-  let connectivity: ConnectivityManager
+  let eventBus: EventBus<ServiceLink>
+  let connectivity: ConnectivityManager<ServiceLink>
 
   beforeEach(() => {
     eventBus = new EventBus()

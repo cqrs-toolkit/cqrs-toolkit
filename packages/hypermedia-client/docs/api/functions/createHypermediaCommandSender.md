@@ -6,7 +6,7 @@
 
 # Function: createHypermediaCommandSender()
 
-> **createHypermediaCommandSender**(`manifest`, `options`): `ICommandSender`
+> **createHypermediaCommandSender**\<`TLink`\>(`manifest`, `options`): `ICommandSender`\<`TLink`\>
 
 Create an `ICommandSender` that auto-wires HTTP requests from a `commands.json` manifest.
 
@@ -14,6 +14,12 @@ Create an `ICommandSender` that auto-wires HTTP requests from a `commands.json` 
 import manifest from './.cqrs/commands.json'
 const sender = createHypermediaCommandSender(manifest, { baseUrl: 'http://localhost:3000' })
 ```
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`\<`string`, `string`\>
 
 ## Parameters
 
@@ -27,4 +33,4 @@ const sender = createHypermediaCommandSender(manifest, { baseUrl: 'http://localh
 
 ## Returns
 
-`ICommandSender`
+`ICommandSender`\<`TLink`\>

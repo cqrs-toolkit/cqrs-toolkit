@@ -50,19 +50,19 @@ Sync manager configuration.
 
 ### eventBus
 
-> **eventBus**: [`EventBus`](../classes/EventBus.md)
+> **eventBus**: [`EventBus`](../classes/EventBus.md)\<`TLink`\>
 
 ---
 
 ### eventCache
 
-> **eventCache**: [`EventCache`](../classes/EventCache.md)
+> **eventCache**: [`EventCache`](../classes/EventCache.md)\<`TLink`\>
 
 ---
 
 ### eventProcessor
 
-> **eventProcessor**: [`EventProcessorRunner`](../classes/EventProcessorRunner.md)
+> **eventProcessor**: [`EventProcessorRunner`](../classes/EventProcessorRunner.md)\<`TLink`\>
 
 ---
 
@@ -80,10 +80,10 @@ Sync manager configuration.
 
 ### readModelStore
 
-> **readModelStore**: [`ReadModelStore`](../classes/ReadModelStore.md)
+> **readModelStore**: [`ReadModelStore`](../classes/ReadModelStore.md)\<`TLink`\>
 
 ---
 
 ### sessionManager
 
-> **sessionManager**: [`SessionManager`](../classes/SessionManager.md)
+> **sessionManager**: [`SessionManager`](../classes/SessionManager.md)\<`TLink`\>

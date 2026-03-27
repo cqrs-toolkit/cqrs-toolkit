@@ -16,6 +16,9 @@ browser sends cookies automatically with fetch().
 Collections may add their own headers (e.g., Accept-Profile for versioning,
 x-tenant-id for tenant context) in their fetch implementations.
 
+Shared across multiple fetch calls within a sync cycle.
+Collections must not mutate this object — copy headers if custom headers are needed.
+
 ## Properties
 
 ### baseUrl
@@ -26,7 +29,7 @@ x-tenant-id for tenant context) in their fetch implementations.
 
 ### headers
 
-> `readonly` **headers**: `Record`\<`string`, `string`\>
+> `readonly` **headers**: `Readonly`\<`Record`\<`string`, `string`\>\>
 
 ---
 

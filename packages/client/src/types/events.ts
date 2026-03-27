@@ -3,7 +3,8 @@
  * These are internal events emitted by the library, not domain events.
  */
 
-import type { IPersistedEvent, ISerializedEvent } from '@meticoeus/ddd-es'
+import type { IPersistedEvent, ISerializedEvent, Link } from '@meticoeus/ddd-es'
+import type { CacheKeyIdentity } from '../core/cache-manager/CacheKey.js'
 
 export type EventPersistence = 'Permanent' | 'Stateful' | 'Anticipated'
 
@@ -44,9 +45,15 @@ export type LibraryEventType =
   | 'sync:started'
   | 'sync:completed'
   | 'sync:failed'
+  | 'cache:key-added'
+  | 'cache:key-accessed'
   | 'cache:evicted'
+  | 'cache:frozen-changed'
+  | 'cache:quota-low'
+  | 'cache:quota-critical'
   | 'cache:too-many-windows'
   | 'cache:session-reset'
+  | 'cache:seed-settled'
   | 'sync:seed-completed'
   | 'command:enqueued'
   | 'command:status-changed'
@@ -64,7 +71,6 @@ export type LibraryEventType =
   | 'sync:gap-detected'
   | 'sync:gap-repair-started'
   | 'sync:gap-repair-completed'
-  | 'cache:key-acquired'
   | 'sync:refetch-scheduled'
   | 'sync:refetch-executed'
   | 'command:sent'
@@ -73,21 +79,55 @@ export type LibraryEventType =
 /**
  * Library event data types.
  */
-export interface LibraryEventData {
+export interface LibraryEventData<TLink extends Link> {
   'session:changed': { userId: string; isNew: boolean }
   'session:destroyed': { reason: 'user-changed' | 'explicit' | 'storage-error' }
   'connectivity:changed': { online: boolean }
   'sync:started': { collection: string }
   'sync:completed': { collection: string; eventCount: number }
   'sync:failed': { collection: string; error: string }
-  'cache:evicted': { cacheKey: string; reason: 'lru' | 'explicit' | 'expired' | 'session-change' }
+  'cache:key-added': {
+    cacheKey: CacheKeyIdentity<TLink>
+    evictionPolicy: 'persistent' | 'ephemeral'
+  }
+  'cache:key-accessed': { cacheKey: CacheKeyIdentity<TLink> }
+  'cache:evicted': {
+    cacheKey: CacheKeyIdentity<TLink>
+    reason: 'lru' | 'explicit' | 'expired' | 'session-change'
+  }
+  'cache:frozen-changed': {
+    cacheKey: CacheKeyIdentity<TLink>
+    frozen: boolean
+    frozenAt: number | null
+  }
+  'cache:quota-low': { usedBytes: number; totalBytes: number }
+  'cache:quota-critical': { usedBytes: number; totalBytes: number }
   'cache:too-many-windows': { windowId: string; maxWindows: number }
   'cache:session-reset': { previousUserId: string; newUserId: string }
-  'sync:seed-completed': { collection: string; cacheKey: string; recordCount: number }
-  'command:enqueued': { commandId: string; type: string }
-  'command:status-changed': { commandId: string; status: string; previousStatus: string }
-  'command:completed': { commandId: string; type: string }
-  'command:failed': { commandId: string; type: string; error: string }
+  'cache:seed-settled': {
+    cacheKey: CacheKeyIdentity<TLink>
+    status: 'succeeded' | 'failed'
+    collections: Array<{ name: string; seeded: boolean; error?: string }>
+  }
+  'sync:seed-completed': {
+    collection: string
+    cacheKey: CacheKeyIdentity<TLink>
+    recordCount: number
+  }
+  'command:enqueued': { commandId: string; type: string; cacheKey: CacheKeyIdentity<TLink> }
+  'command:status-changed': {
+    commandId: string
+    status: string
+    previousStatus: string
+    cacheKey: CacheKeyIdentity<TLink>
+  }
+  'command:completed': { commandId: string; type: string; cacheKey: CacheKeyIdentity<TLink> }
+  'command:failed': {
+    commandId: string
+    type: string
+    error: string
+    cacheKey: CacheKeyIdentity<TLink>
+  }
   'readmodel:updated': { collection: string; ids: string[] }
   'error:storage': { message: string; code?: string }
   'error:network': { message: string; code?: string }
@@ -100,12 +140,6 @@ export interface LibraryEventData {
   'sync:gap-detected': { streamId: string; expected: bigint; received: bigint }
   'sync:gap-repair-started': { streamId: string; fromRevision: bigint }
   'sync:gap-repair-completed': { streamId: string; eventCount: number }
-  'cache:key-acquired': {
-    cacheKey: string
-    collection: string
-    params?: Record<string, unknown>
-    evictionPolicy: string
-  }
   'sync:refetch-scheduled': { collection: string; debounceMs: number }
   'sync:refetch-executed': { collection: string; recordCount: number }
   'command:sent': {
@@ -121,9 +155,9 @@ export interface LibraryEventData {
 /**
  * Typed library event.
  */
-export interface LibraryEvent<T extends LibraryEventType = LibraryEventType> {
+export interface LibraryEvent<TLink extends Link, T extends LibraryEventType = LibraryEventType> {
   type: T
-  data: LibraryEventData[T]
+  data: LibraryEventData<TLink>[T]
   timestamp: number
   /** Whether this event is a debug-only event (emitted via `emitDebug()`). */
   debug?: boolean

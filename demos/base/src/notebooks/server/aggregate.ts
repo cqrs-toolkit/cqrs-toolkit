@@ -7,6 +7,8 @@ import type {
   NotebookCreatedEvent,
   NotebookDeletedEvent,
   NotebookNameUpdatedEvent,
+  NotebookTagAddedEvent,
+  NotebookTagRemovedEvent,
 } from '@cqrs-toolkit/demo-base/notebooks/shared'
 import { AggregateRoot, type EventMetadata, type IEvent, createEvent } from '@meticoeus/ddd-es'
 import assert from 'node:assert'
@@ -15,9 +17,12 @@ export type NotebookServerEvent =
   | IEvent<'NotebookCreated', NotebookCreatedEvent['data'], EventMetadata>
   | IEvent<'NotebookNameUpdated', NotebookNameUpdatedEvent['data'], EventMetadata>
   | IEvent<'NotebookDeleted', NotebookDeletedEvent['data'], EventMetadata>
+  | IEvent<'NotebookTagAdded', NotebookTagAddedEvent['data'], EventMetadata>
+  | IEvent<'NotebookTagRemoved', NotebookTagRemovedEvent['data'], EventMetadata>
 
 export class NotebookAggregate extends AggregateRoot<NotebookServerEvent> {
   private _name = ''
+  private _tags: string[] = []
   private _createdAt = ''
   private _updatedAt = ''
 
@@ -60,6 +65,32 @@ export class NotebookAggregate extends AggregateRoot<NotebookServerEvent> {
     )
   }
 
+  get tags(): string[] {
+    return this._tags
+  }
+
+  addTag(tag: string, metadata: EventMetadata): void {
+    if (this._tags.includes(tag)) return
+    this.applyChange(
+      createEvent<NotebookServerEvent>({
+        type: 'NotebookTagAdded',
+        data: { id: this._id, tag },
+        metadata,
+      }),
+    )
+  }
+
+  removeTag(tag: string, metadata: EventMetadata): void {
+    if (!this._tags.includes(tag)) return
+    this.applyChange(
+      createEvent<NotebookServerEvent>({
+        type: 'NotebookTagRemoved',
+        data: { id: this._id, tag },
+        metadata,
+      }),
+    )
+  }
+
   toReadModel(): Notebook {
     assert(
       typeof this.revision === 'bigint',
@@ -68,6 +99,7 @@ export class NotebookAggregate extends AggregateRoot<NotebookServerEvent> {
     return {
       id: this._id,
       name: this._name,
+      tags: this._tags,
       createdAt: this._createdAt,
       updatedAt: this._updatedAt,
       latestRevision: String(this.revision),
@@ -96,5 +128,17 @@ export class NotebookAggregate extends AggregateRoot<NotebookServerEvent> {
     _event: IEvent<'NotebookDeleted', NotebookDeletedEvent['data']>,
   ): void {
     this._deleted = true
+  }
+
+  private applyNotebookTagAdded(
+    event: IEvent<'NotebookTagAdded', NotebookTagAddedEvent['data']>,
+  ): void {
+    this._tags.push(event.data.tag)
+  }
+
+  private applyNotebookTagRemoved(
+    event: IEvent<'NotebookTagRemoved', NotebookTagRemovedEvent['data']>,
+  ): void {
+    this._tags = this._tags.filter((t) => t !== event.data.tag)
   }
 }

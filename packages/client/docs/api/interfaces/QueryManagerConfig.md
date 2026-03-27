@@ -24,10 +24,10 @@ Query manager configuration.
 
 ### eventBus
 
-> **eventBus**: [`EventBus`](../classes/EventBus.md)
+> **eventBus**: [`EventBus`](../classes/EventBus.md)\<`TLink`\>
 
 ---
 
 ### readModelStore
 
-> **readModelStore**: [`ReadModelStore`](../classes/ReadModelStore.md)
+> **readModelStore**: [`ReadModelStore`](../classes/ReadModelStore.md)\<`TLink`\>

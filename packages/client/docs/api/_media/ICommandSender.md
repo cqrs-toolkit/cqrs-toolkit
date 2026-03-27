@@ -4,10 +4,16 @@
 
 [@cqrs-toolkit/client](../globals.md) / ICommandSender
 
-# Interface: ICommandSender
+# Interface: ICommandSender\<TLink\>
 
 HTTP command sender interface.
 Abstracted for testability and different transport implementations.
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
 
 ## Methods
 
@@ -31,7 +37,7 @@ Send a command to the server.
 
 ##### command
 
-[`CommandRecord`](CommandRecord.md)\<`TData`\>
+[`CommandRecord`](CommandRecord.md)\<`TLink`, `TData`\>
 
 Command record to send
 

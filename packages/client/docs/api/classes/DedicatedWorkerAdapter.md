@@ -86,11 +86,11 @@ Role of this client instance.
 
 #### Get Signature
 
-> **get** **commandQueue**(): [`ICommandQueue`](../interfaces/ICommandQueue.md)
+> **get** **commandQueue**(): [`ICommandQueue`](../interfaces/ICommandQueue.md)\<`TLink`\>
 
 ##### Returns
 
-[`ICommandQueue`](../interfaces/ICommandQueue.md)
+[`ICommandQueue`](../interfaces/ICommandQueue.md)\<`TLink`\>
 
 #### Implementation of
 
@@ -102,13 +102,13 @@ Role of this client instance.
 
 #### Get Signature
 
-> **get** **events$**(): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
+> **get** **events$**(): `Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<`TLink`, [`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
 Observable of library events.
 
 ##### Returns
 
-`Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<[`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
+`Observable`\<[`LibraryEvent`](../interfaces/LibraryEvent.md)\<`TLink`, [`LibraryEventType`](../type-aliases/LibraryEventType.md)\>\>
 
 Observable of library events.
 
@@ -158,11 +158,11 @@ Current adapter status.
 
 #### Get Signature
 
-> **get** **syncManager**(): [`CqrsClientSyncManager`](../interfaces/CqrsClientSyncManager.md)
+> **get** **syncManager**(): [`CqrsClientSyncManager`](../interfaces/CqrsClientSyncManager.md)\<`TLink`\>
 
 ##### Returns
 
-[`CqrsClientSyncManager`](../interfaces/CqrsClientSyncManager.md)
+[`CqrsClientSyncManager`](../interfaces/CqrsClientSyncManager.md)\<`TLink`\>
 
 #### Implementation of
 

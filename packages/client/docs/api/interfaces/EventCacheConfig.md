@@ -4,18 +4,24 @@
 
 [@cqrs-toolkit/client](../globals.md) / EventCacheConfig
 
-# Interface: EventCacheConfig
+# Interface: EventCacheConfig\<TLink\>
 
 Event cache configuration.
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
 
 ## Properties
 
 ### eventBus
 
-> **eventBus**: [`EventBus`](../classes/EventBus.md)
+> **eventBus**: [`EventBus`](../classes/EventBus.md)\<`TLink`\>
 
 ---
 
 ### storage
 
-> **storage**: [`IStorage`](IStorage.md)
+> **storage**: [`IStorage`](IStorage.md)\<`TLink`\>

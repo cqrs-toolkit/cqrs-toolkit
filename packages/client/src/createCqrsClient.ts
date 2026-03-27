@@ -25,6 +25,7 @@ import { DedicatedWorkerAdapter } from './adapters/dedicated-worker/DedicatedWor
 import { OnlineOnlyAdapter } from './adapters/online-only/OnlineOnlyAdapter.js'
 import { SharedWorkerAdapter } from './adapters/shared-worker/SharedWorkerAdapter.js'
 import { OpfsUnavailableException } from './adapters/worker-core/probeOpfs.js'
+import type { CacheKeyIdentity } from './core/cache-manager/CacheKey.js'
 import { CacheManager } from './core/cache-manager/CacheManager.js'
 import type { ICacheManager } from './core/cache-manager/types.js'
 import type { IAnticipatedEvent } from './core/command-lifecycle/AnticipatedEventShape.js'
@@ -41,14 +42,9 @@ import { StableRefQueryManager } from './core/query-manager/StableRefQueryManage
 import type { IQueryManager } from './core/query-manager/types.js'
 import { ReadModelStore } from './core/read-model-store/ReadModelStore.js'
 import type { IConnectivity } from './core/sync-manager/ConnectivityManager.js'
-import type { CollectionSyncStatus } from './core/sync-manager/SyncManager.js'
+import type { CollectionSyncStatus } from './core/sync-manager/SeedStatusIndex.js'
 import { SyncManager } from './core/sync-manager/SyncManager.js'
-import type {
-  EnqueueCommand,
-  SubmitOptions,
-  SubmitResult,
-  SubmitSuccess,
-} from './types/commands.js'
+import type { EnqueueCommand, SubmitParams, SubmitResult, SubmitSuccess } from './types/commands.js'
 import { SubmitException } from './types/commands.js'
 import type {
   CqrsClientConfig,
@@ -77,13 +73,17 @@ interface WindowWithDevtools<
  * Restricted view of SyncManager exposed to consumers.
  * Start/stop are managed internally by the client lifecycle.
  */
-export interface CqrsClientSyncManager {
+export interface CqrsClientSyncManager<TLink extends Link> {
   /** Get sync status for a specific collection. */
   getCollectionStatus(collection: string): CollectionSyncStatus | undefined
   /** Get sync status for all collections. */
   getAllStatus(): CollectionSyncStatus[]
   /** Force-sync a specific collection from the server. */
   syncCollection(collection: string): Promise<void>
+  /** Get the aggregate seed status for a cache key identity. */
+  getSeedStatus(cacheKey: CacheKeyIdentity<TLink>): Promise<'seeded' | 'seeding' | 'unseeded'>
+  /** Seed all collections whose keyTypes match the given cache key identity. */
+  seed(cacheKey: CacheKeyIdentity<TLink>): Promise<void>
   /** Signal that the user has been authenticated. */
   setAuthenticated(params: { userId: string }): Promise<{ resumed: boolean }>
   /** Signal that the user has logged out. */
@@ -101,11 +101,11 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand = En
   /** Cache manager for cache key lifecycle and eviction. */
   readonly cacheManager: ICacheManager<TLink>
   /** Command queue for enqueuing and tracking commands. */
-  readonly commandQueue: ICommandQueue
+  readonly commandQueue: ICommandQueue<TLink>
   /** Query manager for reading cached data. */
   readonly queryManager: IQueryManager<TLink>
   /** Sync manager for collection sync status and manual triggers. */
-  readonly syncManager: CqrsClientSyncManager
+  readonly syncManager: CqrsClientSyncManager<TLink>
   /** Resolved execution mode. */
   readonly mode: ExecutionMode
 
@@ -115,9 +115,9 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand = En
   constructor(
     adapter: IAdapter<TLink>,
     cacheManager: ICacheManager<TLink>,
-    commandQueue: ICommandQueue,
+    commandQueue: ICommandQueue<TLink>,
     queryManager: IQueryManager<TLink>,
-    syncManager: CqrsClientSyncManager,
+    syncManager: CqrsClientSyncManager<TLink>,
     closeResources: () => Promise<void>,
     mode: ExecutionMode,
   ) {
@@ -142,10 +142,10 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand = En
    * - Found + failed/cancelled, or not found → fresh enqueue
    */
   async submit<TResponse = unknown>(
-    command: TCommand,
-    options?: SubmitOptions,
+    params: SubmitParams<TLink, TCommand>,
   ): Promise<SubmitResult<TResponse>> {
-    let commandId = options?.commandId
+    const { command, cacheKey, skipValidation, timeout } = params
+    let commandId = params.commandId
 
     // Step 1: If commandId provided, check queue for existing command
     if (commandId) {
@@ -164,7 +164,7 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand = En
           case 'blocked':
           case 'sending':
             // Non-terminal — skip enqueue, resume at connectivity check (step 4)
-            return this.submitWaitOrReturn(commandId, options?.timeout)
+            return this.submitWaitOrReturn(commandId, timeout)
 
           case 'failed':
           case 'cancelled':
@@ -176,9 +176,11 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand = En
     }
 
     // Step 2: Enqueue the command
-    const enqueueResult = await this.commandQueue.enqueue(command, {
-      skipValidation: options?.skipValidation,
+    const enqueueResult = await this.commandQueue.enqueue({
+      command,
+      skipValidation,
       commandId,
+      cacheKey,
     })
 
     // Step 3: If validation fails, return error with no commandId
@@ -190,7 +192,7 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand = En
     const resolvedCommandId = enqueueResult.value.commandId
 
     // Steps 4-6: Check connectivity, wait or return
-    return this.submitWaitOrReturn(resolvedCommandId, options?.timeout)
+    return this.submitWaitOrReturn(resolvedCommandId, timeout)
   }
 
   /**
@@ -257,8 +259,23 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand = En
     return this.commandQueue.getCommandEntities(commandId, collection)
   }
 
+  /**
+   * Seed all collections whose keyTypes match the given cache key identity.
+   * Acquires the cache key if needed and waits for all matching collections to settle.
+   *
+   * - If already seeded, returns immediately.
+   * - If unseeded, acquires the cache key (which triggers seeding via events) then waits.
+   * - If seeding is in progress, waits for settlement.
+   * - If settlement fails, throws with collection-level error details.
+   *
+   * @param cacheKey - Cache key identity to seed for
+   */
+  async seed(cacheKey: CacheKeyIdentity<TLink>): Promise<void> {
+    await this.syncManager.seed(cacheKey)
+  }
+
   /** Observable of all library events. */
-  get events$(): Observable<LibraryEvent> {
+  get events$(): Observable<LibraryEvent<TLink>> {
     return this.adapter.events$
   }
 
@@ -385,7 +402,7 @@ async function createOnlineOnlyClient<
   TSchema,
   TEvent extends IAnticipatedEvent,
 >(
-  adapter: IOnlineOnlyAdapter,
+  adapter: IOnlineOnlyAdapter<TLink>,
   resolved: ResolvedConfig<TLink, TSchema, TEvent>,
   mode: ExecutionMode,
 ): Promise<CqrsClient<TLink>> {
@@ -406,7 +423,7 @@ async function createOnlineOnlyClient<
   })
   await cacheManager.initialize()
 
-  const eventCache = new EventCache({
+  const eventCache = new EventCache<TLink>({
     storage,
     eventBus,
   })
@@ -415,7 +432,7 @@ async function createOnlineOnlyClient<
     storage,
   })
 
-  const eventProcessorRunner = new EventProcessorRunner({
+  const eventProcessorRunner = new EventProcessorRunner<TLink>({
     readModelStore,
     eventBus,
     registry,
@@ -460,7 +477,6 @@ async function createOnlineOnlyClient<
     retainTerminal: resolved.retainTerminal,
     onCommandResponse: createCommandResponseHandler<TLink, TSchema, TEvent>(
       () => syncManagerRef,
-      cacheManager,
       resolved.collections,
     ),
   })
@@ -482,18 +498,13 @@ async function createOnlineOnlyClient<
   })
   syncManagerRef = syncManager
 
-  // Subscribe to cache:evicted for cross-component cleanup
-  const evictionSubscription = eventBus.on('cache:evicted').subscribe((event) => {
-    const streamIds = eventCache.clearByCacheKey(event.data.cacheKey)
-    syncManager.clearKnownRevisions(streamIds)
-    queryManager.releaseForCacheKey(event.data.cacheKey)
-  })
-
   // Build sync manager facade
-  const syncManagerFacade: CqrsClientSyncManager = {
+  const syncManagerFacade: CqrsClientSyncManager<TLink> = {
     getCollectionStatus: (collection) => syncManager.getCollectionStatus(collection),
     getAllStatus: () => syncManager.getAllStatus(),
+    getSeedStatus: (cacheKey) => Promise.resolve(syncManager.getSeedStatus(cacheKey)),
     syncCollection: (collection) => syncManager.syncCollection(collection),
+    seed: (cacheKey) => syncManager.seed(cacheKey),
     setAuthenticated: (params) => syncManager.setAuthenticated(params),
     setUnauthenticated: () => syncManager.setUnauthenticated(),
     get connectivity() {
@@ -506,7 +517,6 @@ async function createOnlineOnlyClient<
 
   // Resource cleanup for online-only mode
   const closeResources = async (): Promise<void> => {
-    evictionSubscription.unsubscribe()
     eventCache.destroy()
     await syncManager.destroy()
     await stableQueryManager.destroy()

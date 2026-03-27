@@ -1,14 +1,27 @@
+import type { LibraryEvent } from '@cqrs-toolkit/client'
 import { useClient } from '@cqrs-toolkit/client-solid'
+import type { ServiceLink } from '@meticoeus/ddd-es'
 import type { RouteSectionProps } from '@solidjs/router'
 import { createSignal, For, onCleanup } from 'solid-js'
 
+declare global {
+  interface Window {
+    /** Expose library events on window for test diagnostics */
+    __CQRS_EVENTS__: LibraryEvent<ServiceLink>[]
+  }
+}
+
+window.__CQRS_EVENTS__ = []
+
 export default function App(props: RouteSectionProps) {
-  const client = useClient()
+  const client = useClient<ServiceLink>()
 
   const [wsConnection, setWsConnection] = createSignal('disconnected')
   const [wsTopics, setWsTopics] = createSignal<readonly string[]>([])
 
   const sub = client.events$.subscribe((event) => {
+    window.__CQRS_EVENTS__.push(event)
+
     switch (event.type) {
       case 'ws:connecting':
         setWsConnection('connecting')

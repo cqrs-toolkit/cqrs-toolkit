@@ -10,11 +10,11 @@ Cached event record.
 
 ## Properties
 
-### cacheKey
+### cacheKeys
 
-> **cacheKey**: `string`
+> **cacheKeys**: `string`[]
 
-Cache key this event belongs to
+Cache keys this event is associated with (junction table in SQL, array in memory)
 
 ---
 

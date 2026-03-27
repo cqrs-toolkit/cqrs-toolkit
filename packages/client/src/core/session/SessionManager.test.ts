@@ -2,6 +2,7 @@
  * Unit tests for SessionManager.
  */
 
+import type { ServiceLink } from '@meticoeus/ddd-es'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import type { SessionRecord } from '../../storage/IStorage.js'
@@ -9,9 +10,9 @@ import { EventBus } from '../events/EventBus.js'
 import { SessionManager } from './SessionManager.js'
 
 describe('SessionManager', () => {
-  let storage: InMemoryStorage
-  let eventBus: EventBus
-  let sessionManager: SessionManager
+  let storage: InMemoryStorage<ServiceLink>
+  let eventBus: EventBus<ServiceLink>
+  let sessionManager: SessionManager<ServiceLink>
 
   beforeEach(async () => {
     storage = new InMemoryStorage()

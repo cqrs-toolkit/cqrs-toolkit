@@ -10,6 +10,18 @@
  */
 
 /**
+ * A single statement in a batch.
+ *
+ * When `returnRows` is true the result slot for this statement will be
+ * the row-object array; otherwise it will be `undefined`.
+ */
+export interface SqliteBatchStatement {
+  sql: string
+  bind?: unknown[]
+  returnRows?: boolean
+}
+
+/**
  * Async SQLite database interface.
  *
  * The generic on the query overload declares the row shape we expect back.
@@ -23,5 +35,18 @@ export interface ISqliteDb {
     options: { bind?: unknown[]; rowMode: 'object'; returnValue: 'resultRows' },
   ): Promise<T[]>
   exec(sql: string, options?: { bind?: unknown[] }): Promise<void>
+
+  /**
+   * Execute multiple statements inside a single transaction.
+   *
+   * The entire batch is wrapped in BEGIN / COMMIT.  On failure the
+   * transaction is rolled back and the error is rethrown.
+   *
+   * Returns one result slot per input statement in the same order:
+   * - `undefined` when `returnRows` was false/omitted
+   * - the row-object array when `returnRows` was true
+   */
+  execBatch(statements: SqliteBatchStatement[]): Promise<unknown[]>
+
   close(): Promise<void>
 }

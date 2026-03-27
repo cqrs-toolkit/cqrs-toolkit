@@ -21,20 +21,28 @@ import {
   switchMap,
   takeUntil,
 } from 'rxjs'
+import type { CacheKeyIdentity } from '../cache-manager/CacheKey.js'
 import type {
+  CollectionSignal,
+  GetByIdParams,
+  GetByIdsParams,
   IQueryManager,
   ItemMeta,
+  ListParams,
   ListQueryResult,
-  QueryOptions,
   QueryResult,
 } from './types.js'
 
 /**
  * Cached reference entry for a single item.
+ * Uses stream revision as the staleness check — revision is a monotonically
+ * increasing per-entity value that changes exactly when data changes.
+ * Items without a revision (locally created, not yet confirmed) always
+ * get fresh references.
  */
 interface CachedRef {
   ref: unknown
-  updatedAt: number
+  revision: string | undefined
 }
 
 /**
@@ -53,18 +61,14 @@ export class StableRefQueryManager<TLink extends Link> implements IQueryManager<
     this.inner = inner
   }
 
-  async getById<T>(
-    collection: string,
-    id: string,
-    options?: QueryOptions,
-  ): Promise<QueryResult<TLink, T>> {
-    const result = await this.inner.getById<T>(collection, id, options)
+  async getById<T>(params: GetByIdParams<TLink>): Promise<QueryResult<TLink, T>> {
+    const result = await this.inner.getById<T>(params)
 
     if (result.data === undefined || result.meta === undefined) {
       return result
     }
 
-    const collectionCache = this.getOrCreateCollectionCache(collection)
+    const collectionCache = this.getOrCreateCollectionCache(params.collection)
     const reconciled = this.reconcileItem<T>(collectionCache, result.meta, result.data)
 
     return {
@@ -75,13 +79,9 @@ export class StableRefQueryManager<TLink extends Link> implements IQueryManager<
     }
   }
 
-  async getByIds<T>(
-    collection: string,
-    ids: string[],
-    options?: QueryOptions,
-  ): Promise<Map<string, QueryResult<TLink, T>>> {
-    const results = await this.inner.getByIds<T>(collection, ids, options)
-    const collectionCache = this.getOrCreateCollectionCache(collection)
+  async getByIds<T>(params: GetByIdsParams<TLink>): Promise<Map<string, QueryResult<TLink, T>>> {
+    const results = await this.inner.getByIds<T>(params)
+    const collectionCache = this.getOrCreateCollectionCache(params.collection)
 
     const reconciled = new Map<string, QueryResult<TLink, T>>()
 
@@ -103,11 +103,11 @@ export class StableRefQueryManager<TLink extends Link> implements IQueryManager<
     return reconciled
   }
 
-  async list<T>(collection: string, options?: QueryOptions): Promise<ListQueryResult<TLink, T>> {
-    const result = await this.inner.list<T>(collection, options)
+  async list<T>(params: ListParams<TLink>): Promise<ListQueryResult<TLink, T>> {
+    const result = await this.inner.list<T>(params)
 
     const newCache = new Map<string, CachedRef>()
-    const oldCache = this.refCache.get(collection)
+    const oldCache = this.refCache.get(params.collection)
 
     const reconciledData: T[] = []
 
@@ -121,17 +121,17 @@ export class StableRefQueryManager<TLink extends Link> implements IQueryManager<
 
       const existing = oldCache?.get(meta.id)
 
-      if (existing && existing.updatedAt === meta.updatedAt) {
+      if (existing && meta.revision !== undefined && existing.revision === meta.revision) {
         reconciledData.push(existing.ref as T)
         newCache.set(meta.id, existing)
       } else {
         reconciledData.push(data)
-        newCache.set(meta.id, { ref: data, updatedAt: meta.updatedAt })
+        newCache.set(meta.id, { ref: data, revision: meta.revision })
       }
     }
 
     // Replace entire collection cache — items not in current result are dropped
-    this.refCache.set(collection, newCache)
+    this.refCache.set(params.collection, newCache)
 
     return {
       data: reconciledData,
@@ -142,19 +142,20 @@ export class StableRefQueryManager<TLink extends Link> implements IQueryManager<
     }
   }
 
-  watchCollection(collection: string): Observable<string[]> {
+  watchCollection(collection: string): Observable<CollectionSignal> {
     return this.inner.watchCollection(collection)
   }
 
-  watchById<T>(collection: string, id: string): Observable<T | undefined> {
+  watchById<T>(params: GetByIdParams<TLink>): Observable<T | undefined> {
     // Route through watchCollection filtered to the target ID, then call
     // this.getById (which goes through reconciliation) so the reconciled
     // reference is what distinctUntilChanged sees.
-    return this.inner.watchCollection(collection).pipe(
-      filter((ids) => ids.includes(id)),
+    const { collection, id } = params
+    return this.inner.watchCollection(params.collection).pipe(
+      filter((signal) => signal.type === 'updated' && signal.ids.includes(id)),
       startWith(undefined),
       switchMap(() =>
-        from(this.getById<T>(collection, id)).pipe(
+        from(this.getById<T>(params)).pipe(
           map((result) => result.data),
           catchError((err) => {
             logProvider.log.error({ err, collection, id }, 'Failed to load value for watchById')
@@ -175,8 +176,8 @@ export class StableRefQueryManager<TLink extends Link> implements IQueryManager<
     return this.inner.count(collection)
   }
 
-  async touch(collection: string): Promise<void> {
-    return this.inner.touch(collection)
+  async touch(cacheKey: CacheKeyIdentity<TLink>): Promise<void> {
+    return this.inner.touch(cacheKey)
   }
 
   async hold(cacheKey: string): Promise<void> {
@@ -205,11 +206,11 @@ export class StableRefQueryManager<TLink extends Link> implements IQueryManager<
   private reconcileItem<T>(collectionCache: Map<string, CachedRef>, meta: ItemMeta, data: T): T {
     const existing = collectionCache.get(meta.id)
 
-    if (existing && existing.updatedAt === meta.updatedAt) {
+    if (existing && meta.revision !== undefined && existing.revision === meta.revision) {
       return existing.ref as T
     }
 
-    collectionCache.set(meta.id, { ref: data, updatedAt: meta.updatedAt })
+    collectionCache.set(meta.id, { ref: data, revision: meta.revision })
     return data
   }
 

@@ -4,9 +4,15 @@
 
 [@cqrs-toolkit/client](../globals.md) / EventProcessorRunnerConfig
 
-# Interface: EventProcessorRunnerConfig
+# Interface: EventProcessorRunnerConfig\<TLink\>
 
 Event processor runner configuration.
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
 
 ## Properties
 
@@ -20,13 +26,13 @@ Anticipated event handler for create reconciliation. Optional — only needed wi
 
 ### eventBus
 
-> **eventBus**: [`EventBus`](../classes/EventBus.md)
+> **eventBus**: [`EventBus`](../classes/EventBus.md)\<`TLink`\>
 
 ---
 
 ### readModelStore
 
-> **readModelStore**: [`ReadModelStore`](../classes/ReadModelStore.md)
+> **readModelStore**: [`ReadModelStore`](../classes/ReadModelStore.md)\<`TLink`\>
 
 ---
 

@@ -15,8 +15,10 @@ import {
   type ListNotebooksResponse,
   type Notebook,
   type NotebookCommand,
+  addNotebookTagPayloadSchema,
   createNotebookPayloadSchema,
   deleteNotebookPayloadSchema,
+  removeNotebookTagPayloadSchema,
   updateNotebookNamePayloadSchema,
 } from '@cqrs-toolkit/demo-base/notebooks/shared'
 import {
@@ -35,6 +37,8 @@ const ajv = new Ajv()
 const validateCreateNotebook = ajv.compile(createNotebookPayloadSchema)
 const validateUpdateNotebookName = ajv.compile(updateNotebookNamePayloadSchema)
 const validateDeleteNotebook = ajv.compile(deleteNotebookPayloadSchema)
+const validateAddNotebookTag = ajv.compile(addNotebookTagPayloadSchema)
+const validateRemoveNotebookTag = ajv.compile(removeNotebookTagPayloadSchema)
 
 function toSerializedEvent(event: Persisted<IEvent>): ISerializedEvent {
   return {
@@ -188,6 +192,62 @@ export function notebookRoutes(
               expectedRevision,
               metadata,
             )
+            if (!result.ok) {
+              reply.code(result.error.code ?? 500)
+              return { message: result.error.message }
+            }
+            return toCommandSuccess(
+              command.data.id,
+              result.value.nextExpectedRevision,
+              result.value.events ?? [],
+            )
+          }
+
+          case 'AddNotebookTag': {
+            if (!validateAddNotebookTag(command.data)) {
+              reply.code(400)
+              return { message: 'Invalid data', details: validateAddNotebookTag.errors }
+            }
+            if (typeof command.revision !== 'string') {
+              reply.code(400)
+              return { message: 'revision is required' }
+            }
+            const expectedRevision = BigInt(command.revision)
+            const aggregate = await notebookRepo.getById(command.data.id)
+            if (!aggregate) {
+              reply.code(404)
+              return { message: 'Notebook not found', details: { id: command.data.id } }
+            }
+            aggregate.addTag(command.data.tag, metadata)
+            const result = await notebookRepo.save(aggregate, expectedRevision)
+            if (!result.ok) {
+              reply.code(result.error.code ?? 500)
+              return { message: result.error.message }
+            }
+            return toCommandSuccess(
+              command.data.id,
+              result.value.nextExpectedRevision,
+              result.value.events ?? [],
+            )
+          }
+
+          case 'RemoveNotebookTag': {
+            if (!validateRemoveNotebookTag(command.data)) {
+              reply.code(400)
+              return { message: 'Invalid data', details: validateRemoveNotebookTag.errors }
+            }
+            if (typeof command.revision !== 'string') {
+              reply.code(400)
+              return { message: 'revision is required' }
+            }
+            const expectedRevision = BigInt(command.revision)
+            const aggregate = await notebookRepo.getById(command.data.id)
+            if (!aggregate) {
+              reply.code(404)
+              return { message: 'Notebook not found', details: { id: command.data.id } }
+            }
+            aggregate.removeTag(command.data.tag, metadata)
+            const result = await notebookRepo.save(aggregate, expectedRevision)
             if (!result.ok) {
               reply.code(result.error.code ?? 500)
               return { message: result.error.message }

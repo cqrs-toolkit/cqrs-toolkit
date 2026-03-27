@@ -6,7 +6,7 @@
 
 # Function: createListQuery()
 
-> **createListQuery**\<`TLink`, `T`\>(`queryManager`, `collection`, `options?`): [`ListQueryState`](../interfaces/ListQueryState.md)\<`T`\>
+> **createListQuery**\<`TLink`, `T`\>(`queryManager`, `params`): [`ListQueryState`](../interfaces/ListQueryState.md)\<`T`\>
 
 Create a reactive list query that subscribes to collection changes.
 
@@ -19,6 +19,10 @@ When an entity's ID is reconciled (client temp ID → server ID), the store
 pre-mutates existing items so `reconcile()` preserves Solid store identity.
 The `reconciled` field exposes these mappings for consumers holding entity
 IDs in external signals (selection state, URL params).
+
+The `cacheKey` parameter is required. When it is a reactive accessor,
+the query re-subscribes when the cache key identity changes — releasing
+the old key and resetting to loading state.
 
 ## Type Parameters
 
@@ -38,20 +42,14 @@ IDs in external signals (selection state, URL params).
 
 The query manager (should be StableRefQueryManager-wrapped for best results)
 
-### collection
+### params
 
-`string`
+[`ListQueryParams`](../interfaces/ListQueryParams.md)\<`TLink`\>
 
-Collection name
-
-### options?
-
-[`ListQueryOptions`](../interfaces/ListQueryOptions.md)
-
-Query options (scope, limit, offset)
+Query parameters (collection, cacheKey, limit, offset)
 
 ## Returns
 
 [`ListQueryState`](../interfaces/ListQueryState.md)\<`T`\>
 
-Reactive store with items, loading, total, hasLocalChanges, error, reconciled
+Reactive store with items, loading, total, hasLocalChanges, state, reconciled

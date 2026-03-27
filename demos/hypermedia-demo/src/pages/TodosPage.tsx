@@ -1,5 +1,7 @@
+import { deriveScopeKey } from '@cqrs-toolkit/client'
 import { appCreateListQuery } from '@cqrs-toolkit/demo-base/common/components'
 import { AddTodo, TodoItem } from '@cqrs-toolkit/demo-base/todos/components'
+import { TODO_SEED_KEY } from '@cqrs-toolkit/demo-base/todos/domain'
 import type { Todo } from '@cqrs-toolkit/demo-base/todos/shared'
 import { createMemo, createSignal, For, Show } from 'solid-js'
 import { useClient } from '../bootstrap/typed-client.js'
@@ -10,7 +12,11 @@ export default function TodosPage() {
   const client = useClient()
   const nav = createEditNavigator()
   const [error, setError] = createSignal<string>()
-  const query = appCreateListQuery<Todo>(client.queryManager, 'todos')
+  const query = appCreateListQuery<Todo>(
+    client.queryManager,
+    'todos',
+    deriveScopeKey({ scopeType: 'todos' }),
+  )
 
   const sortedTodos = createMemo(() =>
     query.items.slice().sort((a, b) => {
@@ -28,7 +34,12 @@ export default function TodosPage() {
 
       <div ref={nav.containerRef}>
         <AddTodo
-          onSubmitCreate={(p) => client.submit({ type: 'CreateTodo', data: p })}
+          onSubmitCreate={(p) =>
+            client.submit({
+              command: { type: 'CreateTodo', data: p },
+              cacheKey: TODO_SEED_KEY,
+            })
+          }
           onError={setError}
           formRef={nav.headerRef}
         />
@@ -48,26 +59,35 @@ export default function TodosPage() {
                 todo={todo}
                 onSubmitChangeStatus={(p) =>
                   client.submit({
-                    type: 'ChangeTodoStatus',
-                    path: { id: p.id },
-                    data: { status: p.status },
-                    revision: p.revision,
+                    command: {
+                      type: 'ChangeTodoStatus',
+                      path: { id: p.id },
+                      data: { status: p.status },
+                      revision: p.revision,
+                    },
+                    cacheKey: TODO_SEED_KEY,
                   })
                 }
                 onSubmitUpdateContent={(p) =>
                   client.submit({
-                    type: 'UpdateTodoContent',
-                    path: { id: p.id },
-                    data: { content: p.content },
-                    revision: p.revision,
+                    command: {
+                      type: 'UpdateTodoContent',
+                      path: { id: p.id },
+                      data: { content: p.content },
+                      revision: p.revision,
+                    },
+                    cacheKey: TODO_SEED_KEY,
                   })
                 }
                 onSubmitDelete={(p) =>
                   client.submit({
-                    type: 'DeleteTodo',
-                    path: { id: p.id },
-                    data: {},
-                    revision: p.revision,
+                    command: {
+                      type: 'DeleteTodo',
+                      path: { id: p.id },
+                      data: {},
+                      revision: p.revision,
+                    },
+                    cacheKey: TODO_SEED_KEY,
                   })
                 }
                 onError={setError}

@@ -26,12 +26,26 @@ export interface SqliteExecRequest {
   returnRows: boolean
 }
 
+export interface SqliteBatchRequest {
+  type: 'sqlite:batch'
+  requestId: string
+  statements: Array<{
+    sql: string
+    params?: unknown[]
+    returnRows: boolean
+  }>
+}
+
 export interface SqliteCloseRequest {
   type: 'sqlite:close'
   requestId: string
 }
 
-export type SqliteRequest = SqliteInitRequest | SqliteExecRequest | SqliteCloseRequest
+export type SqliteRequest =
+  | SqliteInitRequest
+  | SqliteExecRequest
+  | SqliteBatchRequest
+  | SqliteCloseRequest
 
 // ---------------------------------------------------------------------------
 // Child worker → SharedWorker responses

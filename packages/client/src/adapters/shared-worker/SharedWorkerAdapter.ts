@@ -35,6 +35,33 @@ import { SyncManagerProxy } from '../proxy/SyncManagerProxy.js'
 import { OpfsUnavailableException } from '../worker-core/probeOpfs.js'
 
 /**
+ * CacheManagerProxy subclass that tracks held keys window-side (spec §10.6.3).
+ * The localHolds set is the window's authoritative list of current data requirements,
+ * independent of the worker. Used to restore holds after worker restart (§10.6.4).
+ */
+class SharedWorkerCacheManagerProxy<TLink extends Link> extends CacheManagerProxy<TLink> {
+  private readonly localHolds = new Set<string>()
+
+  override async hold(key: string): Promise<void> {
+    await super.hold(key)
+    this.localHolds.add(key)
+  }
+
+  override async release(key: string): Promise<void> {
+    await super.release(key)
+    this.localHolds.delete(key)
+  }
+
+  getHeldKeys(): string[] {
+    return Array.from(this.localHolds)
+  }
+
+  clearHeldKeys(): void {
+    this.localHolds.clear()
+  }
+}
+
+/**
  * Configuration for SharedWorkerAdapter.
  */
 export interface SharedWorkerAdapterConfig {
@@ -76,11 +103,11 @@ export class SharedWorkerAdapter<TLink extends Link> implements IWorkerAdapter<T
 
   private _status: AdapterStatus = 'uninitialized'
   private _isActive = false
-  private _commandQueue: CommandQueueProxy | undefined
+  private _commandQueue: CommandQueueProxy<TLink> | undefined
   private _queryManager: QueryManagerProxy<TLink> | undefined
-  private _cacheManager: CacheManagerProxy<TLink> | undefined
-  private _syncManager: SyncManagerProxy | undefined
-  private _events$: Observable<LibraryEvent> | undefined
+  private _cacheManager: SharedWorkerCacheManagerProxy<TLink> | undefined
+  private _syncManager: SyncManagerProxy<TLink> | undefined
+  private _events$: Observable<LibraryEvent<TLink>> | undefined
 
   private sharedWorker: SharedWorker | undefined
   private sqliteWorker: Worker | undefined
@@ -88,9 +115,6 @@ export class SharedWorkerAdapter<TLink extends Link> implements IWorkerAdapter<T
   private heartbeatSubscription: Subscription | undefined
   private currentWorkerInstanceId: string | undefined
   private beforeUnloadHandler: (() => void) | undefined
-
-  /** Cache keys held by this window (for restoration after worker restart) */
-  private readonly localHolds = new Set<string>()
 
   constructor(config: SharedWorkerAdapterConfig) {
     this.config = config
@@ -101,12 +125,12 @@ export class SharedWorkerAdapter<TLink extends Link> implements IWorkerAdapter<T
     return this._status
   }
 
-  get events$(): Observable<LibraryEvent> {
+  get events$(): Observable<LibraryEvent<TLink>> {
     assert(this._events$, 'Adapter not initialized')
     return this._events$
   }
 
-  get commandQueue(): ICommandQueue {
+  get commandQueue(): ICommandQueue<TLink> {
     assert(this._commandQueue, 'Adapter not initialized')
     return this._commandQueue
   }
@@ -121,7 +145,7 @@ export class SharedWorkerAdapter<TLink extends Link> implements IWorkerAdapter<T
     return this._cacheManager
   }
 
-  get syncManager(): CqrsClientSyncManager {
+  get syncManager(): CqrsClientSyncManager<TLink> {
     assert(this._syncManager, 'Adapter not initialized')
     return this._syncManager
   }
@@ -182,9 +206,9 @@ export class SharedWorkerAdapter<TLink extends Link> implements IWorkerAdapter<T
       // Build events$ observable for consumers
       this._events$ = broadcastEvents$.pipe(
         map(
-          (event: EventMessage): LibraryEvent => ({
-            type: event.eventName as LibraryEvent['type'],
-            data: event.data as LibraryEvent['data'],
+          (event: EventMessage): LibraryEvent<TLink> => ({
+            type: event.eventName as LibraryEvent<TLink>['type'],
+            data: event.data as LibraryEvent<TLink>['data'],
             timestamp: Date.now(),
             debug: event.debug,
           }),
@@ -248,8 +272,8 @@ export class SharedWorkerAdapter<TLink extends Link> implements IWorkerAdapter<T
       // 9. Create proxy objects
       this._commandQueue = new CommandQueueProxy(this.channel, broadcastEvents$)
       this._queryManager = new QueryManagerProxy<TLink>(this.channel, broadcastEvents$)
-      this._cacheManager = new CacheManagerProxy<TLink>(this.channel)
-      this._syncManager = new SyncManagerProxy(this.channel, broadcastEvents$)
+      this._cacheManager = new SharedWorkerCacheManagerProxy<TLink>(this.channel)
+      this._syncManager = new SyncManagerProxy<TLink>(this.channel, broadcastEvents$)
 
       // 10. Sync connectivity state from worker
       await this._syncManager.syncState()
@@ -342,18 +366,17 @@ export class SharedWorkerAdapter<TLink extends Link> implements IWorkerAdapter<T
   }
 
   private async restoreHolds(): Promise<void> {
-    if (!this.channel || this.localHolds.size === 0) {
-      return
-    }
+    if (!this.channel || !this._cacheManager) return
 
-    const cacheKeys = Array.from(this.localHolds)
+    const cacheKeys = this._cacheManager.getHeldKeys()
+    if (cacheKeys.length === 0) return
 
     try {
       const response = await this.channel.restoreHolds(this.windowId, cacheKeys)
 
-      // Remove keys that failed to restore (no longer exist)
+      // Remove keys that failed to restore (no longer exist in storage after restart)
       for (const failedKey of response.failedKeys) {
-        this.localHolds.delete(failedKey)
+        this._cacheManager.release(failedKey).catch(() => {})
       }
 
       // Log warning for failed keys - these cache keys no longer exist

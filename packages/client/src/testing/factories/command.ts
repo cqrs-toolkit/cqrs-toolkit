@@ -2,6 +2,8 @@
  * Command test factories.
  */
 
+import { Link } from '@meticoeus/ddd-es'
+import { deriveScopeKey } from '../../core/cache-manager/index.js'
 import type { CommandRecord, CommandStatus } from '../../types/commands.js'
 import { generateId } from '../../utils/uuid.js'
 
@@ -11,12 +13,13 @@ import { generateId } from '../../utils/uuid.js'
  * @param overrides - Optional field overrides
  * @returns Command record
  */
-export function createTestCommand<TData = unknown, TResponse = unknown>(
-  overrides: Partial<CommandRecord<TData, TResponse>> = {},
-): CommandRecord<TData, TResponse> {
+export function createTestCommand<TLink extends Link, TData = unknown, TResponse = unknown>(
+  overrides: Partial<CommandRecord<TLink, TData, TResponse>> = {},
+): CommandRecord<TLink, TData, TResponse> {
   const now = Date.now()
   return {
     commandId: generateId(),
+    cacheKey: deriveScopeKey({ scopeType: 'tests' }),
     service: 'test-service',
     type: 'TestCommand',
     data: {} as TData,
@@ -33,18 +36,18 @@ export function createTestCommand<TData = unknown, TResponse = unknown>(
 /**
  * Create a pending command.
  */
-export function createPendingCommand<TData = unknown>(
-  overrides: Partial<CommandRecord<TData>> = {},
-): CommandRecord<TData> {
+export function createPendingCommand<TLink extends Link, TData = unknown>(
+  overrides: Partial<CommandRecord<TLink, TData>> = {},
+): CommandRecord<TLink, TData> {
   return createTestCommand({ status: 'pending', ...overrides })
 }
 
 /**
  * Create a sending command.
  */
-export function createSendingCommand<TData = unknown>(
-  overrides: Partial<CommandRecord<TData>> = {},
-): CommandRecord<TData> {
+export function createSendingCommand<TLink extends Link, TData = unknown>(
+  overrides: Partial<CommandRecord<TLink, TData>> = {},
+): CommandRecord<TLink, TData> {
   return createTestCommand({
     status: 'sending',
     attempts: 1,
@@ -56,10 +59,10 @@ export function createSendingCommand<TData = unknown>(
 /**
  * Create a succeeded command.
  */
-export function createSucceededCommand<TData = unknown, TResponse = unknown>(
+export function createSucceededCommand<TLink extends Link, TData = unknown, TResponse = unknown>(
   response: TResponse,
-  overrides: Partial<CommandRecord<TData, TResponse>> = {},
-): CommandRecord<TData, TResponse> {
+  overrides: Partial<CommandRecord<TLink, TData, TResponse>> = {},
+): CommandRecord<TLink, TData, TResponse> {
   return createTestCommand({
     status: 'succeeded',
     attempts: 1,
@@ -72,10 +75,10 @@ export function createSucceededCommand<TData = unknown, TResponse = unknown>(
 /**
  * Create a failed command.
  */
-export function createFailedCommand<TData = unknown>(
-  error: CommandRecord['error'],
-  overrides: Partial<CommandRecord<TData>> = {},
-): CommandRecord<TData> {
+export function createFailedCommand<TLink extends Link, TData = unknown>(
+  error: CommandRecord<TLink>['error'],
+  overrides: Partial<CommandRecord<TLink, TData>> = {},
+): CommandRecord<TLink, TData> {
   return createTestCommand({
     status: 'failed',
     attempts: 1,

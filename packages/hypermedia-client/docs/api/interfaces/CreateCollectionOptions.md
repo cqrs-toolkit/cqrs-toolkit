@@ -35,15 +35,30 @@ Default: splits on first '-' (convention: 'Todo-{uuid}' → '{uuid}')
 
 ---
 
-### getTopics()
+### cacheKeysFromTopics()
 
-> **getTopics**: () => `string`[]
+> **cacheKeysFromTopics**: (`topics`) => `CacheKeyIdentity`\<`TLink`\>[]
 
-App-specific: WS topic patterns to subscribe to
+Derive cache key identities from WS event topics. Forwarded to Collection.cacheKeysFromTopics.
+
+Derive cache key identities from WS event topics.
+Called at WS ingestion to resolve which cache keys an event belongs to.
+The returned identities are attached to the event before processing —
+no further topic resolution happens downstream.
+
+#### Parameters
+
+##### topics
+
+readonly `string`[]
+
+Topic strings from the WS event message
 
 #### Returns
 
-`string`[]
+`CacheKeyIdentity`\<`TLink`\>[]
+
+Cache key identities this event should be associated with
 
 ---
 
@@ -81,8 +96,16 @@ Representation surface data from generated representations.ts
 
 ---
 
-### seedCacheKey?
+### seedOnDemand?
 
-> `optional` **seedCacheKey**: `CacheKeyIdentity`\<`TLink`\>
+> `optional` **seedOnDemand**: `SeedOnDemandConfig`\<`TLink`\>
 
-Cache key identity to auto-seed on startup.
+On-demand config. Forwarded to Collection.seedOnDemand
+
+---
+
+### seedOnInit?
+
+> `optional` **seedOnInit**: `SeedOnInitConfig`\<`TLink`\>
+
+Auto-seed config. Forwarded to Collection.seedOnInit

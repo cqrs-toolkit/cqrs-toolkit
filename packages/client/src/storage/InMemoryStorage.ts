@@ -3,13 +3,14 @@
  * All data is stored in memory and lost on page reload.
  */
 
+import type { Link } from '@meticoeus/ddd-es'
 import type { CommandFilter, CommandRecord, CommandStatus } from '../types/commands.js'
 import type {
   CacheKeyRecord,
   CachedEventRecord,
   CommandIdMappingRecord,
   IStorage,
-  QueryOptions,
+  IStorageQueryOptions,
   ReadModelRecord,
   SessionRecord,
 } from './IStorage.js'
@@ -18,10 +19,10 @@ import type {
  * In-memory storage implementation.
  * Thread-safe within a single JavaScript context.
  */
-export class InMemoryStorage implements IStorage {
+export class InMemoryStorage<TLink extends Link> implements IStorage<TLink> {
   private session?: SessionRecord
   private cacheKeys: Map<string, CacheKeyRecord> = new Map()
-  private commands: Map<string, CommandRecord> = new Map()
+  private commands: Map<string, CommandRecord<TLink>> = new Map()
   private cachedEvents: Map<string, CachedEventRecord> = new Map()
   private readModels: Map<string, ReadModelRecord> = new Map()
   private commandIdMappingsByClientId: Map<string, CommandIdMappingRecord> = new Map()
@@ -88,10 +89,10 @@ export class InMemoryStorage implements IStorage {
 
   async deleteCacheKey(key: string): Promise<void> {
     this.cacheKeys.delete(key)
-    // Delete associated cached events
-    await this.deleteCachedEventsByCacheKey(key)
-    // Delete associated read models
-    await this.deleteReadModelsByCacheKey(key)
+    // Remove cache key association from events, deleting orphans
+    await this.removeCacheKeyFromEvents(key)
+    // Remove cache key association from read models, deleting orphans
+    await this.removeCacheKeyFromReadModels(key)
   }
 
   async holdCacheKey(key: string): Promise<void> {
@@ -115,13 +116,21 @@ export class InMemoryStorage implements IStorage {
     }
   }
 
+  async getChildCacheKeys(parentKey: string): Promise<CacheKeyRecord[]> {
+    return Array.from(this.cacheKeys.values()).filter((record) => record.parentKey === parentKey)
+  }
+
   async getEvictableCacheKeys(limit: number): Promise<CacheKeyRecord[]> {
     const evictable = Array.from(this.cacheKeys.values())
       .filter((record) => {
         if (record.holdCount > 0) return false
         if (record.frozen) return false
-        // Note: TTL is NOT checked here - that's for evictExpired
-        // Capacity eviction is based purely on LRU
+        if (record.inheritedFrozen) return false
+        // Only leaf keys (no children) are evictable
+        const hasChildren = Array.from(this.cacheKeys.values()).some(
+          (r) => r.parentKey === record.key,
+        )
+        if (hasChildren) return false
         return true
       })
       .sort((a, b) => {
@@ -137,11 +146,11 @@ export class InMemoryStorage implements IStorage {
 
   // Command operations
 
-  async getCommand(commandId: string): Promise<CommandRecord | undefined> {
+  async getCommand(commandId: string): Promise<CommandRecord<TLink> | undefined> {
     return this.commands.get(commandId)
   }
 
-  async getCommands(filter?: CommandFilter): Promise<CommandRecord[]> {
+  async getCommands(filter?: CommandFilter): Promise<CommandRecord<TLink>[]> {
     let commands = Array.from(this.commands.values())
 
     if (filter) {
@@ -177,19 +186,21 @@ export class InMemoryStorage implements IStorage {
     return commands
   }
 
-  async getCommandsByStatus(status: CommandStatus | CommandStatus[]): Promise<CommandRecord[]> {
+  async getCommandsByStatus(
+    status: CommandStatus | CommandStatus[],
+  ): Promise<CommandRecord<TLink>[]> {
     return this.getCommands({ status })
   }
 
-  async getCommandsBlockedBy(commandId: string): Promise<CommandRecord[]> {
+  async getCommandsBlockedBy(commandId: string): Promise<CommandRecord<TLink>[]> {
     return Array.from(this.commands.values()).filter((cmd) => cmd.blockedBy.includes(commandId))
   }
 
-  async saveCommand(command: CommandRecord): Promise<void> {
+  async saveCommand(command: CommandRecord<TLink>): Promise<void> {
     this.commands.set(command.commandId, command)
   }
 
-  async updateCommand(commandId: string, updates: Partial<CommandRecord>): Promise<void> {
+  async updateCommand(commandId: string, updates: Partial<CommandRecord<TLink>>): Promise<void> {
     const existing = this.commands.get(commandId)
     if (existing) {
       this.commands.set(commandId, { ...existing, ...updates, updatedAt: Date.now() })
@@ -219,7 +230,9 @@ export class InMemoryStorage implements IStorage {
   }
 
   async getCachedEventsByCacheKey(cacheKey: string): Promise<CachedEventRecord[]> {
-    return Array.from(this.cachedEvents.values()).filter((event) => event.cacheKey === cacheKey)
+    return Array.from(this.cachedEvents.values()).filter((event) =>
+      event.cacheKeys.includes(cacheKey),
+    )
   }
 
   async getCachedEventsByStream(streamId: string): Promise<CachedEventRecord[]> {
@@ -262,12 +275,29 @@ export class InMemoryStorage implements IStorage {
     }
   }
 
-  async deleteCachedEventsByCacheKey(cacheKey: string): Promise<void> {
+  async removeCacheKeyFromEvents(cacheKey: string): Promise<string[]> {
+    const deletedIds: string[] = []
     for (const event of this.cachedEvents.values()) {
-      if (event.cacheKey === cacheKey) {
+      if (!event.cacheKeys.includes(cacheKey)) continue
+      const remaining = event.cacheKeys.filter((k) => k !== cacheKey)
+      if (remaining.length === 0) {
+        deletedIds.push(event.id)
         this.cachedEvents.delete(event.id)
+      } else {
+        this.cachedEvents.set(event.id, { ...event, cacheKeys: remaining })
       }
     }
+    return deletedIds
+  }
+
+  async addCacheKeysToEvent(eventId: string, cacheKeys: string[]): Promise<void> {
+    const event = this.cachedEvents.get(eventId)
+    if (!event) return
+    const merged = new Set(event.cacheKeys)
+    for (const key of cacheKeys) {
+      merged.add(key)
+    }
+    this.cachedEvents.set(eventId, { ...event, cacheKeys: Array.from(merged) })
   }
 
   // Read model operations
@@ -282,7 +312,7 @@ export class InMemoryStorage implements IStorage {
 
   async getReadModelsByCollection(
     collection: string,
-    options?: QueryOptions,
+    options?: IStorageQueryOptions,
   ): Promise<ReadModelRecord[]> {
     let records = Array.from(this.readModels.values()).filter(
       (record) => record.collection === collection,
@@ -314,7 +344,22 @@ export class InMemoryStorage implements IStorage {
   }
 
   async getReadModelsByCacheKey(cacheKey: string): Promise<ReadModelRecord[]> {
-    return Array.from(this.readModels.values()).filter((record) => record.cacheKey === cacheKey)
+    const records: ReadModelRecord[] = []
+    for (const record of this.readModels.values()) {
+      if (record.cacheKeys.includes(cacheKey)) records.push(record)
+    }
+    records.sort((a, b) => a.updatedAt - b.updatedAt)
+    return records
+  }
+
+  async countReadModels(collection: string, cacheKey?: string): Promise<number> {
+    let count = 0
+    for (const record of this.readModels.values()) {
+      if (record.collection !== collection) continue
+      if (cacheKey && !record.cacheKeys.includes(cacheKey)) continue
+      count++
+    }
+    return count
   }
 
   async saveReadModel(record: ReadModelRecord): Promise<void> {
@@ -331,12 +376,33 @@ export class InMemoryStorage implements IStorage {
     this.readModels.delete(this.getReadModelKey(collection, id))
   }
 
-  async deleteReadModelsByCacheKey(cacheKey: string): Promise<void> {
+  async removeCacheKeyFromReadModels(cacheKey: string): Promise<void> {
     for (const [key, record] of this.readModels.entries()) {
-      if (record.cacheKey === cacheKey) {
+      if (!record.cacheKeys.includes(cacheKey)) continue
+      const remaining = record.cacheKeys.filter((k) => k !== cacheKey)
+      if (remaining.length === 0) {
         this.readModels.delete(key)
+      } else {
+        this.readModels.set(key, { ...record, cacheKeys: remaining })
       }
     }
+  }
+
+  async addCacheKeysToReadModel(
+    collection: string,
+    id: string,
+    cacheKeys: string[],
+  ): Promise<void> {
+    const record = this.readModels.get(this.getReadModelKey(collection, id))
+    if (!record) return
+    const merged = new Set(record.cacheKeys)
+    for (const key of cacheKeys) {
+      merged.add(key)
+    }
+    this.readModels.set(this.getReadModelKey(collection, id), {
+      ...record,
+      cacheKeys: Array.from(merged),
+    })
   }
 
   async deleteReadModelsByCollection(collection: string): Promise<void> {

@@ -147,27 +147,27 @@ export async function waitForNoteCount(page: Page, count: number): Promise<void>
   await expect(page.locator('.note-title-item:not(:has(.italic))')).toHaveCount(count)
 }
 
-export async function waitForDashNotesReady(page: Page): Promise<void> {
-  await expect(page.locator('.dash-notes-ready')).toBeVisible()
+export async function waitForDashNotebooksReady(page: Page): Promise<void> {
+  await expect(page.locator('.dash-notebooks-ready')).toBeVisible()
 }
 
 export async function waitForDashTodosReady(page: Page): Promise<void> {
   await expect(page.locator('.dash-todos-ready')).toBeVisible()
 }
 
-export async function getDashNoteTexts(page: Page): Promise<string[]> {
-  await waitForDashNotesReady(page)
-  return page.locator('.dash-note-title').allTextContents()
+export async function getDashNotebookTexts(page: Page): Promise<string[]> {
+  await waitForDashNotebooksReady(page)
+  return page.locator('.dash-notebook-name').allTextContents()
 }
 
-export async function waitForDashNoteCount(page: Page, count: number): Promise<void> {
-  await waitForDashNotesReady(page)
-  await expect(page.locator('.dash-note-item')).toHaveCount(count)
+export async function waitForDashNotebookCount(page: Page, count: number): Promise<void> {
+  await waitForDashNotebooksReady(page)
+  await expect(page.locator('.dash-notebook-item')).toHaveCount(count)
 }
 
-export async function waitForDashNoteAbsent(page: Page, title: string): Promise<void> {
-  await waitForDashNotesReady(page)
-  await expect(page.locator('.dash-note-title', { hasText: title })).toHaveCount(0)
+export async function waitForDashNotebookAbsent(page: Page, name: string): Promise<void> {
+  await waitForDashNotebooksReady(page)
+  await expect(page.locator('.dash-notebook-name', { hasText: name })).toHaveCount(0)
 }
 
 /**
@@ -201,4 +201,14 @@ export async function waitForWsDisconnected(page: Page): Promise<void> {
  */
 export async function waitForWsReconnection(page: Page, timeout = 11_000): Promise<void> {
   await expect(page.locator('.ws-subscribed')).toBeAttached({ timeout })
+}
+
+/**
+ * Clear the in-page CQRS event log.
+ * Useful before a test phase so the dump on failure only shows relevant events.
+ */
+export async function clearCqrsEventLog(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    window.__CQRS_EVENTS__ = []
+  })
 }

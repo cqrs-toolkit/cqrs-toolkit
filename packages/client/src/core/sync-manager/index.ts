@@ -9,5 +9,6 @@ export type {
   IConnectivity,
   WsConnectionState,
 } from './ConnectivityManager.js'
+export type { CollectionSyncStatus } from './SeedStatusIndex.js'
 export { SyncManager } from './SyncManager.js'
-export type { CollectionSyncStatus, SyncManagerConfig } from './SyncManager.js'
+export type { SyncManagerConfig } from './SyncManager.js'

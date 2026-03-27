@@ -2,13 +2,16 @@
  * Unit tests for QueryManager.
  */
 
+import { ServiceLink } from '@meticoeus/ddd-es'
 import { firstValueFrom, timeout } from 'rxjs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
+import { deriveScopeKey } from '../cache-manager/CacheKey.js'
 import { CacheManager } from '../cache-manager/CacheManager.js'
 import { EventBus } from '../events/EventBus.js'
 import { ReadModelStore } from '../read-model-store/ReadModelStore.js'
 import { QueryManager } from './QueryManager.js'
+import type { CollectionSignal } from './types.js'
 
 interface Todo {
   id: string
@@ -16,12 +19,14 @@ interface Todo {
   done: boolean
 }
 
+const TODOS_CACHE_KEY = deriveScopeKey({ scopeType: 'todos' })
+
 describe('QueryManager', () => {
-  let storage: InMemoryStorage
-  let eventBus: EventBus
-  let cacheManager: CacheManager
-  let readModelStore: ReadModelStore
-  let queryManager: QueryManager
+  let storage: InMemoryStorage<ServiceLink>
+  let eventBus: EventBus<ServiceLink>
+  let cacheManager: CacheManager<ServiceLink>
+  let readModelStore: ReadModelStore<ServiceLink>
+  let queryManager: QueryManager<ServiceLink>
 
   beforeEach(async () => {
     storage = new InMemoryStorage()
@@ -31,11 +36,12 @@ describe('QueryManager', () => {
     readModelStore = new ReadModelStore({ storage })
     queryManager = new QueryManager({ eventBus, cacheManager, readModelStore })
 
-    // Add some test data
+    // Add some test data — cacheKey must match what QueryManager derives for 'todos'
+    const todosCacheKey = deriveScopeKey({ scopeType: 'todos' }).key
     await storage.saveReadModel({
       id: 'todo-1',
       collection: 'todos',
-      cacheKey: 'cache-1',
+      cacheKeys: [todosCacheKey],
       serverData: JSON.stringify({ id: 'todo-1', title: 'First', done: false }),
       effectiveData: JSON.stringify({ id: 'todo-1', title: 'First', done: false }),
       hasLocalChanges: false,
@@ -47,7 +53,7 @@ describe('QueryManager', () => {
     await storage.saveReadModel({
       id: 'todo-2',
       collection: 'todos',
-      cacheKey: 'cache-1',
+      cacheKeys: [todosCacheKey],
       serverData: JSON.stringify({ id: 'todo-2', title: 'Second', done: true }),
       effectiveData: JSON.stringify({ id: 'todo-2', title: 'Second Modified', done: true }),
       hasLocalChanges: true,
@@ -64,7 +70,11 @@ describe('QueryManager', () => {
 
   describe('getById', () => {
     it('returns entity with data', async () => {
-      const result = await queryManager.getById<Todo>('todos', 'todo-1')
+      const result = await queryManager.getById<Todo>({
+        collection: 'todos',
+        id: 'todo-1',
+        cacheKey: TODOS_CACHE_KEY,
+      })
 
       expect(result.data).toMatchObject({ id: 'todo-1', title: 'First' })
       expect(result.hasLocalChanges).toBe(false)
@@ -72,14 +82,22 @@ describe('QueryManager', () => {
     })
 
     it('returns null for non-existent entity', async () => {
-      const result = await queryManager.getById<Todo>('todos', 'non-existent')
+      const result = await queryManager.getById<Todo>({
+        collection: 'todos',
+        id: 'non-existent',
+        cacheKey: TODOS_CACHE_KEY,
+      })
 
       expect(result.data).toBeUndefined()
       expect(result.hasLocalChanges).toBe(false)
     })
 
     it('creates cache key on access', async () => {
-      const result = await queryManager.getById<Todo>('todos', 'todo-1')
+      const result = await queryManager.getById<Todo>({
+        collection: 'todos',
+        id: 'todo-1',
+        cacheKey: TODOS_CACHE_KEY,
+      })
 
       const cacheKeyExists = await cacheManager.exists(result.cacheKey.key)
       expect(cacheKeyExists).toBe(true)
@@ -88,7 +106,11 @@ describe('QueryManager', () => {
 
   describe('getByIds', () => {
     it('returns map of found entities', async () => {
-      const results = await queryManager.getByIds<Todo>('todos', ['todo-1', 'todo-2', 'todo-3'])
+      const results = await queryManager.getByIds<Todo>({
+        collection: 'todos',
+        ids: ['todo-1', 'todo-2', 'todo-3'],
+        cacheKey: TODOS_CACHE_KEY,
+      })
 
       expect(results.size).toBe(3)
       expect(results.get('todo-1')?.data?.title).toBe('First')
@@ -99,7 +121,10 @@ describe('QueryManager', () => {
 
   describe('list', () => {
     it('returns all entities in collection', async () => {
-      const result = await queryManager.list<Todo>('todos')
+      const result = await queryManager.list<Todo>({
+        collection: 'todos',
+        cacheKey: TODOS_CACHE_KEY,
+      })
 
       expect(result.data).toHaveLength(2)
       expect(result.total).toBe(2)
@@ -107,10 +132,41 @@ describe('QueryManager', () => {
     })
 
     it('applies pagination', async () => {
-      const result = await queryManager.list<Todo>('todos', { limit: 1, offset: 1 })
+      const result = await queryManager.list<Todo>({
+        collection: 'todos',
+        cacheKey: TODOS_CACHE_KEY,
+        limit: 1,
+        offset: 1,
+      })
 
       expect(result.data).toHaveLength(1)
       expect(result.total).toBe(2)
+    })
+
+    it('filters by cacheKey when provided', async () => {
+      // Add a record under a different cache key
+      const otherKey = deriveScopeKey({ scopeType: 'todos', scopeParams: { filter: 'done' } })
+      await storage.saveReadModel({
+        id: 'todo-done',
+        collection: 'todos',
+        cacheKeys: [otherKey.key],
+        serverData: JSON.stringify({ id: 'todo-done', title: 'Done', done: true }),
+        effectiveData: JSON.stringify({ id: 'todo-done', title: 'Done', done: true }),
+        hasLocalChanges: false,
+        updatedAt: 3000,
+        revision: null,
+        position: null,
+        _clientMetadata: null,
+      })
+
+      // List with the other cache key — should only return its record
+      const result = await queryManager.list<Todo>({
+        collection: 'todos',
+        cacheKey: otherKey,
+      })
+
+      expect(result.data).toHaveLength(1)
+      expect(result.data[0]?.id).toBe('todo-done')
     })
   })
 
@@ -132,27 +188,26 @@ describe('QueryManager', () => {
   })
 
   describe('watchCollection', () => {
-    it('emits when collection is updated', async () => {
-      const updates: string[][] = []
+    it('emits updated signal when collection is updated', async () => {
+      const signals: CollectionSignal[] = []
 
-      queryManager.watchCollection('todos').subscribe((ids) => {
-        updates.push(ids)
+      queryManager.watchCollection('todos').subscribe((signal) => {
+        signals.push(signal)
       })
 
-      // Emit update event
       eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'] })
 
       await new Promise((r) => setTimeout(r, 10))
 
-      expect(updates).toHaveLength(1)
-      expect(updates[0]).toEqual(['todo-1'])
+      expect(signals).toHaveLength(1)
+      expect(signals[0]).toEqual({ type: 'updated', ids: ['todo-1'] })
     })
 
     it('filters to specific collection', async () => {
-      const updates: string[][] = []
+      const signals: CollectionSignal[] = []
 
-      queryManager.watchCollection('todos').subscribe((ids) => {
-        updates.push(ids)
+      queryManager.watchCollection('todos').subscribe((signal) => {
+        signals.push(signal)
       })
 
       eventBus.emit('readmodel:updated', { collection: 'users', ids: ['user-1'] })
@@ -160,13 +215,51 @@ describe('QueryManager', () => {
 
       await new Promise((r) => setTimeout(r, 10))
 
-      expect(updates).toHaveLength(1)
+      expect(signals).toHaveLength(1)
+    })
+
+    it('emits seed-completed signal', async () => {
+      const signals: CollectionSignal[] = []
+
+      queryManager.watchCollection('todos').subscribe((signal) => {
+        signals.push(signal)
+      })
+
+      eventBus.emit('sync:seed-completed', {
+        collection: 'todos',
+        cacheKey: deriveScopeKey({ scopeType: 'todos' }),
+        recordCount: 5,
+      })
+
+      await new Promise((r) => setTimeout(r, 10))
+
+      expect(signals).toHaveLength(1)
+      expect(signals[0]).toEqual({ type: 'seed-completed', recordCount: 5 })
+    })
+
+    it('emits sync-failed signal', async () => {
+      const signals: CollectionSignal[] = []
+
+      queryManager.watchCollection('todos').subscribe((signal) => {
+        signals.push(signal)
+      })
+
+      eventBus.emit('sync:failed', { collection: 'todos', error: 'Network error' })
+
+      await new Promise((r) => setTimeout(r, 10))
+
+      expect(signals).toHaveLength(1)
+      expect(signals[0]).toEqual({ type: 'sync-failed', error: 'Network error' })
     })
   })
 
   describe('watchById', () => {
     it('emits initial value', async () => {
-      const observable = queryManager.watchById<Todo>('todos', 'todo-1')
+      const observable = queryManager.watchById<Todo>({
+        collection: 'todos',
+        id: 'todo-1',
+        cacheKey: TODOS_CACHE_KEY,
+      })
       const value = await firstValueFrom(observable.pipe(timeout(100)))
 
       expect(value).toMatchObject({ id: 'todo-1', title: 'First' })
@@ -175,9 +268,15 @@ describe('QueryManager', () => {
     it('emits updated value when entity changes', async () => {
       const values: (Todo | undefined)[] = []
 
-      queryManager.watchById<Todo>('todos', 'todo-1').subscribe((v) => {
-        values.push(v)
-      })
+      queryManager
+        .watchById<Todo>({
+          collection: 'todos',
+          id: 'todo-1',
+          cacheKey: TODOS_CACHE_KEY,
+        })
+        .subscribe((v) => {
+          values.push(v)
+        })
 
       // Wait for initial value
       await new Promise((r) => setTimeout(r, 10))
@@ -186,7 +285,7 @@ describe('QueryManager', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-1', title: 'Updated', done: false }),
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Updated', done: false }),
         hasLocalChanges: false,
@@ -230,9 +329,15 @@ describe('QueryManager', () => {
         return result
       })
 
-      queryManager.watchById<Todo>('todos', 'todo-1').subscribe((v) => {
-        values.push(v)
-      })
+      queryManager
+        .watchById<Todo>({
+          collection: 'todos',
+          id: 'todo-1',
+          cacheKey: TODOS_CACHE_KEY,
+        })
+        .subscribe((v) => {
+          values.push(v)
+        })
 
       // Wait for initial load (call 1)
       await new Promise((r) => setTimeout(r, 10))
@@ -242,7 +347,7 @@ describe('QueryManager', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-1', title: 'Stale', done: false }),
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Stale', done: false }),
         hasLocalChanges: false,
@@ -257,7 +362,7 @@ describe('QueryManager', () => {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
-        cacheKey: 'cache-1',
+        cacheKeys: ['cache-1'],
         serverData: JSON.stringify({ id: 'todo-1', title: 'Latest', done: false }),
         effectiveData: JSON.stringify({ id: 'todo-1', title: 'Latest', done: false }),
         hasLocalChanges: false,
@@ -286,7 +391,13 @@ describe('QueryManager', () => {
     it('does not call getById after unsubscribe', async () => {
       const getByIdSpy = vi.spyOn(readModelStore, 'getById')
 
-      const sub = queryManager.watchById<Todo>('todos', 'todo-1').subscribe(() => {})
+      const sub = queryManager
+        .watchById<Todo>({
+          collection: 'todos',
+          id: 'todo-1',
+          cacheKey: TODOS_CACHE_KEY,
+        })
+        .subscribe(() => {})
 
       // Wait for initial load
       await new Promise((r) => setTimeout(r, 10))
@@ -308,7 +419,11 @@ describe('QueryManager', () => {
 
   describe('hold/release', () => {
     it('holds a cache key', async () => {
-      const result = await queryManager.getById<Todo>('todos', 'todo-1')
+      const result = await queryManager.getById<Todo>({
+        collection: 'todos',
+        id: 'todo-1',
+        cacheKey: TODOS_CACHE_KEY,
+      })
       await queryManager.hold(result.cacheKey.key)
 
       const cacheKey = await cacheManager.get(result.cacheKey.key)
@@ -316,7 +431,11 @@ describe('QueryManager', () => {
     })
 
     it('releases a cache key', async () => {
-      const result = await queryManager.getById<Todo>('todos', 'todo-1')
+      const result = await queryManager.getById<Todo>({
+        collection: 'todos',
+        id: 'todo-1',
+        cacheKey: TODOS_CACHE_KEY,
+      })
       await queryManager.hold(result.cacheKey.key)
       await queryManager.release(result.cacheKey.key)
 
@@ -325,7 +444,11 @@ describe('QueryManager', () => {
     })
 
     it('tracks multiple holds', async () => {
-      const result = await queryManager.getById<Todo>('todos', 'todo-1')
+      const result = await queryManager.getById<Todo>({
+        collection: 'todos',
+        id: 'todo-1',
+        cacheKey: TODOS_CACHE_KEY,
+      })
       await queryManager.hold(result.cacheKey.key)
       await queryManager.hold(result.cacheKey.key)
       await queryManager.release(result.cacheKey.key)
@@ -335,7 +458,11 @@ describe('QueryManager', () => {
     })
 
     it('releases all holds on destroy', async () => {
-      const result = await queryManager.getById<Todo>('todos', 'todo-1')
+      const result = await queryManager.getById<Todo>({
+        collection: 'todos',
+        id: 'todo-1',
+        cacheKey: TODOS_CACHE_KEY,
+      })
       await queryManager.hold(result.cacheKey.key)
       await queryManager.hold(result.cacheKey.key)
 
@@ -348,7 +475,11 @@ describe('QueryManager', () => {
 
   describe('onSessionDestroyed', () => {
     it('clears all active holds without calling cacheManager.release()', async () => {
-      const result = await queryManager.getById<Todo>('todos', 'todo-1')
+      const result = await queryManager.getById<Todo>({
+        collection: 'todos',
+        id: 'todo-1',
+        cacheKey: TODOS_CACHE_KEY,
+      })
       await queryManager.hold(result.cacheKey.key)
       await queryManager.hold(result.cacheKey.key) // refcount = 2 internally
 
@@ -366,7 +497,11 @@ describe('QueryManager', () => {
 
   describe('releaseForCacheKey', () => {
     it('removes hold tracking for an evicted cache key', async () => {
-      const result = await queryManager.getById<Todo>('todos', 'todo-1')
+      const result = await queryManager.getById<Todo>({
+        collection: 'todos',
+        id: 'todo-1',
+        cacheKey: TODOS_CACHE_KEY,
+      })
       await queryManager.hold(result.cacheKey.key)
       await queryManager.hold(result.cacheKey.key)
 

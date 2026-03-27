@@ -11,7 +11,7 @@
  * layers (storage retries) handle re-issuing.
  */
 
-import type { ISqliteDb } from '../../../storage/ISqliteDb.js'
+import type { ISqliteDb, SqliteBatchStatement } from '../../../storage/ISqliteDb.js'
 import type { VfsType } from '../../../storage/LocalSqliteDb.js'
 import type { SqliteRequest, SqliteResponse } from './protocol.js'
 
@@ -59,6 +59,19 @@ export class RemoteSqliteDb implements ISqliteDb {
       returnRows,
     })
     return returnRows ? result : undefined
+  }
+
+  async execBatch(statements: SqliteBatchStatement[]): Promise<unknown[]> {
+    const result = await this.send({
+      type: 'sqlite:batch',
+      requestId: this.nextId(),
+      statements: statements.map((s) => ({
+        sql: s.sql,
+        params: s.bind,
+        returnRows: s.returnRows ?? false,
+      })),
+    })
+    return result as unknown[]
   }
 
   async close(): Promise<void> {

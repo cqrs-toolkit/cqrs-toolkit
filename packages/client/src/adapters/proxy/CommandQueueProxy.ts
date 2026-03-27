@@ -7,7 +7,7 @@
  * to avoid long-running RPC timeouts.
  */
 
-import { Err, Ok } from '@meticoeus/ddd-es'
+import { Err, type Link, Ok } from '@meticoeus/ddd-es'
 import {
   Observable,
   Subject,
@@ -28,10 +28,9 @@ import type {
   CommandEvent,
   CommandFilter,
   CommandRecord,
-  EnqueueAndWaitOptions,
+  EnqueueAndWaitParams,
   EnqueueAndWaitResult,
-  EnqueueCommand,
-  EnqueueOptions,
+  EnqueueParams,
   EnqueueResult,
   WaitOptions,
 } from '../../types/commands.js'
@@ -43,7 +42,7 @@ const DEFAULT_WAIT_TIMEOUT = 30000
 /**
  * Main-thread proxy for the worker-side CommandQueue.
  */
-export class CommandQueueProxy implements ICommandQueue {
+export class CommandQueueProxy<TLink extends Link> implements ICommandQueue<TLink> {
   private readonly channel: WorkerMessageChannel
   private readonly destroy$ = new Subject<void>()
   private readonly commandEvents = new Subject<CommandEvent>()
@@ -65,10 +64,9 @@ export class CommandQueueProxy implements ICommandQueue {
   }
 
   async enqueue<TData, TEvent>(
-    command: EnqueueCommand<TData>,
-    options?: EnqueueOptions,
+    params: EnqueueParams<TLink, TData>,
   ): Promise<EnqueueResult<TEvent>> {
-    return this.channel.request<EnqueueResult<TEvent>>('commandQueue.enqueue', [command, options])
+    return this.channel.request<EnqueueResult<TEvent>>('commandQueue.enqueue', [params])
   }
 
   async waitForCompletion(
@@ -101,10 +99,10 @@ export class CommandQueueProxy implements ICommandQueue {
   }
 
   async enqueueAndWait<TData, TEvent, TResponse>(
-    command: EnqueueCommand<TData>,
-    options?: EnqueueAndWaitOptions,
+    params: EnqueueAndWaitParams<TLink, TData>,
   ): Promise<EnqueueAndWaitResult<TResponse>> {
-    const enqueueResult = await this.enqueue<TData, TEvent>(command, options)
+    const { commandId, command, cacheKey, skipValidation, ...options } = params
+    const enqueueResult = await this.enqueue<TData, TEvent>(params)
 
     if (!enqueueResult.ok) {
       const errors: ValidationError[] = enqueueResult.error.details ?? []
@@ -143,12 +141,16 @@ export class CommandQueueProxy implements ICommandQueue {
     return this.events$.pipe(filter((event) => event.commandId === commandId))
   }
 
-  async getCommand(commandId: string): Promise<CommandRecord | undefined> {
-    return this.channel.request<CommandRecord | undefined>('commandQueue.getCommand', [commandId])
+  async getCommand(commandId: string): Promise<CommandRecord<TLink> | undefined> {
+    return this.channel.request<CommandRecord<TLink> | undefined>('commandQueue.getCommand', [
+      commandId,
+    ])
   }
 
-  async listCommands(commandFilter?: CommandFilter): Promise<CommandRecord[]> {
-    return this.channel.request<CommandRecord[]>('commandQueue.listCommands', [commandFilter])
+  async listCommands(commandFilter?: CommandFilter): Promise<CommandRecord<TLink>[]> {
+    return this.channel.request<CommandRecord<TLink>[]>('commandQueue.listCommands', [
+      commandFilter,
+    ])
   }
 
   async cancelCommand(commandId: string): Promise<void> {
@@ -199,7 +201,9 @@ export class CommandQueueProxy implements ICommandQueue {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function broadcastToCommandEvent(event: EventMessage): CommandEvent | undefined {
+function broadcastToCommandEvent<TLink extends Link>(
+  event: EventMessage,
+): CommandEvent | undefined {
   const data = event.data as Record<string, unknown>
 
   switch (event.eventName) {
@@ -216,8 +220,8 @@ function broadcastToCommandEvent(event: EventMessage): CommandEvent | undefined 
         eventType: 'status-changed',
         commandId: data.commandId as string,
         type: data.type as string,
-        status: data.status as CommandRecord['status'],
-        previousStatus: data.previousStatus as CommandRecord['status'] | undefined,
+        status: data.status as CommandRecord<TLink>['status'],
+        previousStatus: data.previousStatus as CommandRecord<TLink>['status'] | undefined,
         error: data.error as CommandError | undefined,
         response: data.response,
         timestamp: Date.now(),
@@ -245,7 +249,9 @@ function broadcastToCommandEvent(event: EventMessage): CommandEvent | undefined 
   }
 }
 
-function toCompletionResult(command: CommandRecord): CommandCompletionResult {
+function toCompletionResult<TLink extends Link>(
+  command: CommandRecord<TLink>,
+): CommandCompletionResult {
   switch (command.status) {
     case 'succeeded':
       return { status: 'succeeded', response: command.serverResponse }

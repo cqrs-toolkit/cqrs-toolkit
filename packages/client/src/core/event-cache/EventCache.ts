@@ -8,7 +8,7 @@
  * - Support event replacement when server confirms
  */
 
-import type { IPersistedEvent } from '@meticoeus/ddd-es'
+import { IPersistedEvent, Link } from '@meticoeus/ddd-es'
 import { Subject } from 'rxjs'
 import type { CachedEventRecord, IStorage } from '../../storage/IStorage.js'
 import type { AnticipatedEvent } from '../../types/events.js'
@@ -21,17 +21,17 @@ import { GapBuffer, type EventGap } from './GapDetector.js'
 /**
  * Event cache configuration.
  */
-export interface EventCacheConfig {
-  storage: IStorage
-  eventBus: EventBus
+export interface EventCacheConfig<TLink extends Link> {
+  storage: IStorage<TLink>
+  eventBus: EventBus<TLink>
 }
 
 /**
  * Options for caching an event.
  */
 export interface CacheEventOptions {
-  /** Cache key to associate with */
-  cacheKey: string
+  /** Cache keys to associate with */
+  cacheKeys: string[]
   /** For anticipated events, the command ID */
   commandId?: string
 }
@@ -39,9 +39,9 @@ export interface CacheEventOptions {
 /**
  * Event cache implementation.
  */
-export class EventCache {
-  private readonly storage: IStorage
-  private readonly eventBus: EventBus
+export class EventCache<TLink extends Link> {
+  private readonly storage: IStorage<TLink>
+  private readonly eventBus: EventBus<TLink>
   private readonly gapBuffer: GapBuffer<IPersistedEvent>
 
   /** Index from cache key to the set of streamIds cached under that key. */
@@ -50,7 +50,7 @@ export class EventCache {
   /** Lifecycle signal for destroying subscriptions. */
   private readonly destroy$ = new Subject<void>()
 
-  constructor(config: EventCacheConfig) {
+  constructor(config: EventCacheConfig<TLink>) {
     this.storage = config.storage
     this.eventBus = config.eventBus
     this.gapBuffer = new GapBuffer<IPersistedEvent>()
@@ -80,14 +80,16 @@ export class EventCache {
       position: event.position.toString(),
       revision: event.revision.toString(),
       commandId: null,
-      cacheKey: options.cacheKey,
+      cacheKeys: options.cacheKeys,
       createdAt: new Date(event.created).getTime(),
     }
 
     await this.storage.saveCachedEvent(record)
 
     // Track cacheKey → streamId index
-    this.trackCacheKeyStream(options.cacheKey, event.streamId)
+    for (const cacheKey of options.cacheKeys) {
+      this.trackCacheKeyStream(cacheKey, event.streamId)
+    }
 
     // Track for gap detection (use revision, not position — revision is per-stream sequential)
     if (persistence === 'Permanent') {
@@ -118,7 +120,7 @@ export class EventCache {
       position: event.position.toString(),
       revision: event.revision.toString(),
       commandId: null,
-      cacheKey: options.cacheKey,
+      cacheKeys: options.cacheKeys,
       createdAt: new Date(event.created).getTime(),
     }))
 
@@ -126,7 +128,9 @@ export class EventCache {
 
     for (const event of events) {
       // Track cacheKey → streamId index
-      this.trackCacheKeyStream(options.cacheKey, event.streamId)
+      for (const cacheKey of options.cacheKeys) {
+        this.trackCacheKeyStream(cacheKey, event.streamId)
+      }
 
       // Track for gap detection (use revision, not position — revision is per-stream sequential)
       if (normalizeEventPersistence(event) === 'Permanent') {
@@ -160,7 +164,7 @@ export class EventCache {
       position: null,
       revision: null,
       commandId: options.commandId,
-      cacheKey: options.cacheKey,
+      cacheKeys: options.cacheKeys,
       createdAt: now,
     }
 
@@ -196,7 +200,7 @@ export class EventCache {
         position: null,
         revision: null,
         commandId: options.commandId,
-        cacheKey: options.cacheKey,
+        cacheKeys: options.cacheKeys,
         createdAt: now,
       })
     }
@@ -341,7 +345,26 @@ export class EventCache {
    * @param cacheKey - Cache key to clear
    * @returns Array of streamIds that were cleared
    */
-  clearByCacheKey(cacheKey: string): string[] {
+  /**
+   * Add cache key associations to an existing event.
+   * Used when a duplicate WS event is relevant to additional active cache keys.
+   */
+  async addCacheKeysToEvent(eventId: string, cacheKeys: string[]): Promise<void> {
+    await this.storage.addCacheKeysToEvent(eventId, cacheKeys)
+    // Update in-memory cacheKeyStreams index
+    const event = await this.storage.getCachedEvent(eventId)
+    if (event) {
+      for (const cacheKey of cacheKeys) {
+        this.trackCacheKeyStream(cacheKey, event.streamId)
+      }
+    }
+  }
+
+  async clearByCacheKey(cacheKey: string): Promise<string[]> {
+    // Remove cache key associations from events in storage, delete orphaned events
+    await this.storage.removeCacheKeyFromEvents(cacheKey)
+
+    // Clear in-memory indexes
     const streamIds = this.cacheKeyStreams.get(cacheKey)
     if (!streamIds) return []
 
@@ -370,7 +393,7 @@ export class EventCache {
       position: event.position !== undefined ? event.position.toString() : null,
       revision: event.revision !== undefined ? event.revision.toString() : null,
       commandId: event.commandId ?? null,
-      cacheKey: event.cacheKey,
+      cacheKeys: [event.cacheKey],
       createdAt: Date.now(),
     }
 

@@ -38,7 +38,36 @@ Sync manager.
 
 `SyncManager`\<`TLink`, `TSchema`, `TEvent`\>
 
+## Properties
+
+### invalidationScheduler
+
+> `protected` `readonly` **invalidationScheduler**: `InvalidationScheduler`\<`TLink`\>
+
+---
+
+### knownRevisions
+
+> `protected` `readonly` **knownRevisions**: `Map`\<`string`, `bigint`\>
+
+Highest applied revision per stream. Initialized during seeding, advanced on happy-path processing.
+
 ## Methods
+
+### buildFetchContext()
+
+> `protected` **buildFetchContext**(): `Promise`\<[`FetchContext`](../interfaces/FetchContext.md)\>
+
+Build network context for collection fetch methods.
+Merges static headers from NetworkConfig with dynamic auth headers
+from the AuthStrategy. For cookie-based auth, this is a no-op —
+the browser sends cookies automatically with fetch().
+
+#### Returns
+
+`Promise`\<[`FetchContext`](../interfaces/FetchContext.md)\>
+
+---
 
 ### clearKnownRevisions()
 
@@ -104,13 +133,55 @@ Get sync status for a collection.
 
 ### getConnectivity()
 
-> **getConnectivity**(): [`ConnectivityManager`](ConnectivityManager.md)
+> **getConnectivity**(): [`ConnectivityManager`](ConnectivityManager.md)\<`TLink`\>
 
 Get connectivity manager.
 
 #### Returns
 
-[`ConnectivityManager`](ConnectivityManager.md)
+[`ConnectivityManager`](ConnectivityManager.md)\<`TLink`\>
+
+---
+
+### getSeedStatus()
+
+> **getSeedStatus**(`cacheKey`): `"seeded"` \| `"seeding"` \| `"unseeded"`
+
+Get the aggregate seed status for a cache key identity.
+Checks all collections whose keyTypes match the identity.
+
+- 'seeded': all matching collections are seeded for this key
+- 'seeding': at least one matching collection is currently syncing
+- 'unseeded': no status entries or some not yet started
+
+#### Parameters
+
+##### cacheKey
+
+[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
+#### Returns
+
+`"seeded"` \| `"seeding"` \| `"unseeded"`
+
+---
+
+### handleWebSocketEvent()
+
+> `protected` **handleWebSocketEvent**(`envelope`): `Promise`\<`void`\>
+
+Handle a WebSocket event with pre-resolved cache keys.
+Per-stream gap detection: check AFTER caching, repair inline when gaps exist.
+
+#### Parameters
+
+##### envelope
+
+`WsEventEnvelope`\<`TLink`\>
+
+#### Returns
+
+`Promise`\<`void`\>
 
 ---
 
@@ -132,6 +203,125 @@ missing events asynchronously.
 #### Returns
 
 `Promise`\<`void`\>
+
+---
+
+### resolveCacheKeysFromTopics()
+
+> `protected` **resolveCacheKeysFromTopics**(`streamId`, `topics`): [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>[]
+
+Resolve cache key identities from WS message topics.
+Finds matching collections by streamId, then calls each collection's
+`cacheKeysFromTopics` to derive the cache keys deterministically.
+
+#### Parameters
+
+##### streamId
+
+`string`
+
+##### topics
+
+readonly `string`[]
+
+#### Returns
+
+[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>[]
+
+---
+
+### seed()
+
+> **seed**(`cacheKey`): `Promise`\<`void`\>
+
+Seed all collections whose keyTypes match the given cache key identity.
+
+Full lifecycle:
+
+- If already seeded → returns immediately
+- If unseeded → acquires the key (triggering seeding via events), then waits for settlement
+- If seeding is in progress → waits for settlement
+- If settlement fails → throws
+
+#### Parameters
+
+##### cacheKey
+
+[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
+Cache key identity to seed for
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
+### seedForKey()
+
+> **seedForKey**(`cacheKey`): `Promise`\<`void`\>
+
+Internal: seed all matching collections for a cache key identity.
+Assumes the key is already acquired in storage.
+Called by event handlers (onCacheKeyAdded, onCacheKeyAccessed) and by seed().
+Emits cache:seed-settled when all matching collections have settled.
+
+#### Parameters
+
+##### cacheKey
+
+[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
+Cache key identity to seed for
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
+### seedOneCollection()
+
+> `protected` **seedOneCollection**(`params`): `Promise`\<\{ `recordCount`: `number`; `seeded`: `boolean`; \}\>
+
+Seed one collection for one cache key.
+Shared core logic used by both seedOnInit and seedOnDemand paths.
+Handles seed status, idempotency, fetching, topic subscription, and event emission.
+Does NOT handle collection matching or settlement.
+
+#### Parameters
+
+##### params
+
+###### cacheKey
+
+[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
+Cache key identity to seed under
+
+###### collection
+
+[`Collection`](../interfaces/Collection.md)\<`TLink`\>
+
+Collection to seed
+
+###### ctx
+
+[`FetchContext`](../interfaces/FetchContext.md)
+
+Fetch context with base URL, headers, and abort signal
+
+###### topics
+
+readonly `string`[]
+
+Pre-resolved WS topic patterns to subscribe to for this key
+
+#### Returns
+
+`Promise`\<\{ `recordCount`: `number`; `seeded`: `boolean`; \}\>
+
+`{ seeded: true, recordCount }` if data was seeded, `{ seeded: false, recordCount: 0 }` if skipped or failed
 
 ---
 
@@ -208,7 +398,7 @@ Connectivity monitoring is paused but not destroyed.
 
 > **syncCollection**(`collection`): `Promise`\<`void`\>
 
-Force sync a specific collection.
+Force-sync a specific collection from the server.
 
 #### Parameters
 

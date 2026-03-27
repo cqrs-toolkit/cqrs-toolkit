@@ -19,7 +19,7 @@ export interface DebugMethodDeps<TLink extends Link, TSchema, TEvent extends IAn
   commandQueue: CommandQueue<TLink, TSchema, TEvent>
   cacheManager: CacheManager<TLink>
   syncManager: SyncManager<TLink, TSchema, TEvent>
-  storage: IStorage
+  storage: IStorage<TLink>
   db: ISqliteDb
 }
 

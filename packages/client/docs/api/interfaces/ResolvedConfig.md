@@ -68,7 +68,7 @@ Cache configuration.
 
 ### commandSender?
 
-> `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)
+> `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)\<`TLink`\>
 
 ---
 

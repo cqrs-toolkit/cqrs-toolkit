@@ -2,19 +2,34 @@
  * SolidJS reactive primitive for list queries.
  */
 
-import type { IQueryManager, QueryManagerQueryOptions } from '@cqrs-toolkit/client'
+import type {
+  CacheKeyIdentity,
+  CollectionSignal,
+  IQueryManager,
+  ListParams,
+} from '@cqrs-toolkit/client'
 import type { Link } from '@meticoeus/ddd-es'
-import { onCleanup } from 'solid-js'
+import { createComputed, onCleanup } from 'solid-js'
 import { createStore, reconcile } from 'solid-js/store'
-import type { Identifiable, ListQueryOptions, ListQueryState, ReconciledId } from './types.js'
+import type {
+  Identifiable,
+  ListQueryParams,
+  ListQueryState,
+  ListQueryStatus,
+  ReconciledId,
+} from './types.js'
 
 interface ListQueryStore<T extends Identifiable> {
   items: T[]
   loading: boolean
   total: number
   hasLocalChanges: boolean
-  error: unknown
+  state: ListQueryStatus
   reconciled: ReconciledId[]
+}
+
+interface Session {
+  cleanup: () => void
 }
 
 /**
@@ -30,119 +45,207 @@ interface ListQueryStore<T extends Identifiable> {
  * The `reconciled` field exposes these mappings for consumers holding entity
  * IDs in external signals (selection state, URL params).
  *
+ * The `cacheKey` parameter is required. When it is a reactive accessor,
+ * the query re-subscribes when the cache key identity changes — releasing
+ * the old key and resetting to loading state.
+ *
  * @param queryManager - The query manager (should be StableRefQueryManager-wrapped for best results)
- * @param collection - Collection name
- * @param options - Query options (scope, limit, offset)
- * @returns Reactive store with items, loading, total, hasLocalChanges, error, reconciled
+ * @param params - Query parameters (collection, cacheKey, limit, offset)
+ * @returns Reactive store with items, loading, total, hasLocalChanges, state, reconciled
  */
 export function createListQuery<TLink extends Link, T extends Identifiable>(
   queryManager: IQueryManager<TLink>,
-  collection: string,
-  options?: ListQueryOptions,
+  params: ListQueryParams<TLink>,
 ): ListQueryState<T> {
   const initialState: ListQueryStore<T> = {
     items: [],
     loading: true,
     total: 0,
     hasLocalChanges: false,
-    error: undefined,
+    state: { status: 'loading' },
     reconciled: [],
   }
 
   const [store, setStore] = createStore<ListQueryStore<T>>(initialState)
 
-  const queryOptions: QueryManagerQueryOptions = { hold: true }
-  if (options?.limit !== undefined) {
-    queryOptions.limit = options.limit
-  }
-  if (options?.offset !== undefined) {
-    queryOptions.offset = options.offset
-  }
+  // Normalize cacheKey to an accessor
+  const cacheKeyAccessor: () => CacheKeyIdentity<TLink> | undefined =
+    typeof params.cacheKey === 'function'
+      ? params.cacheKey
+      : () => params.cacheKey as CacheKeyIdentity<TLink>
 
-  let cacheKey: string | undefined
-  let fetchVersion = 0
-  let initialFetchDone = false
+  let currentSession: Session | undefined
 
-  async function fetch(): Promise<void> {
-    fetchVersion++
-    const version = fetchVersion
+  function startSession(cacheKey: CacheKeyIdentity<TLink>): Session {
+    let resolvedCacheKey: string | undefined
+    let fetchVersion = 0
+    let cancelled = false
+    let settled = false
 
-    try {
-      const result = await queryManager.list<T>(collection, queryOptions)
+    const listParams: ListParams<TLink> = {
+      collection: params.collection,
+      cacheKey,
+      hold: true,
+      limit: params.limit,
+      offset: params.offset,
+    }
 
-      if (version !== fetchVersion) {
-        return
-      }
+    // Reset store to loading state for the new session
+    setStore('items', [])
+    setStore('loading', true)
+    setStore('total', 0)
+    setStore('hasLocalChanges', false)
+    setStore('state', { status: 'loading' })
+    setStore('reconciled', [])
 
-      // Track cache key for release on cleanup
-      if (cacheKey === undefined) {
-        cacheKey = result.cacheKey.key
-      }
+    async function fetch(): Promise<void> {
+      fetchVersion++
+      const version = fetchVersion
 
-      // Build clientId→serverId map from metadata for items that have been reconciled.
-      // An item has been reconciled when its _clientMetadata.clientId differs from its id.
-      const idRemaps = new Map<string, string>()
-      for (const m of result.meta) {
-        if (m.clientId && m.clientId !== m.id) {
-          idRemaps.set(m.clientId, m.id)
+      try {
+        const result = await queryManager.list<T>(listParams)
+
+        if (cancelled || version !== fetchVersion) {
+          return
         }
-      }
 
-      // Pre-mutate existing store items whose id matches a reconciled clientId.
-      // This makes reconcile() see the same item with the new id — preserving
-      // the Solid store object reference and <For> DOM node identity.
-      if (idRemaps.size > 0) {
-        for (const [i, item] of store.items.entries()) {
-          const newId = idRemaps.get(item.id)
-          if (typeof newId === 'string') {
-            setStore('items', i, { ...item, id: newId } as T)
+        // Track cache key for release on cleanup
+        if (resolvedCacheKey === undefined) {
+          resolvedCacheKey = result.cacheKey.key
+        }
+
+        // Build clientId→serverId map from metadata for items that have been reconciled.
+        // An item has been reconciled when its _clientMetadata.clientId differs from its id.
+        const idRemaps = new Map<string, string>()
+        for (const m of result.meta) {
+          if (m.clientId && m.clientId !== m.id) {
+            idRemaps.set(m.clientId, m.id)
           }
         }
-      }
 
-      setStore('items', reconcile(result.data, { key: 'id', merge: true }))
-      setStore('total', result.total)
-      setStore('hasLocalChanges', result.hasLocalChanges)
-      setStore('error', undefined)
+        // Pre-mutate existing store items whose id matches a reconciled clientId.
+        // This makes reconcile() see the same item with the new id — preserving
+        // the Solid store object reference and <For> DOM node identity.
+        if (idRemaps.size > 0) {
+          for (const [i, item] of store.items.entries()) {
+            const newId = idRemaps.get(item.id)
+            if (typeof newId === 'string') {
+              setStore('items', i, { ...item, id: newId } as T)
+            }
+          }
+        }
 
-      // Expose reconciliation mappings for consumers holding entity IDs externally.
-      const reconciled: ReconciledId[] = []
-      for (const [clientId, serverId] of idRemaps) {
-        reconciled.push({ clientId, serverId })
-      }
-      setStore('reconciled', reconciled)
+        setStore('items', reconcile(result.data, { key: 'id', merge: true }))
+        setStore('total', result.total)
+        setStore('hasLocalChanges', result.hasLocalChanges)
 
-      if (!initialFetchDone) {
-        initialFetchDone = true
-        setStore('loading', false)
-      }
-    } catch (err: unknown) {
-      if (version !== fetchVersion) {
-        return
-      }
+        // Expose reconciliation mappings for consumers holding entity IDs externally.
+        const reconciled: ReconciledId[] = []
+        for (const [clientId, serverId] of idRemaps) {
+          reconciled.push({ clientId, serverId })
+        }
+        setStore('reconciled', reconciled)
 
-      setStore('error', err)
+        if (!settled) {
+          if (result.data.length > 0) {
+            // Restore path: local data available — settle immediately
+            settle()
+          } else {
+            // Fresh path: no data yet — transition to seeding, wait for watchCollection
+            setStore('state', { status: 'seeding' })
+          }
+        }
+      } catch (err: unknown) {
+        if (cancelled || version !== fetchVersion) {
+          return
+        }
 
-      if (!initialFetchDone) {
-        initialFetchDone = true
-        setStore('loading', false)
+        if (!settled) {
+          // First fetch failed — seed-failed
+          settled = true
+          const message = err instanceof Error ? err.message : String(err)
+          setStore('state', { status: 'seed-failed', error: message })
+          setStore('loading', false)
+        }
+        // If already settled, fetch errors are transient — state stays as-is
       }
+    }
+
+    function settle(): void {
+      settled = true
+      setStore('state', { status: 'ready' })
+      setStore('loading', false)
+    }
+
+    function handleSignal(signal: CollectionSignal): void {
+      if (cancelled) return
+
+      switch (signal.type) {
+        case 'updated':
+        case 'seed-completed':
+          // Re-fetch data, then settle if not already settled
+          void fetch().then(() => {
+            if (!cancelled && !settled) {
+              settle()
+            }
+          })
+          break
+
+        case 'sync-failed':
+          if (!settled) {
+            // First seed failed
+            settled = true
+            setStore('state', { status: 'seed-failed', error: signal.error })
+            setStore('loading', false)
+          } else if (store.state.status !== 'seed-failed') {
+            // Subsequent sync failure — data is stale but preserved
+            setStore('state', { status: 'sync-failed', error: signal.error })
+          }
+          break
+      }
+    }
+
+    // Initial fetch
+    void fetch()
+
+    // Subscribe to collection lifecycle signals
+    const subscription = queryManager.watchCollection(params.collection).subscribe(handleSignal)
+
+    return {
+      cleanup() {
+        cancelled = true
+        subscription.unsubscribe()
+        if (resolvedCacheKey !== undefined) {
+          void queryManager.release(resolvedCacheKey)
+        }
+      },
     }
   }
 
-  // Initial fetch
-  void fetch()
+  // createComputed runs synchronously (unlike createEffect which is deferred),
+  // ensuring the initial fetch starts immediately and re-runs when cacheKey changes.
+  // When the accessor returns undefined, no session is active (loading state with no data).
+  createComputed(() => {
+    const cacheKey = cacheKeyAccessor()
+    currentSession?.cleanup()
+    currentSession = undefined
 
-  // Subscribe to collection changes
-  const subscription = queryManager.watchCollection(collection).subscribe(() => {
-    void fetch()
+    if (cacheKey === undefined) {
+      // No active query — show loading/empty state
+      setStore('items', [])
+      setStore('loading', true)
+      setStore('total', 0)
+      setStore('hasLocalChanges', false)
+      setStore('state', { status: 'loading' })
+      setStore('reconciled', [])
+      return
+    }
+
+    currentSession = startSession(cacheKey)
   })
 
   onCleanup(() => {
-    subscription.unsubscribe()
-    if (cacheKey !== undefined) {
-      void queryManager.release(cacheKey)
-    }
+    currentSession?.cleanup()
   })
 
   return store

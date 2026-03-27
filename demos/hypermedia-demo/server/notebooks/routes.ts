@@ -271,6 +271,44 @@ export function notebookRoutes(
           )
         }
 
+        case NotebookCommandIds.AddNotebookTag: {
+          const aggregate = await notebookRepo.getById(request.params.id)
+          if (!aggregate) {
+            reply.code(404)
+            return { message: 'Notebook not found' } satisfies CommandResponse
+          }
+          aggregate.addTag(res.value.data.tag, metadata)
+          const saveRes = await notebookRepo.save(aggregate, expectedRevision ?? 0n)
+          if (!saveRes.ok) {
+            reply.code(saveRes.error.code ?? 500)
+            return { message: saveRes.error.message } satisfies CommandResponse
+          }
+          return toCommandSuccess(
+            request.params.id,
+            saveRes.value.nextExpectedRevision,
+            saveRes.value.events ?? [],
+          )
+        }
+
+        case NotebookCommandIds.RemoveNotebookTag: {
+          const aggregate = await notebookRepo.getById(request.params.id)
+          if (!aggregate) {
+            reply.code(404)
+            return { message: 'Notebook not found' } satisfies CommandResponse
+          }
+          aggregate.removeTag(res.value.data.tag, metadata)
+          const saveRes = await notebookRepo.save(aggregate, expectedRevision ?? 0n)
+          if (!saveRes.ok) {
+            reply.code(saveRes.error.code ?? 500)
+            return { message: saveRes.error.message } satisfies CommandResponse
+          }
+          return toCommandSuccess(
+            request.params.id,
+            saveRes.value.nextExpectedRevision,
+            saveRes.value.events ?? [],
+          )
+        }
+
         default:
           reply.code(400)
           return { message: `Unknown command: ${stableId}` } satisfies CommandResponse

@@ -27,17 +27,17 @@ export interface DebugStorageAPI {
  */
 export interface CqrsDebugAPI<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent> {
   /** Observable of all library events (including debug events). */
-  readonly events$: Observable<LibraryEvent>
+  readonly events$: Observable<LibraryEvent<TLink>>
   /** Command queue interface for inspection. */
-  readonly commandQueue: ICommandQueue
+  readonly commandQueue: ICommandQueue<TLink>
   /** Query manager interface for inspection. */
   readonly queryManager: IQueryManager<TLink>
   /** Cache manager interface for inspection. */
   readonly cacheManager: ICacheManager<TLink>
   /** Sync manager interface for inspection. */
-  readonly syncManager: CqrsClientSyncManager
+  readonly syncManager: CqrsClientSyncManager<TLink>
   /** Storage interface (only available in online-only mode). */
-  readonly storage?: IStorage
+  readonly storage?: IStorage<TLink>
   /** Raw SQL debug access (only available in worker modes). */
   readonly debugStorage?: DebugStorageAPI
   /** Resolved client configuration. */

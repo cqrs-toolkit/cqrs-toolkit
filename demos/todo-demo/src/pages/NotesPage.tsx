@@ -1,22 +1,41 @@
-import { autoRevision, type CollectionSyncStatus, type LibraryEvent } from '@cqrs-toolkit/client'
+import {
+  type CollectionSyncStatus,
+  deriveEntityKey,
+  deriveScopeKey,
+  type LibraryEvent,
+} from '@cqrs-toolkit/client'
 import { useClient } from '@cqrs-toolkit/client-solid'
 import { appCreateListQuery } from '@cqrs-toolkit/demo-base/common/components'
 import { NotebookList } from '@cqrs-toolkit/demo-base/notebooks/components'
+import { NOTEBOOK_SEED_KEY } from '@cqrs-toolkit/demo-base/notebooks/domain'
 import type { Notebook } from '@cqrs-toolkit/demo-base/notebooks/shared'
 import { NoteEditor, NoteTitleList } from '@cqrs-toolkit/demo-base/notes/components'
 import type { Note } from '@cqrs-toolkit/demo-base/notes/shared'
 import { ServiceLink } from '@meticoeus/ddd-es'
 import { A } from '@solidjs/router'
 import { filter } from 'rxjs'
-import { createEffect, createMemo, createSignal, onCleanup, onMount, Show } from 'solid-js'
+import { createEffect, createSignal, onCleanup, onMount, Show } from 'solid-js'
 
 export default function NotesPage() {
   const client = useClient<ServiceLink>()
-  const notebooksQuery = appCreateListQuery<Notebook>(client.queryManager, 'notebooks')
-  const notesQuery = appCreateListQuery<Note>(client.queryManager, 'notes')
 
   const [selectedNotebookId, setSelectedNotebookId] = createSignal<string>()
   const [selectedNoteId, setSelectedNoteId] = createSignal<string>()
+
+  const notebooksQuery = appCreateListQuery<Notebook>(
+    client.queryManager,
+    'notebooks',
+    deriveScopeKey({ scopeType: 'notebooks' }),
+  )
+  const notesQuery = appCreateListQuery<Note>(client.queryManager, 'notes', () =>
+    selectedNotebookId()
+      ? deriveEntityKey({ service: 'nb', type: 'Notebook', id: selectedNotebookId()! })
+      : undefined,
+  )
+  function notebookCacheKey() {
+    return deriveEntityKey({ service: 'nb', type: 'Notebook', id: selectedNotebookId()! })
+  }
+
   const [editingTitle, setEditingTitle] = createSignal<string>()
   const [error, setError] = createSignal<string>()
   const [notebooksSync, setNotebooksSync] = createSignal<CollectionSyncStatus>()
@@ -40,7 +59,11 @@ export default function NotesPage() {
     const syncSub = client.events$
       .pipe(
         filter(
-          (e): e is LibraryEvent<'sync:completed'> | LibraryEvent<'sync:failed'> =>
+          (
+            e,
+          ): e is
+            | LibraryEvent<ServiceLink, 'sync:completed'>
+            | LibraryEvent<ServiceLink, 'sync:failed'> =>
             e.type === 'sync:completed' || e.type === 'sync:failed',
         ),
       )
@@ -51,12 +74,6 @@ export default function NotesPage() {
     onCleanup(() => {
       syncSub.unsubscribe()
     })
-  })
-
-  const notesForNotebook = createMemo(() => {
-    const nbId = selectedNotebookId()
-    if (!nbId) return []
-    return notesQuery.items.filter((n) => n.notebookId === nbId)
   })
 
   function handleSelectNotebook(id: string) {
@@ -115,19 +132,30 @@ export default function NotesPage() {
             notebooks={notebooksQuery.items}
             selectedId={selectedNotebookId()}
             onSelect={handleSelectNotebook}
-            onSubmitCreate={(p) => client.submit({ type: 'CreateNotebook', data: p })}
+            onSubmitCreate={(p) =>
+              client.submit({
+                command: { type: 'CreateNotebook', data: p },
+                cacheKey: NOTEBOOK_SEED_KEY,
+              })
+            }
             onSubmitRename={(p) =>
               client.submit({
-                type: 'UpdateNotebookName',
-                data: { id: p.id, name: p.name },
-                revision: autoRevision(p.revision.fallback),
+                command: {
+                  type: 'UpdateNotebookName',
+                  data: { id: p.id, name: p.name },
+                  revision: p.revision,
+                },
+                cacheKey: NOTEBOOK_SEED_KEY,
               })
             }
             onSubmitDelete={(p) =>
               client.submit({
-                type: 'DeleteNotebook',
-                data: { id: p.id },
-                revision: autoRevision(p.revision.fallback),
+                command: {
+                  type: 'DeleteNotebook',
+                  data: { id: p.id },
+                  revision: p.revision,
+                },
+                cacheKey: NOTEBOOK_SEED_KEY,
               })
             }
             onError={setError}
@@ -145,7 +173,7 @@ export default function NotesPage() {
             }
           >
             <NoteTitleList
-              notes={notesForNotebook()}
+              notes={notesQuery.items}
               selectedId={selectedNoteId()}
               onSelect={handleSelectNote}
               onAddPlaceholder={() => handleSelectNote('placeholder')}
@@ -168,26 +196,40 @@ export default function NotesPage() {
               <NoteEditor
                 noteId={noteId()}
                 notebookId={selectedNotebookId()!}
-                onSubmitCreate={(p) => client.submit({ type: 'CreateNote', data: p })}
+                onSubmitCreate={(p) =>
+                  client.submit({
+                    command: { type: 'CreateNote', data: p },
+                    cacheKey: notebookCacheKey(),
+                  })
+                }
                 onSubmitUpdateTitle={(p) =>
                   client.submit({
-                    type: 'UpdateNoteTitle',
-                    data: { id: p.id, title: p.title },
-                    revision: autoRevision(p.revision.fallback),
+                    command: {
+                      type: 'UpdateNoteTitle',
+                      data: { id: p.id, title: p.title },
+                      revision: p.revision,
+                    },
+                    cacheKey: notebookCacheKey(),
                   })
                 }
                 onSubmitUpdateBody={(p) =>
                   client.submit({
-                    type: 'UpdateNoteBody',
-                    data: { id: p.id, body: p.body },
-                    revision: autoRevision(p.revision.fallback),
+                    command: {
+                      type: 'UpdateNoteBody',
+                      data: { id: p.id, body: p.body },
+                      revision: p.revision,
+                    },
+                    cacheKey: notebookCacheKey(),
                   })
                 }
                 onSubmitDelete={(p) =>
                   client.submit({
-                    type: 'DeleteNote',
-                    data: { id: p.id },
-                    revision: autoRevision(p.revision.fallback),
+                    command: {
+                      type: 'DeleteNote',
+                      data: { id: p.id },
+                      revision: p.revision,
+                    },
+                    cacheKey: notebookCacheKey(),
                   })
                 }
                 onError={setError}

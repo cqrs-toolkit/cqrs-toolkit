@@ -2,7 +2,14 @@
  * Unit tests for createItemQuery.
  */
 
-import type { IQueryManager, QueryOptions, QueryResult, ScopeCacheKey } from '@cqrs-toolkit/client'
+import type {
+  CollectionSignal,
+  GetByIdParams,
+  IQueryManager,
+  QueryResult,
+  ScopeCacheKey,
+} from '@cqrs-toolkit/client'
+import { deriveScopeKey } from '@cqrs-toolkit/client'
 import { ServiceLink } from '@meticoeus/ddd-es'
 import { Subject } from 'rxjs'
 import { createRoot, createSignal } from 'solid-js'
@@ -18,24 +25,22 @@ interface Todo {
 const TODO_A: Todo = { id: '1', title: 'Buy milk', done: false }
 const TODO_B: Todo = { id: '2', title: 'Walk dog', done: true }
 
+const TODOS_CACHE_KEY = deriveScopeKey({ scopeType: 'todos' })
+
 function scopeKey(key: string): ScopeCacheKey {
-  return { kind: 'scope', key, scopeType: 'test' } as unknown as ScopeCacheKey
+  return { kind: 'scope', key, scopeType: 'test' }
 }
 
 function createMockQueryManager() {
-  const collectionUpdate$ = new Subject<string[]>()
+  const collectionUpdate$ = new Subject<CollectionSignal>()
   let getByIdResult: QueryResult<ServiceLink, Todo>
   const holdSpy = vi.fn<IQueryManager<ServiceLink>['hold']>().mockResolvedValue(undefined)
   const releaseSpy = vi.fn<IQueryManager<ServiceLink>['release']>().mockResolvedValue(undefined)
   const getByIdSpy = vi.fn<IQueryManager<ServiceLink>['getById']>()
 
   const qm: IQueryManager<ServiceLink> = {
-    async getById<T>(
-      _collection: string,
-      _id: string,
-      options?: QueryOptions,
-    ): Promise<QueryResult<ServiceLink, T>> {
-      getByIdSpy(_collection, _id, options)
+    async getById<T>(params: GetByIdParams<ServiceLink>): Promise<QueryResult<ServiceLink, T>> {
+      getByIdSpy(params)
       return getByIdResult as unknown as QueryResult<ServiceLink, T>
     },
     async list() {
@@ -91,7 +96,11 @@ describe('createItemQuery', () => {
     })
 
     await createRoot(async (dispose) => {
-      const state = createItemQuery<ServiceLink, Todo>(qm, 'todos', () => '1')
+      const state = createItemQuery<ServiceLink, Todo>(qm, {
+        collection: 'todos',
+        id: () => '1',
+        cacheKey: TODOS_CACHE_KEY,
+      })
 
       expect(state.loading).toBe(true)
       expect(state.data).toBeUndefined()
@@ -108,6 +117,36 @@ describe('createItemQuery', () => {
     })
   })
 
+  it('accepts a static string id', async () => {
+    const { qm, setGetByIdResult, getByIdSpy } = createMockQueryManager()
+
+    setGetByIdResult({
+      data: TODO_A,
+      meta: { id: '1', updatedAt: 1000 },
+      hasLocalChanges: false,
+      cacheKey: scopeKey('ck-todos-1'),
+    })
+
+    await createRoot(async (dispose) => {
+      const state = createItemQuery<ServiceLink, Todo>(qm, {
+        collection: 'todos',
+        id: '1',
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      await tick()
+
+      expect(state.data?.id).toBe('1')
+      expect(getByIdSpy).toHaveBeenCalledWith({
+        collection: 'todos',
+        id: '1',
+        cacheKey: TODOS_CACHE_KEY,
+        hold: true,
+      })
+
+      dispose()
+    })
+  })
+
   it('handles not-found (data undefined)', async () => {
     const { qm, setGetByIdResult } = createMockQueryManager()
 
@@ -119,7 +158,11 @@ describe('createItemQuery', () => {
     })
 
     await createRoot(async (dispose) => {
-      const state = createItemQuery<ServiceLink, Todo>(qm, 'todos', () => 'missing')
+      const state = createItemQuery<ServiceLink, Todo>(qm, {
+        collection: 'todos',
+        id: () => 'missing',
+        cacheKey: TODOS_CACHE_KEY,
+      })
       await tick()
 
       expect(state.loading).toBe(false)
@@ -140,7 +183,11 @@ describe('createItemQuery', () => {
     })
 
     await createRoot(async (dispose) => {
-      const state = createItemQuery<ServiceLink, Todo>(qm, 'todos', () => '1')
+      const state = createItemQuery<ServiceLink, Todo>(qm, {
+        collection: 'todos',
+        id: () => '1',
+        cacheKey: TODOS_CACHE_KEY,
+      })
       await tick()
 
       expect(state.data?.title).toBe('Buy milk')
@@ -153,7 +200,7 @@ describe('createItemQuery', () => {
         hasLocalChanges: false,
         cacheKey: scopeKey('ck-todos-1'),
       })
-      collectionUpdate$.next(['1'])
+      collectionUpdate$.next({ type: 'updated', ids: ['1'] })
       await tick()
 
       expect(state.data?.title).toBe('Buy oat milk')
@@ -173,13 +220,17 @@ describe('createItemQuery', () => {
     })
 
     await createRoot(async (dispose) => {
-      createItemQuery<ServiceLink, Todo>(qm, 'todos', () => '1')
+      createItemQuery<ServiceLink, Todo>(qm, {
+        collection: 'todos',
+        id: () => '1',
+        cacheKey: TODOS_CACHE_KEY,
+      })
       await tick()
 
       const callCountAfterInit = getByIdSpy.mock.calls.length
 
       // Emit for a different ID
-      collectionUpdate$.next(['2', '3'])
+      collectionUpdate$.next({ type: 'updated', ids: ['2', '3'] })
       await tick()
 
       // Should not have triggered another fetch
@@ -201,7 +252,11 @@ describe('createItemQuery', () => {
 
     await createRoot(async (dispose) => {
       const [id, setId] = createSignal('1')
-      const state = createItemQuery<ServiceLink, Todo>(qm, 'todos', id)
+      const state = createItemQuery<ServiceLink, Todo>(qm, {
+        collection: 'todos',
+        id,
+        cacheKey: TODOS_CACHE_KEY,
+      })
       await tick()
 
       expect(state.data?.id).toBe('1')
@@ -241,7 +296,11 @@ describe('createItemQuery', () => {
 
     await createRoot(async (dispose) => {
       const [id, setId] = createSignal('1')
-      const state = createItemQuery<ServiceLink, Todo>(qm, 'todos', id)
+      const state = createItemQuery<ServiceLink, Todo>(qm, {
+        collection: 'todos',
+        id,
+        cacheKey: TODOS_CACHE_KEY,
+      })
       await tick()
 
       expect(state.loading).toBe(false)
@@ -285,7 +344,11 @@ describe('createItemQuery', () => {
     qm.getById = () => Promise.reject(testError)
 
     await createRoot(async (dispose) => {
-      const state = createItemQuery<ServiceLink, Todo>(qm, 'todos', () => '1')
+      const state = createItemQuery<ServiceLink, Todo>(qm, {
+        collection: 'todos',
+        id: () => '1',
+        cacheKey: TODOS_CACHE_KEY,
+      })
       await tick()
 
       expect(state.error).toBe(testError)
@@ -306,7 +369,11 @@ describe('createItemQuery', () => {
     })
 
     await createRoot(async (dispose) => {
-      createItemQuery<ServiceLink, Todo>(qm, 'todos', () => '1')
+      createItemQuery<ServiceLink, Todo>(qm, {
+        collection: 'todos',
+        id: () => '1',
+        cacheKey: TODOS_CACHE_KEY,
+      })
       await tick()
 
       expect(releaseSpy).not.toHaveBeenCalled()
@@ -328,7 +395,11 @@ describe('createItemQuery', () => {
     })
 
     await createRoot(async (dispose) => {
-      createItemQuery<ServiceLink, Todo>(qm, 'todos', () => '1')
+      createItemQuery<ServiceLink, Todo>(qm, {
+        collection: 'todos',
+        id: () => '1',
+        cacheKey: TODOS_CACHE_KEY,
+      })
       await tick()
 
       expect(collectionUpdate$.observed).toBe(true)
@@ -352,7 +423,11 @@ describe('createItemQuery', () => {
 
     await createRoot(async (dispose) => {
       const [id, setId] = createSignal('1')
-      const state = createItemQuery<ServiceLink, Todo>(qm, 'todos', id)
+      const state = createItemQuery<ServiceLink, Todo>(qm, {
+        collection: 'todos',
+        id,
+        cacheKey: TODOS_CACHE_KEY,
+      })
       await tick()
 
       // Switch ID before first fetch resolves
@@ -397,10 +472,17 @@ describe('createItemQuery', () => {
     })
 
     await createRoot(async (dispose) => {
-      createItemQuery<ServiceLink, Todo>(qm, 'todos', () => '1', {})
+      createItemQuery<ServiceLink, Todo>(qm, {
+        collection: 'todos',
+        id: () => '1',
+        cacheKey: TODOS_CACHE_KEY,
+      })
       await tick()
 
-      expect(getByIdSpy).toHaveBeenCalledWith('todos', '1', {
+      expect(getByIdSpy).toHaveBeenCalledWith({
+        collection: 'todos',
+        id: '1',
+        cacheKey: TODOS_CACHE_KEY,
         hold: true,
       })
 

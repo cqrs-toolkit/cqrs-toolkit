@@ -4,6 +4,8 @@ import type {
   NotebookCreatedEvent,
   NotebookDeletedEvent,
   NotebookNameUpdatedEvent,
+  NotebookTagAddedEvent,
+  NotebookTagRemovedEvent,
 } from '@cqrs-toolkit/demo-base/notebooks/shared'
 import { addRevision } from '../utils/processors.js'
 
@@ -18,6 +20,7 @@ export const notebookProcessors: ProcessorRegistration[] = [
         data: addRevision<Notebook>(ctx, {
           id: data.id,
           name: data.name,
+          tags: [],
           createdAt: data.createdAt,
           updatedAt: data.createdAt,
         }),
@@ -48,5 +51,41 @@ export const notebookProcessors: ProcessorRegistration[] = [
       update: { type: 'delete' },
       isServerUpdate: true,
     }),
+  },
+  {
+    eventTypes: 'NotebookTagAdded',
+    processor: async (data: NotebookTagAddedEvent['data'], ctx) => {
+      const current = await ctx.getCurrentState<Notebook>('notebooks', data.id)
+      const existingTags = current?.tags ?? []
+      if (existingTags.includes(data.tag)) return undefined
+      return {
+        collection: 'notebooks',
+        id: data.id,
+        update: {
+          type: 'merge',
+          data: addRevision<Partial<Notebook>>(ctx, { tags: [...existingTags, data.tag] }),
+        },
+        isServerUpdate: ctx.persistence !== 'Anticipated',
+      }
+    },
+  },
+  {
+    eventTypes: 'NotebookTagRemoved',
+    processor: async (data: NotebookTagRemovedEvent['data'], ctx) => {
+      const current = await ctx.getCurrentState<Notebook>('notebooks', data.id)
+      const existingTags = current?.tags ?? []
+      if (!existingTags.includes(data.tag)) return undefined
+      return {
+        collection: 'notebooks',
+        id: data.id,
+        update: {
+          type: 'merge',
+          data: addRevision<Partial<Notebook>>(ctx, {
+            tags: existingTags.filter((t) => t !== data.tag),
+          }),
+        },
+        isServerUpdate: ctx.persistence !== 'Anticipated',
+      }
+    },
   },
 ]

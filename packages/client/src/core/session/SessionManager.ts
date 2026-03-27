@@ -7,6 +7,7 @@
  * - User change triggers full data wipe
  */
 
+import { Link } from '@meticoeus/ddd-es'
 import type { IStorage, SessionRecord } from '../../storage/IStorage.js'
 import type { EventBus } from '../events/EventBus.js'
 
@@ -27,24 +28,24 @@ export type SessionState =
 /**
  * Session manager configuration.
  */
-export interface SessionManagerConfig {
-  storage: IStorage
-  eventBus: EventBus
+export interface SessionManagerConfig<TLink extends Link> {
+  storage: IStorage<TLink>
+  eventBus: EventBus<TLink>
 }
 
 /**
  * Session manager.
  * Coordinates user identity with persisted session data.
  */
-export class SessionManager {
-  private readonly storage: IStorage
-  private readonly eventBus: EventBus
+export class SessionManager<TLink extends Link> {
+  private readonly storage: IStorage<TLink>
+  private readonly eventBus: EventBus<TLink>
 
   private sessionState: SessionState = { status: 'uninitialized' }
   private authState: AuthState = { status: 'unauthenticated' }
   private networkPaused = true
 
-  constructor(config: SessionManagerConfig) {
+  constructor(config: SessionManagerConfig<TLink>) {
     this.storage = config.storage
     this.eventBus = config.eventBus
   }

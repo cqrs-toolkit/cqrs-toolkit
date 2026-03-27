@@ -10,11 +10,7 @@ Query options for listing read models.
 
 ## Extends
 
-- [`QueryOptions`](QueryOptions.md)
-
-## Extended by
-
-- [`QueryManagerQueryOptions`](QueryManagerQueryOptions.md)
+- [`IStorageQueryOptions`](IStorageQueryOptions.md)
 
 ## Properties
 
@@ -32,7 +28,7 @@ Filter by cache key
 
 #### Inherited from
 
-[`QueryOptions`](QueryOptions.md).[`limit`](QueryOptions.md#limit)
+[`IStorageQueryOptions`](IStorageQueryOptions.md).[`limit`](IStorageQueryOptions.md#limit)
 
 ---
 
@@ -50,7 +46,7 @@ Only include models with local changes
 
 #### Inherited from
 
-[`QueryOptions`](QueryOptions.md).[`offset`](QueryOptions.md#offset)
+[`IStorageQueryOptions`](IStorageQueryOptions.md).[`offset`](IStorageQueryOptions.md#offset)
 
 ---
 
@@ -60,7 +56,7 @@ Only include models with local changes
 
 #### Inherited from
 
-[`QueryOptions`](QueryOptions.md).[`orderBy`](QueryOptions.md#orderby)
+[`IStorageQueryOptions`](IStorageQueryOptions.md).[`orderBy`](IStorageQueryOptions.md#orderby)
 
 ---
 
@@ -70,4 +66,4 @@ Only include models with local changes
 
 #### Inherited from
 
-[`QueryOptions`](QueryOptions.md).[`orderDirection`](QueryOptions.md#orderdirection)
+[`IStorageQueryOptions`](IStorageQueryOptions.md).[`orderDirection`](IStorageQueryOptions.md#orderdirection)

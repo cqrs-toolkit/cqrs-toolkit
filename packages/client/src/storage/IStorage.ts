@@ -3,6 +3,7 @@
  * Provides an abstraction over different storage backends (in-memory, SQLite).
  */
 
+import type { Link } from '@meticoeus/ddd-es'
 import type { CommandFilter, CommandRecord, CommandStatus } from '../types/commands.js'
 
 /**
@@ -46,6 +47,10 @@ export interface CacheKeyRecord {
   evictionPolicy: 'persistent' | 'ephemeral'
   /** Whether the cache key is frozen */
   frozen: boolean
+  /** Timestamp when the key was frozen (null if not frozen) */
+  frozenAt: number | null
+  /** Whether the cache key inherits frozen state from an ancestor */
+  inheritedFrozen: boolean
   /** Last access timestamp */
   lastAccessedAt: number
   /** TTL expiration timestamp (null = no expiration) */
@@ -54,6 +59,8 @@ export interface CacheKeyRecord {
   createdAt: number
   /** Hold count (prevents eviction when > 0) */
   holdCount: number
+  /** Estimated size in bytes for quota-aware eviction prioritization */
+  estimatedSizeBytes: number | null
 }
 
 /**
@@ -76,8 +83,8 @@ export interface CachedEventRecord {
   revision: string | null // BigInt as string
   /** Command ID (for Anticipated events) */
   commandId: string | null
-  /** Cache key this event belongs to */
-  cacheKey: string
+  /** Cache keys this event is associated with (junction table in SQL, array in memory) */
+  cacheKeys: string[]
   /** Event creation timestamp */
   createdAt: number
 }
@@ -104,8 +111,8 @@ export interface ReadModelRecord {
   id: string
   /** Collection name */
   collection: string
-  /** Cache key this record belongs to */
-  cacheKey: string
+  /** Cache keys this record is associated with (junction table in SQL, array in memory) */
+  cacheKeys: string[]
   /** Server baseline data (JSON serialized) */
   serverData: string | null
   /** Effective data including optimistic updates (JSON serialized) */
@@ -152,7 +159,7 @@ export interface CommandIdMappingRecord {
 /**
  * Query options for list operations.
  */
-export interface QueryOptions {
+export interface IStorageQueryOptions {
   limit?: number
   offset?: number
   orderBy?: string
@@ -163,7 +170,7 @@ export interface QueryOptions {
  * Storage interface.
  * All methods are async to support both sync (in-memory) and async (SQLite) backends.
  */
-export interface IStorage {
+export interface IStorage<TLink extends Link> {
   // Lifecycle
   /**
    * Initialize the storage backend.
@@ -239,7 +246,12 @@ export interface IStorage {
   touchCacheKey(key: string): Promise<void>
 
   /**
-   * Get cache keys eligible for eviction (holdCount = 0, not frozen).
+   * Get child cache keys whose parentKey matches the given key.
+   */
+  getChildCacheKeys(parentKey: string): Promise<CacheKeyRecord[]>
+
+  /**
+   * Get cache keys eligible for eviction (leaf keys with holdCount = 0, not frozen or inheritedFrozen).
    */
   getEvictableCacheKeys(limit: number): Promise<CacheKeyRecord[]>
 
@@ -247,32 +259,32 @@ export interface IStorage {
   /**
    * Get a command by ID.
    */
-  getCommand(commandId: string): Promise<CommandRecord | undefined>
+  getCommand(commandId: string): Promise<CommandRecord<TLink> | undefined>
 
   /**
    * Get commands matching a filter.
    */
-  getCommands(filter?: CommandFilter): Promise<CommandRecord[]>
+  getCommands(filter?: CommandFilter): Promise<CommandRecord<TLink>[]>
 
   /**
    * Get commands by status.
    */
-  getCommandsByStatus(status: CommandStatus | CommandStatus[]): Promise<CommandRecord[]>
+  getCommandsByStatus(status: CommandStatus | CommandStatus[]): Promise<CommandRecord<TLink>[]>
 
   /**
    * Get commands blocked by a specific command.
    */
-  getCommandsBlockedBy(commandId: string): Promise<CommandRecord[]>
+  getCommandsBlockedBy(commandId: string): Promise<CommandRecord<TLink>[]>
 
   /**
    * Save a new command.
    */
-  saveCommand(command: CommandRecord): Promise<void>
+  saveCommand(command: CommandRecord<TLink>): Promise<void>
 
   /**
    * Update an existing command.
    */
-  updateCommand(commandId: string, updates: Partial<CommandRecord>): Promise<void>
+  updateCommand(commandId: string, updates: Partial<CommandRecord<TLink>>): Promise<void>
 
   /**
    * Delete a command.
@@ -326,9 +338,17 @@ export interface IStorage {
   deleteAnticipatedEventsByCommand(commandId: string): Promise<void>
 
   /**
-   * Delete all cached events for a cache key.
+   * Remove a cache key association from all events.
+   * Deletes events that have no remaining cache key associations.
+   * Returns the IDs of events that were fully deleted.
    */
-  deleteCachedEventsByCacheKey(cacheKey: string): Promise<void>
+  removeCacheKeyFromEvents(cacheKey: string): Promise<string[]>
+
+  /**
+   * Add cache key associations to an existing event.
+   * Used when a WS event is relevant to additional active cache keys.
+   */
+  addCacheKeysToEvent(eventId: string, cacheKeys: string[]): Promise<void>
 
   // Read model operations
   /**
@@ -339,12 +359,20 @@ export interface IStorage {
   /**
    * Get all read model records for a collection.
    */
-  getReadModelsByCollection(collection: string, options?: QueryOptions): Promise<ReadModelRecord[]>
+  getReadModelsByCollection(
+    collection: string,
+    options?: IStorageQueryOptions,
+  ): Promise<ReadModelRecord[]>
 
   /**
    * Get read model records by cache key.
    */
   getReadModelsByCacheKey(cacheKey: string): Promise<ReadModelRecord[]>
+
+  /**
+   * Count read model records in a collection, optionally filtered by cache key.
+   */
+  countReadModels(collection: string, cacheKey?: string): Promise<number>
 
   /**
    * Save a read model record.
@@ -362,9 +390,16 @@ export interface IStorage {
   deleteReadModel(collection: string, id: string): Promise<void>
 
   /**
-   * Delete all read model records for a cache key.
+   * Remove a cache key association from all read models.
+   * Deletes read models that have no remaining cache key associations.
    */
-  deleteReadModelsByCacheKey(cacheKey: string): Promise<void>
+  removeCacheKeyFromReadModels(cacheKey: string): Promise<void>
+
+  /**
+   * Add cache key associations to an existing read model.
+   * Used when a read model is relevant to additional active cache keys.
+   */
+  addCacheKeysToReadModel(collection: string, id: string, cacheKeys: string[]): Promise<void>
 
   /**
    * Delete all read model records for a collection.

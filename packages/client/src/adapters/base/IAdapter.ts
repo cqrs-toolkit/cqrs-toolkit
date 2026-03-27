@@ -30,7 +30,7 @@ export type AdapterStatus = 'uninitialized' | 'initializing' | 'ready' | 'error'
 /**
  * Shared fields for all adapter types.
  */
-interface IAdapterBase {
+interface IAdapterBase<TLink extends Link> {
   /**
    * Current adapter status.
    */
@@ -39,7 +39,7 @@ interface IAdapterBase {
   /**
    * Observable of library events.
    */
-  readonly events$: Observable<LibraryEvent>
+  readonly events$: Observable<LibraryEvent<TLink>>
 
   /**
    * Role of this client instance.
@@ -64,23 +64,23 @@ interface IAdapterBase {
  * createCqrsClient uses storage, eventBus, and sessionManager to wire
  * CommandQueue, CacheManager, QueryManager, SyncManager etc.
  */
-export interface IOnlineOnlyAdapter extends IAdapterBase {
+export interface IOnlineOnlyAdapter<TLink extends Link> extends IAdapterBase<TLink> {
   readonly mode: 'online-only'
-  readonly storage: IStorage
-  readonly eventBus: EventBus
-  readonly sessionManager: SessionManager
+  readonly storage: IStorage<TLink>
+  readonly eventBus: EventBus<TLink>
+  readonly sessionManager: SessionManager<TLink>
 }
 
 /**
  * Worker adapter provides proxy objects. All orchestration happens in the
  * worker; createCqrsClient just wraps the proxies.
  */
-export interface IWorkerAdapter<TLink extends Link> extends IAdapterBase {
+export interface IWorkerAdapter<TLink extends Link> extends IAdapterBase<TLink> {
   readonly mode: 'shared-worker' | 'dedicated-worker'
-  readonly commandQueue: ICommandQueue
+  readonly commandQueue: ICommandQueue<TLink>
   readonly queryManager: IQueryManager<TLink>
   readonly cacheManager: ICacheManager<TLink>
-  readonly syncManager: CqrsClientSyncManager
+  readonly syncManager: CqrsClientSyncManager<TLink>
 
   /**
    * Enable debug mode in the worker.
@@ -100,4 +100,4 @@ export interface IWorkerAdapter<TLink extends Link> extends IAdapterBase {
  * Discriminated union of all adapter types.
  * Discriminant: `mode` field.
  */
-export type IAdapter<TLink extends Link> = IOnlineOnlyAdapter | IWorkerAdapter<TLink>
+export type IAdapter<TLink extends Link> = IOnlineOnlyAdapter<TLink> | IWorkerAdapter<TLink>

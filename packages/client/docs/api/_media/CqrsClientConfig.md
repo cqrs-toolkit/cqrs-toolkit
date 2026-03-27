@@ -85,7 +85,7 @@ If not provided, commands are sent directly without local validation.
 
 ### commandSender?
 
-> `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)
+> `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)\<`TLink`\>
 
 Command sender for submitting commands to the server.
 If not provided, commands are queued but not sent.
