@@ -115,16 +115,19 @@ export class SQLiteStorage<TLink extends Link> implements IStorage<TLink> {
 
   async deleteSession(): Promise<void> {
     this.assertInitialized()
-    // Delete session and all associated data
-    await this.exec('DELETE FROM session')
-    await this.exec('DELETE FROM cache_keys')
-    await this.exec('DELETE FROM commands')
-    await this.exec('DELETE FROM cached_event_cache_keys')
-    await this.exec('DELETE FROM cached_events')
+    const statements: SqliteBatchStatement[] = [
+      { sql: 'DELETE FROM session' },
+      { sql: 'DELETE FROM cache_keys' },
+      { sql: 'DELETE FROM commands' },
+      { sql: 'DELETE FROM command_id_mappings' },
+      { sql: 'DELETE FROM cached_event_cache_keys' },
+      { sql: 'DELETE FROM cached_events' },
+    ]
     for (const name of this.collections) {
-      await this.exec(`DELETE FROM rm_${name}_cache_keys`)
-      await this.exec(`DELETE FROM ${this.rmTable(name)}`)
+      statements.push({ sql: `DELETE FROM rm_${name}_cache_keys` })
+      statements.push({ sql: `DELETE FROM ${this.rmTable(name)}` })
     }
+    await this.db.execBatch(statements)
   }
 
   async touchSession(): Promise<void> {
@@ -180,9 +183,12 @@ export class SQLiteStorage<TLink extends Link> implements IStorage<TLink> {
 
   async deleteCacheKey(key: string): Promise<void> {
     this.assertInitialized()
-    await this.exec('DELETE FROM cache_keys WHERE key = ?', [key])
-    await this.removeCacheKeyFromEvents(key)
-    await this.removeCacheKeyFromReadModels(key)
+    const statements: SqliteBatchStatement[] = [
+      { sql: 'DELETE FROM cache_keys WHERE key = ?', bind: [key] },
+      ...this.buildRemoveCacheKeyFromEvents(key),
+      ...this.buildRemoveCacheKeyFromReadModels(key),
+    ]
+    await this.db.execBatch(statements)
   }
 
   async holdCacheKey(key: string): Promise<void> {
@@ -510,35 +516,48 @@ export class SQLiteStorage<TLink extends Link> implements IStorage<TLink> {
 
   async deleteCachedEvent(id: string): Promise<void> {
     this.assertInitialized()
-    await this.exec('DELETE FROM cached_event_cache_keys WHERE event_id = ?', [id])
-    await this.exec('DELETE FROM cached_events WHERE id = ?', [id])
+    await this.db.execBatch([
+      { sql: 'DELETE FROM cached_event_cache_keys WHERE event_id = ?', bind: [id] },
+      { sql: 'DELETE FROM cached_events WHERE id = ?', bind: [id] },
+    ])
   }
 
   async deleteAnticipatedEventsByCommand(commandId: string): Promise<void> {
     this.assertInitialized()
-    await this.exec(
-      "DELETE FROM cached_event_cache_keys WHERE event_id IN (SELECT id FROM cached_events WHERE persistence = 'Anticipated' AND command_id = ?)",
-      [commandId],
-    )
-    await this.exec(
-      "DELETE FROM cached_events WHERE persistence = 'Anticipated' AND command_id = ?",
-      [commandId],
-    )
+    await this.db.execBatch([
+      {
+        sql: "DELETE FROM cached_event_cache_keys WHERE event_id IN (SELECT id FROM cached_events WHERE persistence = 'Anticipated' AND command_id = ?)",
+        bind: [commandId],
+      },
+      {
+        sql: "DELETE FROM cached_events WHERE persistence = 'Anticipated' AND command_id = ?",
+        bind: [commandId],
+      },
+    ])
   }
 
   async removeCacheKeyFromEvents(cacheKey: string): Promise<string[]> {
     this.assertInitialized()
-    await this.exec('DELETE FROM cached_event_cache_keys WHERE cache_key = ?', [cacheKey])
-    const orphanRows = await this.query<{ id: string }>(
-      'SELECT id FROM cached_events WHERE id NOT IN (SELECT event_id FROM cached_event_cache_keys)',
-    )
-    const deletedIds = orphanRows.map((row) => row.id)
-    if (deletedIds.length > 0) {
-      await this.exec(
-        'DELETE FROM cached_events WHERE id NOT IN (SELECT event_id FROM cached_event_cache_keys)',
-      )
-    }
-    return deletedIds
+    const statements = this.buildRemoveCacheKeyFromEvents(cacheKey, true)
+    const results = await this.db.execBatch(statements)
+    const orphanRows = (results[1] ?? []) as Array<{ id: string }>
+    return orphanRows.map((row) => row.id)
+  }
+
+  private buildRemoveCacheKeyFromEvents(
+    cacheKey: string,
+    returnDeleted = false,
+  ): SqliteBatchStatement[] {
+    return [
+      { sql: 'DELETE FROM cached_event_cache_keys WHERE cache_key = ?', bind: [cacheKey] },
+      {
+        sql: 'SELECT id FROM cached_events WHERE id NOT IN (SELECT event_id FROM cached_event_cache_keys)',
+        returnRows: returnDeleted,
+      },
+      {
+        sql: 'DELETE FROM cached_events WHERE id NOT IN (SELECT event_id FROM cached_event_cache_keys)',
+      },
+    ]
   }
 
   async addCacheKeysToEvent(eventId: string, cacheKeys: string[]): Promise<void> {
@@ -740,18 +759,32 @@ export class SQLiteStorage<TLink extends Link> implements IStorage<TLink> {
   async deleteReadModel(collection: string, id: string): Promise<void> {
     this.assertInitialized()
     const table = this.rmTable(collection)
-    await this.exec(`DELETE FROM rm_${collection}_cache_keys WHERE entity_id = ?`, [id])
-    await this.exec(`DELETE FROM ${table} WHERE id = ?`, [id])
+    await this.db.execBatch([
+      { sql: `DELETE FROM rm_${collection}_cache_keys WHERE entity_id = ?`, bind: [id] },
+      { sql: `DELETE FROM ${table} WHERE id = ?`, bind: [id] },
+    ])
   }
 
   async removeCacheKeyFromReadModels(cacheKey: string): Promise<void> {
     this.assertInitialized()
-    for (const name of this.collections) {
-      await this.exec(`DELETE FROM rm_${name}_cache_keys WHERE cache_key = ?`, [cacheKey])
-      await this.exec(
-        `DELETE FROM ${this.rmTable(name)} WHERE id NOT IN (SELECT entity_id FROM rm_${name}_cache_keys)`,
-      )
+    const statements = this.buildRemoveCacheKeyFromReadModels(cacheKey)
+    if (statements.length > 0) {
+      await this.db.execBatch(statements)
     }
+  }
+
+  private buildRemoveCacheKeyFromReadModels(cacheKey: string): SqliteBatchStatement[] {
+    const statements: SqliteBatchStatement[] = []
+    for (const name of this.collections) {
+      statements.push({
+        sql: `DELETE FROM rm_${name}_cache_keys WHERE cache_key = ?`,
+        bind: [cacheKey],
+      })
+      statements.push({
+        sql: `DELETE FROM ${this.rmTable(name)} WHERE id NOT IN (SELECT entity_id FROM rm_${name}_cache_keys)`,
+      })
+    }
+    return statements
   }
 
   async addCacheKeysToReadModel(
@@ -771,8 +804,10 @@ export class SQLiteStorage<TLink extends Link> implements IStorage<TLink> {
   async deleteReadModelsByCollection(collection: string): Promise<void> {
     this.assertInitialized()
     const table = this.rmTable(collection)
-    await this.exec(`DELETE FROM rm_${collection}_cache_keys`)
-    await this.exec(`DELETE FROM ${table}`)
+    await this.db.execBatch([
+      { sql: `DELETE FROM rm_${collection}_cache_keys` },
+      { sql: `DELETE FROM ${table}` },
+    ])
   }
 
   async getReadModelCount(): Promise<number> {
