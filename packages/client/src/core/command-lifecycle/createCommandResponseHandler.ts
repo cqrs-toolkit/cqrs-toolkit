@@ -59,8 +59,9 @@ export function createCommandResponseHandler<
       })
     }
 
+    const syncManager = getSyncManager()
     if (parsedEvents.length > 0) {
-      await getSyncManager().processResponseEvents(parsedEvents)
+      await syncManager.processResponseEvents(parsedEvents)
     }
   }
 }

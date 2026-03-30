@@ -353,6 +353,28 @@ Delete the current session and all associated data.
 
 ---
 
+### filterExistingCacheKeys()
+
+> **filterExistingCacheKeys**(`keys`): `Promise`\<`string`[]\>
+
+Filter an array of cache key strings to only those that exist in storage.
+
+#### Parameters
+
+##### keys
+
+`string`[]
+
+#### Returns
+
+`Promise`\<`string`[]\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`filterExistingCacheKeys`](../interfaces/IStorage.md#filterexistingcachekeys)
+
+---
+
 ### getAllCacheKeys()
 
 > **getAllCacheKeys**(): `Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md)[]\>

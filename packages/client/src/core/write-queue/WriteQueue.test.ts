@@ -1,0 +1,585 @@
+import type { IPersistedEvent, ServiceLink } from '@meticoeus/ddd-es'
+import { describe, expect, it, vi } from 'vitest'
+import { deriveScopeKey } from '../cache-manager/index.js'
+import {
+  SessionResetException,
+  WriteQueueDestroyedException,
+  WriteQueueException,
+} from './IWriteQueue.js'
+import { WriteQueue } from './WriteQueue.js'
+import type {
+  ApplyGapRepairOp,
+  ApplyRecordsOp,
+  ApplyWsEventOp,
+  EvictCacheKeyOp,
+  WriteQueueOp,
+} from './operations.js'
+import { ALL_OP_TYPES } from './operations.js'
+
+const DUMMY_EVENT = { id: 'evt-1' } as unknown as IPersistedEvent
+
+const TODO_CACHE_KEY = deriveScopeKey({ scopeType: 'todos' })
+
+describe('WriteQueue', () => {
+  describe('sequential execution', () => {
+    it('processes items one at a time', async () => {
+      const order: number[] = []
+      const queue = createQueue({
+        handler: async () => {
+          order.push(order.length)
+        },
+      })
+
+      const wsEvent: ApplyWsEventOp<ServiceLink> = {
+        type: 'apply-ws-event',
+        event: DUMMY_EVENT,
+        cacheKeys: [TODO_CACHE_KEY],
+      }
+
+      await Promise.all([queue.enqueue(wsEvent), queue.enqueue(wsEvent), queue.enqueue(wsEvent)])
+
+      expect(order).toEqual([0, 1, 2])
+    })
+
+    it('does not process next item until previous completes', async () => {
+      const { handler, calls } = controllableHandler()
+      const queue = createQueue({ handler })
+
+      const wsEvent: ApplyWsEventOp<ServiceLink> = {
+        type: 'apply-ws-event',
+        event: DUMMY_EVENT,
+        cacheKeys: [TODO_CACHE_KEY],
+      }
+
+      const p1 = queue.enqueue(wsEvent)
+      const p2 = queue.enqueue(wsEvent)
+      await tick()
+
+      expect(calls).toHaveLength(1)
+
+      calls[0]!.resolve()
+      await tick()
+
+      expect(calls).toHaveLength(2)
+
+      calls[1]!.resolve()
+      await Promise.all([p1, p2])
+    })
+  })
+
+  describe('enqueue', () => {
+    it('resolves with Ok after handler completes', async () => {
+      const { handler, calls } = controllableHandler()
+      const queue = createQueue({ handler })
+
+      const wsEvent: ApplyWsEventOp<ServiceLink> = {
+        type: 'apply-ws-event',
+        event: DUMMY_EVENT,
+        cacheKeys: [TODO_CACHE_KEY],
+      }
+
+      const p = queue.enqueue(wsEvent)
+      await tick()
+
+      calls[0]!.resolve()
+      const result = await p
+      expect(result.ok).toBe(true)
+    })
+
+    it('returns Err when destroyed', async () => {
+      const queue = createQueue()
+      queue.destroy()
+
+      const wsEvent: ApplyWsEventOp<ServiceLink> = {
+        type: 'apply-ws-event',
+        event: DUMMY_EVENT,
+        cacheKeys: [TODO_CACHE_KEY],
+      }
+
+      const result = await queue.enqueue(wsEvent)
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error).toBeInstanceOf(WriteQueueDestroyedException)
+    })
+
+    it('returns Err during active reset', async () => {
+      const { handler, calls } = controllableHandler()
+      const queue = createQueue({ handler })
+
+      const wsEvent: ApplyWsEventOp<ServiceLink> = {
+        type: 'apply-ws-event',
+        event: DUMMY_EVENT,
+        cacheKeys: [TODO_CACHE_KEY],
+      }
+
+      queue.enqueue(wsEvent)
+      await tick()
+
+      // Start reset while op is in-flight
+      const resetPromise = queue.resetSession('user-changed')
+
+      // Enqueue during reset returns Err immediately
+      const result = await queue.enqueue(wsEvent)
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error).toBeInstanceOf(SessionResetException)
+
+      // Clean up
+      calls[0]!.resolve()
+      await resetPromise
+    })
+
+    it('rejects with handler error', async () => {
+      const queue = createQueue({
+        handler: async () => {
+          throw new Error('handler boom')
+        },
+      })
+
+      const wsEvent: ApplyWsEventOp<ServiceLink> = {
+        type: 'apply-ws-event',
+        event: DUMMY_EVENT,
+        cacheKeys: [TODO_CACHE_KEY],
+      }
+
+      await expect(queue.enqueue(wsEvent)).rejects.toThrow('handler boom')
+    })
+
+    it('handler error does not break the drain loop', async () => {
+      let callCount = 0
+      const queue = createQueue({
+        handler: async () => {
+          callCount++
+          if (callCount === 1) throw new Error('first fails')
+        },
+      })
+
+      const wsEvent: ApplyWsEventOp<ServiceLink> = {
+        type: 'apply-ws-event',
+        event: DUMMY_EVENT,
+        cacheKeys: [TODO_CACHE_KEY],
+      }
+
+      const p1 = queue.enqueue(wsEvent)
+      const p2 = queue.enqueue(wsEvent)
+
+      await expect(p1).rejects.toThrow('first fails')
+      const result = await p2
+      expect(result.ok).toBe(true)
+      expect(callCount).toBe(2)
+    })
+  })
+
+  describe('resetSession', () => {
+    it('discards pending ops with SessionResetException', async () => {
+      const { handler, calls } = controllableHandler()
+      const queue = createQueue({ handler })
+
+      const wsEvent: ApplyWsEventOp<ServiceLink> = {
+        type: 'apply-ws-event',
+        event: DUMMY_EVENT,
+        cacheKeys: [TODO_CACHE_KEY],
+      }
+      const seedRecords: ApplyRecordsOp<ServiceLink> = {
+        type: 'apply-records',
+        collection: 'todos',
+        cacheKey: TODO_CACHE_KEY,
+        records: [],
+        source: 'seed',
+      }
+
+      queue.enqueue(wsEvent)
+      await tick()
+
+      const p2 = queue.enqueue(seedRecords)
+      const p3 = queue.enqueue(wsEvent)
+      await tick()
+
+      const resetPromise = queue.resetSession('user-changed')
+
+      const r2 = await p2
+      const r3 = await p3
+      expect(r2.ok).toBe(false)
+      if (!r2.ok) expect(r2.error).toBeInstanceOf(SessionResetException)
+      expect(r3.ok).toBe(false)
+      if (!r3.ok) expect(r3.error).toBeInstanceOf(SessionResetException)
+
+      // Resolve in-flight so reset can proceed
+      calls[0]!.resolve()
+      await resetPromise
+    })
+
+    it('waits for in-flight op to finish', async () => {
+      const { handler, calls } = controllableHandler()
+      const onReset = vi.fn(async () => {})
+      const queue = createQueue({ handler, onSessionReset: onReset })
+
+      const wsEvent: ApplyWsEventOp<ServiceLink> = {
+        type: 'apply-ws-event',
+        event: DUMMY_EVENT,
+        cacheKeys: [TODO_CACHE_KEY],
+      }
+
+      queue.enqueue(wsEvent)
+      await tick()
+
+      const resetPromise = queue.resetSession('user-changed')
+      await tick()
+
+      // Reset callback should not have been called yet — op still in-flight
+      expect(onReset).not.toHaveBeenCalled()
+
+      calls[0]!.resolve()
+      await resetPromise
+
+      expect(onReset).toHaveBeenCalledWith('user-changed')
+    })
+
+    it('invokes onSessionReset callback', async () => {
+      const onReset = vi.fn(async () => {})
+      const queue = createQueue({ onSessionReset: onReset })
+
+      await queue.resetSession('explicit')
+
+      expect(onReset).toHaveBeenCalledWith('explicit')
+    })
+
+    it('concurrent resetSession calls return the same promise', async () => {
+      const onReset = vi.fn(async () => {})
+      const queue = createQueue({ onSessionReset: onReset })
+
+      const p1 = queue.resetSession('user-changed')
+      const p2 = queue.resetSession('user-changed')
+
+      await Promise.all([p1, p2])
+
+      expect(onReset).toHaveBeenCalledTimes(1)
+    })
+
+    it('allows enqueue after reset completes', async () => {
+      const handler = vi.fn(async () => {})
+      const queue = createQueue({ handler })
+
+      await queue.resetSession('user-changed')
+
+      const wsEvent: ApplyWsEventOp<ServiceLink> = {
+        type: 'apply-ws-event',
+        event: DUMMY_EVENT,
+        cacheKeys: [TODO_CACHE_KEY],
+      }
+
+      const result = await queue.enqueue(wsEvent)
+      expect(result.ok).toBe(true)
+      expect(handler).toHaveBeenCalledTimes(1)
+    })
+
+    it('discards evict-cache-key ops along with other ops', async () => {
+      const { handler, calls } = controllableHandler()
+      const queue = createQueue({ handler })
+
+      const wsEvent: ApplyWsEventOp<ServiceLink> = {
+        type: 'apply-ws-event',
+        event: DUMMY_EVENT,
+        cacheKeys: [TODO_CACHE_KEY],
+      }
+      const evict: EvictCacheKeyOp = { type: 'evict-cache-key', cacheKey: TODO_CACHE_KEY.key }
+
+      queue.enqueue(wsEvent)
+      await tick()
+
+      const p2 = queue.enqueue(evict)
+      const resetPromise = queue.resetSession('user-changed')
+
+      const r2 = await p2
+      expect(r2.ok).toBe(false)
+      if (!r2.ok) expect(r2.error).toBeInstanceOf(SessionResetException)
+
+      calls[0]!.resolve()
+      await resetPromise
+    })
+
+    it('is a no-op on destroyed queue', async () => {
+      const onReset = vi.fn(async () => {})
+      const queue = createQueue({ onSessionReset: onReset })
+      queue.destroy()
+
+      await queue.resetSession('user-changed')
+
+      expect(onReset).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('destroy', () => {
+    it('resolves pending ops with Err', async () => {
+      const { handler, calls } = controllableHandler()
+      const queue = createQueue({ handler })
+
+      const wsEvent: ApplyWsEventOp<ServiceLink> = {
+        type: 'apply-ws-event',
+        event: DUMMY_EVENT,
+        cacheKeys: [TODO_CACHE_KEY],
+      }
+      const evict: EvictCacheKeyOp = { type: 'evict-cache-key', cacheKey: TODO_CACHE_KEY.key }
+
+      queue.enqueue(wsEvent)
+      await tick()
+
+      const p2 = queue.enqueue(wsEvent)
+      const p3 = queue.enqueue(evict)
+
+      queue.destroy()
+
+      const r2 = await p2
+      const r3 = await p3
+      expect(r2.ok).toBe(false)
+      if (!r2.ok) expect(r2.error).toBeInstanceOf(WriteQueueDestroyedException)
+      expect(r3.ok).toBe(false)
+      if (!r3.ok) expect(r3.error).toBeInstanceOf(WriteQueueDestroyedException)
+
+      calls[0]!.resolve()
+    })
+  })
+
+  describe('eviction handlers', () => {
+    it('fires eviction handler with SessionResetException on session reset', async () => {
+      const { handler, calls } = controllableHandler()
+      const evictionHandler = vi.fn()
+      const queue = createQueue({ handler, evictionHandler })
+
+      const wsEvent: ApplyWsEventOp<ServiceLink> = {
+        type: 'apply-ws-event',
+        event: DUMMY_EVENT,
+        cacheKeys: [TODO_CACHE_KEY],
+      }
+
+      // First op goes in-flight
+      queue.enqueue(wsEvent)
+      await tick()
+
+      // These two are pending
+      queue.enqueue(wsEvent)
+      queue.enqueue(wsEvent)
+
+      const resetPromise = queue.resetSession('user-changed')
+
+      expect(evictionHandler).toHaveBeenCalledTimes(2)
+      expect(evictionHandler.mock.calls[0]![1]).toBeInstanceOf(SessionResetException)
+
+      calls[0]!.resolve()
+      await resetPromise
+    })
+
+    it('fires eviction handler with WriteQueueDestroyedException on destroy', async () => {
+      const { handler, calls } = controllableHandler()
+      const evictionHandler = vi.fn()
+      const queue = createQueue({ handler, evictionHandler })
+
+      const wsEvent: ApplyWsEventOp<ServiceLink> = {
+        type: 'apply-ws-event',
+        event: DUMMY_EVENT,
+        cacheKeys: [TODO_CACHE_KEY],
+      }
+
+      queue.enqueue(wsEvent)
+      await tick()
+
+      queue.enqueue(wsEvent)
+      queue.destroy()
+
+      expect(evictionHandler).toHaveBeenCalledTimes(1)
+      expect(evictionHandler.mock.calls[0]![1]).toBeInstanceOf(WriteQueueDestroyedException)
+
+      calls[0]!.resolve()
+    })
+
+    it('does not fire eviction handler for in-flight op', async () => {
+      const { handler, calls } = controllableHandler()
+      const evictionHandler = vi.fn()
+      const queue = createQueue({ handler, evictionHandler })
+
+      const wsEvent: ApplyWsEventOp<ServiceLink> = {
+        type: 'apply-ws-event',
+        event: DUMMY_EVENT,
+        cacheKeys: [TODO_CACHE_KEY],
+      }
+
+      queue.enqueue(wsEvent)
+      await tick()
+
+      const resetPromise = queue.resetSession('user-changed')
+
+      // In-flight op is not evicted
+      expect(evictionHandler).not.toHaveBeenCalled()
+
+      calls[0]!.resolve()
+      await resetPromise
+    })
+
+    it('passes the discarded op to the eviction handler', async () => {
+      const { handler, calls } = controllableHandler()
+      const evictionHandler = vi.fn()
+      const queue = createQueue({ handler, evictionHandler })
+
+      const wsEvent: ApplyWsEventOp<ServiceLink> = {
+        type: 'apply-ws-event',
+        event: DUMMY_EVENT,
+        cacheKeys: [TODO_CACHE_KEY],
+      }
+
+      // Put one in-flight so the next ones are pending
+      queue.enqueue(wsEvent)
+      await tick()
+
+      const gapRepair: ApplyGapRepairOp = {
+        type: 'apply-gap-repair',
+        streamId: 'stream-1',
+        cacheKeys: [TODO_CACHE_KEY.key],
+        events: [],
+      }
+      queue.enqueue(gapRepair)
+
+      const resetPromise = queue.resetSession('user-changed')
+
+      expect(evictionHandler).toHaveBeenCalledTimes(1)
+      expect(evictionHandler.mock.calls[0]![0]).toBe(gapRepair)
+
+      calls[0]!.resolve()
+      await resetPromise
+    })
+  })
+
+  describe('getDebugState', () => {
+    it('reports idle when empty', () => {
+      const queue = createQueue()
+      const state = queue.getDebugState()
+
+      expect(state.status).toBe('idle')
+      expect(state.pendingCount).toBe(0)
+      expect(state.currentOpType).toBeUndefined()
+      expect(state.pendingByType).toEqual({})
+    })
+
+    it('reports processing with current op type', async () => {
+      const { handler, calls } = controllableHandler()
+      const queue = createQueue({ handler })
+
+      const seedRecords: ApplyRecordsOp<ServiceLink> = {
+        type: 'apply-records',
+        collection: 'todos',
+        cacheKey: TODO_CACHE_KEY,
+        records: [],
+        source: 'seed',
+      }
+
+      queue.enqueue(seedRecords)
+      await tick()
+
+      const state = queue.getDebugState()
+      expect(state.status).toBe('processing')
+      expect(state.currentOpType).toBe('apply-records')
+
+      calls[0]!.resolve()
+      await tick()
+    })
+
+    it('reports pending counts by type', async () => {
+      const { handler, calls } = controllableHandler()
+      const queue = createQueue({ handler })
+
+      const wsEvent: ApplyWsEventOp<ServiceLink> = {
+        type: 'apply-ws-event',
+        event: DUMMY_EVENT,
+        cacheKeys: [TODO_CACHE_KEY],
+      }
+      const seedRecords: ApplyRecordsOp<ServiceLink> = {
+        type: 'apply-records',
+        collection: 'todos',
+        cacheKey: TODO_CACHE_KEY,
+        records: [],
+        source: 'seed',
+      }
+
+      queue.enqueue(wsEvent)
+      await tick()
+
+      queue.enqueue(wsEvent)
+      queue.enqueue(seedRecords)
+      queue.enqueue(seedRecords)
+
+      const state = queue.getDebugState()
+      expect(state.pendingCount).toBe(3)
+      expect(state.pendingByType).toEqual({
+        'apply-ws-event': 1,
+        'apply-records': 2,
+      })
+
+      // Clean up
+      for (const call of calls) call.resolve()
+      calls.length = 0
+      await tick()
+      for (const call of calls) call.resolve()
+    })
+
+    it('reports resetting status', async () => {
+      const { handler, calls } = controllableHandler()
+      const queue = createQueue({ handler })
+
+      const wsEvent: ApplyWsEventOp<ServiceLink> = {
+        type: 'apply-ws-event',
+        event: DUMMY_EVENT,
+        cacheKeys: [TODO_CACHE_KEY],
+      }
+
+      queue.enqueue(wsEvent)
+      await tick()
+
+      const resetPromise = queue.resetSession('user-changed')
+
+      expect(queue.getDebugState().status).toBe('resetting')
+
+      calls[0]!.resolve()
+      await resetPromise
+    })
+  })
+})
+
+function registerAll(
+  queue: WriteQueue<ServiceLink>,
+  handler: (op: WriteQueueOp<ServiceLink>) => Promise<void>,
+  evictionHandler?: (op: WriteQueueOp<ServiceLink>, reason: WriteQueueException) => void,
+): void {
+  const noop = () => {}
+  for (const type of ALL_OP_TYPES) {
+    queue.register(type, handler)
+    queue.registerEviction(type, evictionHandler ?? noop)
+  }
+}
+
+function createQueue(params?: {
+  handler?: (op: WriteQueueOp<ServiceLink>) => Promise<void>
+  evictionHandler?: (op: WriteQueueOp<ServiceLink>, reason: WriteQueueException) => void
+  onSessionReset?: (reason: string) => Promise<void>
+}) {
+  const queue = new WriteQueue<ServiceLink>()
+  queue.setSessionResetHandler(params?.onSessionReset ?? vi.fn(async () => {}))
+  registerAll(queue, params?.handler ?? vi.fn(async () => {}), params?.evictionHandler)
+  return queue
+}
+
+function controllableHandler() {
+  const calls: Array<{
+    op: WriteQueueOp<ServiceLink>
+    resolve: () => void
+    reject: (err: Error) => void
+  }> = []
+
+  const handler = (op: WriteQueueOp<ServiceLink>): Promise<void> => {
+    return new Promise<void>((resolve, reject) => {
+      calls.push({ op, resolve, reject })
+    })
+  }
+
+  return { handler, calls }
+}
+
+function tick(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0))
+}

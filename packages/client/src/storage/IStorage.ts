@@ -255,6 +255,11 @@ export interface IStorage<TLink extends Link> {
    */
   getEvictableCacheKeys(limit: number): Promise<CacheKeyRecord[]>
 
+  /**
+   * Filter an array of cache key strings to only those that exist in storage.
+   */
+  filterExistingCacheKeys(keys: string[]): Promise<string[]>
+
   // Command operations
   /**
    * Get a command by ID.

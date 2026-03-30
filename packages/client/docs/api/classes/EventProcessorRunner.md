@@ -18,13 +18,27 @@ Event processor runner.
 
 ### Constructor
 
-> **new EventProcessorRunner**\<`TLink`\>(`config`): `EventProcessorRunner`\<`TLink`\>
+> **new EventProcessorRunner**\<`TLink`\>(`readModelStore`, `eventBus`, `registry`, `anticipatedEventHandler?`): `EventProcessorRunner`\<`TLink`\>
 
 #### Parameters
 
-##### config
+##### readModelStore
 
-[`EventProcessorRunnerConfig`](../interfaces/EventProcessorRunnerConfig.md)\<`TLink`\>
+[`ReadModelStore`](ReadModelStore.md)\<`TLink`\>
+
+##### eventBus
+
+[`EventBus`](EventBus.md)\<`TLink`\>
+
+##### registry
+
+[`EventProcessorRegistry`](EventProcessorRegistry.md)
+
+##### anticipatedEventHandler?
+
+`IAnticipatedEventHandler`
+
+Anticipated event handler for create reconciliation. Optional — only needed with command handlers.
 
 #### Returns
 

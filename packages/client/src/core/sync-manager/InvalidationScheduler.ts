@@ -7,46 +7,40 @@
  * window are coalesced into a single refetch.
  */
 
-import type { Link } from '@meticoeus/ddd-es'
-import { logProvider } from '@meticoeus/ddd-es'
+import { Link, logProvider, Result } from '@meticoeus/ddd-es'
 import type { Collection, FetchContext } from '../../types/config.js'
 import { type CacheKeyIdentity, hydrateCacheKeyIdentity } from '../cache-manager/CacheKey.js'
 import type { CacheManager } from '../cache-manager/CacheManager.js'
 import type { EventBus } from '../events/EventBus.js'
+import { WriteQueueException } from '../write-queue/IWriteQueue.js'
 import type { SeedStatusIndex } from './SeedStatusIndex.js'
 import { resolveTopicsForKey } from './SyncManagerUtils.js'
 
 export interface InvalidationSchedulerConfig<TLink extends Link> {
-  eventBus: EventBus<TLink>
-  cacheManager: CacheManager<TLink>
-  seedStatus: SeedStatusIndex
-  collections: Collection<TLink>[]
   getFetchContext: () => Promise<FetchContext>
   onRefetch: (params: {
     collection: Collection<TLink>
     cacheKey: CacheKeyIdentity<TLink>
     topics: readonly string[]
     ctx: FetchContext
-  }) => Promise<{ seeded: boolean; recordCount: number }>
+  }) => Promise<Result<{ seeded: boolean; recordCount: number }, WriteQueueException>>
   debounceMs?: number
 }
 
 export class InvalidationScheduler<TLink extends Link> {
-  private readonly eventBus: EventBus<TLink>
-  private readonly cacheManager: CacheManager<TLink>
-  private readonly seedStatus: SeedStatusIndex
-  private readonly collections: Collection<TLink>[]
   private readonly getFetchContext: () => Promise<FetchContext>
   private readonly onRefetch: InvalidationSchedulerConfig<TLink>['onRefetch']
   private readonly debounceMs: number
 
   private readonly pendingRefetches = new Map<string, ReturnType<typeof setTimeout>>()
 
-  constructor(config: InvalidationSchedulerConfig<TLink>) {
-    this.eventBus = config.eventBus
-    this.cacheManager = config.cacheManager
-    this.seedStatus = config.seedStatus
-    this.collections = config.collections
+  constructor(
+    private readonly eventBus: EventBus<TLink>,
+    private readonly cacheManager: CacheManager<TLink>,
+    private readonly seedStatus: SeedStatusIndex,
+    private readonly collections: Collection<TLink>[],
+    config: InvalidationSchedulerConfig<TLink>,
+  ) {
     this.getFetchContext = config.getFetchContext
     this.onRefetch = config.onRefetch
     this.debounceMs = config.debounceMs ?? 500
@@ -132,10 +126,12 @@ export class InvalidationScheduler<TLink extends Link> {
 
           const ctx = await this.getFetchContext()
           const result = await this.onRefetch({ collection, cacheKey, topics, ctx })
-          if (result.seeded) {
+          if (!result.ok) {
+            // TODO: handle appropriately, probably cancel and clean up?
+          } else if (result.value.seeded) {
             this.eventBus.emitDebug('sync:refetch-executed', {
               collection: collectionName,
-              recordCount: result.recordCount,
+              recordCount: result.value.recordCount,
             })
           }
         } catch (err) {

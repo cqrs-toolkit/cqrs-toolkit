@@ -409,6 +409,10 @@ export class CacheManager<TLink extends Link> implements ICacheManager<TLink> {
     this.holdsByKey.clear()
   }
 
+  async filterExistingCacheKeys(keys: string[]): Promise<string[]> {
+    return this.storage.filterExistingCacheKeys(keys)
+  }
+
   // ---------------------------------------------------------------------------
   // Private
   // ---------------------------------------------------------------------------

@@ -159,7 +159,7 @@ For forms: check result.ok to show validation errors immediately.
 
 ##### TEvent
 
-`TEvent`
+`TEvent` _extends_ [`IAnticipatedEvent`](../interfaces/IAnticipatedEvent.md)\<`string`, `AggregateEventData`\>
 
 #### Parameters
 
@@ -194,7 +194,7 @@ Best for simple form submissions.
 
 ##### TEvent
 
-`TEvent`
+`TEvent` _extends_ [`IAnticipatedEvent`](../interfaces/IAnticipatedEvent.md)\<`string`, `AggregateEventData`\>
 
 ##### TResponse
 

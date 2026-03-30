@@ -162,7 +162,7 @@ describe('EventProcessorRunner', () => {
     eventBus = new EventBus()
     registry = new EventProcessorRegistry()
     readModelStore = new ReadModelStore({ storage })
-    runner = new EventProcessorRunner({ readModelStore, eventBus, registry })
+    runner = new EventProcessorRunner(readModelStore, eventBus, registry)
   })
 
   describe('processEvent', () => {

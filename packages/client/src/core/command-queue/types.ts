@@ -15,6 +15,7 @@ import type {
   EnqueueResult,
   WaitOptions,
 } from '../../types/commands.js'
+import type { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventShape.js'
 
 /**
  * Command queue interface.
@@ -27,11 +28,11 @@ export interface ICommandQueue<TLink extends Link> {
    *
    * For forms: check result.ok to show validation errors immediately.
    *
-   * @param command - Command to enqueue
-   * @param options - Optional enqueue options
    * @returns Enqueue result with validation status
    */
-  enqueue<TData, TEvent>(params: EnqueueParams<TLink, TData>): Promise<EnqueueResult<TEvent>>
+  enqueue<TData, TEvent extends IAnticipatedEvent>(
+    params: EnqueueParams<TLink, TData>,
+  ): Promise<EnqueueResult<TEvent>>
 
   /**
    * Wait for a specific command to reach a terminal state.
@@ -49,11 +50,9 @@ export interface ICommandQueue<TLink extends Link> {
    * Convenience: enqueue and wait for completion in one call.
    * Best for simple form submissions.
    *
-   * @param command - Command to enqueue
-   * @param options - Optional combined options
    * @returns Combined enqueue and completion result
    */
-  enqueueAndWait<TData, TEvent, TResponse>(
+  enqueueAndWait<TData, TEvent extends IAnticipatedEvent, TResponse>(
     params: EnqueueAndWaitParams<TLink, TData>,
   ): Promise<EnqueueAndWaitResult<TResponse>>
 

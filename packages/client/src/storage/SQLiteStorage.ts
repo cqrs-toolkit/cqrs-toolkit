@@ -231,6 +231,17 @@ export class SQLiteStorage<TLink extends Link> implements IStorage<TLink> {
     return rows.map((row) => this.rowToCacheKey(row))
   }
 
+  async filterExistingCacheKeys(keys: string[]): Promise<string[]> {
+    this.assertInitialized()
+    if (keys.length === 0) return []
+    const placeholders = keys.map(() => '?').join(',')
+    const rows = await this.query<{ key: string }>(
+      `SELECT key FROM cache_keys WHERE key IN (${placeholders})`,
+      keys,
+    )
+    return rows.map((row) => row.key)
+  }
+
   // Command operations
 
   async getCommand(commandId: string): Promise<CommandRecord<TLink> | undefined> {

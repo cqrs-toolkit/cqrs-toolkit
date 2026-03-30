@@ -139,4 +139,12 @@ export interface ICacheManager<TLink extends Link> {
    * @returns Total cache key count
    */
   getCount(): Promise<number>
+
+  /**
+   * Filter an array of cache key strings to only those that exist in storage.
+   *
+   * @param keys - Cache key UUIDs to check
+   * @returns The subset of keys that exist
+   */
+  filterExistingCacheKeys(keys: string[]): Promise<string[]>
 }

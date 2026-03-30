@@ -83,4 +83,8 @@ export class CacheManagerProxy<TLink extends Link> implements ICacheManager<TLin
   async getCount(): Promise<number> {
     return this.channel.request<number>('cacheManager.getCount')
   }
+
+  async filterExistingCacheKeys(keys: string[]): Promise<string[]> {
+    return this.channel.request<string[]>('cacheManager.filterExistingCacheKeys', [keys])
+  }
 }

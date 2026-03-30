@@ -194,6 +194,32 @@ Whether the cache key exists
 
 ---
 
+### filterExistingCacheKeys()
+
+> **filterExistingCacheKeys**(`keys`): `Promise`\<`string`[]\>
+
+Filter an array of cache key strings to only those that exist in storage.
+
+#### Parameters
+
+##### keys
+
+`string`[]
+
+Cache key UUIDs to check
+
+#### Returns
+
+`Promise`\<`string`[]\>
+
+The subset of keys that exist
+
+#### Implementation of
+
+[`ICacheManager`](../interfaces/ICacheManager.md).[`filterExistingCacheKeys`](../interfaces/ICacheManager.md#filterexistingcachekeys)
+
+---
+
 ### freeze()
 
 > **freeze**(`key`): `Promise`\<`void`\>

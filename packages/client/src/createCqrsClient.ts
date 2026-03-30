@@ -28,8 +28,8 @@ import { OpfsUnavailableException } from './adapters/worker-core/probeOpfs.js'
 import type { CacheKeyIdentity } from './core/cache-manager/CacheKey.js'
 import { CacheManager } from './core/cache-manager/CacheManager.js'
 import type { ICacheManager } from './core/cache-manager/types.js'
+import { AnticipatedEventHandler } from './core/command-lifecycle/AnticipatedEventHandler.js'
 import type { IAnticipatedEvent } from './core/command-lifecycle/AnticipatedEventShape.js'
-import { createAnticipatedEventHandler } from './core/command-lifecycle/createAnticipatedEventHandler.js'
 import { createCommandResponseHandler } from './core/command-lifecycle/createCommandResponseHandler.js'
 import { CommandQueue } from './core/command-queue/CommandQueue.js'
 import type { ICommandQueue } from './core/command-queue/types.js'
@@ -44,6 +44,7 @@ import { ReadModelStore } from './core/read-model-store/ReadModelStore.js'
 import type { IConnectivity } from './core/sync-manager/ConnectivityManager.js'
 import type { CollectionSyncStatus } from './core/sync-manager/SeedStatusIndex.js'
 import { SyncManager } from './core/sync-manager/SyncManager.js'
+import { WriteQueue } from './core/write-queue/WriteQueue.js'
 import type { EnqueueCommand, SubmitParams, SubmitResult, SubmitSuccess } from './types/commands.js'
 import { SubmitException } from './types/commands.js'
 import type {
@@ -432,22 +433,21 @@ async function createOnlineOnlyClient<
     storage,
   })
 
-  const eventProcessorRunner = new EventProcessorRunner<TLink>({
-    readModelStore,
-    eventBus,
-    registry,
-  })
+  const eventProcessorRunner = new EventProcessorRunner<TLink>(readModelStore, eventBus, registry)
+
+  // Create WriteQueue — subsystems register their own handlers in their constructors.
+  const writeQueue = new WriteQueue<TLink>()
 
   // Lazy ref for SyncManager — safe because onCommandResponse is never called
   // before SyncManager exists (queue starts paused, only processes after resume).
   let syncManagerRef: SyncManager<TLink, TSchema, TEvent>
 
-  const anticipatedEventHandler = createAnticipatedEventHandler(
+  const anticipatedEventHandler = new AnticipatedEventHandler(
     eventCache,
-    cacheManager,
     eventProcessorRunner,
     readModelStore,
     resolved.collections,
+    writeQueue,
   )
 
   // Wire the anticipated handler into the processor for create reconciliation.
@@ -483,19 +483,20 @@ async function createOnlineOnlyClient<
 
   const stableQueryManager = new StableRefQueryManager<TLink>(queryManager)
 
-  const syncManager = new SyncManager<TLink, TSchema, TEvent>({
+  const syncManager = new SyncManager<TLink, TSchema, TEvent>(
     eventBus,
-    sessionManager: adapter.sessionManager,
+    adapter.sessionManager,
     commandQueue,
     eventCache,
     cacheManager,
-    eventProcessor: eventProcessorRunner,
+    eventProcessorRunner,
     readModelStore,
     queryManager,
-    networkConfig: resolved.network,
-    auth: resolved.auth,
-    collections: resolved.collections,
-  })
+    writeQueue,
+    resolved.network,
+    resolved.auth,
+    resolved.collections,
+  )
   syncManagerRef = syncManager
 
   // Build sync manager facade
@@ -517,6 +518,7 @@ async function createOnlineOnlyClient<
 
   // Resource cleanup for online-only mode
   const closeResources = async (): Promise<void> => {
+    writeQueue.destroy()
     eventCache.destroy()
     await syncManager.destroy()
     await stableQueryManager.destroy()

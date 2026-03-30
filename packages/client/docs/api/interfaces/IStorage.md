@@ -310,6 +310,24 @@ Delete the current session and all associated data.
 
 ---
 
+### filterExistingCacheKeys()
+
+> **filterExistingCacheKeys**(`keys`): `Promise`\<`string`[]\>
+
+Filter an array of cache key strings to only those that exist in storage.
+
+#### Parameters
+
+##### keys
+
+`string`[]
+
+#### Returns
+
+`Promise`\<`string`[]\>
+
+---
+
 ### getAllCacheKeys()
 
 > **getAllCacheKeys**(): `Promise`\<[`CacheKeyRecord`](CacheKeyRecord.md)[]\>

@@ -26,13 +26,57 @@ Sync manager.
 
 ### Constructor
 
-> **new SyncManager**\<`TLink`, `TSchema`, `TEvent`\>(`config`): `SyncManager`\<`TLink`, `TSchema`, `TEvent`\>
+> **new SyncManager**\<`TLink`, `TSchema`, `TEvent`\>(`eventBus`, `sessionManager`, `commandQueue`, `eventCache`, `cacheManager`, `eventProcessor`, `readModelStore`, `queryManager`, `writeQueue`, `networkConfig`, `auth`, `collections`): `SyncManager`\<`TLink`, `TSchema`, `TEvent`\>
 
 #### Parameters
 
-##### config
+##### eventBus
 
-[`SyncManagerConfig`](../interfaces/SyncManagerConfig.md)\<`TLink`, `TSchema`, `TEvent`\>
+[`EventBus`](EventBus.md)\<`TLink`\>
+
+##### sessionManager
+
+[`SessionManager`](SessionManager.md)\<`TLink`\>
+
+##### commandQueue
+
+[`CommandQueue`](CommandQueue.md)\<`TLink`, `TSchema`, `TEvent`\>
+
+##### eventCache
+
+[`EventCache`](EventCache.md)\<`TLink`\>
+
+##### cacheManager
+
+[`CacheManager`](CacheManager.md)\<`TLink`\>
+
+##### eventProcessor
+
+[`EventProcessorRunner`](EventProcessorRunner.md)\<`TLink`\>
+
+##### readModelStore
+
+[`ReadModelStore`](ReadModelStore.md)\<`TLink`\>
+
+##### queryManager
+
+[`QueryManager`](QueryManager.md)\<`TLink`\>
+
+##### writeQueue
+
+`IWriteQueue`\<`TLink`\>
+
+##### networkConfig
+
+[`NetworkConfig`](../interfaces/NetworkConfig.md)
+
+##### auth
+
+[`AuthStrategy`](../interfaces/AuthStrategy.md)
+
+##### collections
+
+[`Collection`](../interfaces/Collection.md)\<`TLink`\>[]
 
 #### Returns
 
@@ -166,18 +210,32 @@ Checks all collections whose keyTypes match the identity.
 
 ---
 
-### handleWebSocketEvent()
+### onApplyWsEventOp()
 
-> `protected` **handleWebSocketEvent**(`envelope`): `Promise`\<`void`\>
+> `protected` **onApplyWsEventOp**(`op`): `Promise`\<`void`\>
 
 Handle a WebSocket event with pre-resolved cache keys.
 Per-stream gap detection: check AFTER caching, repair inline when gaps exist.
 
 #### Parameters
 
-##### envelope
+##### op
 
-`WsEventEnvelope`\<`TLink`\>
+`ApplyWsEventOp`\<`TLink`\>
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
+### onSessionDestroyed()
+
+> `protected` **onSessionDestroyed**(): `Promise`\<`void`\>
+
+Handle session destroyed (logout).
+Cleans up sync state while keeping connectivity monitoring alive
+so we're ready when a new session starts.
 
 #### Returns
 
@@ -282,7 +340,7 @@ Cache key identity to seed for
 
 ### seedOneCollection()
 
-> `protected` **seedOneCollection**(`params`): `Promise`\<\{ `recordCount`: `number`; `seeded`: `boolean`; \}\>
+> `protected` **seedOneCollection**(`params`): `Promise`\<`Result`\<\{ `recordCount`: `number`; `seeded`: `boolean`; \}, `WriteQueueException`\>\>
 
 Seed one collection for one cache key.
 Shared core logic used by both seedOnInit and seedOnDemand paths.
@@ -319,7 +377,7 @@ Pre-resolved WS topic patterns to subscribe to for this key
 
 #### Returns
 
-`Promise`\<\{ `recordCount`: `number`; `seeded`: `boolean`; \}\>
+`Promise`\<`Result`\<\{ `recordCount`: `number`; `seeded`: `boolean`; \}, `WriteQueueException`\>\>
 
 `{ seeded: true, recordCount }` if data was seeded, `{ seeded: false, recordCount: 0 }` if skipped or failed
 

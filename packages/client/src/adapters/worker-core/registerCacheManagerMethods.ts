@@ -71,4 +71,8 @@ export function registerCacheManagerMethods<TLink extends Link>(
   handler.registerMethod('cacheManager.getCount', async () => {
     return cacheManager.getCount()
   })
+
+  handler.registerMethod('cacheManager.filterExistingCacheKeys', async (args) => {
+    return cacheManager.filterExistingCacheKeys(args[0] as string[])
+  })
 }

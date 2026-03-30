@@ -350,6 +350,17 @@ export interface CollectionWithSeedOnDemand<TLink extends Link> extends Collecti
   readonly seedOnDemand: SeedOnDemandConfig<TLink>
 }
 
+export interface CollectionWithFetchStreamEvents<TLink extends Link> extends Collection<TLink> {
+  fetchStreamEvents(opts: FetchStreamEventOptions): Promise<IPersistedEvent[]>
+}
+
+export function isCollectionWithFetchStreamEvents<TLink extends Link>(
+  c: Collection<TLink> | undefined,
+): c is CollectionWithFetchStreamEvents<TLink> {
+  if (!c?.fetchStreamEvents) return false
+  return true
+}
+
 /**
  * Shared CQRS configuration.
  *

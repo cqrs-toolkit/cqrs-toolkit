@@ -76,7 +76,6 @@ export type { CacheEventOptions, EventCacheConfig, EventGap } from './core/event
 export { EventProcessorRegistry, EventProcessorRunner } from './core/event-processor/index.js'
 export type {
   EventProcessor,
-  EventProcessorRunnerConfig,
   InvalidateSignal,
   ParsedEvent,
   ProcessEventResult,
@@ -115,7 +114,6 @@ export type {
   ConnectivityManagerConfig,
   ConnectivityState,
   IConnectivity,
-  SyncManagerConfig,
   WsConnectionState,
 } from './core/sync-manager/index.js'
 

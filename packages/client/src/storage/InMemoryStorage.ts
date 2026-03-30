@@ -144,6 +144,10 @@ export class InMemoryStorage<TLink extends Link> implements IStorage<TLink> {
     return evictable.slice(0, limit)
   }
 
+  async filterExistingCacheKeys(keys: string[]): Promise<string[]> {
+    return keys.filter((key) => this.cacheKeys.has(key))
+  }
+
   // Command operations
 
   async getCommand(commandId: string): Promise<CommandRecord<TLink> | undefined> {

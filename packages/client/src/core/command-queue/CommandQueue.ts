@@ -3,7 +3,7 @@
  * Handles command persistence, validation, retry, and status tracking.
  */
 
-import { Err, type Link, logProvider, Ok } from '@meticoeus/ddd-es'
+import { Err, type Link, logProvider, Ok, type Result } from '@meticoeus/ddd-es'
 import {
   filter,
   firstValueFrom,
@@ -48,6 +48,7 @@ import { generateId } from '../../utils/uuid.js'
 import type { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventShape.js'
 import type { ParsedEvent } from '../event-processor/EventProcessorRunner.js'
 import type { EventBus } from '../events/EventBus.js'
+import { WriteQueueException } from '../write-queue/IWriteQueue.js'
 import type { ICommandQueue, ICommandSender } from './types.js'
 import { CommandSendError } from './types.js'
 
@@ -64,7 +65,7 @@ export interface IAnticipatedEventHandler {
     /** Command that produced these events */
     commandId: string
     /** Anticipated events to cache */
-    events: unknown[]
+    events: IAnticipatedEvent[]
     /**
      * For creates with temporary ID: the client-generated entity ID.
      * When provided, sets `_clientMetadata` on the created read model entries so the
@@ -73,7 +74,7 @@ export interface IAnticipatedEventHandler {
     clientId?: string
     /** Cache key string for associating anticipated events with the correct data scope. */
     cacheKey: string
-  }): Promise<void>
+  }): Promise<Result<void, WriteQueueException>>
   /** Clean up anticipated events when command reaches terminal state. Clears local changes for tracked entries. */
   cleanup(commandId: string, terminalStatus: TerminalCommandStatus): Promise<void>
   /** Replace anticipated events for a command (used when data is rewritten after a dependency succeeds). */
@@ -194,7 +195,7 @@ export class CommandQueue<
     this.events$ = this.commandEvents.asObservable().pipe(share(), takeUntil(this.destroy$))
   }
 
-  async enqueue<TData, TEvent>(
+  async enqueue<TData, TEvent extends IAnticipatedEvent>(
     params: EnqueueParams<TLink, TData>,
   ): Promise<EnqueueResult<TEvent>> {
     const { command, cacheKey, skipValidation } = params
@@ -355,7 +356,7 @@ export class CommandQueue<
     return firstValueFrom(race(terminalEvent$, timeout$))
   }
 
-  async enqueueAndWait<TData, TEvent, TResponse>(
+  async enqueueAndWait<TData, TEvent extends IAnticipatedEvent, TResponse>(
     params: EnqueueAndWaitParams<TLink, TData>,
   ): Promise<EnqueueAndWaitResult<TResponse>> {
     const enqueueResult = await this.enqueue<TData, TEvent>(params)

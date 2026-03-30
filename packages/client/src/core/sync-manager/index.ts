@@ -11,4 +11,3 @@ export type {
 } from './ConnectivityManager.js'
 export type { CollectionSyncStatus } from './SeedStatusIndex.js'
 export { SyncManager } from './SyncManager.js'
-export type { SyncManagerConfig } from './SyncManager.js'

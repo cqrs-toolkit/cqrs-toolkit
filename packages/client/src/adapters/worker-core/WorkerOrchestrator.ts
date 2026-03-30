@@ -14,8 +14,8 @@
 import type { Link } from '@meticoeus/ddd-es'
 import type { Subscription } from 'rxjs'
 import { CacheManager } from '../../core/cache-manager/CacheManager.js'
+import { AnticipatedEventHandler } from '../../core/command-lifecycle/AnticipatedEventHandler.js'
 import type { IAnticipatedEvent } from '../../core/command-lifecycle/AnticipatedEventShape.js'
-import { createAnticipatedEventHandler } from '../../core/command-lifecycle/createAnticipatedEventHandler.js'
 import { createCommandResponseHandler } from '../../core/command-lifecycle/createCommandResponseHandler.js'
 import { CommandQueue } from '../../core/command-queue/CommandQueue.js'
 import { EventCache } from '../../core/event-cache/EventCache.js'
@@ -26,6 +26,7 @@ import { QueryManager } from '../../core/query-manager/QueryManager.js'
 import { ReadModelStore } from '../../core/read-model-store/ReadModelStore.js'
 import { SessionManager } from '../../core/session/SessionManager.js'
 import { SyncManager } from '../../core/sync-manager/SyncManager.js'
+import { WriteQueue } from '../../core/write-queue/WriteQueue.js'
 import type { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
 import type { ISqliteDb } from '../../storage/ISqliteDb.js'
 import type { IStorage } from '../../storage/IStorage.js'
@@ -59,6 +60,7 @@ export class WorkerOrchestrator<TLink extends Link, TSchema, TEvent extends IAnt
   private commandQueue: CommandQueue<TLink, TSchema, TEvent> | undefined
   private queryManager: QueryManager<TLink> | undefined
   private syncManager: SyncManager<TLink, TSchema, TEvent> | undefined
+  private writeQueue: WriteQueue<TLink> | undefined
   private eventBroadcastSub: Subscription | undefined
 
   constructor(
@@ -144,21 +146,21 @@ export class WorkerOrchestrator<TLink extends Link, TSchema, TEvent extends IAnt
     this.readModelStore = readModelStore
 
     // 9. Create EventProcessorRunner
-    const eventProcessorRunner = new EventProcessorRunner({
-      readModelStore,
-      eventBus,
-      registry,
-    })
+    const eventProcessorRunner = new EventProcessorRunner(readModelStore, eventBus, registry)
 
-    // 10. Create CommandQueue with anticipated event handler and response handler
+    // 10. Create WriteQueue — subsystems register their own handlers in their constructors.
+    const writeQueue = new WriteQueue<TLink>()
+    this.writeQueue = writeQueue
+
+    // 11. Create CommandQueue with anticipated event handler and response handler
     let syncManagerRef: SyncManager<TLink, TSchema, TEvent>
 
-    const anticipatedEventHandler = createAnticipatedEventHandler(
+    const anticipatedEventHandler = new AnticipatedEventHandler(
       eventCache,
-      cacheManager,
       eventProcessorRunner,
       readModelStore,
       config.collections,
+      writeQueue,
     )
     eventProcessorRunner.setAnticipatedEventHandler(anticipatedEventHandler)
 
@@ -191,24 +193,25 @@ export class WorkerOrchestrator<TLink extends Link, TSchema, TEvent extends IAnt
     })
     this.commandQueue = commandQueue
 
-    // 12. Create SyncManager
-    const syncManager = new SyncManager<TLink, TSchema, TEvent>({
+    // 13. Create SyncManager — sets the queue's session reset handler internally.
+    const syncManager = new SyncManager<TLink, TSchema, TEvent>(
       eventBus,
       sessionManager,
       commandQueue,
       eventCache,
       cacheManager,
-      eventProcessor: eventProcessorRunner,
+      eventProcessorRunner,
       readModelStore,
       queryManager,
-      networkConfig: config.network,
-      auth: config.auth,
-      collections: config.collections,
-    })
+      writeQueue,
+      config.network,
+      config.auth,
+      config.collections,
+    )
     syncManagerRef = syncManager
     this.syncManager = syncManager
 
-    // 13. Register RPC methods for all components
+    // 14. Register RPC methods for all components
     registerCommandQueueMethods(this.messageHandler, commandQueue)
     registerQueryManagerMethods(this.messageHandler, queryManager)
     registerCacheManagerMethods(this.messageHandler, cacheManager)
@@ -266,6 +269,7 @@ export class WorkerOrchestrator<TLink extends Link, TSchema, TEvent extends IAnt
    * Close all CQRS components and release resources.
    */
   async close(): Promise<void> {
+    this.writeQueue?.destroy()
     this.eventCache?.destroy()
     await this.syncManager?.destroy()
     await this.queryManager?.destroy()

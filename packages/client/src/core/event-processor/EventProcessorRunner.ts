@@ -17,17 +17,6 @@ import type {
 } from './types.js'
 
 /**
- * Event processor runner configuration.
- */
-export interface EventProcessorRunnerConfig<TLink extends Link> {
-  readModelStore: ReadModelStore<TLink>
-  eventBus: EventBus<TLink>
-  registry: EventProcessorRegistry
-  /** Anticipated event handler for create reconciliation. Optional — only needed with command handlers. */
-  anticipatedEventHandler?: IAnticipatedEventHandler
-}
-
-/**
  * Parsed event for processing.
  */
 export interface ParsedEvent {
@@ -54,17 +43,13 @@ export interface ProcessEventResult {
  * Event processor runner.
  */
 export class EventProcessorRunner<TLink extends Link> {
-  private readonly readModelStore: ReadModelStore<TLink>
-  private readonly eventBus: EventBus<TLink>
-  private readonly registry: EventProcessorRegistry
-  private anticipatedEventHandler?: IAnticipatedEventHandler
-
-  constructor(config: EventProcessorRunnerConfig<TLink>) {
-    this.readModelStore = config.readModelStore
-    this.eventBus = config.eventBus
-    this.registry = config.registry
-    this.anticipatedEventHandler = config.anticipatedEventHandler
-  }
+  constructor(
+    private readonly readModelStore: ReadModelStore<TLink>,
+    private readonly eventBus: EventBus<TLink>,
+    private readonly registry: EventProcessorRegistry,
+    /** Anticipated event handler for create reconciliation. Optional — only needed with command handlers. */
+    private anticipatedEventHandler?: IAnticipatedEventHandler,
+  ) {}
 
   /**
    * Set the anticipated event handler after construction (breaks circular dependency

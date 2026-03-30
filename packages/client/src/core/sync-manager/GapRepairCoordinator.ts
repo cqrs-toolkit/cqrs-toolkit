@@ -1,21 +1,22 @@
 import type { IPersistedEvent, Link } from '@meticoeus/ddd-es'
 import { logProvider } from '@meticoeus/ddd-es'
-import type { Collection, FetchContext } from '../../types/config.js'
+import {
+  Collection,
+  CollectionWithFetchStreamEvents,
+  FetchContext,
+  isCollectionWithFetchStreamEvents,
+} from '../../types/config.js'
+import { noop } from '../../utils/index.js'
 import type { EventCache } from '../event-cache/EventCache.js'
 import type { EventProcessorRunner } from '../event-processor/index.js'
 import type { EventBus } from '../events/EventBus.js'
 import type { ReadModelStore } from '../read-model-store/ReadModelStore.js'
+import type { IWriteQueue } from '../write-queue/IWriteQueue.js'
+import type { ApplyGapRepairOp } from '../write-queue/operations.js'
 import type { ConnectivityManager } from './ConnectivityManager.js'
 import { toParsedEvent } from './SyncManagerUtils.js'
 
 export interface GapRepairCoordinatorConfig<TLink extends Link> {
-  knownRevisions: Map<string, bigint>
-  eventBus: EventBus<TLink>
-  eventCache: EventCache<TLink>
-  eventProcessor: EventProcessorRunner<TLink>
-  readModelStore: ReadModelStore<TLink>
-  collections: Collection<TLink>[]
-  connectivity: ConnectivityManager<TLink>
   getFetchContext: () => Promise<FetchContext>
   onInvalidated: (collectionName: string, cacheKeys: string[]) => void
 }
@@ -27,28 +28,27 @@ export interface GapRepairCoordinatorConfig<TLink extends Link> {
  * map (owned by SyncManager) to detect revision discontinuities and drive repair.
  */
 export class GapRepairCoordinator<TLink extends Link> {
-  private readonly knownRevisions: Map<string, bigint>
-  private readonly eventBus: EventBus<TLink>
-  private readonly eventCache: EventCache<TLink>
-  private readonly eventProcessor: EventProcessorRunner<TLink>
-  private readonly readModelStore: ReadModelStore<TLink>
-  private readonly collections: Collection<TLink>[]
-  private readonly connectivity: ConnectivityManager<TLink>
   private readonly getFetchContext: () => Promise<FetchContext>
   private readonly onInvalidated: (collectionName: string, cacheKeys: string[]) => void
 
   private readonly repairing = new Set<string>()
 
-  constructor(config: GapRepairCoordinatorConfig<TLink>) {
-    this.knownRevisions = config.knownRevisions
-    this.eventBus = config.eventBus
-    this.eventCache = config.eventCache
-    this.eventProcessor = config.eventProcessor
-    this.readModelStore = config.readModelStore
-    this.collections = config.collections
-    this.connectivity = config.connectivity
+  constructor(
+    private readonly knownRevisions: Map<string, bigint>,
+    private readonly eventBus: EventBus<TLink>,
+    private readonly eventCache: EventCache<TLink>,
+    private readonly eventProcessor: EventProcessorRunner<TLink>,
+    private readonly readModelStore: ReadModelStore<TLink>,
+    private readonly collections: Collection<TLink>[],
+    private readonly connectivity: ConnectivityManager<TLink>,
+    private readonly writeQueue: IWriteQueue<TLink>,
+    config: GapRepairCoordinatorConfig<TLink>,
+  ) {
     this.getFetchContext = config.getFetchContext
     this.onInvalidated = config.onInvalidated
+
+    this.writeQueue.register('apply-gap-repair', this.onApplyGapRepair.bind(this))
+    this.writeQueue.registerEviction('apply-gap-repair', this.onApplyGapRepairEviction.bind(this))
   }
 
   /**
@@ -76,29 +76,30 @@ export class GapRepairCoordinator<TLink extends Link> {
    * Returns true if the event is in order and the caller should continue processing,
    * false if a gap was detected or repair is already in flight.
    */
-  async checkAndRepairGap(
+  checkAndRepairGap(
     event: IPersistedEvent,
     collectionName: string,
     cacheKeys: string[],
-  ): Promise<boolean> {
+  ): 'no-gap' | 'has-gap' | 'invalidated' {
     // Default -1n represents "no stream" — the state before the first event (revision 0).
-    const expectedRevision = (this.knownRevisions.get(event.streamId) ?? -1n) + 1n
+    const knownRevision = this.knownRevisions.get(event.streamId) ?? -1n
+    const expectedRevision = knownRevision + 1n
+    if (event.revision === expectedRevision) return 'no-gap'
 
-    if (event.revision !== expectedRevision) {
-      this.eventBus.emitDebug('sync:gap-detected', {
-        streamId: event.streamId,
-        expected: expectedRevision,
-        received: event.revision,
-      })
+    this.eventBus.emitDebug('sync:gap-detected', {
+      streamId: event.streamId,
+      expected: expectedRevision,
+      received: event.revision,
+    })
 
-      // Gap or out-of-order — event is already in GapBuffer from caching, trigger repair
-      if (!this.repairing.has(event.streamId)) {
-        await this.repairStreamGap(event.streamId, collectionName, cacheKeys)
-      }
-      return false
+    const collection = this.collections.find((c) => c.name === collectionName)
+    if (!isCollectionWithFetchStreamEvents(collection)) return 'invalidated'
+
+    // Gap or out-of-order — event is already in GapBuffer from caching, trigger repair
+    if (!this.repairing.has(event.streamId)) {
+      this.repairStreamGap(collection, event.streamId, knownRevision, cacheKeys).catch(noop)
     }
-
-    return true
+    return 'has-gap'
   }
 
   /**
@@ -112,51 +113,49 @@ export class GapRepairCoordinator<TLink extends Link> {
    * Repair a gap in a specific stream by fetching missing events from the server.
    */
   private async repairStreamGap(
+    collection: CollectionWithFetchStreamEvents<TLink>,
     streamId: string,
-    collectionName: string,
+    fromRevision: bigint,
     cacheKeys: string[],
   ): Promise<void> {
     this.repairing.add(streamId)
-
-    const gaps = this.eventCache.getStreamGaps(streamId)
-    const firstGap = gaps[0]
-    const fromRevision = firstGap?.fromPosition ?? -1n
-
     this.eventBus.emitDebug('sync:gap-repair-started', { streamId, fromRevision })
 
     try {
-      const collection = this.collections.find((c) => c.name === collectionName)
-      if (!collection?.fetchStreamEvents) {
-        // No fetch method — process buffered events as-is (lossy but unblocked)
-        await this.processBufferedEventsForStream(streamId, cacheKeys)
-        this.eventBus.emitDebug('sync:gap-repair-completed', {
-          streamId,
-          eventCount: 0,
-        })
-        return
-      }
-
-      if (!firstGap) {
-        this.eventBus.emitDebug('sync:gap-repair-completed', {
-          streamId,
-          eventCount: 0,
-        })
-        return
-      }
-
       // Fetch events after the last known good revision (exclusive)
       const ctx = await this.getFetchContext()
       const events = await collection.fetchStreamEvents({
         ctx,
         streamId,
-        afterRevision: firstGap.fromPosition,
+        afterRevision: fromRevision,
       })
       this.connectivity.reportContact()
 
+      this.writeQueue
+        .enqueue({
+          type: 'apply-gap-repair',
+          streamId,
+          cacheKeys,
+          events,
+        })
+        .catch(noop)
+    } catch (error) {
+      logProvider.log.error({ streamId, err: error }, 'Gap repair failed')
+      // Network error — no op was enqueued, clear repairing so next WS event retries
+      this.repairing.delete(streamId)
+    }
+  }
+
+  /**
+   * Write queue handler for apply-gap-repair.
+   * Drains the gap buffer for a stream, processing events through EventProcessorRunner.
+   * Clears the repairing guard on completion (including errors) so the next WS event can retry.
+   */
+  private async onApplyGapRepair(op: ApplyGapRepairOp): Promise<void> {
+    const { streamId, cacheKeys, events } = op
+    try {
       // Cache fetched events with all active keys
-      for (const evt of events) {
-        await this.eventCache.cacheServerEvent(evt, { cacheKeys })
-      }
+      await this.eventCache.cacheServerEvents(events, { cacheKeys })
 
       // Process all buffered events for this stream, for each active cache key
       await this.processBufferedEventsForStream(streamId, cacheKeys)
@@ -165,12 +164,13 @@ export class GapRepairCoordinator<TLink extends Link> {
         streamId,
         eventCount: events.length,
       })
-    } catch (error) {
-      logProvider.log.error({ streamId, err: error }, 'Gap repair failed')
-      // Events stay buffered — next WS event for this stream will retry
     } finally {
       this.repairing.delete(streamId)
     }
+  }
+
+  private async onApplyGapRepairEviction(op: ApplyGapRepairOp): Promise<void> {
+    this.repairing.delete(op.streamId)
   }
 
   /**
