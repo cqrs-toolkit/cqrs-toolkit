@@ -1,6 +1,0 @@
-{
-  "$id": "urn:schema:demo.DeleteTodoData:1.0.0",
-  "additionalProperties": false,
-  "properties": {},
-  "type": "object"
-}

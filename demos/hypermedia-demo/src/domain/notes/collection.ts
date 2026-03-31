@@ -4,7 +4,7 @@ import { appCreateCollection } from '../utils/collection.js'
 
 export const notesCollection = appCreateCollection({
   name: 'notes',
-  representation: representations['demo:Note'],
+  representation: representations['nb:Note'],
   cacheKeysFromTopics,
   matchesStream: (streamId) => streamId.startsWith('Note-'),
   seedOnDemand: {

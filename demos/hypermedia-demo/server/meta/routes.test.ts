@@ -31,20 +31,20 @@ describe('GET /api/meta/apidoc', () => {
     const body = res.json()
     const json = JSON.stringify(body)
 
-    expect(json).toContain('urn:command:demo.CreateTodo:1.0.0')
-    expect(json).toContain('urn:command:demo.UpdateTodoContent:1.0.0')
-    expect(json).toContain('urn:command:demo.CreateNote:1.0.0')
-    expect(json).toContain('urn:command:demo.CreateNotebook:1.0.0')
+    expect(json).toContain('urn:command:nb.CreateTodo:1.0.0')
+    expect(json).toContain('urn:command:nb.UpdateTodoContent:1.0.0')
+    expect(json).toContain('urn:command:nb.CreateNote:1.0.0')
+    expect(json).toContain('urn:command:nb.CreateNotebook:1.0.0')
   })
 
   it('contains expected representation profiles', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/meta/apidoc' })
     const json = JSON.stringify(res.json())
 
-    expect(json).toContain('urn:profile:demo.Todo:1.0.0')
-    expect(json).toContain('urn:profile:demo.TodoCollection:1.0.0')
-    expect(json).toContain('urn:profile:demo.Note:1.0.0')
-    expect(json).toContain('urn:profile:demo.Notebook:1.0.0')
+    expect(json).toContain('urn:profile:nb.Todo:1.0.0')
+    expect(json).toContain('urn:profile:nb.TodoCollection:1.0.0')
+    expect(json).toContain('urn:profile:nb.Note:1.0.0')
+    expect(json).toContain('urn:profile:nb.Notebook:1.0.0')
   })
 
   it('returns ETag header', async () => {
@@ -84,7 +84,7 @@ describe('schema discovery via apidoc', () => {
     const apidoc = apidocRes.json()
 
     // Find the CreateTodo command's jsonSchema URL
-    const schemaUrl = findJsonSchemaUrl(apidoc, 'urn:command:demo.CreateTodo:1.0.0')
+    const schemaUrl = findJsonSchemaUrl(apidoc, 'urn:command:nb.CreateTodo:1.0.0')
     expect(schemaUrl).toBeDefined()
 
     // Convert absolute URL to relative path for inject
@@ -104,7 +104,7 @@ describe('schema discovery via apidoc', () => {
     const apidocRes = await app.inject({ method: 'GET', url: '/api/meta/apidoc' })
     const apidoc = apidocRes.json()
 
-    const schemaUrl = findJsonSchemaUrl(apidoc, 'urn:command:demo.UpdateTodoContent:1.0.0')
+    const schemaUrl = findJsonSchemaUrl(apidoc, 'urn:command:nb.UpdateTodoContent:1.0.0')
     expect(schemaUrl).toBeDefined()
 
     const path = new URL(schemaUrl).pathname
@@ -123,7 +123,7 @@ describe('GET /api/meta/schemas/*', () => {
   it('returns immutable cache headers', async () => {
     const apidocRes = await app.inject({ method: 'GET', url: '/api/meta/apidoc' })
     const apidoc = apidocRes.json()
-    const schemaUrl = findJsonSchemaUrl(apidoc, 'urn:command:demo.CreateTodo:1.0.0')
+    const schemaUrl = findJsonSchemaUrl(apidoc, 'urn:command:nb.CreateTodo:1.0.0')
     const path = new URL(schemaUrl).pathname
 
     const res = await app.inject({ method: 'GET', url: path })

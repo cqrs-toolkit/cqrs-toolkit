@@ -5,7 +5,7 @@
 import { HAL } from '@cqrs-toolkit/hypermedia'
 import { NoteRepV1_0_0 } from './v1_0_0/representation.js'
 
-export const NoteClass = 'demo:Note'
+export const NoteClass = 'nb:Note'
 
 export const HalNoteCollection: HAL.CollectionDefinition = {
   itemClass: NoteClass,
@@ -22,8 +22,8 @@ export const HalNote: HAL.ResourceDefinition = {
 
 // ── Event HAL definitions ──
 
-export const NoteItemEventClass = 'demo:NoteItemEvent'
-export const NoteAggregateEventClass = 'demo:NoteAggregateEvent'
+export const NoteItemEventClass = 'nb:NoteItemEvent'
+export const NoteAggregateEventClass = 'nb:NoteAggregateEvent'
 
 export const HalNoteItemEventCollection: HAL.CollectionDefinition = {
   itemClass: NoteItemEventClass,

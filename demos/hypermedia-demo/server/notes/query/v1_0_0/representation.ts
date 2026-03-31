@@ -5,23 +5,23 @@
 import { HydraDoc } from '@cqrs-toolkit/hypermedia'
 
 export const NoteRepV1_0_0 = new HydraDoc.Representation({
-  id: '#demo-note-v1_0_0',
+  id: 'urn:representation:nb.Note:1.0.0',
   version: '1.0.0',
   resource: {
-    profile: 'urn:profile:demo.Note:1.0.0',
+    profile: 'urn:profile:nb.Note:1.0.0',
     formats: ['application/json', 'application/hal+json'],
     template: {
-      id: '#demo-note-resource-v1_0_0',
+      id: '#nb-note-resource-v1_0_0',
       template: '/api/notes/{id}',
-      mappings: [{ variable: 'id', property: 'demo:noteId', required: true }],
+      mappings: [{ variable: 'id', property: 'nb:noteId', required: true }],
     },
   },
   collection: {
-    profile: 'urn:profile:demo.NoteCollection:1.0.0',
+    profile: 'urn:profile:nb.NoteCollection:1.0.0',
     formats: ['application/json', 'application/hal+json'],
     href: '/api/notes',
     template: {
-      id: '#demo-note-collection-v1_0_0',
+      id: '#nb-note-collection-v1_0_0',
       template: '/api/notes',
       mappings: [
         { variable: 'cursor', property: 'svc:cursor' },
@@ -32,7 +32,7 @@ export const NoteRepV1_0_0 = new HydraDoc.Representation({
   events: {
     resourceSegment: 'notes',
     baseHref: '/api',
-    item: { profile: 'urn:profile:demo.NoteItemEvent:1.0.0' },
-    aggregate: { profile: 'urn:profile:demo.NoteEvent:1.0.0' },
+    item: { profile: 'urn:profile:nb.NoteItemEvent:1.0.0' },
+    aggregate: { profile: 'urn:profile:nb.NoteEvent:1.0.0' },
   },
 })

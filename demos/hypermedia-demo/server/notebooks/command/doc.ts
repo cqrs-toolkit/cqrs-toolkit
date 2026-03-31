@@ -12,11 +12,11 @@ import { addBodyCommandSchema, addCommandCapabilitySchema } from '../../command-
 // ---------------------------------------------------------------------------
 
 export const NotebookCommandIds = {
-  CreateNotebook: 'demo.CreateNotebook',
-  UpdateNotebookName: 'demo.UpdateNotebookName',
-  DeleteNotebook: 'demo.DeleteNotebook',
-  AddNotebookTag: 'demo.AddNotebookTag',
-  RemoveNotebookTag: 'demo.RemoveNotebookTag',
+  CreateNotebook: 'nb.CreateNotebook',
+  UpdateNotebookName: 'nb.UpdateNotebookName',
+  DeleteNotebook: 'nb.DeleteNotebook',
+  AddNotebookTag: 'nb.AddNotebookTag',
+  RemoveNotebookTag: 'nb.RemoveNotebookTag',
 } as const
 
 // ---------------------------------------------------------------------------
@@ -62,37 +62,37 @@ const removeNotebookTagDataSchema: JSONSchema7 = {
 
 export const NotebookCommands = new HydraDoc.CommandsDef<never>({
   surfaces: HydraDoc.standardCommandSurfaces({
-    idStem: '#demo-notebook',
+    idStem: '#nb-notebook',
     collectionHref: '/api/notebooks',
-    idProperty: 'demo:notebookId',
+    idProperty: 'nb:notebookId',
   }),
 
   commands: [
     addBodyCommandSchema(createNotebookPayloadSchema, {
-      id: 'urn:command:demo.CreateNotebook:1.0.0',
+      id: 'urn:command:nb.CreateNotebook:1.0.0',
       stableId: NotebookCommandIds.CreateNotebook,
       dispatch: 'create',
     }),
     addCommandCapabilitySchema(updateNotebookNameDataSchema, {
-      id: 'urn:command:demo.UpdateNotebookName:1.0.0',
+      id: 'urn:command:nb.UpdateNotebookName:1.0.0',
       stableId: NotebookCommandIds.UpdateNotebookName,
       dispatch: 'command',
       commandType: 'updateName',
     }),
     addCommandCapabilitySchema(deleteNotebookDataSchema, {
-      id: 'urn:command:demo.DeleteNotebook:1.0.0',
+      id: 'urn:command:nb.DeleteNotebook:1.0.0',
       stableId: NotebookCommandIds.DeleteNotebook,
       dispatch: 'command',
       commandType: 'delete',
     }),
     addCommandCapabilitySchema(addNotebookTagDataSchema, {
-      id: 'urn:command:demo.AddNotebookTag:1.0.0',
+      id: 'urn:command:nb.AddNotebookTag:1.0.0',
       stableId: NotebookCommandIds.AddNotebookTag,
       dispatch: 'command',
       commandType: 'addTag',
     }),
     addCommandCapabilitySchema(removeNotebookTagDataSchema, {
-      id: 'urn:command:demo.RemoveNotebookTag:1.0.0',
+      id: 'urn:command:nb.RemoveNotebookTag:1.0.0',
       stableId: NotebookCommandIds.RemoveNotebookTag,
       dispatch: 'command',
       commandType: 'removeTag',

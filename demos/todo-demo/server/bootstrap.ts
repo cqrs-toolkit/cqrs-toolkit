@@ -4,14 +4,17 @@
  * Returns a configured Fastify instance ready for .listen() or .inject().
  */
 
-import { DemoEventStore } from '@cqrs-toolkit/demo-base/common/server'
+import { DemoEventStore, TempFileStore } from '@cqrs-toolkit/demo-base/common/server'
 import type { CommandResponse } from '@cqrs-toolkit/demo-base/common/shared'
+import { FileObjectRepository } from '@cqrs-toolkit/demo-base/file-objects/server'
 import { NotebookRepository, NotebookService } from '@cqrs-toolkit/demo-base/notebooks/server'
 import { NoteRepository } from '@cqrs-toolkit/demo-base/notes/server'
 import { TodoRepository } from '@cqrs-toolkit/demo-base/todos/server'
+import multipart from '@fastify/multipart'
 import websocket from '@fastify/websocket'
 import { logProvider } from '@meticoeus/ddd-es'
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify'
+import { fileObjectRoutes } from './file-objects/routes.js'
 import { notebookRoutes } from './notebooks/routes.js'
 import { noteRoutes } from './notes/routes.js'
 import { FakeUserStore, sessionRoutes } from './session/routes.js'
@@ -30,6 +33,8 @@ export interface AppContext {
   todoRepo: TodoRepository
   noteRepo: NoteRepository
   notebookRepo: NotebookRepository
+  fileObjectRepo: FileObjectRepository
+  fileStore: TempFileStore
   userStore: FakeUserStore
 }
 
@@ -47,7 +52,9 @@ export function createApp(options?: { logLevel?: string }): AppContext {
   const todoRepo = new TodoRepository(eventStore)
   const noteRepo = new NoteRepository(eventStore)
   const notebookRepo = new NotebookRepository(eventStore)
+  const fileObjectRepo = new FileObjectRepository(eventStore, noteRepo)
   const notebookService = new NotebookService(notebookRepo, noteRepo)
+  const fileStore = new TempFileStore()
   const userStore = new FakeUserStore()
 
   // --- Request deduplication cache ---
@@ -67,6 +74,7 @@ export function createApp(options?: { logLevel?: string }): AppContext {
 
   app.addHook('onClose', async () => {
     clearInterval(cacheCleanupTimer)
+    fileStore.cleanup()
   })
 
   // --- Request deduplication middleware ---
@@ -112,6 +120,7 @@ export function createApp(options?: { logLevel?: string }): AppContext {
     api.register(todoRoutes(eventStore, todoRepo))
     api.register(notebookRoutes(eventStore, notebookRepo, notebookService))
     api.register(noteRoutes(eventStore, noteRepo, notebookRepo))
+    api.register(fileObjectRoutes(eventStore, fileObjectRepo, noteRepo, fileStore))
 
     api.addHook('onSend', async (request, reply, data) => {
       if (request.method === 'POST' && typeof data === 'string') {
@@ -134,6 +143,8 @@ export function createApp(options?: { logLevel?: string }): AppContext {
       todoRepo.clear()
       noteRepo.clear()
       notebookRepo.clear()
+      fileObjectRepo.clear()
+      fileStore.clear()
       userStore.clear()
       responseCache.clear()
       wsControl.resume()
@@ -153,9 +164,10 @@ export function createApp(options?: { logLevel?: string }): AppContext {
 
   const { plugin: wsPlugin, control: wsControl } = websocketPlugin(eventStore, userStore)
 
+  app.register(multipart)
   app.register(websocket)
   app.register(wsPlugin)
   app.register(apiRoutes, { prefix: '/api' })
 
-  return { app, eventStore, todoRepo, noteRepo, notebookRepo, userStore }
+  return { app, eventStore, todoRepo, noteRepo, notebookRepo, fileObjectRepo, fileStore, userStore }
 }

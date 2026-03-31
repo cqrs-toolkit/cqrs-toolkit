@@ -5,7 +5,7 @@
 import { HAL } from '@cqrs-toolkit/hypermedia'
 import { TodoRepV1_0_0 } from './v1_0_0/representation.js'
 
-export const TodoClass = 'demo:Todo'
+export const TodoClass = 'nb:Todo'
 
 export const HalTodoCollection: HAL.CollectionDefinition = {
   itemClass: TodoClass,
@@ -22,8 +22,8 @@ export const HalTodo: HAL.ResourceDefinition = {
 
 // ── Event HAL definitions ──
 
-export const TodoItemEventClass = 'demo:TodoItemEvent'
-export const TodoAggregateEventClass = 'demo:TodoAggregateEvent'
+export const TodoItemEventClass = 'nb:TodoItemEvent'
+export const TodoAggregateEventClass = 'nb:TodoAggregateEvent'
 
 export const HalTodoItemEventCollection: HAL.CollectionDefinition = {
   itemClass: TodoItemEventClass,

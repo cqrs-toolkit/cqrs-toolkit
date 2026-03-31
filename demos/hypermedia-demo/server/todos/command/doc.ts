@@ -12,10 +12,10 @@ import { addBodyCommandSchema, addCommandCapabilitySchema } from '../../command-
 // ---------------------------------------------------------------------------
 
 export const TodoCommandIds = {
-  CreateTodo: 'demo.CreateTodo',
-  UpdateTodoContent: 'demo.UpdateTodoContent',
-  ChangeTodoStatus: 'demo.ChangeTodoStatus',
-  DeleteTodo: 'demo.DeleteTodo',
+  CreateTodo: 'nb.CreateTodo',
+  UpdateTodoContent: 'nb.UpdateTodoContent',
+  ChangeTodoStatus: 'nb.ChangeTodoStatus',
+  DeleteTodo: 'nb.DeleteTodo',
 } as const
 
 // ---------------------------------------------------------------------------
@@ -52,31 +52,31 @@ const deleteTodoDataSchema: JSONSchema7 = {
 
 export const TodoCommands = new HydraDoc.CommandsDef<never>({
   surfaces: HydraDoc.standardCommandSurfaces({
-    idStem: '#demo-todo',
+    idStem: '#nb-todo',
     collectionHref: '/api/todos',
-    idProperty: 'demo:todoId',
+    idProperty: 'nb:todoId',
   }),
 
   commands: [
     addBodyCommandSchema(createTodoPayloadSchema, {
-      id: 'urn:command:demo.CreateTodo:1.0.0',
+      id: 'urn:command:nb.CreateTodo:1.0.0',
       stableId: TodoCommandIds.CreateTodo,
       dispatch: 'create',
     }),
     addCommandCapabilitySchema(updateTodoContentDataSchema, {
-      id: 'urn:command:demo.UpdateTodoContent:1.0.0',
+      id: 'urn:command:nb.UpdateTodoContent:1.0.0',
       stableId: TodoCommandIds.UpdateTodoContent,
       dispatch: 'command',
       commandType: 'updateContent',
     }),
     addCommandCapabilitySchema(changeTodoStatusDataSchema, {
-      id: 'urn:command:demo.ChangeTodoStatus:1.0.0',
+      id: 'urn:command:nb.ChangeTodoStatus:1.0.0',
       stableId: TodoCommandIds.ChangeTodoStatus,
       dispatch: 'command',
       commandType: 'changeStatus',
     }),
     addCommandCapabilitySchema(deleteTodoDataSchema, {
-      id: 'urn:command:demo.DeleteTodo:1.0.0',
+      id: 'urn:command:nb.DeleteTodo:1.0.0',
       stableId: TodoCommandIds.DeleteTodo,
       dispatch: 'command',
       commandType: 'delete',

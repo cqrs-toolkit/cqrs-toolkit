@@ -5,7 +5,7 @@
 import { HAL } from '@cqrs-toolkit/hypermedia'
 import { NotebookRepV1_0_0 } from './v1_0_0/representation.js'
 
-export const NotebookClass = 'demo:Notebook'
+export const NotebookClass = 'nb:Notebook'
 
 export const HalNotebookCollection: HAL.CollectionDefinition = {
   itemClass: NotebookClass,
@@ -22,8 +22,8 @@ export const HalNotebook: HAL.ResourceDefinition = {
 
 // ── Event HAL definitions ──
 
-export const NotebookItemEventClass = 'demo:NotebookItemEvent'
-export const NotebookAggregateEventClass = 'demo:NotebookAggregateEvent'
+export const NotebookItemEventClass = 'nb:NotebookItemEvent'
+export const NotebookAggregateEventClass = 'nb:NotebookAggregateEvent'
 
 export const HalNotebookItemEventCollection: HAL.CollectionDefinition = {
   itemClass: NotebookItemEventClass,

@@ -15,7 +15,7 @@ const outputDir = resolve(__dirname, '../static/meta')
 const { warnings, immutabilityViolations } = generateHydraDocumentation({
   outputDir,
   classes: HydraDemoClasses,
-  prefixes: ['demo', 'svc'],
+  prefixes: ['nb', 'storage', 'svc'],
 })
 
 if (warnings.length) {

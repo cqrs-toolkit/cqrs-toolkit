@@ -1,0 +1,24 @@
+{
+  "$id": "urn:schema:storage.CreateFileObject:1.0.0",
+  "additionalProperties": false,
+  "properties": {
+    "filename": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "noteId": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "size": {
+      "exclusiveMinimum": 0,
+      "type": "number"
+    }
+  },
+  "required": [
+    "noteId",
+    "filename",
+    "size"
+  ],
+  "type": "object"
+}

@@ -5,7 +5,7 @@ import { appCreateCollection } from '../utils/collection.js'
 
 export const notebooksCollection = appCreateCollection({
   name: 'notebooks',
-  representation: representations['demo:Notebook'],
+  representation: representations['nb:Notebook'],
   cacheKeysFromTopics: () => [NOTEBOOK_SEED_KEY],
   matchesStream: (streamId) => streamId.startsWith('Notebook-'),
   seedOnInit: {

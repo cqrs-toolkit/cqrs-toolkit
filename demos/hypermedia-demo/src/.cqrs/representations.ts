@@ -6,13 +6,13 @@
 import type { RepresentationSurfaces } from '@cqrs-toolkit/hypermedia-client'
 
 interface Representations {
-  'demo:Todo': RepresentationSurfaces
-  'demo:Note': RepresentationSurfaces
-  'demo:Notebook': RepresentationSurfaces
+  'nb:Todo': RepresentationSurfaces
+  'nb:Note': RepresentationSurfaces
+  'nb:Notebook': RepresentationSurfaces
 }
 
 export const representations: Representations = {
-  'demo:Todo': {
+  'nb:Todo': {
     version: '1.0.0',
     collection: { href: '/api/todos', template: '/api/todos{?cursor,limit}' },
     resource: { template: '/api/todos/{id}' },
@@ -25,7 +25,7 @@ export const representations: Representations = {
       template: '/api/events/todos{?limit,afterPosition}',
     },
   },
-  'demo:Note': {
+  'nb:Note': {
     version: '1.0.0',
     collection: { href: '/api/notes', template: '/api/notes{?cursor,limit}' },
     resource: { template: '/api/notes/{id}' },
@@ -38,7 +38,7 @@ export const representations: Representations = {
       template: '/api/events/notes{?limit,afterPosition}',
     },
   },
-  'demo:Notebook': {
+  'nb:Notebook': {
     version: '1.0.0',
     collection: { href: '/api/notebooks', template: '/api/notebooks{?cursor,limit}' },
     resource: { template: '/api/notebooks/{id}' },

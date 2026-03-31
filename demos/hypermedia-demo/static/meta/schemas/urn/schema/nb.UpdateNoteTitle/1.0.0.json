@@ -1,0 +1,21 @@
+{
+  "$id": "urn:schema:nb.UpdateNoteTitle:1.0.0",
+  "additionalProperties": false,
+  "properties": {
+    "data": {
+      "$ref": "urn:schema:nb.UpdateNoteTitleData:1.0.0"
+    },
+    "revision": {
+      "type": "string"
+    },
+    "type": {
+      "const": "updateTitle",
+      "type": "string"
+    }
+  },
+  "required": [
+    "type",
+    "data"
+  ],
+  "type": "object"
+}

@@ -5,7 +5,7 @@ import { appCreateCollection } from '../utils/collection.js'
 
 export const todosCollection = appCreateCollection({
   name: 'todos',
-  representation: representations['demo:Todo'],
+  representation: representations['nb:Todo'],
   cacheKeysFromTopics: () => [TODO_SEED_KEY],
   matchesStream: (streamId) => streamId.startsWith('Todo-'),
   seedOnInit: {

@@ -12,10 +12,10 @@ import { addBodyCommandSchema, addCommandCapabilitySchema } from '../../command-
 // ---------------------------------------------------------------------------
 
 export const NoteCommandIds = {
-  CreateNote: 'demo.CreateNote',
-  UpdateNoteTitle: 'demo.UpdateNoteTitle',
-  UpdateNoteBody: 'demo.UpdateNoteBody',
-  DeleteNote: 'demo.DeleteNote',
+  CreateNote: 'nb.CreateNote',
+  UpdateNoteTitle: 'nb.UpdateNoteTitle',
+  UpdateNoteBody: 'nb.UpdateNoteBody',
+  DeleteNote: 'nb.DeleteNote',
 } as const
 
 // ---------------------------------------------------------------------------
@@ -52,31 +52,31 @@ const deleteNoteDataSchema: JSONSchema7 = {
 
 export const NoteCommands = new HydraDoc.CommandsDef<never>({
   surfaces: HydraDoc.standardCommandSurfaces({
-    idStem: '#demo-note',
+    idStem: '#nb-note',
     collectionHref: '/api/notes',
-    idProperty: 'demo:noteId',
+    idProperty: 'nb:noteId',
   }),
 
   commands: [
     addBodyCommandSchema(createNotePayloadSchema, {
-      id: 'urn:command:demo.CreateNote:1.0.0',
+      id: 'urn:command:nb.CreateNote:1.0.0',
       stableId: NoteCommandIds.CreateNote,
       dispatch: 'create',
     }),
     addCommandCapabilitySchema(updateNoteTitleDataSchema, {
-      id: 'urn:command:demo.UpdateNoteTitle:1.0.0',
+      id: 'urn:command:nb.UpdateNoteTitle:1.0.0',
       stableId: NoteCommandIds.UpdateNoteTitle,
       dispatch: 'command',
       commandType: 'updateTitle',
     }),
     addCommandCapabilitySchema(updateNoteBodyDataSchema, {
-      id: 'urn:command:demo.UpdateNoteBody:1.0.0',
+      id: 'urn:command:nb.UpdateNoteBody:1.0.0',
       stableId: NoteCommandIds.UpdateNoteBody,
       dispatch: 'command',
       commandType: 'updateBody',
     }),
     addCommandCapabilitySchema(deleteNoteDataSchema, {
-      id: 'urn:command:demo.DeleteNote:1.0.0',
+      id: 'urn:command:nb.DeleteNote:1.0.0',
       stableId: NoteCommandIds.DeleteNote,
       dispatch: 'command',
       commandType: 'delete',
