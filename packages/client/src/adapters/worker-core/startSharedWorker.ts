@@ -234,6 +234,11 @@ export function startSharedWorker<TLink extends Link, TSchema, TEvent extends IA
    */
   function handleTabClosing(windowId: string): void {
     tabWorkerPorts.delete(windowId)
+    // Release cache key holds immediately on graceful close (§10.4)
+    // rather than waiting for heartbeat TTL to detect a dead window.
+    messageHandler.removeWindow(windowId).catch((err) => {
+      logProvider.log.error({ err, windowId }, 'Failed to release holds on tab close')
+    })
     if (activeWindowId === windowId) {
       activeWindowId = undefined
       if (state === 'ready') {

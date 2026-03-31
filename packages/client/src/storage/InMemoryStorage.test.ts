@@ -142,6 +142,7 @@ describe('InMemoryStorage', () => {
         commandId: null,
         cacheKeys: ['cache-1'],
         createdAt: 1000,
+        processedAt: null,
       }
       await storage.saveCachedEvent(event)
 
@@ -263,6 +264,7 @@ describe('InMemoryStorage', () => {
         commandId: 'cmd-1',
         cacheKeys: ['cache-1'],
         createdAt: 1000,
+        processedAt: null,
       }
       await storage.saveCachedEvent(event)
 
@@ -295,6 +297,7 @@ describe('InMemoryStorage', () => {
       commandId: null,
       cacheKeys: ['cache-1'],
       createdAt: 1000,
+      processedAt: null,
     }
 
     it('saves and retrieves cached event', async () => {

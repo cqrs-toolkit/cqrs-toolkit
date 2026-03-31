@@ -78,7 +78,8 @@ CREATE TABLE cached_events (
   position TEXT,
   revision TEXT,
   command_id TEXT,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  processed_at INTEGER
 )`
 
 const CACHED_EVENT_CACHE_KEYS_TABLE = `

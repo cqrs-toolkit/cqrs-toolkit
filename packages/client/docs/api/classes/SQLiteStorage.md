@@ -294,6 +294,30 @@ Delete command ID mappings older than a timestamp.
 
 ---
 
+### deleteProcessedCachedEvents()
+
+> **deleteProcessedCachedEvents**(`olderThan`): `Promise`\<`number`\>
+
+Delete cached events that were processed before the given timestamp.
+Cleans up both the events table and the junction table.
+Returns the number of events deleted.
+
+#### Parameters
+
+##### olderThan
+
+`number`
+
+#### Returns
+
+`Promise`\<`number`\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`deleteProcessedCachedEvents`](../interfaces/IStorage.md#deleteprocessedcachedevents)
+
+---
+
 ### deleteReadModel()
 
 > **deleteReadModel**(`collection`, `id`): `Promise`\<`void`\>
@@ -847,6 +871,28 @@ For SQLite, this creates tables and runs migrations.
 #### Implementation of
 
 [`IStorage`](../interfaces/IStorage.md).[`initialize`](../interfaces/IStorage.md#initialize)
+
+---
+
+### markCachedEventsProcessed()
+
+> **markCachedEventsProcessed**(`ids`): `Promise`\<`void`\>
+
+Mark cached events as processed by setting processed_at timestamp.
+
+#### Parameters
+
+##### ids
+
+`string`[]
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`markCachedEventsProcessed`](../interfaces/IStorage.md#markcachedeventsprocessed)
 
 ---
 

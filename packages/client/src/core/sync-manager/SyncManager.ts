@@ -159,6 +159,9 @@ export class SyncManager<TLink extends Link, TSchema, TEvent extends IAnticipate
     // Start connectivity monitoring
     this.connectivity.start()
 
+    // Start periodic cleanup of processed cached events
+    this.eventCache.startCleanup()
+
     // Subscribe to connectivity changes
     const connectivitySub = this.connectivity.online$
       .pipe(takeUntil(this.destroy$))
@@ -190,10 +193,10 @@ export class SyncManager<TLink extends Link, TSchema, TEvent extends IAnticipate
     const destroyedSub = this.eventBus
       .on('session:destroyed')
       .pipe(takeUntil(this.destroy$))
-      .subscribe(() => {
+      .subscribe((event) => {
         if (this.sessionDestroyHandledInline) return
-        this.onSessionDestroyed().catch((err) => {
-          logProvider.log.error({ err }, 'onSessionDestroyed failed')
+        this.writeQueue.resetSession(event.data.reason).catch((err) => {
+          logProvider.log.error({ err }, 'writeQueue.resetSession failed')
         })
       })
     this.subscriptions.push(destroyedSub)
@@ -430,7 +433,7 @@ export class SyncManager<TLink extends Link, TSchema, TEvent extends IAnticipate
     if (isUserChange) {
       this.sessionDestroyHandledInline = true
       try {
-        await this.onSessionDestroyed()
+        await this.writeQueue.resetSession('user-changed')
       } finally {
         this.sessionDestroyHandledInline = false
       }
@@ -449,7 +452,7 @@ export class SyncManager<TLink extends Link, TSchema, TEvent extends IAnticipate
     if (hasSession) {
       this.sessionDestroyHandledInline = true
       try {
-        await this.onSessionDestroyed()
+        await this.writeQueue.resetSession('explicit')
       } finally {
         this.sessionDestroyHandledInline = false
       }
@@ -895,6 +898,14 @@ export class SyncManager<TLink extends Link, TSchema, TEvent extends IAnticipate
         }
       }
     }
+
+    // Mark non-anticipated events as processed for TTL cleanup
+    const processedIds = op.events
+      .filter((e) => normalizeEventPersistence(e) !== 'Anticipated')
+      .map((e) => e.id)
+    if (processedIds.length > 0) {
+      await this.eventCache.markProcessed(processedIds)
+    }
   }
 
   /**
@@ -1154,6 +1165,7 @@ export class SyncManager<TLink extends Link, TSchema, TEvent extends IAnticipate
       }
 
       this.updateSeedStatusPosition(matchingCollections, activeCacheKeys, event.position)
+      await this.eventCache.markProcessed([event.id])
       return
     }
 
@@ -1199,6 +1211,7 @@ export class SyncManager<TLink extends Link, TSchema, TEvent extends IAnticipate
     this.eventCache.setKnownPosition(event.streamId, event.revision)
 
     this.updateSeedStatusPosition(matchingCollections, activeCacheKeys, event.position)
+    await this.eventCache.markProcessed([event.id])
   }
 
   /**

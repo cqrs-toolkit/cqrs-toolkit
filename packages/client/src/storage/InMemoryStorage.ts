@@ -271,6 +271,27 @@ export class InMemoryStorage<TLink extends Link> implements IStorage<TLink> {
     this.cachedEvents.delete(id)
   }
 
+  async markCachedEventsProcessed(ids: string[]): Promise<void> {
+    const now = Date.now()
+    for (const id of ids) {
+      const event = this.cachedEvents.get(id)
+      if (event) {
+        this.cachedEvents.set(id, { ...event, processedAt: now })
+      }
+    }
+  }
+
+  async deleteProcessedCachedEvents(olderThan: number): Promise<number> {
+    let count = 0
+    for (const event of this.cachedEvents.values()) {
+      if (typeof event.processedAt === 'number' && event.processedAt < olderThan) {
+        this.cachedEvents.delete(event.id)
+        count++
+      }
+    }
+    return count
+  }
+
   async deleteAnticipatedEventsByCommand(commandId: string): Promise<void> {
     for (const event of this.cachedEvents.values()) {
       if (event.persistence === 'Anticipated' && event.commandId === commandId) {

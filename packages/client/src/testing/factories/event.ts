@@ -26,6 +26,7 @@ export function createTestCachedEvent(
     commandId: null,
     cacheKeys: [deriveCacheKey('test-collection')],
     createdAt: now,
+    processedAt: null,
     ...overrides,
   }
 }

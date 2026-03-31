@@ -66,6 +66,14 @@ Global position (for Permanent events)
 
 ---
 
+### processedAt
+
+> **processedAt**: `number` \| `null`
+
+Timestamp when the event was processed into the read model. Null if not yet processed.
+
+---
+
 ### revision
 
 > **revision**: `string` \| `null`

@@ -8,7 +8,7 @@
  * - Support event replacement when server confirms
  */
 
-import { IPersistedEvent, Link } from '@meticoeus/ddd-es'
+import { IPersistedEvent, Link, logProvider } from '@meticoeus/ddd-es'
 import { Subject } from 'rxjs'
 import type { CachedEventRecord, IStorage } from '../../storage/IStorage.js'
 import type { AnticipatedEvent } from '../../types/events.js'
@@ -50,6 +50,9 @@ export class EventCache<TLink extends Link> {
   /** Lifecycle signal for destroying subscriptions. */
   private readonly destroy$ = new Subject<void>()
 
+  /** Periodic cleanup timer for processed events. */
+  private cleanupTimer: ReturnType<typeof setInterval> | undefined
+
   constructor(config: EventCacheConfig<TLink>) {
     this.storage = config.storage
     this.eventBus = config.eventBus
@@ -82,6 +85,7 @@ export class EventCache<TLink extends Link> {
       commandId: null,
       cacheKeys: options.cacheKeys,
       createdAt: new Date(event.created).getTime(),
+      processedAt: null,
     }
 
     await this.storage.saveCachedEvent(record)
@@ -122,6 +126,7 @@ export class EventCache<TLink extends Link> {
       commandId: null,
       cacheKeys: options.cacheKeys,
       createdAt: new Date(event.created).getTime(),
+      processedAt: null,
     }))
 
     await this.storage.saveCachedEvents(records)
@@ -166,6 +171,7 @@ export class EventCache<TLink extends Link> {
       commandId: options.commandId,
       cacheKeys: options.cacheKeys,
       createdAt: now,
+      processedAt: null,
     }
 
     await this.storage.saveCachedEvent(record)
@@ -202,6 +208,7 @@ export class EventCache<TLink extends Link> {
         commandId: options.commandId,
         cacheKeys: options.cacheKeys,
         createdAt: now,
+        processedAt: null,
       })
     }
 
@@ -395,6 +402,7 @@ export class EventCache<TLink extends Link> {
       commandId: event.commandId ?? null,
       cacheKeys: [event.cacheKey],
       createdAt: Date.now(),
+      processedAt: null,
     }
 
     await this.storage.saveCachedEvent(record)
@@ -411,7 +419,35 @@ export class EventCache<TLink extends Link> {
   /**
    * Destroy the event cache. Completes subscriptions and clears in-memory state.
    */
+  /**
+   * Mark events as processed. Sets processedAt timestamp for TTL-based cleanup.
+   */
+  async markProcessed(ids: string[]): Promise<void> {
+    if (ids.length === 0) return
+    await this.storage.markCachedEventsProcessed(ids)
+  }
+
+  /**
+   * Start periodic cleanup of processed events.
+   * Deletes events where processedAt is older than ttlMs.
+   *
+   * @param intervalMs - How often to run cleanup (default 60s)
+   * @param ttlMs - Grace window before deletion (default 5 minutes)
+   */
+  startCleanup(intervalMs = 60_000, ttlMs = 5 * 60_000): void {
+    if (this.cleanupTimer) return
+    this.cleanupTimer = setInterval(() => {
+      this.storage.deleteProcessedCachedEvents(Date.now() - ttlMs).catch((err) => {
+        logProvider.log.error({ err }, 'Event cache cleanup failed')
+      })
+    }, intervalMs)
+  }
+
   destroy(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer)
+      this.cleanupTimer = undefined
+    }
     this.destroy$.next()
     this.destroy$.complete()
     this.gapBuffer.clear()

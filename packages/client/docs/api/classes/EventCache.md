@@ -273,8 +273,6 @@ Command identifier
 
 > **destroy**(): `void`
 
-Destroy the event cache. Completes subscriptions and clears in-memory state.
-
 #### Returns
 
 `void`
@@ -442,6 +440,24 @@ Whether there are gaps
 
 ---
 
+### markProcessed()
+
+> **markProcessed**(`ids`): `Promise`\<`void`\>
+
+Mark events as processed. Sets processedAt timestamp for TTL-based cleanup.
+
+#### Parameters
+
+##### ids
+
+`string`[]
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
 ### setKnownPosition()
 
 > **setKnownPosition**(`streamId`, `position`): `void`
@@ -462,6 +478,33 @@ Stream identifier
 `bigint`
 
 Known highest position
+
+#### Returns
+
+`void`
+
+---
+
+### startCleanup()
+
+> **startCleanup**(`intervalMs?`, `ttlMs?`): `void`
+
+Start periodic cleanup of processed events.
+Deletes events where processedAt is older than ttlMs.
+
+#### Parameters
+
+##### intervalMs?
+
+`number` = `60_000`
+
+How often to run cleanup (default 60s)
+
+##### ttlMs?
+
+`number` = `...`
+
+Grace window before deletion (default 5 minutes)
 
 #### Returns
 

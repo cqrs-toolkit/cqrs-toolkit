@@ -455,8 +455,8 @@ export class SQLiteStorage<TLink extends Link> implements IStorage<TLink> {
     const statements: SqliteBatchStatement[] = [
       {
         sql: `INSERT OR REPLACE INTO cached_events
-         (id, type, stream_id, persistence, data, position, revision, command_id, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, type, stream_id, persistence, data, position, revision, command_id, created_at, processed_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         bind: [
           event.id,
           event.type,
@@ -467,6 +467,7 @@ export class SQLiteStorage<TLink extends Link> implements IStorage<TLink> {
           event.revision,
           event.commandId,
           event.createdAt,
+          event.processedAt,
         ],
       },
     ]
@@ -484,8 +485,8 @@ export class SQLiteStorage<TLink extends Link> implements IStorage<TLink> {
     if (events.length === 0) return
 
     const columns =
-      '(id, type, stream_id, persistence, data, position, revision, command_id, created_at)'
-    const placeholder = '(?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      '(id, type, stream_id, persistence, data, position, revision, command_id, created_at, processed_at)'
+    const placeholder = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     const placeholders = events.map(() => placeholder).join(', ')
     const params: unknown[] = []
 
@@ -500,6 +501,7 @@ export class SQLiteStorage<TLink extends Link> implements IStorage<TLink> {
         event.revision,
         event.commandId,
         event.createdAt,
+        event.processedAt,
       )
     }
 
@@ -531,6 +533,37 @@ export class SQLiteStorage<TLink extends Link> implements IStorage<TLink> {
       { sql: 'DELETE FROM cached_event_cache_keys WHERE event_id = ?', bind: [id] },
       { sql: 'DELETE FROM cached_events WHERE id = ?', bind: [id] },
     ])
+  }
+
+  async markCachedEventsProcessed(ids: string[]): Promise<void> {
+    this.assertInitialized()
+    if (ids.length === 0) return
+    const placeholders = ids.map(() => '?').join(', ')
+    await this.exec(`UPDATE cached_events SET processed_at = ? WHERE id IN (${placeholders})`, [
+      Date.now(),
+      ...ids,
+    ])
+  }
+
+  async deleteProcessedCachedEvents(olderThan: number): Promise<number> {
+    this.assertInitialized()
+    const results = await this.db.execBatch([
+      {
+        sql: 'SELECT COUNT(*) as count FROM cached_events WHERE processed_at IS NOT NULL AND processed_at < ?',
+        bind: [olderThan],
+        returnRows: true,
+      },
+      {
+        sql: 'DELETE FROM cached_event_cache_keys WHERE event_id IN (SELECT id FROM cached_events WHERE processed_at IS NOT NULL AND processed_at < ?)',
+        bind: [olderThan],
+      },
+      {
+        sql: 'DELETE FROM cached_events WHERE processed_at IS NOT NULL AND processed_at < ?',
+        bind: [olderThan],
+      },
+    ])
+    const rows = (results[0] ?? []) as Array<{ count: number }>
+    return rows[0]?.count ?? 0
   }
 
   async deleteAnticipatedEventsByCommand(commandId: string): Promise<void> {
@@ -1027,6 +1060,7 @@ export class SQLiteStorage<TLink extends Link> implements IStorage<TLink> {
       commandId: row.command_id,
       cacheKeys: JSON.parse(row.cache_keys) as string[],
       createdAt: row.created_at,
+      processedAt: row.processed_at,
     }
   }
 
@@ -1125,6 +1159,7 @@ interface EventRow {
   revision: string | null
   command_id: string | null
   created_at: number
+  processed_at: number | null
 }
 
 interface CommandIdMappingRow {

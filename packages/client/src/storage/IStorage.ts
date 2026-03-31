@@ -87,6 +87,8 @@ export interface CachedEventRecord {
   cacheKeys: string[]
   /** Event creation timestamp */
   createdAt: number
+  /** Timestamp when the event was processed into the read model. Null if not yet processed. */
+  processedAt: number | null
 }
 
 /**
@@ -336,6 +338,18 @@ export interface IStorage<TLink extends Link> {
    * Delete a cached event.
    */
   deleteCachedEvent(id: string): Promise<void>
+
+  /**
+   * Mark cached events as processed by setting processed_at timestamp.
+   */
+  markCachedEventsProcessed(ids: string[]): Promise<void>
+
+  /**
+   * Delete cached events that were processed before the given timestamp.
+   * Cleans up both the events table and the junction table.
+   * Returns the number of events deleted.
+   */
+  deleteProcessedCachedEvents(olderThan: number): Promise<number>
 
   /**
    * Delete all anticipated events for a command.
