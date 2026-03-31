@@ -504,6 +504,112 @@ Library event data types.
 
 ---
 
+### writequeue:op-completed
+
+> **writequeue:op-completed**: `object`
+
+#### durationMs
+
+> **durationMs**: `number`
+
+#### opId
+
+> **opId**: `string`
+
+#### opType
+
+> **opType**: `string`
+
+---
+
+### writequeue:op-discarded
+
+> **writequeue:op-discarded**: `object`
+
+#### opId
+
+> **opId**: `string`
+
+#### opType
+
+> **opType**: `string`
+
+#### reason
+
+> **reason**: `string`
+
+---
+
+### writequeue:op-enqueued
+
+> **writequeue:op-enqueued**: `object`
+
+#### op
+
+> **op**: `unknown`
+
+#### opId
+
+> **opId**: `string`
+
+#### opType
+
+> **opType**: `string`
+
+---
+
+### writequeue:op-error
+
+> **writequeue:op-error**: `object`
+
+#### error
+
+> **error**: `string`
+
+#### opId
+
+> **opId**: `string`
+
+#### opType
+
+> **opType**: `string`
+
+---
+
+### writequeue:op-started
+
+> **writequeue:op-started**: `object`
+
+#### opId
+
+> **opId**: `string`
+
+#### opType
+
+> **opType**: `string`
+
+---
+
+### writequeue:reset-completed
+
+> **writequeue:reset-completed**: `object`
+
+#### reason
+
+> **reason**: `string`
+
+---
+
+### writequeue:reset-started
+
+> **writequeue:reset-started**: `object`
+
+#### reason
+
+> **reason**: `string`
+
+---
+
 ### ws:connected
 
 > **ws:connected**: `object`

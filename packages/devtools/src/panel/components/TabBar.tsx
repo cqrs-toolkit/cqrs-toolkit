@@ -1,7 +1,16 @@
 import type { Component } from 'solid-js'
 import { For } from 'solid-js'
 
-const TABS = ['Commands', 'Events', 'Cache', 'Read Models', 'Sync', 'EventBus', 'Storage'] as const
+const TABS = [
+  'Commands',
+  'Events',
+  'Cache',
+  'Read Models',
+  'Sync',
+  'Write Queue',
+  'EventBus',
+  'Storage',
+] as const
 
 export type TabName = (typeof TABS)[number]
 

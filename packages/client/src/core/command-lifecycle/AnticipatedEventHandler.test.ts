@@ -1,5 +1,5 @@
 import type { ServiceLink } from '@meticoeus/ddd-es'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import type { Collection } from '../../types/config.js'
 import { EventCache } from '../event-cache/EventCache.js'
@@ -31,29 +31,46 @@ const COLLECTIONS: Collection<ServiceLink>[] = [
 ]
 
 describe('AnticipatedEventHandler', () => {
-  let storage: InMemoryStorage<ServiceLink>
-  let eventBus: EventBus<ServiceLink>
-  let eventCache: EventCache<ServiceLink>
-  let readModelStore: ReadModelStore<ServiceLink>
-  let handler: AnticipatedEventHandler<ServiceLink>
+  interface BootstrapResult {
+    storage: InMemoryStorage<ServiceLink>
+    eventBus: EventBus<ServiceLink>
+    eventCache: EventCache<ServiceLink>
+    readModelStore: ReadModelStore<ServiceLink>
+    handler: AnticipatedEventHandler<ServiceLink>
+  }
 
-  beforeEach(async () => {
-    storage = new InMemoryStorage()
+  async function bootstrap(): Promise<BootstrapResult> {
+    const storage = new InMemoryStorage<ServiceLink>()
     await storage.initialize()
-    eventBus = new EventBus()
-    eventCache = new EventCache({ storage, eventBus })
-    readModelStore = new ReadModelStore({ storage })
+    const eventBus = new EventBus<ServiceLink>()
+    const eventCache = new EventCache<ServiceLink>({ storage, eventBus })
+    const readModelStore = new ReadModelStore<ServiceLink>({ storage })
 
     const registry = new EventProcessorRegistry()
     registry.register(todoProcessor())
     const runner = new EventProcessorRunner(readModelStore, eventBus, registry)
 
-    const wq = createTestWriteQueue()
-    handler = new AnticipatedEventHandler(eventCache, runner, readModelStore, COLLECTIONS, wq)
-  })
+    const wq = createTestWriteQueue(eventBus)
+    const handler = new AnticipatedEventHandler<ServiceLink>(
+      eventCache,
+      runner,
+      readModelStore,
+      COLLECTIONS,
+      wq,
+    )
+
+    return {
+      storage,
+      eventBus,
+      eventCache,
+      readModelStore,
+      handler,
+    }
+  }
 
   describe('cache', () => {
     it('caches anticipated events and processes them into read models', async () => {
+      const { handler, readModelStore } = await bootstrap()
       await handler.cache<TestEvent>({
         commandId: 'cmd-1',
         events: [
@@ -72,6 +89,7 @@ describe('AnticipatedEventHandler', () => {
     })
 
     it('tracks updated entity IDs per command', async () => {
+      const { handler } = await bootstrap()
       await handler.cache({
         commandId: 'cmd-1',
         events: [
@@ -88,6 +106,7 @@ describe('AnticipatedEventHandler', () => {
     })
 
     it('skips events that do not match any collection', async () => {
+      const { handler } = await bootstrap()
       await handler.cache({
         commandId: 'cmd-1',
         events: [{ type: 'UnknownEvent', data: { id: 'x' }, streamId: 'Unknown-x' }],
@@ -98,6 +117,7 @@ describe('AnticipatedEventHandler', () => {
     })
 
     it('sets _clientMetadata when clientId is provided', async () => {
+      const { handler, readModelStore } = await bootstrap()
       await handler.cache({
         commandId: 'cmd-1',
         events: [
@@ -116,6 +136,7 @@ describe('AnticipatedEventHandler', () => {
     })
 
     it('caches the event in EventCache', async () => {
+      const { eventCache, handler } = await bootstrap()
       await handler.cache({
         commandId: 'cmd-1',
         events: [
@@ -136,6 +157,7 @@ describe('AnticipatedEventHandler', () => {
 
   describe('cleanup', () => {
     it('deletes anticipated events from cache on any terminal status', async () => {
+      const { eventCache, handler } = await bootstrap()
       await handler.cache({
         commandId: 'cmd-1',
         events: [
@@ -155,6 +177,7 @@ describe('AnticipatedEventHandler', () => {
     })
 
     it('retains tracking entries on success for getCommandEntities', async () => {
+      const { handler } = await bootstrap()
       await handler.cache({
         commandId: 'cmd-1',
         events: [
@@ -173,6 +196,7 @@ describe('AnticipatedEventHandler', () => {
     })
 
     it('deletes tracking entries on failure', async () => {
+      const { handler, readModelStore } = await bootstrap()
       await handler.cache({
         commandId: 'cmd-1',
         events: [
@@ -191,6 +215,7 @@ describe('AnticipatedEventHandler', () => {
     })
 
     it('clears local changes for tracked entities', async () => {
+      const { handler, readModelStore } = await bootstrap()
       const clearSpy = vi.spyOn(readModelStore, 'clearLocalChanges')
 
       await handler.cache({
@@ -213,6 +238,7 @@ describe('AnticipatedEventHandler', () => {
 
   describe('regenerate', () => {
     it('replaces anticipated events with new ones', async () => {
+      const { handler, readModelStore } = await bootstrap()
       await handler.cache({
         commandId: 'cmd-1',
         events: [
@@ -242,6 +268,7 @@ describe('AnticipatedEventHandler', () => {
     })
 
     it('clears old tracking and creates new tracking entries', async () => {
+      const { handler, readModelStore } = await bootstrap()
       const clearSpy = vi.spyOn(readModelStore, 'clearLocalChanges')
 
       await handler.cache({
@@ -270,13 +297,15 @@ describe('AnticipatedEventHandler', () => {
   })
 
   describe('getTrackedEntries', () => {
-    it('returns undefined for unknown commands', () => {
+    it('returns undefined for unknown commands', async () => {
+      const { handler } = await bootstrap()
       expect(handler.getTrackedEntries('nonexistent')).toBeUndefined()
     })
   })
 
   describe('getAnticipatedEventsForStream', () => {
     it('returns anticipated events for stream excluding a command', async () => {
+      const { handler } = await bootstrap()
       await handler.cache({
         commandId: 'cmd-1',
         events: [
@@ -299,6 +328,7 @@ describe('AnticipatedEventHandler', () => {
     })
 
     it('returns empty array when no matching events', async () => {
+      const { handler } = await bootstrap()
       const events = await handler.getAnticipatedEventsForStream('Todo-todo-1', 'cmd-1')
       expect(events).toEqual([])
     })
@@ -306,6 +336,7 @@ describe('AnticipatedEventHandler', () => {
 
   describe('clearAll', () => {
     it('clears all in-memory tracking state', async () => {
+      const { handler } = await bootstrap()
       await handler.cache({
         commandId: 'cmd-1',
         events: [
@@ -337,8 +368,8 @@ function todoProcessor(): ProcessorRegistration<{ id: string; title: string }> {
   }
 }
 
-function createTestWriteQueue(): WriteQueue<ServiceLink> {
-  const wq = new WriteQueue<ServiceLink>()
+function createTestWriteQueue(eventBus: EventBus<ServiceLink>): WriteQueue<ServiceLink> {
+  const wq = new WriteQueue<ServiceLink>(eventBus)
   wq.setSessionResetHandler(vi.fn(async () => {}))
   for (const type of ALL_OP_TYPES) {
     if (type === 'apply-anticipated') continue

@@ -8,6 +8,7 @@ import { ReadModelsTab } from './components/read-models/ReadModelsTab.js'
 import { StorageTab } from './components/storage/StorageTab.js'
 import { SyncTab } from './components/sync/SyncTab.js'
 import { TabBar, type TabName } from './components/TabBar.js'
+import { WriteQueueTab } from './components/write-queue/WriteQueueTab.js'
 import { downloadJson } from './downloadJson.js'
 import { createCacheStore } from './stores/cache.js'
 import { createCommandsStore } from './stores/commands.js'
@@ -17,6 +18,7 @@ import { createEventsStore } from './stores/events.js'
 import { createReadModelsStore } from './stores/readModels.js'
 import { createStorageStore } from './stores/storage.js'
 import { createSyncStore } from './stores/sync.js'
+import { createWriteQueueStore } from './stores/writeQueue.js'
 
 export const App: Component = () => {
   const [activeTab, setActiveTab] = createSignal<TabName>('Commands')
@@ -27,6 +29,7 @@ export const App: Component = () => {
   const readModelsStore = createReadModelsStore()
   const syncStore = createSyncStore()
   const eventBusStore = createEventBusStore()
+  const writeQueueStore = createWriteQueueStore()
   const storageStore = createStorageStore()
 
   const connection = createConnectionStore({
@@ -36,6 +39,7 @@ export const App: Component = () => {
       cacheStore.handleEvent(event)
       readModelsStore.handleEvent(event)
       syncStore.handleEvent(event)
+      writeQueueStore.handleEvent(event)
       eventBusStore.handleEvent(event)
     },
     onCommandSnapshot(commands) {
@@ -51,6 +55,7 @@ export const App: Component = () => {
         cacheStore.handleEvent(event)
         readModelsStore.handleEvent(event)
         syncStore.handleEvent(event)
+        writeQueueStore.handleEvent(event)
         eventBusStore.handleEvent(event)
       }
     },
@@ -106,6 +111,15 @@ export const App: Component = () => {
             onClear={() => {
               connection.clearBuffer()
               syncStore.clear()
+            }}
+          />
+        ) : activeTab() === 'Write Queue' ? (
+          <WriteQueueTab
+            store={writeQueueStore}
+            onExport={() => downloadJson(writeQueueStore.exportJson(), 'write-queue')}
+            onClear={() => {
+              connection.clearBuffer()
+              writeQueueStore.clear()
             }}
           />
         ) : activeTab() === 'EventBus' ? (

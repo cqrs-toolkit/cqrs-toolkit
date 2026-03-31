@@ -3,7 +3,15 @@ import { createSignal } from 'solid-js'
 // Minimum width the detail panel can be resized to
 export const MIN_DETAIL_WIDTH = 200
 
-type TabId = 'commands' | 'events' | 'cache' | 'readModels' | 'sync' | 'eventBus' | 'storage'
+type TabId =
+  | 'commands'
+  | 'events'
+  | 'cache'
+  | 'readModels'
+  | 'sync'
+  | 'writeQueue'
+  | 'eventBus'
+  | 'storage'
 
 // Minimum list widths derived from each tab's grid column minimums + 5 × 12px column-gap
 // Commands: 65 + 70 + 120 + 90 + 45 + 75 + 60 = 525
@@ -14,6 +22,7 @@ const MIN_LIST_WIDTHS: Record<TabId, number> = {
   cache: 410,
   readModels: 370,
   sync: 420,
+  writeQueue: 400,
   eventBus: 416,
   storage: 300,
 }
@@ -25,6 +34,7 @@ const DEFAULTS: Record<TabId, number> = {
   cache: 340,
   readModels: 360,
   sync: 320,
+  writeQueue: 340,
   eventBus: 340,
   storage: 400,
 }
@@ -35,6 +45,7 @@ const signals: Record<TabId, ReturnType<typeof createSignal<number>>> = {
   cache: createSignal(DEFAULTS.cache),
   readModels: createSignal(DEFAULTS.readModels),
   sync: createSignal(DEFAULTS.sync),
+  writeQueue: createSignal(DEFAULTS.writeQueue),
   eventBus: createSignal(DEFAULTS.eventBus),
   storage: createSignal(DEFAULTS.storage),
 }

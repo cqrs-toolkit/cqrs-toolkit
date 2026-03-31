@@ -75,6 +75,13 @@ export type LibraryEventType =
   | 'sync:refetch-executed'
   | 'command:sent'
   | 'command:response'
+  | 'writequeue:op-enqueued'
+  | 'writequeue:op-started'
+  | 'writequeue:op-completed'
+  | 'writequeue:op-error'
+  | 'writequeue:op-discarded'
+  | 'writequeue:reset-started'
+  | 'writequeue:reset-completed'
 
 /**
  * Library event data types.
@@ -150,6 +157,13 @@ export interface LibraryEventData<TLink extends Link> {
     data: unknown
   }
   'command:response': { commandId: string; correlationId: string; response: unknown }
+  'writequeue:op-enqueued': { opId: string; opType: string; op: unknown }
+  'writequeue:op-started': { opId: string; opType: string }
+  'writequeue:op-completed': { opId: string; opType: string; durationMs: number }
+  'writequeue:op-error': { opId: string; opType: string; error: string }
+  'writequeue:op-discarded': { opId: string; opType: string; reason: string }
+  'writequeue:reset-started': { reason: string }
+  'writequeue:reset-completed': { reason: string }
 }
 
 /**

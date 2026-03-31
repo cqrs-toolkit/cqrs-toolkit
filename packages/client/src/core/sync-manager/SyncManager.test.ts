@@ -129,7 +129,7 @@ describe('SyncManager', () => {
       seedOnInit: { cacheKey: TODO_CACHE_KEY, topics: ['todos'] },
     }
     const sessionManager = createSessionManager()
-    const writeQueue = createTestWriteQueue()
+    const writeQueue = createTestWriteQueue(eventBus)
 
     const syncManager = params?.customSyncManager
       ? undefined
@@ -1226,8 +1226,8 @@ describe('SyncManager', () => {
   })
 })
 
-function createTestWriteQueue(): WriteQueue<ServiceLink> {
-  const writeQueue = new WriteQueue<ServiceLink>()
+function createTestWriteQueue(eventBus: EventBus<ServiceLink>): WriteQueue<ServiceLink> {
+  const writeQueue = new WriteQueue<ServiceLink>(eventBus)
   // Pre-register handlers not owned by SyncManager or GapRepairCoordinator.
   // SyncManager registers 5, GapRepairCoordinator registers 1 — this covers the rest.
   writeQueue.register('apply-anticipated', async () => {})

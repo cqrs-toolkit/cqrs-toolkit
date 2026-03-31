@@ -9,6 +9,7 @@
 
 import { Err, Ok, logProvider, type Link, type Result } from '@meticoeus/ddd-es'
 import { assert } from '../../utils/assert.js'
+import type { EventBus } from '../events/EventBus.js'
 import {
   IWriteQueue,
   SessionResetCallback,
@@ -23,47 +24,15 @@ import {
 } from './IWriteQueue.js'
 import type { WriteQueueOp } from './operations.js'
 import { ALL_OP_TYPES } from './operations.js'
-
-// ---------------------------------------------------------------------------
-// State machine
-// ---------------------------------------------------------------------------
-
-interface IdleState {
-  status: 'idle'
-}
-
-interface ProcessingState {
-  status: 'processing'
-  /** Resolved by runLoop's finally block when it exits. */
-  settled: Promise<void>
-  settledResolve: () => void
-}
-
-interface ResettingState {
-  status: 'resetting'
-  reason: string
-  promise: Promise<void>
-}
-
-interface DestroyedState {
-  status: 'destroyed'
-}
-
-type QueueState = IdleState | ProcessingState | ResettingState | DestroyedState
-
-// ---------------------------------------------------------------------------
-// Pending entry
-// ---------------------------------------------------------------------------
+import { QueueState } from './WriteQueueState.js'
 
 interface PendingEntry<TLink extends Link> {
+  opId: string
   op: WriteQueueOp<TLink>
+  enqueuedAt: number
   resolve: (value: Result<void, WriteQueueException>) => void
   reject: (err: Error) => void
 }
-
-// ---------------------------------------------------------------------------
-// Implementation
-// ---------------------------------------------------------------------------
 
 /**
  * Write queue implementation.
@@ -76,8 +45,9 @@ export class WriteQueue<TLink extends Link> implements IWriteQueue<TLink> {
   private state: QueueState = { status: 'idle' }
   private currentOp: WriteQueueOp<TLink> | undefined
   private boostrapValidation: ReturnType<typeof setTimeout> | undefined
+  private opIdCounter = 0
 
-  constructor() {
+  constructor(private readonly eventBus: EventBus<TLink>) {
     this.boostrapValidation = setTimeout(() => {
       const missingHandlers = ALL_OP_TYPES.filter((type) => !this.handlers[type])
       assert(
@@ -124,11 +94,18 @@ export class WriteQueue<TLink extends Link> implements IWriteQueue<TLink> {
       case 'resetting':
         return Promise.resolve(Err(new SessionResetException(this.state.reason)))
       case 'idle':
-      case 'processing':
+      case 'processing': {
+        const opId = String(++this.opIdCounter)
         return new Promise((resolve, reject) => {
-          this.pending.push({ op, resolve, reject })
+          this.pending.push({ opId, op, enqueuedAt: Date.now(), resolve, reject })
+          this.eventBus.emitDebug('writequeue:op-enqueued', {
+            opId,
+            opType: op.type,
+            op: op as unknown,
+          })
           this.scheduleProcessing()
         })
+      }
     }
   }
 
@@ -148,10 +125,12 @@ export class WriteQueue<TLink extends Link> implements IWriteQueue<TLink> {
     // Transition to resetting — the promise is stored so concurrent callers can join it
     const promise = this.doResetSession(reason, processingSettled)
     this.state = { status: 'resetting', reason, promise }
+    this.eventBus.emitDebug('writequeue:reset-started', { reason })
 
     try {
       await promise
     } finally {
+      this.eventBus.emitDebug('writequeue:reset-completed', { reason })
       // Only transition back to idle if we're still in the resetting state
       // (destroy could have been called during reset)
       if (this.state.status === 'resetting') {
@@ -223,10 +202,25 @@ export class WriteQueue<TLink extends Link> implements IWriteQueue<TLink> {
         try {
           const handler = this.handlers[entry.op.type]
           assert(handler, `WriteQueue: no handler registered for '${entry.op.type}'`)
+          this.eventBus.emitDebug('writequeue:op-started', {
+            opId: entry.opId,
+            opType: entry.op.type,
+          })
+          const startedAt = Date.now()
           await (handler as (op: WriteQueueOp<TLink>) => Promise<void>)(entry.op)
           entry.resolve(Ok())
+          this.eventBus.emitDebug('writequeue:op-completed', {
+            opId: entry.opId,
+            opType: entry.op.type,
+            durationMs: Date.now() - startedAt,
+          })
         } catch (error) {
           logProvider.log.error({ err: error, opType: entry.op.type }, 'Write queue handler error')
+          this.eventBus.emitDebug('writequeue:op-error', {
+            opId: entry.opId,
+            opType: entry.op.type,
+            error: error instanceof Error ? error.message : String(error),
+          })
           entry.reject(error instanceof Error ? error : new Error(String(error)))
         }
 
@@ -270,6 +264,11 @@ export class WriteQueue<TLink extends Link> implements IWriteQueue<TLink> {
     for (const entry of this.pending) {
       entry.resolve(Err(exception))
       this.invokeEvictionHandler(entry.op, exception)
+      this.eventBus.emitDebug('writequeue:op-discarded', {
+        opId: entry.opId,
+        opType: entry.op.type,
+        reason,
+      })
     }
     this.pending.length = 0
   }

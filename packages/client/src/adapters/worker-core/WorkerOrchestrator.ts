@@ -149,7 +149,7 @@ export class WorkerOrchestrator<TLink extends Link, TSchema, TEvent extends IAnt
     const eventProcessorRunner = new EventProcessorRunner(readModelStore, eventBus, registry)
 
     // 10. Create WriteQueue — subsystems register their own handlers in their constructors.
-    const writeQueue = new WriteQueue<TLink>()
+    const writeQueue = new WriteQueue<TLink>(eventBus)
     this.writeQueue = writeQueue
 
     // 11. Create CommandQueue with anticipated event handler and response handler

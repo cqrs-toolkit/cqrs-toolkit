@@ -2064,3 +2064,156 @@ body {
   padding: 16px;
   text-align: center;
 }
+
+/* ------------------------------------------------------------------ */
+/* Write Queue tab                                                     */
+/* ------------------------------------------------------------------ */
+
+.wq-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.wq-toolbar .count {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.wq-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.wq-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.wq-header {
+  padding: 3px 6px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  user-select: none;
+  flex-shrink: 0;
+  column-gap: 12px;
+}
+
+.wq-scroll-wrap {
+  overflow-x: auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.wq-row {
+  padding: 0 6px;
+  height: 22px;
+  align-items: center;
+  cursor: pointer;
+  font-size: 11px;
+  border-bottom: 1px solid var(--border);
+  column-gap: 12px;
+}
+
+.wq-row:hover {
+  background: var(--bg-hover);
+}
+
+.wq-row.selected {
+  background: var(--bg-selected);
+}
+
+.wq-col-time {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.wq-col-id {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.wq-col-type {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wq-col-status {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.wq-col-duration {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.wq-status-pending {
+  color: var(--text-secondary);
+  background: var(--chip-bg);
+}
+
+.wq-status-processing {
+  color: var(--status-sending);
+  background: var(--status-sending-bg);
+}
+
+.wq-status-completed {
+  color: var(--status-succeeded);
+  background: var(--status-succeeded-bg);
+}
+
+.wq-status-error {
+  color: var(--status-failed);
+  background: var(--status-failed-bg);
+}
+
+.wq-status-discarded {
+  color: var(--text-muted);
+  background: var(--chip-bg);
+}
+
+.wq-detail {
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  background: var(--bg-primary);
+  flex-shrink: 0;
+}
+
+.wq-reset-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--status-failed);
+  background: var(--status-failed-bg);
+}
+
+.wq-error-text {
+  color: var(--status-failed);
+}

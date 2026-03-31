@@ -436,7 +436,7 @@ async function createOnlineOnlyClient<
   const eventProcessorRunner = new EventProcessorRunner<TLink>(readModelStore, eventBus, registry)
 
   // Create WriteQueue — subsystems register their own handlers in their constructors.
-  const writeQueue = new WriteQueue<TLink>()
+  const writeQueue = new WriteQueue<TLink>(eventBus)
 
   // Lazy ref for SyncManager — safe because onCommandResponse is never called
   // before SyncManager exists (queue starts paused, only processes after resume).

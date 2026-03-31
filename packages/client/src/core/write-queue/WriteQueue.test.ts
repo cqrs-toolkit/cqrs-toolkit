@@ -1,6 +1,7 @@
 import type { IPersistedEvent, ServiceLink } from '@meticoeus/ddd-es'
 import { describe, expect, it, vi } from 'vitest'
 import { deriveScopeKey } from '../cache-manager/index.js'
+import { EventBus } from '../events/index.js'
 import {
   SessionResetException,
   WriteQueueDestroyedException,
@@ -558,7 +559,8 @@ function createQueue(params?: {
   evictionHandler?: (op: WriteQueueOp<ServiceLink>, reason: WriteQueueException) => void
   onSessionReset?: (reason: string) => Promise<void>
 }) {
-  const queue = new WriteQueue<ServiceLink>()
+  const eventBus = new EventBus<ServiceLink>()
+  const queue = new WriteQueue<ServiceLink>(eventBus)
   queue.setSessionResetHandler(params?.onSessionReset ?? vi.fn(async () => {}))
   registerAll(queue, params?.handler ?? vi.fn(async () => {}), params?.evictionHandler)
   return queue
