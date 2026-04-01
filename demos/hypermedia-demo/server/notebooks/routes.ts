@@ -12,16 +12,14 @@ import {
 import { DuplicateNotebookNameException } from '@cqrs-toolkit/demo-base/notebooks/shared'
 import type { EventCursorPagination, HypermediaTypes } from '@cqrs-toolkit/hypermedia'
 import { Hypermedia } from '@cqrs-toolkit/hypermedia/server'
-import {
-  EventExistenceRevision,
-  type EventMetadata,
-  type ISerializedEvent,
-} from '@meticoeus/ddd-es'
+import { EventExistenceRevision, type ISerializedEvent } from '@meticoeus/ddd-es'
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
 import { v4 as uuidv4 } from 'uuid'
 import {
   commandRouteConfig,
   createRouteConfig,
+  extractCommandMetadata,
+  handleErr,
   toCommandSuccess,
   toSerializedEvent,
 } from '../command-utils.js'
@@ -159,10 +157,9 @@ export function notebookRoutes(
       NotebookCommands.mustSurface('create').path,
       createRouteConfig,
       async (request, reply) => {
-        const metadata: EventMetadata = {
-          correlationId: (request.headers['x-request-id'] as string) ?? uuidv4(),
-          commandId: request.headers['x-command-id'] as string | undefined,
-        }
+        const metadataRes = extractCommandMetadata(request)
+        if (!metadataRes.ok) return handleErr(metadataRes, reply)
+        const metadata = metadataRes.value
 
         const valRes = NOTEBOOK_COMMANDS.parse<{ name: string }>(
           request,
@@ -204,10 +201,9 @@ export function notebookRoutes(
       Params: { id: string }
       Body: { type: string; data: unknown; revision?: string }
     }>(NotebookCommands.mustSurface('command').path, commandRouteConfig, async (request, reply) => {
-      const metadata: EventMetadata = {
-        correlationId: (request.headers['x-request-id'] as string) ?? uuidv4(),
-        commandId: request.headers['x-command-id'] as string | undefined,
-      }
+      const metadataRes = extractCommandMetadata(request)
+      if (!metadataRes.ok) return handleErr(metadataRes, reply)
+      const metadata = metadataRes.value
 
       const { type, data, revision } = request.body
       const res = NOTEBOOK_COMMANDS.parseCommandDispatch<NotebookMutationCommand>(

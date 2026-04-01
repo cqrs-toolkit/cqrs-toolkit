@@ -21,6 +21,7 @@ describe('POST /api/todos (create)', () => {
       method: 'POST',
       url: '/api/todos',
       payload: { content: 'Buy milk' },
+      headers: commandHeaders(),
     })
 
     expect(res.statusCode).toBe(200)
@@ -40,6 +41,7 @@ describe('POST /api/todos (create)', () => {
       method: 'POST',
       url: '/api/todos',
       payload: { content: '' },
+      headers: commandHeaders(),
     })
 
     expect(res.statusCode).toBe(400)
@@ -50,6 +52,7 @@ describe('POST /api/todos (create)', () => {
       method: 'POST',
       url: '/api/todos',
       payload: {},
+      headers: commandHeaders(),
     })
 
     expect(res.statusCode).toBe(400)
@@ -69,6 +72,7 @@ describe('POST /api/todos/:id/command', () => {
           data: { content: 'Updated content' },
           revision: nextExpectedRevision,
         },
+        headers: commandHeaders(),
       })
 
       expect(res.statusCode).toBe(200)
@@ -86,6 +90,7 @@ describe('POST /api/todos/:id/command', () => {
           data: { content: 'x' },
           revision: '0',
         },
+        headers: commandHeaders(),
       })
 
       expect(res.statusCode).toBe(404)
@@ -105,6 +110,7 @@ describe('POST /api/todos/:id/command', () => {
           data: { status: 'in_progress' },
           revision: nextExpectedRevision,
         },
+        headers: commandHeaders(),
       })
 
       expect(res.statusCode).toBe(200)
@@ -124,6 +130,7 @@ describe('POST /api/todos/:id/command', () => {
           data: { status: 'invalid' },
           revision: nextExpectedRevision,
         },
+        headers: commandHeaders(),
       })
 
       expect(res.statusCode).toBe(400)
@@ -138,6 +145,7 @@ describe('POST /api/todos/:id/command', () => {
           data: { status: 'completed' },
           revision: '0',
         },
+        headers: commandHeaders(),
       })
 
       expect(res.statusCode).toBe(404)
@@ -156,6 +164,7 @@ describe('POST /api/todos/:id/command', () => {
           data: {},
           revision: nextExpectedRevision,
         },
+        headers: commandHeaders(),
       })
 
       expect(res.statusCode).toBe(200)
@@ -172,6 +181,7 @@ describe('POST /api/todos/:id/command', () => {
         method: 'POST',
         url: '/api/todos/nonexistent/command',
         payload: { type: 'delete', data: {}, revision: '0' },
+        headers: commandHeaders(),
       })
 
       expect(res.statusCode).toBe(404)
@@ -185,6 +195,57 @@ describe('POST /api/todos/:id/command', () => {
       method: 'POST',
       url: `/api/todos/${todoId}/command`,
       payload: { type: 'flyToMoon', data: {} },
+      headers: commandHeaders(),
+    })
+
+    expect(res.statusCode).toBe(400)
+  })
+})
+
+describe('event metadata propagation', () => {
+  it('propagates x-request-id and x-command-id to created events', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/todos',
+      payload: { content: 'Metadata test' },
+      headers: { 'x-request-id': 'req-meta-1', 'x-command-id': 'cmd-meta-1' },
+    })
+
+    expect(res.statusCode).toBe(200)
+    const body = res.json<CommandSuccessResponse>()
+    expect(body.events[0]?.metadata).toMatchObject({
+      correlationId: 'req-meta-1',
+      commandId: 'cmd-meta-1',
+    })
+  })
+
+  it('propagates headers on command envelope', async () => {
+    const { id: todoId, nextExpectedRevision } = await createTodo('Meta cmd test')
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/todos/${todoId}/command`,
+      payload: {
+        type: 'changeStatus',
+        data: { status: 'completed' },
+        revision: nextExpectedRevision,
+      },
+      headers: { 'x-request-id': 'req-meta-2', 'x-command-id': 'cmd-meta-2' },
+    })
+
+    expect(res.statusCode).toBe(200)
+    const body = res.json<CommandSuccessResponse>()
+    expect(body.events[0]?.metadata).toMatchObject({
+      correlationId: 'req-meta-2',
+      commandId: 'cmd-meta-2',
+    })
+  })
+
+  it('rejects command without required headers', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/todos',
+      payload: { content: 'No headers' },
     })
 
     expect(res.statusCode).toBe(400)
@@ -356,6 +417,7 @@ describe('GET /api/todos/:id/events', () => {
         data: { status: 'completed' },
         revision: nextExpectedRevision,
       },
+      headers: commandHeaders(),
     })
 
     const res = await app.inject({
@@ -426,6 +488,15 @@ describe('GET /api/events/todos', () => {
 
 // --- Helpers ---
 
+let commandCounter = 0
+function commandHeaders(): Record<string, string> {
+  commandCounter++
+  return {
+    'x-request-id': `req-${commandCounter}`,
+    'x-command-id': `cmd-${commandCounter}`,
+  }
+}
+
 interface CreateResult {
   id: string
   nextExpectedRevision: string
@@ -440,6 +511,7 @@ async function createTodoOn(instance: FastifyInstance, content: string): Promise
     method: 'POST',
     url: '/api/todos',
     payload: { content },
+    headers: commandHeaders(),
   })
   const body = res.json<CommandSuccessResponse>()
   return { id: body.id, nextExpectedRevision: body.nextExpectedRevision }

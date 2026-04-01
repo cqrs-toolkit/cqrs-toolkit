@@ -212,6 +212,7 @@ describe('WebSocket integration', () => {
       method: 'POST',
       url: '/api/todos',
       payload: { content: 'WebSocket test' },
+      headers: { 'x-request-id': 'req-ws-1', 'x-command-id': 'cmd-ws-1' },
     })
     const body = res.json<CommandSuccessResponse>()
 
@@ -238,6 +239,7 @@ describe('WebSocket integration', () => {
       method: 'POST',
       url: '/api/todos',
       payload: { content: 'Should not arrive' },
+      headers: { 'x-request-id': 'req-ws-2', 'x-command-id': 'cmd-ws-2' },
     })
 
     // Should timeout waiting — no event should arrive
@@ -256,6 +258,7 @@ describe('WebSocket integration', () => {
       method: 'POST',
       url: '/api/todos',
       payload: { content: 'Global test' },
+      headers: { 'x-request-id': 'req-ws-3', 'x-command-id': 'cmd-ws-3' },
     })
 
     const eventMsg = await waitForMessage<EventMessage>(socket)

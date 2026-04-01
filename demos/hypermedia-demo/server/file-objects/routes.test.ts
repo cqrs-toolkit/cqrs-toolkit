@@ -30,6 +30,7 @@ describe('POST /api/file-objects (permit)', () => {
       method: 'POST',
       url: '/api/file-objects',
       payload: { noteId, filename: 'test.txt', size: 100 },
+      headers: commandHeaders(),
     })
 
     expect(res.statusCode).toBe(200)
@@ -47,6 +48,7 @@ describe('POST /api/file-objects (permit)', () => {
       method: 'POST',
       url: '/api/file-objects',
       payload: { noteId: 'nonexistent', filename: 'test.txt', size: 100 },
+      headers: commandHeaders(),
     })
 
     expect(res.statusCode).toBe(404)
@@ -57,6 +59,7 @@ describe('POST /api/file-objects (permit)', () => {
       method: 'POST',
       url: '/api/file-objects',
       payload: { noteId, size: 100 },
+      headers: commandHeaders(),
     })
 
     expect(res.statusCode).toBe(400)
@@ -67,6 +70,7 @@ describe('POST /api/file-objects (permit)', () => {
       method: 'POST',
       url: '/api/file-objects',
       payload: { noteId, filename: 'test.txt', size: 0 },
+      headers: commandHeaders(),
     })
     expect(zero.statusCode).toBe(400)
 
@@ -74,6 +78,7 @@ describe('POST /api/file-objects (permit)', () => {
       method: 'POST',
       url: '/api/file-objects',
       payload: { noteId, filename: 'test.txt', size: -1 },
+      headers: commandHeaders(),
     })
     expect(negative.statusCode).toBe(400)
   })
@@ -172,6 +177,7 @@ describe('POST /api/file-objects/:id/command (delete)', () => {
       method: 'POST',
       url: `/api/file-objects/${id}/command`,
       payload: { type: 'delete', data: {}, revision },
+      headers: commandHeaders(),
     })
 
     expect(res.statusCode).toBe(200)
@@ -187,6 +193,7 @@ describe('POST /api/file-objects/:id/command (delete)', () => {
       method: 'POST',
       url: '/api/file-objects/nonexistent/command',
       payload: { type: 'delete', data: {}, revision: '0' },
+      headers: commandHeaders(),
     })
 
     expect(res.statusCode).toBe(404)
@@ -199,6 +206,7 @@ describe('POST /api/file-objects/:id/command (delete)', () => {
       method: 'POST',
       url: `/api/file-objects/${id}/command`,
       payload: { type: 'delete', data: {}, revision: '999' },
+      headers: commandHeaders(),
     })
 
     expect(res.statusCode).not.toBe(200)
@@ -304,6 +312,77 @@ describe('GET /api/file-objects/events', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Event metadata propagation
+// ---------------------------------------------------------------------------
+
+describe('event metadata propagation', () => {
+  it('propagates commandId through permit -> upload flow', async () => {
+    const content = 'metadata upload test'
+
+    const permitRes = await app.inject({
+      method: 'POST',
+      url: '/api/file-objects',
+      payload: { noteId, filename: 'meta-test.txt', size: Buffer.byteLength(content) },
+      headers: { 'x-request-id': 'req-meta-1', 'x-command-id': 'cmd-meta-upload' },
+    })
+    expect(permitRes.statusCode).toBe(200)
+    const permit = permitRes.json<PermitResponse>()
+
+    const permitMetadata = JSON.parse(permit.data.uploadForm.fields.metadata ?? '') as Record<
+      string,
+      unknown
+    >
+    expect(permitMetadata).toMatchObject({
+      correlationId: 'req-meta-1',
+      commandId: 'cmd-meta-upload',
+    })
+
+    const uploadRes = await uploadFile(app, permit.data.uploadForm, content)
+    expect(uploadRes.statusCode).toBe(204)
+
+    const eventsRes = await app.inject({
+      method: 'GET',
+      url: `/api/file-objects/${permit.id}/events`,
+      headers: { accept: 'application/json' },
+    })
+    expect(eventsRes.statusCode).toBe(200)
+    const eventsBody = eventsRes.json<{ entities: Array<{ metadata: Record<string, unknown> }> }>()
+    expect(eventsBody.entities[0]?.metadata).toMatchObject({
+      correlationId: 'req-meta-1',
+      commandId: 'cmd-meta-upload',
+    })
+  })
+
+  it('propagates headers on delete command', async () => {
+    const { id, revision } = await createFileObject(app, noteId)
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/file-objects/${id}/command`,
+      payload: { type: 'delete', data: {}, revision },
+      headers: { 'x-request-id': 'req-meta-2', 'x-command-id': 'cmd-meta-delete' },
+    })
+
+    expect(res.statusCode).toBe(200)
+    const body = res.json<CommandSuccessResponse>()
+    expect(body.events[0]?.metadata).toMatchObject({
+      correlationId: 'req-meta-2',
+      commandId: 'cmd-meta-delete',
+    })
+  })
+
+  it('rejects permit without required headers', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/file-objects',
+      payload: { noteId, filename: 'no-headers.txt', size: 10 },
+    })
+
+    expect(res.statusCode).toBe(400)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -321,6 +400,15 @@ interface PermitResponse {
 // Helpers
 // ---------------------------------------------------------------------------
 
+let commandCounter = 0
+function commandHeaders(): Record<string, string> {
+  commandCounter++
+  return {
+    'x-request-id': `req-${commandCounter}`,
+    'x-command-id': `cmd-${commandCounter}`,
+  }
+}
+
 async function getPermit(
   instance: FastifyInstance,
   permitNoteId: string,
@@ -331,6 +419,7 @@ async function getPermit(
     method: 'POST',
     url: '/api/file-objects',
     payload: { noteId: permitNoteId, filename, size },
+    headers: commandHeaders(),
   })
   expect(res.statusCode).toBe(200)
   return res.json<PermitResponse>()
@@ -379,6 +468,7 @@ async function createNotebookOn(instance: FastifyInstance): Promise<string> {
     method: 'POST',
     url: '/api/notebooks',
     payload: { name: 'Test Notebook' },
+    headers: commandHeaders(),
   })
   const body = res.json<CommandSuccessResponse>()
   return body.id
@@ -394,6 +484,7 @@ async function createNoteOn(
     method: 'POST',
     url: '/api/notes',
     payload: { notebookId: nbId, title, body },
+    headers: commandHeaders(),
   })
   const resBody = res.json<CommandSuccessResponse>()
   return { id: resBody.id }

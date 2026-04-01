@@ -1,5 +1,6 @@
 import type { CommandSuccessResponse } from '@cqrs-toolkit/demo-base/common/shared'
 import type { APIRequestContext } from '@playwright/test'
+import { randomUUID } from 'node:crypto'
 import { expect, test, url } from '../../../e2e-fixtures.js'
 import {
   gotoWithWsSubscribed,
@@ -21,6 +22,7 @@ async function createNotebookViaApi(
 ): Promise<CommandSuccessResponse> {
   const res = await request.post(`${API}/notebooks`, {
     data: { name },
+    headers: { 'x-request-id': randomUUID(), 'x-command-id': randomUUID() },
   })
   expect(res.ok()).toBe(true)
   return (await res.json()) as CommandSuccessResponse
@@ -35,6 +37,7 @@ async function addTagViaApi(
 ): Promise<CommandSuccessResponse> {
   const res = await request.post(`${API}/notebooks/${id}/command`, {
     data: { type: 'addTag', data: { tag }, revision },
+    headers: { 'x-request-id': randomUUID(), 'x-command-id': randomUUID() },
   })
   expect(res.ok()).toBe(true)
   return (await res.json()) as CommandSuccessResponse

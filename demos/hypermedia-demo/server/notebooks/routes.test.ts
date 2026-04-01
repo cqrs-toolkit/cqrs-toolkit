@@ -21,6 +21,7 @@ describe('POST /api/notebooks (create)', () => {
       method: 'POST',
       url: '/api/notebooks',
       payload: { name: 'My Notebook' },
+      headers: commandHeaders(),
     })
 
     expect(res.statusCode).toBe(200)
@@ -37,6 +38,7 @@ describe('POST /api/notebooks (create)', () => {
       method: 'POST',
       url: '/api/notebooks',
       payload: { name: '' },
+      headers: commandHeaders(),
     })
 
     expect(res.statusCode).toBe(400)
@@ -47,6 +49,7 @@ describe('POST /api/notebooks (create)', () => {
       method: 'POST',
       url: '/api/notebooks',
       payload: {},
+      headers: commandHeaders(),
     })
 
     expect(res.statusCode).toBe(400)
@@ -66,6 +69,7 @@ describe('POST /api/notebooks/:id/command', () => {
           data: { name: 'New Name' },
           revision: nextExpectedRevision,
         },
+        headers: commandHeaders(),
       })
 
       expect(res.statusCode).toBe(200)
@@ -83,6 +87,7 @@ describe('POST /api/notebooks/:id/command', () => {
           data: { name: 'x' },
           revision: '0',
         },
+        headers: commandHeaders(),
       })
 
       expect(res.statusCode).toBe(404)
@@ -101,6 +106,7 @@ describe('POST /api/notebooks/:id/command', () => {
           data: {},
           revision: nextExpectedRevision,
         },
+        headers: commandHeaders(),
       })
 
       expect(res.statusCode).toBe(200)
@@ -122,6 +128,7 @@ describe('POST /api/notebooks/:id/command', () => {
         method: 'POST',
         url: '/api/notebooks/nonexistent/command',
         payload: { type: 'delete', data: {}, revision: '0' },
+        headers: commandHeaders(),
       })
 
       expect(res.statusCode).toBe(500)
@@ -135,6 +142,57 @@ describe('POST /api/notebooks/:id/command', () => {
       method: 'POST',
       url: `/api/notebooks/${id}/command`,
       payload: { type: 'flyToMoon', data: {} },
+      headers: commandHeaders(),
+    })
+
+    expect(res.statusCode).toBe(400)
+  })
+})
+
+describe('event metadata propagation', () => {
+  it('propagates x-request-id and x-command-id to created events', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/notebooks',
+      payload: { name: 'Metadata test' },
+      headers: { 'x-request-id': 'req-meta-1', 'x-command-id': 'cmd-meta-1' },
+    })
+
+    expect(res.statusCode).toBe(200)
+    const body = res.json<CommandSuccessResponse>()
+    expect(body.events[0]?.metadata).toMatchObject({
+      correlationId: 'req-meta-1',
+      commandId: 'cmd-meta-1',
+    })
+  })
+
+  it('propagates headers on command envelope', async () => {
+    const { id, nextExpectedRevision } = await createNotebook('Meta cmd test')
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/notebooks/${id}/command`,
+      payload: {
+        type: 'updateName',
+        data: { name: 'Updated meta' },
+        revision: nextExpectedRevision,
+      },
+      headers: { 'x-request-id': 'req-meta-2', 'x-command-id': 'cmd-meta-2' },
+    })
+
+    expect(res.statusCode).toBe(200)
+    const body = res.json<CommandSuccessResponse>()
+    expect(body.events[0]?.metadata).toMatchObject({
+      correlationId: 'req-meta-2',
+      commandId: 'cmd-meta-2',
+    })
+  })
+
+  it('rejects command without required headers', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/notebooks',
+      payload: { name: 'No headers' },
     })
 
     expect(res.statusCode).toBe(400)
@@ -280,6 +338,7 @@ describe('GET /api/notebooks/:id/events', () => {
         data: { name: 'Updated' },
         revision: nextExpectedRevision,
       },
+      headers: commandHeaders(),
     })
 
     const res = await app.inject({
@@ -350,6 +409,15 @@ describe('GET /api/events/notebooks', () => {
 
 // --- Helpers ---
 
+let commandCounter = 0
+function commandHeaders(): Record<string, string> {
+  commandCounter++
+  return {
+    'x-request-id': `req-${commandCounter}`,
+    'x-command-id': `cmd-${commandCounter}`,
+  }
+}
+
 interface CreateResult {
   id: string
   nextExpectedRevision: string
@@ -364,6 +432,7 @@ async function createNotebookOn(instance: FastifyInstance, name: string): Promis
     method: 'POST',
     url: '/api/notebooks',
     payload: { name },
+    headers: commandHeaders(),
   })
   const body = res.json<CommandSuccessResponse>()
   return { id: body.id, nextExpectedRevision: body.nextExpectedRevision }

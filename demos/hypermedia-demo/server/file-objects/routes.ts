@@ -15,10 +15,16 @@ import {
 import type { NoteRepository } from '@cqrs-toolkit/demo-base/notes/server'
 import type { EventCursorPagination, HypermediaTypes } from '@cqrs-toolkit/hypermedia'
 import { Hypermedia } from '@cqrs-toolkit/hypermedia/server'
-import { type EventMetadata, type ISerializedEvent } from '@meticoeus/ddd-es'
+import type { ISerializedEvent } from '@meticoeus/ddd-es'
 import type { FastifyInstance, FastifyPluginAsync, RouteShorthandOptions } from 'fastify'
 import { v4 as uuidv4 } from 'uuid'
-import { commandRouteConfig, toCommandSuccess, toSerializedEvent } from '../command-utils.js'
+import {
+  commandRouteConfig,
+  extractCommandMetadata,
+  handleErr,
+  toCommandSuccess,
+  toSerializedEvent,
+} from '../command-utils.js'
 import {
   GetAggregateEventsRequest,
   GetByIdRequest,
@@ -185,11 +191,9 @@ export function fileObjectRoutes(
       FileObjectCommands.mustSurface('create').path,
       permitRouteConfig,
       async (request, reply) => {
-        const metadata: EventMetadata = {
-          correlationId: (request.headers['x-request-id'] as string) ?? uuidv4(),
-          commandId: request.headers['x-command-id'] as string | undefined,
-        }
-        void metadata // permit does not create the aggregate
+        const metadataRes = extractCommandMetadata(request)
+        if (!metadataRes.ok) return handleErr(metadataRes, reply)
+        const metadata = metadataRes.value
 
         const valRes = FILE_OBJECT_COMMANDS.parse<{
           noteId: string
@@ -215,6 +219,7 @@ export function fileObjectRoutes(
           noteId,
           filename,
           size: String(size),
+          metadata: JSON.stringify(metadata),
         }
         const signature = signFields(fields)
 
@@ -239,10 +244,9 @@ export function fileObjectRoutes(
       FileObjectCommands.mustSurface('command').path,
       commandRouteConfig,
       async (request, reply) => {
-        const metadata: EventMetadata = {
-          correlationId: (request.headers['x-request-id'] as string) ?? uuidv4(),
-          commandId: request.headers['x-command-id'] as string | undefined,
-        }
+        const metadataRes = extractCommandMetadata(request)
+        if (!metadataRes.ok) return handleErr(metadataRes, reply)
+        const metadata = metadataRes.value
 
         const { type, data, revision } = request.body
         const res = FILE_OBJECT_COMMANDS.parseCommandDispatch<FileObjectMutationCommand>(

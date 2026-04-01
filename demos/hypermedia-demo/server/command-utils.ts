@@ -5,11 +5,25 @@
  * command envelope: `{ type, data, revision }` instead of `{ command: { type, data, revision } }`.
  */
 
-import type { CommandSuccessResponse } from '@cqrs-toolkit/demo-base/common/shared'
+import type {
+  CommandErrorResponse,
+  CommandSuccessResponse,
+} from '@cqrs-toolkit/demo-base/common/shared'
 import type { HydraDoc } from '@cqrs-toolkit/hypermedia'
 import type { CommandDispatchExtractor } from '@cqrs-toolkit/hypermedia/server'
-import type { IEvent, ISerializedEvent, Persisted } from '@meticoeus/ddd-es'
-import type { FastifySchema, RouteShorthandOptions } from 'fastify'
+import { type FieldError, SchemaException } from '@cqrs-toolkit/schema'
+import {
+  Err,
+  type ErrResult,
+  type EventMetadata,
+  Exception,
+  type IEvent,
+  type ISerializedEvent,
+  Ok,
+  type Persisted,
+  type Result,
+} from '@meticoeus/ddd-es'
+import type { FastifyReply, FastifyRequest, FastifySchema, RouteShorthandOptions } from 'fastify'
 import type { JSONSchema7 } from 'json-schema'
 import assert from 'node:assert'
 
@@ -194,4 +208,65 @@ export function toCommandSuccess(
     nextExpectedRevision: String(nextExpectedRevision),
     events: events.map((e) => toSerializedEvent(e)),
   }
+}
+
+// ---------------------------------------------------------------------------
+// Request metadata extraction
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract and validate `x-request-id` and `x-command-id` headers into EventMetadata.
+ *
+ * Both headers are required for command routes. Returns a SchemaException with
+ * FieldError details for any missing or duplicate headers.
+ */
+export function extractCommandMetadata(
+  request: FastifyRequest,
+): Result<EventMetadata, SchemaException> {
+  const requestId = request.headers['x-request-id']
+  const commandId = request.headers['x-command-id']
+
+  if (typeof requestId !== 'string' || typeof commandId !== 'string') {
+    const errors: FieldError[] = []
+    if (typeof requestId !== 'string') {
+      errors.push({
+        path: 'x-request-id',
+        code: requestId === undefined ? 'missingHeader' : 'duplicateHeader',
+        message: requestId === undefined ? 'Header is required' : 'Header must not be duplicated',
+        params: {},
+      })
+    }
+    if (typeof commandId !== 'string') {
+      errors.push({
+        path: 'x-command-id',
+        code: commandId === undefined ? 'missingHeader' : 'duplicateHeader',
+        message: commandId === undefined ? 'Header is required' : 'Header must not be duplicated',
+        params: {},
+      })
+    }
+    return Err(new SchemaException(errors))
+  }
+
+  const metadata: EventMetadata = { correlationId: requestId, commandId }
+  return Ok(metadata)
+}
+
+// ---------------------------------------------------------------------------
+// Error handling
+// ---------------------------------------------------------------------------
+
+/**
+ * Handle an error Result by setting the reply status code and returning a CommandErrorResponse.
+ */
+export function handleErr(res: ErrResult, reply: FastifyReply): CommandErrorResponse {
+  if (res.error instanceof Exception) {
+    reply.code(res.error.code ?? 400)
+    return { message: res.error.userMessage, details: res.error.details }
+  }
+  if (res.error instanceof Error) {
+    reply.code(400)
+    return { message: res.error.message }
+  }
+  reply.code(500)
+  return { message: 'Something went wrong' }
 }

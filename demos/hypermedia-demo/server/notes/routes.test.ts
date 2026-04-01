@@ -23,6 +23,7 @@ describe('POST /api/notes (create)', () => {
       method: 'POST',
       url: '/api/notes',
       payload: { notebookId, title: 'My Note', body: 'Some content' },
+      headers: commandHeaders(),
     })
 
     expect(res.statusCode).toBe(200)
@@ -43,6 +44,7 @@ describe('POST /api/notes (create)', () => {
       method: 'POST',
       url: '/api/notes',
       payload: { notebookId, title: '', body: 'content' },
+      headers: commandHeaders(),
     })
 
     expect(res.statusCode).toBe(400)
@@ -53,6 +55,7 @@ describe('POST /api/notes (create)', () => {
       method: 'POST',
       url: '/api/notes',
       payload: { notebookId, title: 'test' },
+      headers: commandHeaders(),
     })
 
     expect(res.statusCode).toBe(400)
@@ -63,6 +66,7 @@ describe('POST /api/notes (create)', () => {
       method: 'POST',
       url: '/api/notes',
       payload: { notebookId, title: 'Empty body note', body: '' },
+      headers: commandHeaders(),
     })
 
     expect(res.statusCode).toBe(200)
@@ -82,6 +86,7 @@ describe('POST /api/notes/:id/command', () => {
           data: { title: 'New Title' },
           revision: nextExpectedRevision,
         },
+        headers: commandHeaders(),
       })
 
       expect(res.statusCode).toBe(200)
@@ -99,6 +104,7 @@ describe('POST /api/notes/:id/command', () => {
           data: { title: 'x' },
           revision: '0',
         },
+        headers: commandHeaders(),
       })
 
       expect(res.statusCode).toBe(404)
@@ -118,6 +124,7 @@ describe('POST /api/notes/:id/command', () => {
           data: { body: 'new body' },
           revision: nextExpectedRevision,
         },
+        headers: commandHeaders(),
       })
 
       expect(res.statusCode).toBe(200)
@@ -135,6 +142,7 @@ describe('POST /api/notes/:id/command', () => {
           data: { body: 'x' },
           revision: '0',
         },
+        headers: commandHeaders(),
       })
 
       expect(res.statusCode).toBe(404)
@@ -153,6 +161,7 @@ describe('POST /api/notes/:id/command', () => {
           data: {},
           revision: nextExpectedRevision,
         },
+        headers: commandHeaders(),
       })
 
       expect(res.statusCode).toBe(200)
@@ -172,6 +181,7 @@ describe('POST /api/notes/:id/command', () => {
         method: 'POST',
         url: '/api/notes/nonexistent/command',
         payload: { type: 'delete', data: {}, revision: '0' },
+        headers: commandHeaders(),
       })
 
       expect(res.statusCode).toBe(404)
@@ -185,6 +195,57 @@ describe('POST /api/notes/:id/command', () => {
       method: 'POST',
       url: `/api/notes/${noteId}/command`,
       payload: { type: 'flyToMoon', data: {} },
+      headers: commandHeaders(),
+    })
+
+    expect(res.statusCode).toBe(400)
+  })
+})
+
+describe('event metadata propagation', () => {
+  it('propagates x-request-id and x-command-id to created events', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/notes',
+      payload: { notebookId, title: 'Metadata test', body: 'meta body' },
+      headers: { 'x-request-id': 'req-meta-1', 'x-command-id': 'cmd-meta-1' },
+    })
+
+    expect(res.statusCode).toBe(200)
+    const body = res.json<CommandSuccessResponse>()
+    expect(body.events[0]?.metadata).toMatchObject({
+      correlationId: 'req-meta-1',
+      commandId: 'cmd-meta-1',
+    })
+  })
+
+  it('propagates headers on command envelope', async () => {
+    const { id: noteId, nextExpectedRevision } = await createNote('Meta cmd test', 'body')
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/notes/${noteId}/command`,
+      payload: {
+        type: 'updateTitle',
+        data: { title: 'Updated meta' },
+        revision: nextExpectedRevision,
+      },
+      headers: { 'x-request-id': 'req-meta-2', 'x-command-id': 'cmd-meta-2' },
+    })
+
+    expect(res.statusCode).toBe(200)
+    const body = res.json<CommandSuccessResponse>()
+    expect(body.events[0]?.metadata).toMatchObject({
+      correlationId: 'req-meta-2',
+      commandId: 'cmd-meta-2',
+    })
+  })
+
+  it('rejects command without required headers', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/notes',
+      payload: { notebookId, title: 'No headers', body: 'no headers' },
     })
 
     expect(res.statusCode).toBe(400)
@@ -299,6 +360,7 @@ describe('GET /api/notes/:id/events', () => {
         data: { title: 'Updated' },
         revision: nextExpectedRevision,
       },
+      headers: commandHeaders(),
     })
 
     const res = await app.inject({
@@ -369,6 +431,15 @@ describe('GET /api/events/notes', () => {
 
 // --- Helpers ---
 
+let commandCounter = 0
+function commandHeaders(): Record<string, string> {
+  commandCounter++
+  return {
+    'x-request-id': `req-${commandCounter}`,
+    'x-command-id': `cmd-${commandCounter}`,
+  }
+}
+
 interface CreateResult {
   id: string
   nextExpectedRevision: string
@@ -388,6 +459,7 @@ async function createNoteOn(
     method: 'POST',
     url: '/api/notes',
     payload: { notebookId: nbId, title, body },
+    headers: commandHeaders(),
   })
   const resBody = res.json<CommandSuccessResponse>()
   return { id: resBody.id, nextExpectedRevision: resBody.nextExpectedRevision }
@@ -398,6 +470,7 @@ async function createNotebookOn(instance: FastifyInstance): Promise<string> {
     method: 'POST',
     url: '/api/notebooks',
     payload: { name: 'Test Notebook' },
+    headers: commandHeaders(),
   })
   const resBody = res.json<CommandSuccessResponse>()
   return resBody.id

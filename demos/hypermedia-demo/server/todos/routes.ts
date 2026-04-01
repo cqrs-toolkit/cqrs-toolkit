@@ -7,16 +7,14 @@ import type { CommandResponse } from '@cqrs-toolkit/demo-base/common/shared'
 import { TodoAggregate, TodoRepository } from '@cqrs-toolkit/demo-base/todos/server'
 import type { EventCursorPagination, HypermediaTypes } from '@cqrs-toolkit/hypermedia'
 import { Hypermedia } from '@cqrs-toolkit/hypermedia/server'
-import {
-  EventExistenceRevision,
-  type EventMetadata,
-  type ISerializedEvent,
-} from '@meticoeus/ddd-es'
+import { EventExistenceRevision, type ISerializedEvent } from '@meticoeus/ddd-es'
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
 import { v4 as uuidv4 } from 'uuid'
 import {
   commandRouteConfig,
   createRouteConfig,
+  extractCommandMetadata,
+  handleErr,
   toCommandSuccess,
   toSerializedEvent,
 } from '../command-utils.js'
@@ -150,10 +148,9 @@ export function todoRoutes(
     // ── Create route ──
 
     app.post(TodoCommands.mustSurface('create').path, createRouteConfig, async (request, reply) => {
-      const metadata: EventMetadata = {
-        correlationId: (request.headers['x-request-id'] as string) ?? uuidv4(),
-        commandId: request.headers['x-command-id'] as string | undefined,
-      }
+      const metadataRes = extractCommandMetadata(request)
+      if (!metadataRes.ok) return handleErr(metadataRes, reply)
+      const metadata = metadataRes.value
 
       const valRes = TODO_COMMANDS.parse<{ content: string }>(
         request,
@@ -184,10 +181,9 @@ export function todoRoutes(
       Params: { id: string }
       Body: { type: string; data: unknown; revision?: string }
     }>(TodoCommands.mustSurface('command').path, commandRouteConfig, async (request, reply) => {
-      const metadata: EventMetadata = {
-        correlationId: (request.headers['x-request-id'] as string) ?? uuidv4(),
-        commandId: request.headers['x-command-id'] as string | undefined,
-      }
+      const metadataRes = extractCommandMetadata(request)
+      if (!metadataRes.ok) return handleErr(metadataRes, reply)
+      const metadata = metadataRes.value
 
       const { type, data, revision } = request.body
       const res = TODO_COMMANDS.parseCommandDispatch<TodoMutationCommand>(

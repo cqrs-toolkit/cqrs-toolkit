@@ -42,6 +42,7 @@ export function createHypermediaCommandSender<TLink extends Link>(
         Accept: 'application/json',
         'Content-Profile': routing.urn,
         'x-command-id': command.commandId,
+        'x-request-id': crypto.randomUUID(),
       }
 
       const res = await doFetch(url, {

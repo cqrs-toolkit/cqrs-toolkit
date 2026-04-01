@@ -17,7 +17,6 @@ import type { NoteRepository } from '@cqrs-toolkit/demo-base/notes/server'
 import type { MultipartValue } from '@fastify/multipart'
 import { EventExistenceRevision, type EventMetadata } from '@meticoeus/ddd-es'
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
-import { v4 as uuidv4 } from 'uuid'
 import { verifySignature } from './signing.js'
 
 export function uploadRoute(
@@ -30,7 +29,7 @@ export function uploadRoute(
       const file = await request.file()
       if (!file) {
         reply.code(400)
-        return reply.send()
+        return reply.send({ message: 'Missing file in multipart request' })
       }
 
       // Extract form fields
@@ -47,19 +46,19 @@ export function uploadRoute(
       const { signature, ...dataFields } = fields
       if (!signature || !verifySignature(dataFields, signature)) {
         reply.code(403)
-        return reply.send()
+        return reply.send({ message: 'Invalid or missing signature' })
       }
 
-      const { fileId, noteId, filename } = dataFields
-      if (!fileId || !noteId || !filename) {
+      const { fileId, noteId, filename, metadata: metadataJson } = dataFields
+      if (!fileId || !noteId || !filename || !metadataJson) {
         reply.code(400)
-        return reply.send()
+        return reply.send({ message: 'Missing required form fields' })
       }
 
       const note = noteRepo.findById(noteId)
       if (!note) {
         reply.code(400)
-        return reply.send()
+        return reply.send({ message: `Note ${noteId} not found` })
       }
 
       const buffer = await file.toBuffer()
@@ -67,15 +66,15 @@ export function uploadRoute(
       const declaredSize = parseInt(dataFields.size ?? '', 10)
       if (!declaredSize || buffer.length !== declaredSize) {
         reply.code(400)
-        return reply.send()
+        return reply.send({
+          message: `File size mismatch: expected ${declaredSize}, got ${buffer.length}`,
+        })
       }
 
       const filePath = fileStore.save(fileId, buffer)
       const resource = encodeFileResource(filePath)
 
-      const metadata: EventMetadata = {
-        correlationId: (request.headers['x-request-id'] as string) ?? uuidv4(),
-      }
+      const metadata = JSON.parse(metadataJson) as EventMetadata
 
       const aggregate = new FileObjectAggregate()
       aggregate.create(
