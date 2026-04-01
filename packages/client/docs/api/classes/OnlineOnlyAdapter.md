@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / OnlineOnlyAdapter
 
-# Class: OnlineOnlyAdapter\<TLink, TSchema, TEvent\>
+# Class: OnlineOnlyAdapter\<TLink, TCommand, TSchema, TEvent\>
 
 Online-only adapter for development, testing, and deployments
 where offline persistence is not required.
@@ -14,6 +14,10 @@ where offline persistence is not required.
 ### TLink
 
 `TLink` _extends_ `Link`
+
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md)
 
 ### TSchema
 
@@ -25,23 +29,23 @@ where offline persistence is not required.
 
 ## Implements
 
-- [`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md)\<`TLink`\>
+- [`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md)\<`TLink`, `TCommand`\>
 
 ## Constructors
 
 ### Constructor
 
-> **new OnlineOnlyAdapter**\<`TLink`, `TSchema`, `TEvent`\>(`config`): `OnlineOnlyAdapter`\<`TLink`, `TSchema`, `TEvent`\>
+> **new OnlineOnlyAdapter**\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>(`config`): `OnlineOnlyAdapter`\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 #### Parameters
 
 ##### config
 
-[`ResolvedConfig`](../interfaces/ResolvedConfig.md)\<`TLink`, `TSchema`, `TEvent`\>
+[`ResolvedConfig`](../interfaces/ResolvedConfig.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 #### Returns
 
-`OnlineOnlyAdapter`\<`TLink`, `TSchema`, `TEvent`\>
+`OnlineOnlyAdapter`\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 ## Properties
 
@@ -103,11 +107,11 @@ Observable of library events.
 
 #### Get Signature
 
-> **get** **sessionManager**(): [`SessionManager`](SessionManager.md)\<`TLink`\>
+> **get** **sessionManager**(): [`SessionManager`](SessionManager.md)\<`TLink`, `TCommand`\>
 
 ##### Returns
 
-[`SessionManager`](SessionManager.md)\<`TLink`\>
+[`SessionManager`](SessionManager.md)\<`TLink`, `TCommand`\>
 
 #### Implementation of
 
@@ -139,11 +143,11 @@ Current adapter status.
 
 #### Get Signature
 
-> **get** **storage**(): [`IStorage`](../interfaces/IStorage.md)\<`TLink`\>
+> **get** **storage**(): [`IStorage`](../interfaces/IStorage.md)\<`TLink`, `TCommand`\>
 
 ##### Returns
 
-[`IStorage`](../interfaces/IStorage.md)\<`TLink`\>
+[`IStorage`](../interfaces/IStorage.md)\<`TLink`, `TCommand`\>
 
 #### Implementation of
 

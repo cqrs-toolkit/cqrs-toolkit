@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / IStorage
 
-# Interface: IStorage\<TLink\>
+# Interface: IStorage\<TLink, TCommand\>
 
 Storage interface.
 All methods are async to support both sync (in-memory) and async (SQLite) backends.
@@ -14,6 +14,10 @@ All methods are async to support both sync (in-memory) and async (SQLite) backen
 ### TLink
 
 `TLink` _extends_ `Link`
+
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md)
 
 ## Methods
 
@@ -470,7 +474,7 @@ Get child cache keys whose parentKey matches the given key.
 
 ### getCommand()
 
-> **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `unknown`, `unknown`\> \| `undefined`\>
+> **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\> \| `undefined`\>
 
 Get a command by ID.
 
@@ -482,7 +486,7 @@ Get a command by ID.
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `unknown`, `unknown`\> \| `undefined`\>
+`Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\> \| `undefined`\>
 
 ---
 
@@ -524,7 +528,7 @@ Get a command ID mapping by server ID.
 
 ### getCommands()
 
-> **getCommands**(`filter?`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
+> **getCommands**(`filter?`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>[]\>
 
 Get commands matching a filter.
 
@@ -536,13 +540,13 @@ Get commands matching a filter.
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
+`Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>[]\>
 
 ---
 
 ### getCommandsBlockedBy()
 
-> **getCommandsBlockedBy**(`commandId`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
+> **getCommandsBlockedBy**(`commandId`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>[]\>
 
 Get commands blocked by a specific command.
 
@@ -554,13 +558,13 @@ Get commands blocked by a specific command.
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
+`Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>[]\>
 
 ---
 
 ### getCommandsByStatus()
 
-> **getCommandsByStatus**(`status`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
+> **getCommandsByStatus**(`status`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>[]\>
 
 Get commands by status.
 
@@ -572,7 +576,7 @@ Get commands by status.
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
+`Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>[]\>
 
 ---
 
@@ -887,7 +891,7 @@ Save a new command.
 
 ##### command
 
-[`CommandRecord`](CommandRecord.md)\<`TLink`\>
+[`CommandRecord`](CommandRecord.md)\<`TLink`, `TCommand`\>
 
 #### Returns
 
@@ -1011,7 +1015,7 @@ Update an existing command.
 
 ##### updates
 
-`Partial`\<[`CommandRecord`](CommandRecord.md)\<`TLink`\>\>
+`Partial`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `TCommand`\>\>
 
 #### Returns
 

@@ -46,8 +46,6 @@ import {
 import { FileObjectRepV1_0_0 } from './query/v1_0_0/representation.js'
 import { signFields } from './signing.js'
 
-const SERVER_PORT = 3002
-
 const permitRouteConfig: RouteShorthandOptions = {
   schema: {
     body: { type: 'object' },
@@ -227,7 +225,7 @@ export function fileObjectRoutes(
           id: fileId,
           data: {
             uploadForm: {
-              url: `http://localhost:${SERVER_PORT}/api/files`,
+              url: '/api/files',
               fields: { ...fields, signature },
             },
           },

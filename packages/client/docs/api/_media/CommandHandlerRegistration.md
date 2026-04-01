@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / CommandHandlerRegistration
 
-# Interface: CommandHandlerRegistration\<TLink, TSchema, TEvent\>
+# Interface: CommandHandlerRegistration\<TLink, TCommand, TSchema, TEvent\>
 
 Registration for a single command handler.
 
@@ -34,6 +34,10 @@ specific data types are assignable to `CommandHandlerRegistration[]`
 
 `TLink` _extends_ `Link`
 
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md) = [`EnqueueCommand`](EnqueueCommand.md)
+
 ### TSchema
 
 `TSchema` = `unknown`
@@ -50,7 +54,7 @@ Anticipated event type produced by the handler.
 
 ### commandType
 
-> **commandType**: `string`
+> **commandType**: `TCommand`\[`"type"`\]
 
 Command type this handler processes
 

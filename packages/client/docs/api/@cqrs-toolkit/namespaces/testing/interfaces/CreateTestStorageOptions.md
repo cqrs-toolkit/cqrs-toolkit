@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../../../../globals.md) / [testing](../README.md) / CreateTestStorageOptions
 
-# Interface: CreateTestStorageOptions\<TLink\>
+# Interface: CreateTestStorageOptions\<TLink, TCommand\>
 
 Options for creating test storage.
 
@@ -13,6 +13,10 @@ Options for creating test storage.
 ### TLink
 
 `TLink` _extends_ `Link`
+
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](../../../../interfaces/EnqueueCommand.md)
 
 ## Properties
 
@@ -34,7 +38,7 @@ Pre-populate with cache keys
 
 ### commands?
 
-> `optional` **commands**: [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]
+> `optional` **commands**: [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>[]
 
 Pre-populate with commands
 

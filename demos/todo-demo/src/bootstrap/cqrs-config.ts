@@ -10,10 +10,14 @@ import {
   clientSchema,
   cookieAuthStrategy,
   type CqrsConfig,
+  EnqueueCommand,
   type IAnticipatedEvent,
 } from '@cqrs-toolkit/client'
 import type { ServiceLink } from '@meticoeus/ddd-es'
 import type { JSONSchema7 } from 'json-schema'
+import { fileObjectsCollection } from '../domain/file-objects/collection.js'
+import { fileObjectHandlers } from '../domain/file-objects/executor.js'
+import { fileObjectProcessors } from '../domain/file-objects/processor.js'
 import { notebooksCollection } from '../domain/notebooks/collection.js'
 import { notebookHandlers } from '../domain/notebooks/executor.js'
 import { notebookProcessors } from '../domain/notebooks/processor.js'
@@ -26,7 +30,7 @@ import { todoProcessors } from '../domain/todos/processor.js'
 import { commandSender } from './commands.js'
 import { schemaValidator } from './validation.js'
 
-export const cqrsConfig: CqrsConfig<ServiceLink, JSONSchema7, IAnticipatedEvent> = {
+export const cqrsConfig: CqrsConfig<ServiceLink, EnqueueCommand, JSONSchema7, IAnticipatedEvent> = {
   schemaValidator,
   // Cookie-based auth — the browser sends cookies automatically.
   // For token-based auth, override per context with spread-and-override:
@@ -43,16 +47,22 @@ export const cqrsConfig: CqrsConfig<ServiceLink, JSONSchema7, IAnticipatedEvent>
         message: 'Initial setup',
         steps: [
           clientSchema.init,
-          { type: 'managed', name: 'todos' },
-          { type: 'managed', name: 'notebooks' },
-          { type: 'managed', name: 'notes' },
+          { type: 'managed', name: todosCollection.name },
+          { type: 'managed', name: notebooksCollection.name },
+          { type: 'managed', name: notesCollection.name },
+          { type: 'managed', name: fileObjectsCollection.name },
         ],
       },
     ],
   },
-  collections: [todosCollection, notebooksCollection, notesCollection],
-  processors: [...todoProcessors, ...notebookProcessors, ...noteProcessors],
-  commandHandlers: [...todoHandlers, ...notebookHandlers, ...noteHandlers],
+  collections: [todosCollection, notebooksCollection, notesCollection, fileObjectsCollection],
+  processors: [
+    ...todoProcessors,
+    ...notebookProcessors,
+    ...noteProcessors,
+    ...fileObjectProcessors,
+  ],
+  commandHandlers: [...todoHandlers, ...notebookHandlers, ...noteHandlers, ...fileObjectHandlers],
   commandSender,
   retainTerminal: true,
   debug: true,

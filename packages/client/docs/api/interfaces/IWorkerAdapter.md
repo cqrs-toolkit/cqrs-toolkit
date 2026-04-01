@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / IWorkerAdapter
 
-# Interface: IWorkerAdapter\<TLink\>
+# Interface: IWorkerAdapter\<TLink, TCommand\>
 
 Worker adapter provides proxy objects. All orchestration happens in the
 worker; createCqrsClient just wraps the proxies.
@@ -19,6 +19,10 @@ worker; createCqrsClient just wraps the proxies.
 
 `TLink` _extends_ `Link`
 
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md)
+
 ## Properties
 
 ### cacheManager
@@ -29,7 +33,7 @@ worker; createCqrsClient just wraps the proxies.
 
 ### commandQueue
 
-> `readonly` **commandQueue**: [`ICommandQueue`](ICommandQueue.md)\<`TLink`\>
+> `readonly` **commandQueue**: [`ICommandQueue`](ICommandQueue.md)\<`TLink`, `TCommand`\>
 
 ---
 

@@ -6,13 +6,14 @@ import type { ServiceLink } from '@meticoeus/ddd-es'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import type { SessionRecord } from '../../storage/IStorage.js'
+import { EnqueueCommand } from '../../types/index.js'
 import { EventBus } from '../events/EventBus.js'
 import { SessionManager } from './SessionManager.js'
 
 describe('SessionManager', () => {
-  let storage: InMemoryStorage<ServiceLink>
+  let storage: InMemoryStorage<ServiceLink, EnqueueCommand>
   let eventBus: EventBus<ServiceLink>
-  let sessionManager: SessionManager<ServiceLink>
+  let sessionManager: SessionManager<ServiceLink, EnqueueCommand>
 
   beforeEach(async () => {
     storage = new InMemoryStorage()

@@ -12,18 +12,18 @@ import type {
   ReadModelRecord,
   SessionRecord,
 } from '../storage/IStorage.js'
-import type { CommandRecord } from '../types/commands.js'
+import { CommandRecord, EnqueueCommand } from '../types/commands.js'
 
 /**
  * Options for creating test storage.
  */
-export interface CreateTestStorageOptions<TLink extends Link> {
+export interface CreateTestStorageOptions<TLink extends Link, TCommand extends EnqueueCommand> {
   /** Pre-populate with a session */
   session?: SessionRecord
   /** Pre-populate with cache keys */
   cacheKeys?: CacheKeyRecord[]
   /** Pre-populate with commands */
-  commands?: CommandRecord<TLink>[]
+  commands?: CommandRecord<TLink, TCommand>[]
   /** Pre-populate with cached events */
   cachedEvents?: CachedEventRecord[]
   /** Pre-populate with read models */
@@ -36,10 +36,10 @@ export interface CreateTestStorageOptions<TLink extends Link> {
  * @param options - Data to pre-populate
  * @returns Initialized storage instance
  */
-export async function createTestStorage<TLink extends Link>(
-  options: CreateTestStorageOptions<TLink> = {},
-): Promise<IStorage<TLink>> {
-  const storage = new InMemoryStorage<TLink>()
+export async function createTestStorage<TLink extends Link, TCommand extends EnqueueCommand>(
+  options: CreateTestStorageOptions<TLink, TCommand> = {},
+): Promise<IStorage<TLink, TCommand>> {
+  const storage = new InMemoryStorage<TLink, TCommand>()
   await storage.initialize()
 
   // Pre-populate data

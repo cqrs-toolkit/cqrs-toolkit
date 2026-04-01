@@ -7,7 +7,7 @@ import type { AppCommandHandlerRegistration } from '../utils/executors.js'
 
 export const todoHandlers: AppCommandHandlerRegistration[] = [
   {
-    commandType: 'CreateTodo',
+    commandType: 'nb.CreateTodo',
     creates: { eventType: 'TodoCreated', idStrategy: 'temporary' },
     handler(data: { content: string }, context: HandlerContext) {
       const id = createEntityId(context)
@@ -22,7 +22,7 @@ export const todoHandlers: AppCommandHandlerRegistration[] = [
     },
   },
   {
-    commandType: 'UpdateTodoContent',
+    commandType: 'nb.UpdateTodoContent',
     handler(data: { content: string }, context: HandlerContext) {
       const { id } = context.path as { id: string }
       return domainSuccess([
@@ -35,7 +35,7 @@ export const todoHandlers: AppCommandHandlerRegistration[] = [
     },
   },
   {
-    commandType: 'ChangeTodoStatus',
+    commandType: 'nb.ChangeTodoStatus',
     handler(data: { status: string }, context: HandlerContext) {
       const { id } = context.path as { id: string }
       return domainSuccess([
@@ -48,7 +48,7 @@ export const todoHandlers: AppCommandHandlerRegistration[] = [
     },
   },
   {
-    commandType: 'DeleteTodo',
+    commandType: 'nb.DeleteTodo',
     handler(_data: unknown, context: HandlerContext) {
       const { id } = context.path as { id: string }
       return domainSuccess([{ type: 'TodoDeleted', data: { id }, streamId: `Todo-${id}` }])

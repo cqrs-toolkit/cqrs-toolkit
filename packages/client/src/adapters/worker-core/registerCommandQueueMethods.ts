@@ -10,13 +10,17 @@ import type { Link } from '@meticoeus/ddd-es'
 import type { IAnticipatedEvent } from '../../core/command-lifecycle/AnticipatedEventShape.js'
 import type { CommandQueue } from '../../core/command-queue/CommandQueue.js'
 import type { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
-import type { CommandFilter, EnqueueParams } from '../../types/commands.js'
+import { CommandFilter, EnqueueCommand, EnqueueParams } from '../../types/commands.js'
 
 export function registerCommandQueueMethods<
   TLink extends Link,
+  TCommand extends EnqueueCommand,
   TSchema,
   TEvent extends IAnticipatedEvent,
->(handler: WorkerMessageHandler, commandQueue: CommandQueue<TLink, TSchema, TEvent>): void {
+>(
+  handler: WorkerMessageHandler,
+  commandQueue: CommandQueue<TLink, TCommand, TSchema, TEvent>,
+): void {
   handler.registerMethod('commandQueue.enqueue', async (args) => {
     const params = args[0] as EnqueueParams<TLink>
     return commandQueue.enqueue(params)

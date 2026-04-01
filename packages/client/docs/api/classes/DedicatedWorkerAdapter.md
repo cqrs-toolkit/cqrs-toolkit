@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / DedicatedWorkerAdapter
 
-# Class: DedicatedWorkerAdapter\<TLink\>
+# Class: DedicatedWorkerAdapter\<TLink, TCommand\>
 
 Dedicated Worker adapter for single-tab offline support.
 
@@ -20,15 +20,19 @@ This adapter:
 
 `TLink` _extends_ `Link`
 
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md)
+
 ## Implements
 
-- [`IWorkerAdapter`](../interfaces/IWorkerAdapter.md)\<`TLink`\>
+- [`IWorkerAdapter`](../interfaces/IWorkerAdapter.md)\<`TLink`, `TCommand`\>
 
 ## Constructors
 
 ### Constructor
 
-> **new DedicatedWorkerAdapter**\<`TLink`\>(`config`): `DedicatedWorkerAdapter`\<`TLink`\>
+> **new DedicatedWorkerAdapter**\<`TLink`, `TCommand`\>(`config`): `DedicatedWorkerAdapter`\<`TLink`, `TCommand`\>
 
 #### Parameters
 
@@ -38,7 +42,7 @@ This adapter:
 
 #### Returns
 
-`DedicatedWorkerAdapter`\<`TLink`\>
+`DedicatedWorkerAdapter`\<`TLink`, `TCommand`\>
 
 ## Properties
 
@@ -86,11 +90,11 @@ Role of this client instance.
 
 #### Get Signature
 
-> **get** **commandQueue**(): [`ICommandQueue`](../interfaces/ICommandQueue.md)\<`TLink`\>
+> **get** **commandQueue**(): [`ICommandQueue`](../interfaces/ICommandQueue.md)\<`TLink`, `TCommand`\>
 
 ##### Returns
 
-[`ICommandQueue`](../interfaces/ICommandQueue.md)\<`TLink`\>
+[`ICommandQueue`](../interfaces/ICommandQueue.md)\<`TLink`, `TCommand`\>
 
 #### Implementation of
 

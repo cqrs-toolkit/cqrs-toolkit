@@ -1,6 +1,7 @@
 import {
   createCqrsClient,
   detectMode,
+  EnqueueCommand,
   type CqrsClient,
   type ExecutionMode,
   type ExecutionModeConfig,
@@ -103,7 +104,7 @@ function workerUrlForMode(mode: ExecutionMode): string | undefined {
 // Client initialization
 // ---------------------------------------------------------------------------
 
-export async function initializeClient(): Promise<CqrsClient<ServiceLink>> {
+export async function initializeClient(): Promise<CqrsClient<ServiceLink, EnqueueCommand>> {
   const requestedMode = options.mode
 
   // For 'auto', detectMode() picks the worker URL; for explicit modes, use as-is.

@@ -5,6 +5,7 @@
 import type { IPersistedEvent, ServiceLink } from '@meticoeus/ddd-es'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
+import { EnqueueCommand } from '../../types/index.js'
 import { EventBus } from '../events/EventBus.js'
 import { EventCache } from './EventCache.js'
 import { GapBuffer, detectGaps } from './GapDetector.js'
@@ -24,9 +25,9 @@ function createPersistedEvent(overrides: Partial<IPersistedEvent> = {}): IPersis
 }
 
 describe('EventCache', () => {
-  let storage: InMemoryStorage<ServiceLink>
+  let storage: InMemoryStorage<ServiceLink, EnqueueCommand>
   let eventBus: EventBus<ServiceLink>
-  let eventCache: EventCache<ServiceLink>
+  let eventCache: EventCache<ServiceLink, EnqueueCommand>
 
   beforeEach(async () => {
     storage = new InMemoryStorage()

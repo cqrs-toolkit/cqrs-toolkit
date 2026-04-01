@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / ReadModelStoreConfig
 
-# Interface: ReadModelStoreConfig\<TLink\>
+# Interface: ReadModelStoreConfig\<TLink, TCommand\>
 
 Read model store configuration.
 
@@ -14,8 +14,12 @@ Read model store configuration.
 
 `TLink` _extends_ `Link`
 
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md)
+
 ## Properties
 
 ### storage
 
-> **storage**: [`IStorage`](IStorage.md)\<`TLink`\>
+> **storage**: [`IStorage`](IStorage.md)\<`TLink`, `TCommand`\>

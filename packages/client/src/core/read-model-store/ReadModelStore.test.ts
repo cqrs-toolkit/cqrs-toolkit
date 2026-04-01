@@ -5,6 +5,7 @@
 import type { ServiceLink } from '@meticoeus/ddd-es'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
+import { EnqueueCommand } from '../../types/index.js'
 import { EventBus } from '../events/EventBus.js'
 import { ReadModelStore } from './ReadModelStore.js'
 
@@ -15,9 +16,9 @@ interface Todo {
 }
 
 describe('ReadModelStore', () => {
-  let storage: InMemoryStorage<ServiceLink>
+  let storage: InMemoryStorage<ServiceLink, EnqueueCommand>
   let eventBus: EventBus<ServiceLink>
-  let store: ReadModelStore<ServiceLink>
+  let store: ReadModelStore<ServiceLink, EnqueueCommand>
 
   beforeEach(async () => {
     storage = new InMemoryStorage()

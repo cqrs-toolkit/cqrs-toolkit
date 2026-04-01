@@ -1,10 +1,13 @@
 import type { Collection } from '@cqrs-toolkit/client'
-import { NOTEBOOK_SEED_KEY } from '@cqrs-toolkit/demo-base/notebooks/domain'
+import {
+  NOTEBOOK_SEED_KEY,
+  NOTEBOOKS_COLLECTION_NAME,
+} from '@cqrs-toolkit/demo-base/notebooks/domain'
 import type { ServiceLink } from '@meticoeus/ddd-es'
 import { aggregateId, fetchSeedRecordPage, fetchStreamEventsAfter } from '../utils/collection.js'
 
 export const notebooksCollection: Collection<ServiceLink> = {
-  name: 'notebooks',
+  name: NOTEBOOKS_COLLECTION_NAME,
   cacheKeysFromTopics: () => [NOTEBOOK_SEED_KEY],
   seedOnInit: {
     cacheKey: NOTEBOOK_SEED_KEY,

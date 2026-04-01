@@ -142,6 +142,48 @@ export async function deleteNote(page: Page, title: string): Promise<void> {
   await expect(page.locator('.note-title-item .note-title', { hasText: title })).toHaveCount(0)
 }
 
+// ---------------------------------------------------------------------------
+// Attachment helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Upload a file attachment to the currently selected note via the hidden file input.
+ */
+export async function uploadAttachment(
+  page: Page,
+  filename: string,
+  content: string,
+): Promise<void> {
+  const buffer = Buffer.from(content)
+  await page.locator('.attachment-file-input').setInputFiles({
+    name: filename,
+    mimeType: 'text/plain',
+    buffer,
+  })
+  // Wait for the attachment to appear in the list
+  await expect(page.locator('.attachment-name', { hasText: filename })).toBeVisible()
+}
+
+export async function waitForAttachmentCount(page: Page, count: number): Promise<void> {
+  await expect(page.locator('.attachment-item')).toHaveCount(count)
+}
+
+export async function deleteAttachment(page: Page, filename: string): Promise<void> {
+  const item = page.locator('.attachment-item', {
+    has: page.locator('.attachment-name', { hasText: filename }),
+  })
+  await item.locator('.delete-attachment').click()
+  await expect(
+    page.locator('.attachment-item', {
+      has: page.locator('.attachment-name', { hasText: filename }),
+    }),
+  ).toHaveCount(0)
+}
+
+// ---------------------------------------------------------------------------
+// Note count helper
+// ---------------------------------------------------------------------------
+
 export async function waitForNoteCount(page: Page, count: number): Promise<void> {
   // Count non-placeholder note title items (those without italic class)
   await expect(page.locator('.note-title-item:not(:has(.italic))')).toHaveCount(count)

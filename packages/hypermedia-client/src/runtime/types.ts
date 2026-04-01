@@ -2,6 +2,9 @@
  * Types for the commands.json manifest consumed at runtime.
  */
 
+import type { CommandRecord, CommandSendException, EnqueueCommand } from '@cqrs-toolkit/client'
+import type { Link, Result } from '@meticoeus/ddd-es'
+
 /**
  * A single template variable mapping.
  */
@@ -36,13 +39,30 @@ export interface CommandManifest {
 }
 
 /**
+ * Hook called after a successful (2xx) command response, before `send()` returns.
+ *
+ * Registered per command type. Receives the command record, the parsed JSON body,
+ * and the raw Response. Must return the final body to use as the command result.
+ */
+export type AfterSendHandler<TLink extends Link, TCommand extends EnqueueCommand> = (
+  command: CommandRecord<TLink, TCommand>,
+  body: unknown,
+  response: Response,
+) => Promise<Result<unknown, CommandSendException>>
+
+/**
  * Options for creating a hypermedia command sender.
  */
-export interface HypermediaCommandSenderOptions {
+export interface HypermediaCommandSenderOptions<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+> {
   /** Base URL of the API server (e.g. 'http://localhost:3000') */
   baseUrl: string
   /** Optional fetch implementation (defaults to global fetch) */
   fetch?: typeof globalThis.fetch
+  /** Per-command-type hooks called after a 2xx response, before send() returns. */
+  afterSend?: Partial<Record<TCommand['type'], AfterSendHandler<TLink, TCommand>>>
 }
 
 // ---------------------------------------------------------------------------

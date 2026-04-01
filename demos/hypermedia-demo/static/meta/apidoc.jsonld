@@ -306,7 +306,7 @@
       },
       "svc:representation": [
         {
-          "@id": "#nb-note-v1_0_0",
+          "@id": "urn:representation:nb.Note:1.0.0",
           "@type": "svc:Representation",
           "schema:version": "1.0.0",
           "svc:aggregateEvents": {
@@ -319,7 +319,7 @@
               "@id": "urn:profile:nb.NoteEvent:1.0.0"
             },
             "svc:template": {
-              "@id": "#nb-note-aggregate-events-v1_0_0",
+              "@id": "urn:representation:nb.Note:1.0.0-aggregate-events-v1_0_0",
               "@type": "hydra:IriTemplate",
               "hydra:mapping": [
                 {
@@ -373,7 +373,7 @@
               "@id": "urn:profile:nb.NoteItemEvent:1.0.0"
             },
             "svc:template": {
-              "@id": "#nb-note-item-events-v1_0_0",
+              "@id": "urn:representation:nb.Note:1.0.0-item-events-v1_0_0",
               "@type": "hydra:IriTemplate",
               "hydra:mapping": [
                 {
@@ -507,7 +507,7 @@
       },
       "svc:representation": [
         {
-          "@id": "#nb-notebook-v1_0_0",
+          "@id": "urn:representation:nb.Notebook:1.0.0",
           "@type": "svc:Representation",
           "schema:version": "1.0.0",
           "svc:aggregateEvents": {
@@ -520,7 +520,7 @@
               "@id": "urn:profile:nb.NotebookEvent:1.0.0"
             },
             "svc:template": {
-              "@id": "#nb-notebook-aggregate-events-v1_0_0",
+              "@id": "urn:representation:nb.Notebook:1.0.0-aggregate-events-v1_0_0",
               "@type": "hydra:IriTemplate",
               "hydra:mapping": [
                 {
@@ -574,7 +574,7 @@
               "@id": "urn:profile:nb.NotebookItemEvent:1.0.0"
             },
             "svc:template": {
-              "@id": "#nb-notebook-item-events-v1_0_0",
+              "@id": "urn:representation:nb.Notebook:1.0.0-item-events-v1_0_0",
               "@type": "hydra:IriTemplate",
               "hydra:mapping": [
                 {
@@ -681,7 +681,7 @@
       },
       "svc:representation": [
         {
-          "@id": "#storage-file-object-v1_0_0",
+          "@id": "urn:representation:storage.FileObject:1.0.0",
           "@type": "svc:Representation",
           "schema:version": "1.0.0",
           "svc:aggregateEvents": {
@@ -694,7 +694,7 @@
               "@id": "urn:profile:storage.FileObjectEvent:1.0.0"
             },
             "svc:template": {
-              "@id": "#storage-file-object-aggregate-events-v1_0_0",
+              "@id": "urn:representation:storage.FileObject:1.0.0-aggregate-events-v1_0_0",
               "@type": "hydra:IriTemplate",
               "hydra:mapping": [
                 {
@@ -753,7 +753,7 @@
               "@id": "urn:profile:storage.FileObjectItemEvent:1.0.0"
             },
             "svc:template": {
-              "@id": "#storage-file-object-item-events-v1_0_0",
+              "@id": "urn:representation:storage.FileObject:1.0.0-item-events-v1_0_0",
               "@type": "hydra:IriTemplate",
               "hydra:mapping": [
                 {

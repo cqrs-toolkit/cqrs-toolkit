@@ -1,0 +1,11 @@
+{
+  "$id": "http://localhost:3002/api/meta/schemas/urn/schema/storage.CreateFileObject/1.0.0.json",
+  "additionalProperties": false,
+  "properties": {
+    "filename": { "minLength": 1, "type": "string" },
+    "noteId": { "minLength": 1, "type": "string" },
+    "size": { "exclusiveMinimum": 0, "type": "number" }
+  },
+  "required": ["noteId", "filename", "size"],
+  "type": "object"
+}

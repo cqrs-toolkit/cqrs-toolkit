@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / SessionManager
 
-# Class: SessionManager\<TLink\>
+# Class: SessionManager\<TLink, TCommand\>
 
 Session manager.
 Coordinates user identity with persisted session data.
@@ -15,21 +15,25 @@ Coordinates user identity with persisted session data.
 
 `TLink` _extends_ `Link`
 
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md)
+
 ## Constructors
 
 ### Constructor
 
-> **new SessionManager**\<`TLink`\>(`config`): `SessionManager`\<`TLink`\>
+> **new SessionManager**\<`TLink`, `TCommand`\>(`config`): `SessionManager`\<`TLink`, `TCommand`\>
 
 #### Parameters
 
 ##### config
 
-[`SessionManagerConfig`](../interfaces/SessionManagerConfig.md)\<`TLink`\>
+[`SessionManagerConfig`](../interfaces/SessionManagerConfig.md)\<`TLink`, `TCommand`\>
 
 #### Returns
 
-`SessionManager`\<`TLink`\>
+`SessionManager`\<`TLink`, `TCommand`\>
 
 ## Methods
 

@@ -17,6 +17,7 @@
 
 ## Type Aliases
 
+- [AfterSendHandler](type-aliases/AfterSendHandler.md)
 - [RepresentationManifest](type-aliases/RepresentationManifest.md)
 - [SchemaMap](type-aliases/SchemaMap.md)
 

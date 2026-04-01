@@ -36,7 +36,7 @@ export default function TodosPage() {
         <AddTodo
           onSubmitCreate={(p) =>
             client.submit({
-              command: { type: 'CreateTodo', data: p },
+              command: { type: 'nb.CreateTodo', data: p },
               cacheKey: TODO_SEED_KEY,
             })
           }
@@ -60,7 +60,7 @@ export default function TodosPage() {
                 onSubmitChangeStatus={(p) =>
                   client.submit({
                     command: {
-                      type: 'ChangeTodoStatus',
+                      type: 'nb.ChangeTodoStatus',
                       path: { id: p.id },
                       data: { status: p.status },
                       revision: p.revision,
@@ -71,7 +71,7 @@ export default function TodosPage() {
                 onSubmitUpdateContent={(p) =>
                   client.submit({
                     command: {
-                      type: 'UpdateTodoContent',
+                      type: 'nb.UpdateTodoContent',
                       path: { id: p.id },
                       data: { content: p.content },
                       revision: p.revision,
@@ -82,7 +82,7 @@ export default function TodosPage() {
                 onSubmitDelete={(p) =>
                   client.submit({
                     command: {
-                      type: 'DeleteTodo',
+                      type: 'nb.DeleteTodo',
                       path: { id: p.id },
                       data: {},
                       revision: p.revision,

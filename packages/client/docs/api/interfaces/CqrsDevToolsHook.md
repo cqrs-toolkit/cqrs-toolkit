@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / CqrsDevToolsHook
 
-# Interface: CqrsDevToolsHook\<TLink, TSchema, TEvent\>
+# Interface: CqrsDevToolsHook\<TLink, TCommand, TSchema, TEvent\>
 
 Devtools hook interface.
 A Chrome extension sets `window.__CQRS_TOOLKIT_DEVTOOLS__` to this shape.
@@ -15,6 +15,10 @@ The library calls `registerClient` when debug mode is enabled.
 ### TLink
 
 `TLink` _extends_ `Link`
+
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md)
 
 ### TSchema
 
@@ -36,7 +40,7 @@ Called by the library to register a debug API instance.
 
 ##### api
 
-[`CqrsDebugAPI`](CqrsDebugAPI.md)\<`TLink`, `TSchema`, `TEvent`\>
+[`CqrsDebugAPI`](CqrsDebugAPI.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 #### Returns
 

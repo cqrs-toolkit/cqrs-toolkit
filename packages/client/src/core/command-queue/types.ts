@@ -2,15 +2,16 @@
  * Command queue internal types.
  */
 
-import type { Link } from '@meticoeus/ddd-es'
+import { Exception, type Link, type Result } from '@meticoeus/ddd-es'
 import type { Observable } from 'rxjs'
-import type {
+import {
   CommandCompletionResult,
   CommandEvent,
   CommandFilter,
   CommandRecord,
   EnqueueAndWaitParams,
   EnqueueAndWaitResult,
+  EnqueueCommand,
   EnqueueParams,
   EnqueueResult,
   WaitOptions,
@@ -21,7 +22,7 @@ import type { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventSha
  * Command queue interface.
  * Provides form-friendly async patterns for command handling.
  */
-export interface ICommandQueue<TLink extends Link> {
+export interface ICommandQueue<TLink extends Link, TCommand extends EnqueueCommand> {
   /**
    * Enqueue a command with local validation.
    * Returns immediately with either validation errors or the queued command.
@@ -77,7 +78,7 @@ export interface ICommandQueue<TLink extends Link> {
    * @param commandId - Command ID
    * @returns Command record or undefined
    */
-  getCommand(commandId: string): Promise<CommandRecord<TLink> | undefined>
+  getCommand(commandId: string): Promise<CommandRecord<TLink, TCommand> | undefined>
 
   /**
    * List commands matching a filter.
@@ -85,7 +86,7 @@ export interface ICommandQueue<TLink extends Link> {
    * @param filter - Optional filter criteria
    * @returns Matching commands
    */
-  listCommands(filter?: CommandFilter): Promise<CommandRecord<TLink>[]>
+  listCommands(filter?: CommandFilter): Promise<CommandRecord<TLink, TCommand>[]>
 
   /**
    * Cancel a pending command.
@@ -137,28 +138,32 @@ export interface ICommandQueue<TLink extends Link> {
  * HTTP command sender interface.
  * Abstracted for testability and different transport implementations.
  */
-export interface ICommandSender<TLink extends Link> {
+export interface ICommandSender<TLink extends Link, TCommand extends EnqueueCommand> {
   /**
    * Send a command to the server.
    *
    * @param command - Command record to send
-   * @returns Server response
-   * @throws CommandSendError on failure
+   * @returns Result with server response or CommandSendException on expected failure
    */
-  send<TData, TResponse>(command: CommandRecord<TLink, TData>): Promise<TResponse>
+  send<TResponse>(
+    command: CommandRecord<TLink, TCommand, TResponse>,
+  ): Promise<Result<TResponse, CommandSendException>>
 }
 
 /**
- * Error thrown when command sending fails.
+ * Expected domain failure from command sending.
+ * Returned via Result, never thrown.
  */
-export class CommandSendError extends Error {
-  constructor(
-    message: string,
-    public readonly code: string,
-    public readonly isRetryable: boolean,
-    public readonly details?: unknown,
-  ) {
-    super(message)
-    this.name = 'CommandSendError'
+export class CommandSendException extends Exception {
+  readonly errorCode: string
+  readonly isRetryable: boolean
+
+  constructor(message: string, errorCode: string, isRetryable: boolean, details?: unknown) {
+    super('CommandSendException', message)
+    this.errorCode = errorCode
+    this.isRetryable = isRetryable
+    if (details !== undefined) {
+      this._details = details
+    }
   }
 }

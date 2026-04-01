@@ -3,6 +3,7 @@
  */
 
 import assert from 'node:assert'
+import type { FileCardinality } from '../config.js'
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -28,6 +29,8 @@ export interface ParsedCommand {
   mappings: TemplateMapping[]
   /** Full URL to the JSON schema (already resolved in served apidoc) */
   schemaUrl?: string
+  /** File attachment cardinality (from config, not apidoc) */
+  files?: FileCardinality
 }
 
 export interface ParseResult {

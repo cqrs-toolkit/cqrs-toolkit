@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / EventCacheConfig
 
-# Interface: EventCacheConfig\<TLink\>
+# Interface: EventCacheConfig\<TLink, TCommand\>
 
 Event cache configuration.
 
@@ -13,6 +13,10 @@ Event cache configuration.
 ### TLink
 
 `TLink` _extends_ `Link`
+
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md)
 
 ## Properties
 
@@ -24,4 +28,4 @@ Event cache configuration.
 
 ### storage
 
-> **storage**: [`IStorage`](IStorage.md)\<`TLink`\>
+> **storage**: [`IStorage`](IStorage.md)\<`TLink`, `TCommand`\>

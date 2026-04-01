@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / ICommandSender
 
-# Interface: ICommandSender\<TLink\>
+# Interface: ICommandSender\<TLink, TCommand\>
 
 HTTP command sender interface.
 Abstracted for testability and different transport implementations.
@@ -15,19 +15,19 @@ Abstracted for testability and different transport implementations.
 
 `TLink` _extends_ `Link`
 
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md)
+
 ## Methods
 
 ### send()
 
-> **send**\<`TData`, `TResponse`\>(`command`): `Promise`\<`TResponse`\>
+> **send**\<`TResponse`\>(`command`): `Promise`\<`Result`\<`TResponse`, [`CommandSendException`](../classes/CommandSendException.md)\>\>
 
 Send a command to the server.
 
 #### Type Parameters
-
-##### TData
-
-`TData`
 
 ##### TResponse
 
@@ -37,16 +37,12 @@ Send a command to the server.
 
 ##### command
 
-[`CommandRecord`](CommandRecord.md)\<`TLink`, `TData`\>
+[`CommandRecord`](CommandRecord.md)\<`TLink`, `TCommand`, `TResponse`\>
 
 Command record to send
 
 #### Returns
 
-`Promise`\<`TResponse`\>
+`Promise`\<`Result`\<`TResponse`, [`CommandSendException`](../classes/CommandSendException.md)\>\>
 
-Server response
-
-#### Throws
-
-CommandSendError on failure
+Result with server response or CommandSendException on expected failure

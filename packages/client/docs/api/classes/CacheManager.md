@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / CacheManager
 
-# Class: CacheManager\<TLink\>
+# Class: CacheManager\<TLink, TCommand\>
 
 Cache manager implementation.
 
@@ -14,6 +14,10 @@ Cache manager implementation.
 
 `TLink` _extends_ `Link`
 
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md)
+
 ## Implements
 
 - [`ICacheManager`](../interfaces/ICacheManager.md)\<`TLink`\>
@@ -22,17 +26,17 @@ Cache manager implementation.
 
 ### Constructor
 
-> **new CacheManager**\<`TLink`\>(`config`): `CacheManager`\<`TLink`\>
+> **new CacheManager**\<`TLink`, `TCommand`\>(`config`): `CacheManager`\<`TLink`, `TCommand`\>
 
 #### Parameters
 
 ##### config
 
-[`CacheManagerConfig`](../interfaces/CacheManagerConfig.md)\<`TLink`\>
+[`CacheManagerConfig`](../interfaces/CacheManagerConfig.md)\<`TLink`, `TCommand`\>
 
 #### Returns
 
-`CacheManager`\<`TLink`\>
+`CacheManager`\<`TLink`, `TCommand`\>
 
 ## Methods
 

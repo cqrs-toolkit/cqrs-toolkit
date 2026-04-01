@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / ICommandHandlerMetadata
 
-# Interface: ICommandHandlerMetadata\<TLink, TSchema, TEvent\>
+# Interface: ICommandHandlerMetadata\<TLink, TCommand, TSchema, TEvent\>
 
 Metadata lookup for command handler registrations.
 Allows the CommandQueue to access creates config by command type.
@@ -14,6 +14,10 @@ Allows the CommandQueue to access creates config by command type.
 ### TLink
 
 `TLink` _extends_ `Link`
+
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md) = [`EnqueueCommand`](EnqueueCommand.md)
 
 ### TSchema
 
@@ -27,7 +31,7 @@ Allows the CommandQueue to access creates config by command type.
 
 ### getRegistration()
 
-> **getRegistration**(`commandType`): [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`TLink`, `TSchema`, `TEvent`\> \| `undefined`
+> **getRegistration**(`commandType`): [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\> \| `undefined`
 
 #### Parameters
 
@@ -37,4 +41,4 @@ Allows the CommandQueue to access creates config by command type.
 
 #### Returns
 
-[`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`TLink`, `TSchema`, `TEvent`\> \| `undefined`
+[`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\> \| `undefined`

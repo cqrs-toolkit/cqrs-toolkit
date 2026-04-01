@@ -13,6 +13,7 @@ import { Subject } from 'rxjs'
 import type { CachedEventRecord, IStorage } from '../../storage/IStorage.js'
 import type { AnticipatedEvent } from '../../types/events.js'
 import { normalizeEventPersistence } from '../../types/events.js'
+import { EnqueueCommand } from '../../types/index.js'
 import { generateId } from '../../utils/uuid.js'
 import type { ParsedEvent } from '../event-processor/EventProcessorRunner.js'
 import type { EventBus } from '../events/EventBus.js'
@@ -21,8 +22,8 @@ import { GapBuffer, type EventGap } from './GapDetector.js'
 /**
  * Event cache configuration.
  */
-export interface EventCacheConfig<TLink extends Link> {
-  storage: IStorage<TLink>
+export interface EventCacheConfig<TLink extends Link, TCommand extends EnqueueCommand> {
+  storage: IStorage<TLink, TCommand>
   eventBus: EventBus<TLink>
 }
 
@@ -39,8 +40,8 @@ export interface CacheEventOptions {
 /**
  * Event cache implementation.
  */
-export class EventCache<TLink extends Link> {
-  private readonly storage: IStorage<TLink>
+export class EventCache<TLink extends Link, TCommand extends EnqueueCommand> {
+  private readonly storage: IStorage<TLink, TCommand>
   private readonly eventBus: EventBus<TLink>
   private readonly gapBuffer: GapBuffer<IPersistedEvent>
 
@@ -53,7 +54,7 @@ export class EventCache<TLink extends Link> {
   /** Periodic cleanup timer for processed events. */
   private cleanupTimer: ReturnType<typeof setInterval> | undefined
 
-  constructor(config: EventCacheConfig<TLink>) {
+  constructor(config: EventCacheConfig<TLink, TCommand>) {
     this.storage = config.storage
     this.eventBus = config.eventBus
     this.gapBuffer = new GapBuffer<IPersistedEvent>()

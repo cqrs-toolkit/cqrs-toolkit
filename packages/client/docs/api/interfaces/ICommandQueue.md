@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / ICommandQueue
 
-# Interface: ICommandQueue\<TLink\>
+# Interface: ICommandQueue\<TLink, TCommand\>
 
 Command queue interface.
 Provides form-friendly async patterns for command handling.
@@ -14,6 +14,10 @@ Provides form-friendly async patterns for command handling.
 ### TLink
 
 `TLink` _extends_ `Link`
+
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md)
 
 ## Properties
 
@@ -140,7 +144,7 @@ Combined enqueue and completion result
 
 ### getCommand()
 
-> **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `unknown`, `unknown`\> \| `undefined`\>
+> **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\> \| `undefined`\>
 
 Get a command by ID.
 
@@ -154,7 +158,7 @@ Command ID
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `unknown`, `unknown`\> \| `undefined`\>
+`Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\> \| `undefined`\>
 
 Command record or undefined
 
@@ -202,7 +206,7 @@ Check if command processing is paused.
 
 ### listCommands()
 
-> **listCommands**(`filter?`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
+> **listCommands**(`filter?`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>[]\>
 
 List commands matching a filter.
 
@@ -216,7 +220,7 @@ Optional filter criteria
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
+`Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>[]\>
 
 Matching commands
 

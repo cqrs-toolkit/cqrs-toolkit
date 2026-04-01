@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / SyncManager
 
-# Class: SyncManager\<TLink, TSchema, TEvent\>
+# Class: SyncManager\<TLink, TCommand, TSchema, TEvent\>
 
 Sync manager.
 
@@ -13,6 +13,10 @@ Sync manager.
 ### TLink
 
 `TLink` _extends_ `Link`
+
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md)
 
 ### TSchema
 
@@ -26,7 +30,7 @@ Sync manager.
 
 ### Constructor
 
-> **new SyncManager**\<`TLink`, `TSchema`, `TEvent`\>(`eventBus`, `sessionManager`, `commandQueue`, `eventCache`, `cacheManager`, `eventProcessor`, `readModelStore`, `queryManager`, `writeQueue`, `networkConfig`, `auth`, `collections`): `SyncManager`\<`TLink`, `TSchema`, `TEvent`\>
+> **new SyncManager**\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>(`eventBus`, `sessionManager`, `commandQueue`, `eventCache`, `cacheManager`, `eventProcessor`, `readModelStore`, `queryManager`, `writeQueue`, `networkConfig`, `auth`, `collections`): `SyncManager`\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 #### Parameters
 
@@ -36,31 +40,31 @@ Sync manager.
 
 ##### sessionManager
 
-[`SessionManager`](SessionManager.md)\<`TLink`\>
+[`SessionManager`](SessionManager.md)\<`TLink`, `TCommand`\>
 
 ##### commandQueue
 
-[`CommandQueue`](CommandQueue.md)\<`TLink`, `TSchema`, `TEvent`\>
+[`CommandQueue`](CommandQueue.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 ##### eventCache
 
-[`EventCache`](EventCache.md)\<`TLink`\>
+[`EventCache`](EventCache.md)\<`TLink`, `TCommand`\>
 
 ##### cacheManager
 
-[`CacheManager`](CacheManager.md)\<`TLink`\>
+[`CacheManager`](CacheManager.md)\<`TLink`, `TCommand`\>
 
 ##### eventProcessor
 
-[`EventProcessorRunner`](EventProcessorRunner.md)\<`TLink`\>
+[`EventProcessorRunner`](EventProcessorRunner.md)\<`TLink`, `TCommand`\>
 
 ##### readModelStore
 
-[`ReadModelStore`](ReadModelStore.md)\<`TLink`\>
+[`ReadModelStore`](ReadModelStore.md)\<`TLink`, `TCommand`\>
 
 ##### queryManager
 
-[`QueryManager`](QueryManager.md)\<`TLink`\>
+[`QueryManager`](QueryManager.md)\<`TLink`, `TCommand`\>
 
 ##### writeQueue
 
@@ -80,13 +84,13 @@ Sync manager.
 
 #### Returns
 
-`SyncManager`\<`TLink`, `TSchema`, `TEvent`\>
+`SyncManager`\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 ## Properties
 
 ### invalidationScheduler
 
-> `protected` `readonly` **invalidationScheduler**: `InvalidationScheduler`\<`TLink`\>
+> `protected` `readonly` **invalidationScheduler**: `InvalidationScheduler`\<`TLink`, `TCommand`\>
 
 ---
 

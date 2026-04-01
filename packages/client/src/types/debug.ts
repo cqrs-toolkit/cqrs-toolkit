@@ -11,6 +11,7 @@ import type { ICommandQueue } from '../core/command-queue/types.js'
 import type { IQueryManager } from '../core/query-manager/types.js'
 import type { CqrsClientSyncManager } from '../createCqrsClient.js'
 import type { IStorage } from '../storage/IStorage.js'
+import { EnqueueCommand } from './commands.js'
 import type { ResolvedConfig } from './config.js'
 import type { LibraryEvent } from './events.js'
 
@@ -25,11 +26,16 @@ export interface DebugStorageAPI {
 /**
  * Debug API exposed to devtools extensions.
  */
-export interface CqrsDebugAPI<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent> {
+export interface CqrsDebugAPI<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+> {
   /** Observable of all library events (including debug events). */
   readonly events$: Observable<LibraryEvent<TLink>>
   /** Command queue interface for inspection. */
-  readonly commandQueue: ICommandQueue<TLink>
+  readonly commandQueue: ICommandQueue<TLink, TCommand>
   /** Query manager interface for inspection. */
   readonly queryManager: IQueryManager<TLink>
   /** Cache manager interface for inspection. */
@@ -37,11 +43,11 @@ export interface CqrsDebugAPI<TLink extends Link, TSchema, TEvent extends IAntic
   /** Sync manager interface for inspection. */
   readonly syncManager: CqrsClientSyncManager<TLink>
   /** Storage interface (only available in online-only mode). */
-  readonly storage?: IStorage<TLink>
+  readonly storage?: IStorage<TLink, TCommand>
   /** Raw SQL debug access (only available in worker modes). */
   readonly debugStorage?: DebugStorageAPI
   /** Resolved client configuration. */
-  readonly config: ResolvedConfig<TLink, TSchema, TEvent>
+  readonly config: ResolvedConfig<TLink, TCommand, TSchema, TEvent>
   /** Role of this client instance. */
   readonly role: 'leader' | 'standby'
 }
@@ -51,7 +57,12 @@ export interface CqrsDebugAPI<TLink extends Link, TSchema, TEvent extends IAntic
  * A Chrome extension sets `window.__CQRS_TOOLKIT_DEVTOOLS__` to this shape.
  * The library calls `registerClient` when debug mode is enabled.
  */
-export interface CqrsDevToolsHook<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent> {
+export interface CqrsDevToolsHook<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+> {
   /** Called by the library to register a debug API instance. */
-  registerClient(api: CqrsDebugAPI<TLink, TSchema, TEvent>): void
+  registerClient(api: CqrsDebugAPI<TLink, TCommand, TSchema, TEvent>): void
 }

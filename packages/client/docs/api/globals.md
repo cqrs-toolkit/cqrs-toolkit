@@ -17,7 +17,7 @@ Offline-capable CQRS/event-sourcing client library.
 
 - [CacheManager](classes/CacheManager.md)
 - [CommandQueue](classes/CommandQueue.md)
-- [CommandSendError](classes/CommandSendError.md)
+- [CommandSendException](classes/CommandSendException.md)
 - [ConnectivityManager](classes/ConnectivityManager.md)
 - [CqrsClient](classes/CqrsClient.md)
 - [DedicatedWorkerAdapter](classes/DedicatedWorkerAdapter.md)

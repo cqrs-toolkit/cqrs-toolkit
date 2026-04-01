@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / ReadModelStore
 
-# Class: ReadModelStore\<TLink\>
+# Class: ReadModelStore\<TLink, TCommand\>
 
 Read model store implementation.
 
@@ -14,21 +14,25 @@ Read model store implementation.
 
 `TLink` _extends_ `Link`
 
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md)
+
 ## Constructors
 
 ### Constructor
 
-> **new ReadModelStore**\<`TLink`\>(`config`): `ReadModelStore`\<`TLink`\>
+> **new ReadModelStore**\<`TLink`, `TCommand`\>(`config`): `ReadModelStore`\<`TLink`, `TCommand`\>
 
 #### Parameters
 
 ##### config
 
-[`ReadModelStoreConfig`](../interfaces/ReadModelStoreConfig.md)\<`TLink`\>
+[`ReadModelStoreConfig`](../interfaces/ReadModelStoreConfig.md)\<`TLink`, `TCommand`\>
 
 #### Returns
 
-`ReadModelStore`\<`TLink`\>
+`ReadModelStore`\<`TLink`, `TCommand`\>
 
 ## Methods
 

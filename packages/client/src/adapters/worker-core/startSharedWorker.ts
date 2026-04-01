@@ -24,12 +24,12 @@
 
 /// <reference lib="webworker" />
 
-import { type Link, createConsoleLogger, logProvider } from '@meticoeus/ddd-es'
+import { createConsoleLogger, logProvider, type Link } from '@meticoeus/ddd-es'
 import type { IAnticipatedEvent } from '../../core/command-lifecycle/AnticipatedEventShape.js'
 import { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
 import { deserialize } from '../../protocol/serialization.js'
-import type { CqrsConfig } from '../../types/config.js'
-import { resolveConfig } from '../../types/config.js'
+import { DEFAULT_CONFIG, resolveConfig, type CqrsConfig } from '../../types/config.js'
+import { EnqueueCommand } from '../../types/index.js'
 import { WorkerOrchestrator } from './WorkerOrchestrator.js'
 import { RemoteSqliteDb } from './sqlite-worker/RemoteSqliteDb.js'
 
@@ -104,12 +104,18 @@ type CoordinatorMessage =
  *
  * @param config - Shared CQRS config (same object the main thread uses)
  */
-export function startSharedWorker<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent>(
-  config: CqrsConfig<TLink, TSchema, TEvent>,
-): void {
+export function startSharedWorker<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+>(config: CqrsConfig<TLink, TCommand, TSchema, TEvent>): void {
   const resolved = resolveConfig(config)
   const messageHandler = new WorkerMessageHandler()
-  const orchestrator = new WorkerOrchestrator<TLink, TSchema, TEvent>(messageHandler, resolved)
+  const orchestrator = new WorkerOrchestrator<TLink, TCommand, TSchema, TEvent>(
+    messageHandler,
+    resolved,
+  )
 
   // Per-tab SQLite worker ports: windowId → MessagePort to tab's DedicatedWorker
   const tabWorkerPorts = new Map<string, MessagePort>()
@@ -297,7 +303,7 @@ export function startSharedWorker<TLink extends Link, TSchema, TEvent extends IA
    * the brief gap between lock release and OPFS handle cleanup.
    */
   async function initializeRemoteDb(db: RemoteSqliteDb): Promise<void> {
-    const dbName = resolved.storage.dbName ?? 'cqrs-client'
+    const dbName = resolved.storage.dbName ?? DEFAULT_CONFIG.storage.dbName
     const vfs = resolved.storage.vfs ?? 'opfs'
 
     for (let attempt = 1; attempt <= REMOTE_DB_INIT_MAX_ATTEMPTS; attempt++) {

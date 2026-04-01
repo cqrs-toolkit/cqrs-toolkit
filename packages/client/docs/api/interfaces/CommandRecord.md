@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / CommandRecord
 
-# Interface: CommandRecord\<TLink, TData, TResponse\>
+# Interface: CommandRecord\<TLink, TCommand, TResponse\>
 
 Persisted command record.
 
@@ -14,9 +14,9 @@ Persisted command record.
 
 `TLink` _extends_ `Link`
 
-### TData
+### TCommand
 
-`TData` = `unknown`
+`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md)
 
 ### TResponse
 
@@ -74,7 +74,7 @@ Create command configuration (present only for commands that create aggregates)
 
 ### data
 
-> **data**: `TData`
+> **data**: `TCommand`\[`"data"`\]
 
 Command data
 
@@ -93,6 +93,14 @@ Commands this command depends on (must complete first)
 > `optional` **error**: [`CommandError`](CommandError.md)
 
 Error information if failed
+
+---
+
+### fileRefs?
+
+> `optional` **fileRefs**: `FileRef`[]
+
+File attachments — metadata at rest, hydrated with Blob data before send().
 
 ---
 
@@ -154,7 +162,7 @@ Current status
 
 ### type
 
-> **type**: `string`
+> **type**: `TCommand`\[`"type"`\]
 
 Command type (e.g., 'CreateTodo', 'UpdateUser')
 

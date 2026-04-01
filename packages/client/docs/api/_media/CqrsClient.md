@@ -18,7 +18,7 @@ All fields are available immediately — the client is fully initialized at cons
 
 ### TCommand
 
-`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md) = [`EnqueueCommand`](../interfaces/EnqueueCommand.md)
+`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md)
 
 ## Constructors
 
@@ -30,7 +30,7 @@ All fields are available immediately — the client is fully initialized at cons
 
 ##### adapter
 
-[`IAdapter`](../type-aliases/IAdapter.md)\<`TLink`\>
+[`IAdapter`](../type-aliases/IAdapter.md)\<`TLink`, `TCommand`\>
 
 ##### cacheManager
 
@@ -38,7 +38,7 @@ All fields are available immediately — the client is fully initialized at cons
 
 ##### commandQueue
 
-[`ICommandQueue`](../interfaces/ICommandQueue.md)\<`TLink`\>
+[`ICommandQueue`](../interfaces/ICommandQueue.md)\<`TLink`, `TCommand`\>
 
 ##### queryManager
 
@@ -72,7 +72,7 @@ Cache manager for cache key lifecycle and eviction.
 
 ### commandQueue
 
-> `readonly` **commandQueue**: [`ICommandQueue`](../interfaces/ICommandQueue.md)\<`TLink`\>
+> `readonly` **commandQueue**: [`ICommandQueue`](../interfaces/ICommandQueue.md)\<`TLink`, `TCommand`\>
 
 Command queue for enqueuing and tracking commands.
 

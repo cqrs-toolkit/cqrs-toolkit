@@ -4,7 +4,7 @@
  */
 
 import type { Link } from '@meticoeus/ddd-es'
-import type { CommandFilter, CommandRecord, CommandStatus } from '../types/commands.js'
+import { CommandFilter, CommandRecord, CommandStatus, EnqueueCommand } from '../types/commands.js'
 import type {
   CacheKeyRecord,
   CachedEventRecord,
@@ -19,10 +19,13 @@ import type {
  * In-memory storage implementation.
  * Thread-safe within a single JavaScript context.
  */
-export class InMemoryStorage<TLink extends Link> implements IStorage<TLink> {
+export class InMemoryStorage<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+> implements IStorage<TLink, TCommand> {
   private session?: SessionRecord
   private cacheKeys: Map<string, CacheKeyRecord> = new Map()
-  private commands: Map<string, CommandRecord<TLink>> = new Map()
+  private commands: Map<string, CommandRecord<TLink, TCommand>> = new Map()
   private cachedEvents: Map<string, CachedEventRecord> = new Map()
   private readModels: Map<string, ReadModelRecord> = new Map()
   private commandIdMappingsByClientId: Map<string, CommandIdMappingRecord> = new Map()
@@ -150,11 +153,11 @@ export class InMemoryStorage<TLink extends Link> implements IStorage<TLink> {
 
   // Command operations
 
-  async getCommand(commandId: string): Promise<CommandRecord<TLink> | undefined> {
+  async getCommand(commandId: string): Promise<CommandRecord<TLink, TCommand> | undefined> {
     return this.commands.get(commandId)
   }
 
-  async getCommands(filter?: CommandFilter): Promise<CommandRecord<TLink>[]> {
+  async getCommands(filter?: CommandFilter): Promise<CommandRecord<TLink, TCommand>[]> {
     let commands = Array.from(this.commands.values())
 
     if (filter) {
@@ -192,19 +195,22 @@ export class InMemoryStorage<TLink extends Link> implements IStorage<TLink> {
 
   async getCommandsByStatus(
     status: CommandStatus | CommandStatus[],
-  ): Promise<CommandRecord<TLink>[]> {
+  ): Promise<CommandRecord<TLink, TCommand>[]> {
     return this.getCommands({ status })
   }
 
-  async getCommandsBlockedBy(commandId: string): Promise<CommandRecord<TLink>[]> {
+  async getCommandsBlockedBy(commandId: string): Promise<CommandRecord<TLink, TCommand>[]> {
     return Array.from(this.commands.values()).filter((cmd) => cmd.blockedBy.includes(commandId))
   }
 
-  async saveCommand(command: CommandRecord<TLink>): Promise<void> {
+  async saveCommand(command: CommandRecord<TLink, TCommand>): Promise<void> {
     this.commands.set(command.commandId, command)
   }
 
-  async updateCommand(commandId: string, updates: Partial<CommandRecord<TLink>>): Promise<void> {
+  async updateCommand(
+    commandId: string,
+    updates: Partial<CommandRecord<TLink, TCommand>>,
+  ): Promise<void> {
     const existing = this.commands.get(commandId)
     if (existing) {
       this.commands.set(commandId, { ...existing, ...updates, updatedAt: Date.now() })

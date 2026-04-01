@@ -6,7 +6,7 @@
 
 # Function: createCqrsClient()
 
-> **createCqrsClient**\<`TLink`, `TSchema`, `TEvent`\>(`config`): `Promise`\<[`CqrsClient`](../classes/CqrsClient.md)\<`TLink`, [`EnqueueCommand`](../interfaces/EnqueueCommand.md)\<`unknown`\>\>\>
+> **createCqrsClient**\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>(`config`): `Promise`\<[`CqrsClient`](../classes/CqrsClient.md)\<`TLink`, `TCommand`\>\>
 
 Create a new CQRS Client instance.
 
@@ -18,6 +18,10 @@ wires all components, starts sync, and returns a fully initialized client.
 ### TLink
 
 `TLink` _extends_ `Link`\<`string`, `string`\>
+
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md)\<`unknown`\> = [`EnqueueCommand`](../interfaces/EnqueueCommand.md)\<`unknown`\>
 
 ### TSchema
 
@@ -31,13 +35,13 @@ wires all components, starts sync, and returns a fully initialized client.
 
 ### config
 
-[`CqrsClientConfig`](../interfaces/CqrsClientConfig.md)\<`TLink`, `TSchema`, `TEvent`\>
+[`CqrsClientConfig`](../interfaces/CqrsClientConfig.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 Client configuration
 
 ## Returns
 
-`Promise`\<[`CqrsClient`](../classes/CqrsClient.md)\<`TLink`, [`EnqueueCommand`](../interfaces/EnqueueCommand.md)\<`unknown`\>\>\>
+`Promise`\<[`CqrsClient`](../classes/CqrsClient.md)\<`TLink`, `TCommand`\>\>
 
 A fully initialized CQRS Client instance
 

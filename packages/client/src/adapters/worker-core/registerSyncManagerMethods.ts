@@ -9,15 +9,17 @@ import type { IAnticipatedEvent } from '../../core/command-lifecycle/Anticipated
 import type { SessionManager } from '../../core/session/SessionManager.js'
 import type { SyncManager } from '../../core/sync-manager/SyncManager.js'
 import type { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
+import { EnqueueCommand } from '../../types/index.js'
 
 export function registerSyncManagerMethods<
   TLink extends Link,
+  TCommand extends EnqueueCommand,
   TSchema,
   TEvent extends IAnticipatedEvent,
 >(
   handler: WorkerMessageHandler,
-  syncManager: SyncManager<TLink, TSchema, TEvent>,
-  sessionManager: SessionManager<TLink>,
+  syncManager: SyncManager<TLink, TCommand, TSchema, TEvent>,
+  sessionManager: SessionManager<TLink, TCommand>,
 ): void {
   // SyncManager methods (CqrsClientSyncManager interface)
   handler.registerMethod('syncManager.getCollectionStatus', async (args) => {

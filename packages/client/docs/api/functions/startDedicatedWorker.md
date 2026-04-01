@@ -6,7 +6,7 @@
 
 # Function: startDedicatedWorker()
 
-> **startDedicatedWorker**\<`TLink`, `TSchema`, `TEvent`\>(`config`): `void`
+> **startDedicatedWorker**\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>(`config`): `void`
 
 Bootstrap a Dedicated Worker with CQRS orchestration.
 
@@ -21,6 +21,10 @@ trigger component creation (includes OPFS probe for Mode B).
 
 `TLink` _extends_ `Link`\<`string`, `string`\>
 
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md)\<`unknown`\>
+
 ### TSchema
 
 `TSchema`
@@ -33,7 +37,7 @@ trigger component creation (includes OPFS probe for Mode B).
 
 ### config
 
-[`CqrsConfig`](../interfaces/CqrsConfig.md)\<`TLink`, `TSchema`, `TEvent`\>
+[`CqrsConfig`](../interfaces/CqrsConfig.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 Shared CQRS config (same object the main thread uses)
 

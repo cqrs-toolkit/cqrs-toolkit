@@ -1,10 +1,10 @@
 import type { Collection } from '@cqrs-toolkit/client'
-import { TODO_SEED_KEY } from '@cqrs-toolkit/demo-base/todos/domain'
+import { TODO_SEED_KEY, TODOS_COLLECTION_NAME } from '@cqrs-toolkit/demo-base/todos/domain'
 import type { ServiceLink } from '@meticoeus/ddd-es'
 import { aggregateId, fetchSeedRecordPage, fetchStreamEventsAfter } from '../utils/collection.js'
 
 export const todosCollection: Collection<ServiceLink> = {
-  name: 'todos',
+  name: TODOS_COLLECTION_NAME,
   cacheKeysFromTopics: () => [TODO_SEED_KEY],
   seedOnInit: {
     cacheKey: TODO_SEED_KEY,

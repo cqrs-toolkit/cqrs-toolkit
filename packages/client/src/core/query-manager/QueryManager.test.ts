@@ -6,6 +6,7 @@ import { ServiceLink } from '@meticoeus/ddd-es'
 import { firstValueFrom, timeout } from 'rxjs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
+import { EnqueueCommand } from '../../types/index.js'
 import { deriveScopeKey } from '../cache-manager/CacheKey.js'
 import { CacheManager } from '../cache-manager/CacheManager.js'
 import { EventBus } from '../events/EventBus.js'
@@ -22,11 +23,11 @@ interface Todo {
 const TODOS_CACHE_KEY = deriveScopeKey({ scopeType: 'todos' })
 
 describe('QueryManager', () => {
-  let storage: InMemoryStorage<ServiceLink>
+  let storage: InMemoryStorage<ServiceLink, EnqueueCommand>
   let eventBus: EventBus<ServiceLink>
-  let cacheManager: CacheManager<ServiceLink>
-  let readModelStore: ReadModelStore<ServiceLink>
-  let queryManager: QueryManager<ServiceLink>
+  let cacheManager: CacheManager<ServiceLink, EnqueueCommand>
+  let readModelStore: ReadModelStore<ServiceLink, EnqueueCommand>
+  let queryManager: QueryManager<ServiceLink, EnqueueCommand>
 
   beforeEach(async () => {
     storage = new InMemoryStorage()

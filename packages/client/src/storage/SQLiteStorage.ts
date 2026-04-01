@@ -9,7 +9,7 @@
  */
 
 import { Link } from '@meticoeus/ddd-es'
-import type { CommandFilter, CommandRecord, CommandStatus } from '../types/commands.js'
+import { CommandFilter, CommandRecord, CommandStatus, EnqueueCommand } from '../types/commands.js'
 import type { SchemaMigration } from '../types/config.js'
 import { assert } from '../utils/assert.js'
 import type { ISqliteDb, SqliteBatchStatement } from './ISqliteDb.js'
@@ -41,7 +41,10 @@ export interface SQLiteStorageConfig {
 /**
  * SQLite storage implementation.
  */
-export class SQLiteStorage<TLink extends Link> implements IStorage<TLink> {
+export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> implements IStorage<
+  TLink,
+  TCommand
+> {
   private readonly db: ISqliteDb
   private readonly migrations: [SchemaMigration, ...SchemaMigration[]]
   private readonly collections: Set<string>
@@ -244,7 +247,7 @@ export class SQLiteStorage<TLink extends Link> implements IStorage<TLink> {
 
   // Command operations
 
-  async getCommand(commandId: string): Promise<CommandRecord<TLink> | undefined> {
+  async getCommand(commandId: string): Promise<CommandRecord<TLink, TCommand> | undefined> {
     this.assertInitialized()
     const row = await this.queryOne<CommandRow>('SELECT * FROM commands WHERE command_id = ?', [
       commandId,
@@ -255,7 +258,7 @@ export class SQLiteStorage<TLink extends Link> implements IStorage<TLink> {
     return this.rowToCommand(row)
   }
 
-  async getCommands(filter?: CommandFilter): Promise<CommandRecord<TLink>[]> {
+  async getCommands(filter?: CommandFilter): Promise<CommandRecord<TLink, TCommand>[]> {
     this.assertInitialized()
     let sql = 'SELECT * FROM commands WHERE 1=1'
     const params: unknown[] = []
@@ -305,11 +308,11 @@ export class SQLiteStorage<TLink extends Link> implements IStorage<TLink> {
 
   async getCommandsByStatus(
     status: CommandStatus | CommandStatus[],
-  ): Promise<CommandRecord<TLink>[]> {
+  ): Promise<CommandRecord<TLink, TCommand>[]> {
     return this.getCommands({ status })
   }
 
-  async getCommandsBlockedBy(commandId: string): Promise<CommandRecord<TLink>[]> {
+  async getCommandsBlockedBy(commandId: string): Promise<CommandRecord<TLink, TCommand>[]> {
     this.assertInitialized()
     const rows = await this.query<CommandRow>(
       `SELECT * FROM commands WHERE EXISTS (SELECT 1 FROM json_each(blocked_by) WHERE value = ?)`,
@@ -318,14 +321,14 @@ export class SQLiteStorage<TLink extends Link> implements IStorage<TLink> {
     return rows.map((row) => this.rowToCommand(row))
   }
 
-  async saveCommand(command: CommandRecord<TLink>): Promise<void> {
+  async saveCommand(command: CommandRecord<TLink, TCommand>): Promise<void> {
     this.assertInitialized()
     await this.exec(
       `INSERT OR REPLACE INTO commands
        (command_id, cache_key, service, type, data, status, depends_on, blocked_by, attempts,
         last_attempt_at, error, server_response, post_process, creates, revision,
-        path, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        path, file_refs, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         command.commandId,
         JSON.stringify(command.cacheKey),
@@ -343,13 +346,17 @@ export class SQLiteStorage<TLink extends Link> implements IStorage<TLink> {
         command.creates ? JSON.stringify(command.creates) : null,
         command.revision !== undefined ? JSON.stringify(command.revision) : null,
         command.path !== undefined ? JSON.stringify(command.path) : null,
+        command.fileRefs ? JSON.stringify(command.fileRefs) : null,
         command.createdAt,
         command.updatedAt,
       ],
     )
   }
 
-  async updateCommand(commandId: string, updates: Partial<CommandRecord<TLink>>): Promise<void> {
+  async updateCommand(
+    commandId: string,
+    updates: Partial<CommandRecord<TLink, TCommand>>,
+  ): Promise<void> {
     this.assertInitialized()
     const current = await this.getCommand(commandId)
     if (!current) return
@@ -1025,7 +1032,7 @@ export class SQLiteStorage<TLink extends Link> implements IStorage<TLink> {
 
   // Row type converters
 
-  private rowToCommand(row: CommandRow): CommandRecord<TLink> {
+  private rowToCommand(row: CommandRow): CommandRecord<TLink, TCommand> {
     return {
       commandId: row.command_id,
       cacheKey: JSON.parse(row.cache_key),
@@ -1043,6 +1050,7 @@ export class SQLiteStorage<TLink extends Link> implements IStorage<TLink> {
       creates: row.creates ? JSON.parse(row.creates) : undefined,
       revision: row.revision ? JSON.parse(row.revision) : undefined,
       path: row.path ? JSON.parse(row.path) : undefined,
+      fileRefs: row.file_refs ? JSON.parse(row.file_refs) : undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }
@@ -1145,6 +1153,7 @@ interface CommandRow {
   creates: string | null
   revision: string | null
   path: string | null
+  file_refs: string | null
   created_at: number
   updated_at: number
 }

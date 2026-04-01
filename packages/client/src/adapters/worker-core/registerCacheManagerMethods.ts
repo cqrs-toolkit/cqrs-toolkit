@@ -7,10 +7,11 @@ import type { CacheKeyIdentity } from '../../core/cache-manager/CacheKey.js'
 import type { CacheManager } from '../../core/cache-manager/CacheManager.js'
 import type { AcquireCacheKeyOptions } from '../../core/cache-manager/types.js'
 import type { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
+import { EnqueueCommand } from '../../types/index.js'
 
-export function registerCacheManagerMethods<TLink extends Link>(
+export function registerCacheManagerMethods<TLink extends Link, TCommand extends EnqueueCommand>(
   handler: WorkerMessageHandler,
-  cacheManager: CacheManager<TLink>,
+  cacheManager: CacheManager<TLink, TCommand>,
 ): void {
   handler.registerMethod('cacheManager.acquireKey', async (args) => {
     const cacheKey = args[0] as CacheKeyIdentity<TLink>

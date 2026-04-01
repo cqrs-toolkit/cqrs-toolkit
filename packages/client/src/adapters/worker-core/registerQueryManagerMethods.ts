@@ -10,10 +10,11 @@ import type { CacheKeyIdentity } from '../../core/cache-manager/CacheKey.js'
 import type { QueryManager } from '../../core/query-manager/QueryManager.js'
 import type { GetByIdParams, GetByIdsParams, ListParams } from '../../core/query-manager/types.js'
 import type { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
+import { EnqueueCommand } from '../../types/index.js'
 
-export function registerQueryManagerMethods<TLink extends Link>(
+export function registerQueryManagerMethods<TLink extends Link, TCommand extends EnqueueCommand>(
   handler: WorkerMessageHandler,
-  queryManager: QueryManager<TLink>,
+  queryManager: QueryManager<TLink, TCommand>,
 ): void {
   handler.registerMethod('queryManager.getById', async (args) => {
     return queryManager.getById(args[0] as GetByIdParams<TLink>)

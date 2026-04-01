@@ -4,11 +4,29 @@
 
 [@cqrs-toolkit/hypermedia-client](../README.md) / HypermediaCommandSenderOptions
 
-# Interface: HypermediaCommandSenderOptions
+# Interface: HypermediaCommandSenderOptions\<TLink, TCommand\>
 
 Options for creating a hypermedia command sender.
 
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
+
+### TCommand
+
+`TCommand` _extends_ `EnqueueCommand`
+
 ## Properties
+
+### afterSend?
+
+> `optional` **afterSend**: `Partial`\<`Record`\<`TCommand`\[`"type"`\], [`AfterSendHandler`](../type-aliases/AfterSendHandler.md)\<`TLink`, `TCommand`\>\>\>
+
+Per-command-type hooks called after a 2xx response, before send() returns.
+
+---
 
 ### baseUrl
 

@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / CqrsConfig
 
-# Interface: CqrsConfig\<TLink, TSchema, TEvent\>
+# Interface: CqrsConfig\<TLink, TCommand, TSchema, TEvent\>
 
 Shared CQRS configuration.
 
@@ -20,6 +20,10 @@ The consumer writes this once and imports it from both entry points.
 ### TLink
 
 `TLink` _extends_ `Link`
+
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md)
 
 ### TSchema
 
@@ -59,7 +63,7 @@ Collection configurations.
 
 ### commandHandlers?
 
-> `optional` **commandHandlers**: [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`TLink`, `TSchema`, `TEvent`\>[]
+> `optional` **commandHandlers**: [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>[]
 
 Command handler registrations for local validation and optimistic updates.
 Each handler validates command data and produces anticipated events.
@@ -69,7 +73,7 @@ If not provided, commands are sent directly without local validation.
 
 ### commandSender?
 
-> `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)\<`TLink`\>
+> `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)\<`TLink`, `TCommand`\>
 
 Command sender for submitting commands to the server.
 If not provided, commands are queued but not sent.

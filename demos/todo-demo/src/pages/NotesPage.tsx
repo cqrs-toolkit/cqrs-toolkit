@@ -232,6 +232,26 @@ export default function NotesPage() {
                     cacheKey: notebookCacheKey(),
                   })
                 }
+                onSubmitUploadFile={(p) =>
+                  client.submit({
+                    command: {
+                      type: 'CreateFileObject',
+                      data: { noteId: p.noteId },
+                      files: [p.file],
+                    },
+                    cacheKey: notebookCacheKey(),
+                  })
+                }
+                onSubmitDeleteFile={(p) =>
+                  client.submit({
+                    command: {
+                      type: 'DeleteFileObject',
+                      data: { id: p.id },
+                      revision: p.revision,
+                    },
+                    cacheKey: notebookCacheKey(),
+                  })
+                }
                 onError={setError}
                 onIdChanged={handleEditorIdChanged}
                 onDeleted={() => setSelectedNoteId(undefined)}

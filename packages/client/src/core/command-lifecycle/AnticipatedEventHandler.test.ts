@@ -2,6 +2,7 @@ import type { ServiceLink } from '@meticoeus/ddd-es'
 import { describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import type { Collection } from '../../types/config.js'
+import { EnqueueCommand } from '../../types/index.js'
 import { EventCache } from '../event-cache/EventCache.js'
 import { EventProcessorRegistry } from '../event-processor/EventProcessorRegistry.js'
 import { EventProcessorRunner } from '../event-processor/EventProcessorRunner.js'
@@ -32,26 +33,26 @@ const COLLECTIONS: Collection<ServiceLink>[] = [
 
 describe('AnticipatedEventHandler', () => {
   interface BootstrapResult {
-    storage: InMemoryStorage<ServiceLink>
+    storage: InMemoryStorage<ServiceLink, EnqueueCommand>
     eventBus: EventBus<ServiceLink>
-    eventCache: EventCache<ServiceLink>
-    readModelStore: ReadModelStore<ServiceLink>
-    handler: AnticipatedEventHandler<ServiceLink>
+    eventCache: EventCache<ServiceLink, EnqueueCommand>
+    readModelStore: ReadModelStore<ServiceLink, EnqueueCommand>
+    handler: AnticipatedEventHandler<ServiceLink, EnqueueCommand>
   }
 
   async function bootstrap(): Promise<BootstrapResult> {
-    const storage = new InMemoryStorage<ServiceLink>()
+    const storage = new InMemoryStorage<ServiceLink, EnqueueCommand>()
     await storage.initialize()
     const eventBus = new EventBus<ServiceLink>()
-    const eventCache = new EventCache<ServiceLink>({ storage, eventBus })
-    const readModelStore = new ReadModelStore<ServiceLink>({ storage })
+    const eventCache = new EventCache<ServiceLink, EnqueueCommand>({ storage, eventBus })
+    const readModelStore = new ReadModelStore<ServiceLink, EnqueueCommand>({ storage })
 
     const registry = new EventProcessorRegistry()
     registry.register(todoProcessor())
     const runner = new EventProcessorRunner(readModelStore, eventBus, registry)
 
     const wq = createTestWriteQueue(eventBus)
-    const handler = new AnticipatedEventHandler<ServiceLink>(
+    const handler = new AnticipatedEventHandler<ServiceLink, EnqueueCommand>(
       eventCache,
       runner,
       readModelStore,

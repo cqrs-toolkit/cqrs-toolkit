@@ -18,6 +18,7 @@
 import { type Link, logProvider } from '@meticoeus/ddd-es'
 import { Observable, Subject, Subscription, interval, map, share, takeUntil } from 'rxjs'
 import type { ICacheManager } from '../../core/cache-manager/types.js'
+import { OpfsCommandFileStore } from '../../core/command-queue/file-store/OpfsCommandFileStore.js'
 import type { ICommandQueue } from '../../core/command-queue/types.js'
 import type { IQueryManager } from '../../core/query-manager/types.js'
 import type { CqrsClientSyncManager } from '../../createCqrsClient.js'
@@ -25,6 +26,7 @@ import { WorkerMessageChannel } from '../../protocol/MessageChannel.js'
 import type { EventMessage } from '../../protocol/messages.js'
 import { serialize } from '../../protocol/serialization.js'
 import type { LibraryEvent } from '../../types/events.js'
+import { EnqueueCommand } from '../../types/index.js'
 import { assert } from '../../utils/assert.js'
 import { generateId } from '../../utils/uuid.js'
 import type { AdapterStatus, IWorkerAdapter } from '../base/IAdapter.js'
@@ -94,7 +96,10 @@ const ACTIVE_TAB_LOCK_NAME = 'cqrs-client-active-tab'
  * - Handles window registration and heartbeats
  * - Restores holds after worker restarts
  */
-export class SharedWorkerAdapter<TLink extends Link> implements IWorkerAdapter<TLink> {
+export class SharedWorkerAdapter<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+> implements IWorkerAdapter<TLink, TCommand> {
   readonly mode = 'shared-worker' as const
 
   private readonly config: SharedWorkerAdapterConfig
@@ -103,7 +108,7 @@ export class SharedWorkerAdapter<TLink extends Link> implements IWorkerAdapter<T
 
   private _status: AdapterStatus = 'uninitialized'
   private _isActive = false
-  private _commandQueue: CommandQueueProxy<TLink> | undefined
+  private _commandQueue: CommandQueueProxy<TLink, TCommand> | undefined
   private _queryManager: QueryManagerProxy<TLink> | undefined
   private _cacheManager: SharedWorkerCacheManagerProxy<TLink> | undefined
   private _syncManager: SyncManagerProxy<TLink> | undefined
@@ -130,7 +135,7 @@ export class SharedWorkerAdapter<TLink extends Link> implements IWorkerAdapter<T
     return this._events$
   }
 
-  get commandQueue(): ICommandQueue<TLink> {
+  get commandQueue(): ICommandQueue<TLink, TCommand> {
     assert(this._commandQueue, 'Adapter not initialized')
     return this._commandQueue
   }
@@ -270,7 +275,11 @@ export class SharedWorkerAdapter<TLink extends Link> implements IWorkerAdapter<T
       await this.channel.request('orchestrator.initialize')
 
       // 9. Create proxy objects
-      this._commandQueue = new CommandQueueProxy(this.channel, broadcastEvents$)
+      this._commandQueue = new CommandQueueProxy(
+        this.channel,
+        broadcastEvents$,
+        new OpfsCommandFileStore(),
+      )
       this._queryManager = new QueryManagerProxy<TLink>(this.channel, broadcastEvents$)
       this._cacheManager = new SharedWorkerCacheManagerProxy<TLink>(this.channel)
       this._syncManager = new SyncManagerProxy<TLink>(this.channel, broadcastEvents$)

@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / InMemoryStorage
 
-# Class: InMemoryStorage\<TLink\>
+# Class: InMemoryStorage\<TLink, TCommand\>
 
 In-memory storage implementation.
 Thread-safe within a single JavaScript context.
@@ -15,19 +15,23 @@ Thread-safe within a single JavaScript context.
 
 `TLink` _extends_ `Link`
 
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md)
+
 ## Implements
 
-- [`IStorage`](../interfaces/IStorage.md)\<`TLink`\>
+- [`IStorage`](../interfaces/IStorage.md)\<`TLink`, `TCommand`\>
 
 ## Constructors
 
 ### Constructor
 
-> **new InMemoryStorage**\<`TLink`\>(): `InMemoryStorage`\<`TLink`\>
+> **new InMemoryStorage**\<`TLink`, `TCommand`\>(): `InMemoryStorage`\<`TLink`, `TCommand`\>
 
 #### Returns
 
-`InMemoryStorage`\<`TLink`\>
+`InMemoryStorage`\<`TLink`, `TCommand`\>
 
 ## Methods
 
@@ -549,7 +553,7 @@ Get child cache keys whose parentKey matches the given key.
 
 ### getCommand()
 
-> **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `unknown`, `unknown`\> \| `undefined`\>
+> **getCommand**(`commandId`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\> \| `undefined`\>
 
 Get a command by ID.
 
@@ -561,7 +565,7 @@ Get a command by ID.
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `unknown`, `unknown`\> \| `undefined`\>
+`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\> \| `undefined`\>
 
 #### Implementation of
 
@@ -615,7 +619,7 @@ Get a command ID mapping by server ID.
 
 ### getCommands()
 
-> **getCommands**(`filter?`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
+> **getCommands**(`filter?`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>[]\>
 
 Get commands matching a filter.
 
@@ -627,7 +631,7 @@ Get commands matching a filter.
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
+`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>[]\>
 
 #### Implementation of
 
@@ -637,7 +641,7 @@ Get commands matching a filter.
 
 ### getCommandsBlockedBy()
 
-> **getCommandsBlockedBy**(`commandId`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
+> **getCommandsBlockedBy**(`commandId`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>[]\>
 
 Get commands blocked by a specific command.
 
@@ -649,7 +653,7 @@ Get commands blocked by a specific command.
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
+`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>[]\>
 
 #### Implementation of
 
@@ -659,7 +663,7 @@ Get commands blocked by a specific command.
 
 ### getCommandsByStatus()
 
-> **getCommandsByStatus**(`status`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
+> **getCommandsByStatus**(`status`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>[]\>
 
 Get commands by status.
 
@@ -671,7 +675,7 @@ Get commands by status.
 
 #### Returns
 
-`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `unknown`, `unknown`\>[]\>
+`Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>[]\>
 
 #### Implementation of
 
@@ -1036,7 +1040,7 @@ Save a new command.
 
 ##### command
 
-[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`\>
+[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`\>
 
 #### Returns
 
@@ -1188,7 +1192,7 @@ Update an existing command.
 
 ##### updates
 
-`Partial`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`\>\>
+`Partial`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`\>\>
 
 #### Returns
 

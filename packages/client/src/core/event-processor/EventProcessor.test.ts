@@ -5,6 +5,7 @@
 import type { ServiceLink } from '@meticoeus/ddd-es'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
+import { EnqueueCommand } from '../../types/index.js'
 import type { IAnticipatedEventHandler } from '../command-queue/CommandQueue.js'
 import { EventBus } from '../events/EventBus.js'
 import { ReadModelStore } from '../read-model-store/ReadModelStore.js'
@@ -150,11 +151,11 @@ describe('EventProcessorRegistry', () => {
 })
 
 describe('EventProcessorRunner', () => {
-  let storage: InMemoryStorage<ServiceLink>
+  let storage: InMemoryStorage<ServiceLink, EnqueueCommand>
   let eventBus: EventBus<ServiceLink>
   let registry: EventProcessorRegistry
-  let readModelStore: ReadModelStore<ServiceLink>
-  let runner: EventProcessorRunner<ServiceLink>
+  let readModelStore: ReadModelStore<ServiceLink, EnqueueCommand>
+  let runner: EventProcessorRunner<ServiceLink, EnqueueCommand>
 
   beforeEach(async () => {
     storage = new InMemoryStorage()

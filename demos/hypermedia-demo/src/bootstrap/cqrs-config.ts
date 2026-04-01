@@ -12,6 +12,7 @@ import {
   type CqrsConfig,
   type IAnticipatedEvent,
 } from '@cqrs-toolkit/client'
+import { FILE_OBJECTS_COLLECTION_NAME } from '@cqrs-toolkit/demo-base/file-objects/domain'
 import {
   createAjvSchemaValidator,
   createHypermediaCommandSender,
@@ -19,8 +20,12 @@ import {
 } from '@cqrs-toolkit/hypermedia-client'
 import type { ServiceLink } from '@meticoeus/ddd-es'
 import type { JSONSchema7 } from 'json-schema'
-import { commands } from '../.cqrs/commands.js'
+import { AppCommand, commands } from '../.cqrs/commands.js'
 import { schemas } from '../.cqrs/schemas.js'
+import { fileObjectsCollection } from '../domain/file-objects/collection.js'
+import { handleCreateFileObjectResponse } from '../domain/file-objects/commands.js'
+import { fileObjectHandlers } from '../domain/file-objects/executor.js'
+import { fileObjectProcessors } from '../domain/file-objects/processor.js'
 import { notebooksCollection } from '../domain/notebooks/collection.js'
 import { notebookHandlers } from '../domain/notebooks/executor.js'
 import { notebookProcessors } from '../domain/notebooks/processor.js'
@@ -31,7 +36,7 @@ import { todosCollection } from '../domain/todos/collection.js'
 import { todoHandlers } from '../domain/todos/executor.js'
 import { todoProcessors } from '../domain/todos/processor.js'
 
-export const cqrsConfig: CqrsConfig<ServiceLink, JSONSchema7, IAnticipatedEvent> = {
+export const cqrsConfig: CqrsConfig<ServiceLink, AppCommand, JSONSchema7, IAnticipatedEvent> = {
   schemaValidator: createAjvSchemaValidator(schemas),
   auth: cookieAuthStrategy,
   network: {
@@ -48,19 +53,29 @@ export const cqrsConfig: CqrsConfig<ServiceLink, JSONSchema7, IAnticipatedEvent>
           { type: 'managed', name: 'todos' },
           { type: 'managed', name: 'notebooks' },
           { type: 'managed', name: 'notes' },
+          { type: 'managed', name: FILE_OBJECTS_COLLECTION_NAME },
         ],
       },
     ],
   },
-  collections: [todosCollection, notebooksCollection, notesCollection],
-  processors: [...todoProcessors, ...notebookProcessors, ...noteProcessors],
+  collections: [todosCollection, notebooksCollection, notesCollection, fileObjectsCollection],
+  processors: [
+    ...todoProcessors,
+    ...notebookProcessors,
+    ...noteProcessors,
+    ...fileObjectProcessors,
+  ],
   commandHandlers: withSchemaRegistry(schemas, [
     ...todoHandlers,
     ...notebookHandlers,
     ...noteHandlers,
+    ...fileObjectHandlers,
   ]),
-  commandSender: createHypermediaCommandSender(commands, {
+  commandSender: createHypermediaCommandSender<ServiceLink, AppCommand>(commands, {
     baseUrl: location.origin,
+    afterSend: {
+      'storage.CreateFileObject': handleCreateFileObjectResponse,
+    },
   }),
   retainTerminal: true,
   debug: true,

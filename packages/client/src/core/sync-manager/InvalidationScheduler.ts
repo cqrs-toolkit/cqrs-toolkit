@@ -9,6 +9,7 @@
 
 import { Link, logProvider, Result } from '@meticoeus/ddd-es'
 import type { Collection, FetchContext } from '../../types/config.js'
+import { EnqueueCommand } from '../../types/index.js'
 import { type CacheKeyIdentity, hydrateCacheKeyIdentity } from '../cache-manager/CacheKey.js'
 import type { CacheManager } from '../cache-manager/CacheManager.js'
 import type { EventBus } from '../events/EventBus.js'
@@ -27,7 +28,7 @@ export interface InvalidationSchedulerConfig<TLink extends Link> {
   debounceMs?: number
 }
 
-export class InvalidationScheduler<TLink extends Link> {
+export class InvalidationScheduler<TLink extends Link, TCommand extends EnqueueCommand> {
   private readonly getFetchContext: () => Promise<FetchContext>
   private readonly onRefetch: InvalidationSchedulerConfig<TLink>['onRefetch']
   private readonly debounceMs: number
@@ -36,7 +37,7 @@ export class InvalidationScheduler<TLink extends Link> {
 
   constructor(
     private readonly eventBus: EventBus<TLink>,
-    private readonly cacheManager: CacheManager<TLink>,
+    private readonly cacheManager: CacheManager<TLink, TCommand>,
     private readonly seedStatus: SeedStatusIndex,
     private readonly collections: Collection<TLink>[],
     config: InvalidationSchedulerConfig<TLink>,

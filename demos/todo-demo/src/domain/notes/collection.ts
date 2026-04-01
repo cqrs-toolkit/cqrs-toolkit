@@ -1,11 +1,15 @@
 import { Collection } from '@cqrs-toolkit/client'
 import { assert } from '@cqrs-toolkit/client/utils'
-import { cacheKeysFromTopics, subscribeTopics } from '@cqrs-toolkit/demo-base/notes/domain'
+import {
+  cacheKeysFromTopics,
+  NOTES_COLLECTION_NAME,
+  subscribeTopics,
+} from '@cqrs-toolkit/demo-base/notes/domain'
 import type { ServiceLink } from '@meticoeus/ddd-es'
 import { aggregateId, fetchSeedRecordPage, fetchStreamEventsAfter } from '../utils/collection.js'
 
 export const notesCollection: Collection<ServiceLink> = {
-  name: 'notes',
+  name: NOTES_COLLECTION_NAME,
   cacheKeysFromTopics,
   matchesStream: (streamId) => streamId.startsWith('Note-'),
   getStreamId: (entityId) => `Note-${entityId}`,

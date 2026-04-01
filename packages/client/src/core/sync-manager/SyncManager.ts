@@ -18,6 +18,7 @@ import type {
   NetworkConfig,
 } from '../../types/config.js'
 import { hydrateSerializedEvent, normalizeEventPersistence } from '../../types/events.js'
+import { EnqueueCommand } from '../../types/index.js'
 import { noop } from '../../utils/index.js'
 import type { AuthStrategy } from '../auth.js'
 import { type CacheKeyIdentity, matchesCacheKey } from '../cache-manager/CacheKey.js'
@@ -43,10 +44,15 @@ import { toParsedEvent } from './SyncManagerUtils.js'
 /**
  * Sync manager.
  */
-export class SyncManager<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent> {
+export class SyncManager<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+> {
   private readonly connectivity: ConnectivityManager<TLink>
-  private readonly gapRepair: GapRepairCoordinator<TLink>
-  protected readonly invalidationScheduler: InvalidationScheduler<TLink>
+  private readonly gapRepair: GapRepairCoordinator<TLink, TCommand>
+  protected readonly invalidationScheduler: InvalidationScheduler<TLink, TCommand>
 
   /** Mutable — recreated on each start() so takeUntil subscriptions work after stop()/start() cycles. */
   private destroy$ = new Subject<void>()
@@ -70,13 +76,13 @@ export class SyncManager<TLink extends Link, TSchema, TEvent extends IAnticipate
 
   constructor(
     private readonly eventBus: EventBus<TLink>,
-    private readonly sessionManager: SessionManager<TLink>,
-    private readonly commandQueue: CommandQueue<TLink, TSchema, TEvent>,
-    private readonly eventCache: EventCache<TLink>,
-    private readonly cacheManager: CacheManager<TLink>,
-    private readonly eventProcessor: EventProcessorRunner<TLink>,
-    private readonly readModelStore: ReadModelStore<TLink>,
-    private readonly queryManager: QueryManager<TLink>,
+    private readonly sessionManager: SessionManager<TLink, TCommand>,
+    private readonly commandQueue: CommandQueue<TLink, TCommand, TSchema, TEvent>,
+    private readonly eventCache: EventCache<TLink, TCommand>,
+    private readonly cacheManager: CacheManager<TLink, TCommand>,
+    private readonly eventProcessor: EventProcessorRunner<TLink, TCommand>,
+    private readonly readModelStore: ReadModelStore<TLink, TCommand>,
+    private readonly queryManager: QueryManager<TLink, TCommand>,
     private readonly writeQueue: IWriteQueue<TLink>,
     private readonly networkConfig: NetworkConfig,
     private readonly auth: AuthStrategy,
@@ -208,7 +214,7 @@ export class SyncManager<TLink extends Link, TSchema, TEvent extends IAnticipate
       .subscribe((event) => {
         // Event payloads use CacheKeyIdentity<Link> (widest type, events aren't generic).
         // The identity is structurally correct for TLink at runtime — the event was emitted
-        // by CacheManager<TLink> which produced the identity from a TLink-typed source.
+        // by CacheManager<TLink, TCommand> which produced the identity from a TLink-typed source.
         const ck = event.data.cacheKey as CacheKeyIdentity<TLink>
         this.onCacheKeyAdded(ck).catch((err) => {
           logProvider.log.error({ err }, 'onCacheKeyAdded failed')

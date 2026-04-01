@@ -13,12 +13,14 @@
 import type { Link } from '@meticoeus/ddd-es'
 import { Observable, Subject, map, share, takeUntil } from 'rxjs'
 import type { ICacheManager } from '../../core/cache-manager/types.js'
+import { OpfsCommandFileStore } from '../../core/command-queue/file-store/OpfsCommandFileStore.js'
 import type { ICommandQueue } from '../../core/command-queue/types.js'
 import type { IQueryManager } from '../../core/query-manager/types.js'
 import type { CqrsClientSyncManager } from '../../createCqrsClient.js'
 import { RpcError, WorkerMessageChannel } from '../../protocol/MessageChannel.js'
 import type { EventMessage } from '../../protocol/messages.js'
 import type { LibraryEvent } from '../../types/events.js'
+import { EnqueueCommand } from '../../types/index.js'
 import { assert } from '../../utils/assert.js'
 import type { AdapterStatus, IWorkerAdapter } from '../base/IAdapter.js'
 import { CacheManagerProxy } from '../proxy/CacheManagerProxy.js'
@@ -60,7 +62,10 @@ const TAB_LOCK_NAME = 'cqrs-client-dedicated-tab'
  * - Connects to a Dedicated Worker that owns all CQRS components
  * - Provides proxy objects for main-thread consumers
  */
-export class DedicatedWorkerAdapter<TLink extends Link> implements IWorkerAdapter<TLink> {
+export class DedicatedWorkerAdapter<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+> implements IWorkerAdapter<TLink, TCommand> {
   readonly mode = 'dedicated-worker' as const
   readonly role = 'leader' as const
 
@@ -68,7 +73,7 @@ export class DedicatedWorkerAdapter<TLink extends Link> implements IWorkerAdapte
   private readonly destroy$ = new Subject<void>()
 
   private _status: AdapterStatus = 'uninitialized'
-  private _commandQueue: CommandQueueProxy<TLink> | undefined
+  private _commandQueue: CommandQueueProxy<TLink, TCommand> | undefined
   private _queryManager: QueryManagerProxy<TLink> | undefined
   private _cacheManager: CacheManagerProxy<TLink> | undefined
   private _syncManager: SyncManagerProxy<TLink> | undefined
@@ -90,7 +95,7 @@ export class DedicatedWorkerAdapter<TLink extends Link> implements IWorkerAdapte
     return this._events$
   }
 
-  get commandQueue(): ICommandQueue<TLink> {
+  get commandQueue(): ICommandQueue<TLink, TCommand> {
     assert(this._commandQueue, 'Adapter not initialized')
     return this._commandQueue
   }
@@ -181,7 +186,11 @@ export class DedicatedWorkerAdapter<TLink extends Link> implements IWorkerAdapte
       }
 
       // Create proxy objects
-      this._commandQueue = new CommandQueueProxy(this.channel, broadcastEvents$)
+      this._commandQueue = new CommandQueueProxy(
+        this.channel,
+        broadcastEvents$,
+        new OpfsCommandFileStore(),
+      )
       this._queryManager = new QueryManagerProxy<TLink>(this.channel, broadcastEvents$)
       this._cacheManager = new CacheManagerProxy<TLink>(this.channel)
       this._syncManager = new SyncManagerProxy<TLink>(this.channel, broadcastEvents$)

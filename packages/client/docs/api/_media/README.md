@@ -14,7 +14,7 @@ import {
   createCqrsClient,
   clientSchema,
   cookieAuthStrategy,
-  CommandSendError,
+  CommandSendException,
   type Collection,
   type CqrsClientConfig,
   type FetchContext,
@@ -60,9 +60,9 @@ const commandSender: ICommandSender = {
     })
     if (!res.ok) {
       const body = await res.json()
-      throw new CommandSendError(body.message, String(res.status), res.status >= 500)
+      return Err(new CommandSendException(body.message, String(res.status), res.status >= 500))
     }
-    return res.json()
+    return Ok(await res.json())
   },
 }
 

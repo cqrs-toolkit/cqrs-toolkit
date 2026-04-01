@@ -146,7 +146,6 @@ export function createApp(options?: { logLevel?: string }): AppContext {
     server.register(notebookRoutes(eventStore, notebookRepo, notebookService))
     server.register(noteRoutes(eventStore, noteRepo, notebookRepo))
     server.register(fileObjectRoutes(eventStore, fileObjectRepo, noteRepo, fileStore))
-    server.register(uploadRoute(fileObjectRepo, noteRepo, fileStore))
 
     // Infrastructure routes
     server.register(sessionRoutes(userStore), { prefix: '/api/auth' })
@@ -186,6 +185,7 @@ export function createApp(options?: { logLevel?: string }): AppContext {
   app.register(websocket)
   app.register(wsPlugin)
   app.register(routes)
+  app.register(uploadRoute(fileObjectRepo, noteRepo, fileStore))
 
   return { app, eventStore, todoRepo, noteRepo, notebookRepo, fileObjectRepo, fileStore, userStore }
 }

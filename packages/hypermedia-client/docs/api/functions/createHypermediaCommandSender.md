@@ -6,7 +6,7 @@
 
 # Function: createHypermediaCommandSender()
 
-> **createHypermediaCommandSender**\<`TLink`\>(`manifest`, `options`): `ICommandSender`\<`TLink`\>
+> **createHypermediaCommandSender**\<`TLink`, `TCommand`\>(`manifest`, `options`): `ICommandSender`\<`TLink`, `TCommand`\>
 
 Create an `ICommandSender` that auto-wires HTTP requests from a `commands.json` manifest.
 
@@ -21,6 +21,10 @@ const sender = createHypermediaCommandSender(manifest, { baseUrl: 'http://localh
 
 `TLink` _extends_ `Link`\<`string`, `string`\>
 
+### TCommand
+
+`TCommand` _extends_ `EnqueueCommand`\<`unknown`\>
+
 ## Parameters
 
 ### manifest
@@ -29,8 +33,8 @@ const sender = createHypermediaCommandSender(manifest, { baseUrl: 'http://localh
 
 ### options
 
-[`HypermediaCommandSenderOptions`](../interfaces/HypermediaCommandSenderOptions.md)
+[`HypermediaCommandSenderOptions`](../interfaces/HypermediaCommandSenderOptions.md)\<`TLink`, `TCommand`\>
 
 ## Returns
 
-`ICommandSender`\<`TLink`\>
+`ICommandSender`\<`TLink`, `TCommand`\>

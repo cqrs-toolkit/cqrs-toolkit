@@ -6,6 +6,7 @@ import type { IPersistedEvent, Result, ServiceLink } from '@meticoeus/ddd-es'
 import { describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import { Collection, FetchSeedRecordOptions, SeedRecordPage } from '../../types/config.js'
+import { EnqueueCommand } from '../../types/index.js'
 import { cookieAuthStrategy } from '../auth.js'
 import { type CacheKeyIdentity, deriveScopeKey } from '../cache-manager/CacheKey.js'
 import { CacheManager } from '../cache-manager/CacheManager.js'
@@ -30,7 +31,7 @@ const DUMMY_NETWORK = { baseUrl: 'http://localhost:3000' }
 
 const TODO_CACHE_KEY = deriveScopeKey({ scopeType: 'todos' })
 
-class TestSyncManager extends SyncManager<ServiceLink, unknown, IAnticipatedEvent> {
+class TestSyncManager extends SyncManager<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent> {
   getKnownRevisions(): Map<string, bigint> {
     return this.knownRevisions
   }
@@ -61,18 +62,18 @@ describe('SyncManager', () => {
   }
 
   interface BootstrapResult {
-    storage: InMemoryStorage<ServiceLink>
+    storage: InMemoryStorage<ServiceLink, EnqueueCommand>
     eventBus: EventBus<ServiceLink>
-    cacheManager: CacheManager<ServiceLink>
-    eventCache: EventCache<ServiceLink>
-    readModelStore: ReadModelStore<ServiceLink>
+    cacheManager: CacheManager<ServiceLink, EnqueueCommand>
+    eventCache: EventCache<ServiceLink, EnqueueCommand>
+    readModelStore: ReadModelStore<ServiceLink, EnqueueCommand>
     registry: EventProcessorRegistry
-    eventProcessorRunner: EventProcessorRunner<ServiceLink>
+    eventProcessorRunner: EventProcessorRunner<ServiceLink, EnqueueCommand>
     anticipatedEventHandler: IAnticipatedEventHandler
-    commandQueue: CommandQueue<ServiceLink, unknown, IAnticipatedEvent>
-    queryManager: QueryManager<ServiceLink>
+    commandQueue: CommandQueue<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>
+    queryManager: QueryManager<ServiceLink, EnqueueCommand>
     todosCollection: Collection<ServiceLink>
-    sessionManager: SessionManager<ServiceLink>
+    sessionManager: SessionManager<ServiceLink, EnqueueCommand>
     writeQueue: WriteQueue<ServiceLink>
   }
 
@@ -83,21 +84,25 @@ describe('SyncManager', () => {
     params?: BootstrapParams,
   ): Promise<BootstrapResult & { syncManager: TestSyncManager }>
   async function bootstrap(params?: BootstrapParams & { customSyncManager?: boolean }) {
-    const storage = new InMemoryStorage<ServiceLink>()
+    const storage = new InMemoryStorage<ServiceLink, EnqueueCommand>()
     await storage.initialize()
     const eventBus = new EventBus<ServiceLink>()
 
-    const cacheManager = new CacheManager<ServiceLink>({ storage, eventBus, windowId: 'test' })
+    const cacheManager = new CacheManager<ServiceLink, EnqueueCommand>({
+      storage,
+      eventBus,
+      windowId: 'test',
+    })
     await cacheManager.initialize()
 
-    const eventCache = new EventCache<ServiceLink>({ storage, eventBus })
-    const readModelStore = new ReadModelStore<ServiceLink>({ storage })
+    const eventCache = new EventCache<ServiceLink, EnqueueCommand>({ storage, eventBus })
+    const readModelStore = new ReadModelStore<ServiceLink, EnqueueCommand>({ storage })
 
     const registry = new EventProcessorRegistry()
     for (const p of params?.processors ?? []) {
       registry.register(p)
     }
-    const eventProcessorRunner = new EventProcessorRunner<ServiceLink>(
+    const eventProcessorRunner = new EventProcessorRunner<ServiceLink, EnqueueCommand>(
       readModelStore,
       eventBus,
       registry,
@@ -112,13 +117,17 @@ describe('SyncManager', () => {
       clearAll: vi.fn().mockResolvedValue(undefined),
     }
 
-    const commandQueue = new CommandQueue<ServiceLink, unknown, IAnticipatedEvent>({
+    const commandQueue = new CommandQueue<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>({
       storage,
       eventBus,
       anticipatedEventHandler,
     })
 
-    const queryManager = new QueryManager<ServiceLink>({ eventBus, cacheManager, readModelStore })
+    const queryManager = new QueryManager<ServiceLink, EnqueueCommand>({
+      eventBus,
+      cacheManager,
+      readModelStore,
+    })
 
     const todosCollection: Collection<ServiceLink> = {
       name: 'todos',
@@ -350,7 +359,7 @@ describe('SyncManager', () => {
       }
 
       // Create a SyncManager with the notes collection
-      const syncManager = new SyncManager<ServiceLink, unknown, IAnticipatedEvent>(
+      const syncManager = new SyncManager<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>(
         eventBus,
         sessionManager,
         commandQueue,
@@ -416,7 +425,7 @@ describe('SyncManager', () => {
         fetchSeedRecords,
       }
 
-      const syncManager = new SyncManager<ServiceLink, unknown, IAnticipatedEvent>(
+      const syncManager = new SyncManager<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>(
         eventBus,
         sessionManager,
         commandQueue,
@@ -477,7 +486,7 @@ describe('SyncManager', () => {
         fetchSeedRecords,
       }
 
-      const syncManager = new SyncManager<ServiceLink, unknown, IAnticipatedEvent>(
+      const syncManager = new SyncManager<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>(
         eventBus,
         sessionManager,
         commandQueue,
@@ -608,7 +617,7 @@ describe('SyncManager', () => {
         nextCursor: null,
       } satisfies SeedRecordPage)
 
-      const syncManager = new SyncManager<ServiceLink, unknown, IAnticipatedEvent>(
+      const syncManager = new SyncManager<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>(
         eventBus,
         sessionManager,
         commandQueue,
@@ -655,7 +664,7 @@ describe('SyncManager', () => {
         nextCursor: null,
       } satisfies SeedRecordPage)
 
-      const syncManager = new SyncManager<ServiceLink, unknown, IAnticipatedEvent>(
+      const syncManager = new SyncManager<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>(
         eventBus,
         sessionManager,
         commandQueue,
@@ -702,7 +711,7 @@ describe('SyncManager', () => {
         nextCursor: null,
       } satisfies SeedRecordPage)
 
-      const syncManager = new SyncManager<ServiceLink, unknown, IAnticipatedEvent>(
+      const syncManager = new SyncManager<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>(
         eventBus,
         sessionManager,
         commandQueue,
@@ -786,7 +795,7 @@ describe('SyncManager', () => {
         fetchSeedRecords,
       }
 
-      const syncManager = new SyncManager<ServiceLink, unknown, IAnticipatedEvent>(
+      const syncManager = new SyncManager<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>(
         eventBus,
         sessionManager,
         commandQueue,
@@ -847,7 +856,7 @@ describe('SyncManager', () => {
         fetchSeedRecords,
       }
 
-      const syncManager = new SyncManager<ServiceLink, unknown, IAnticipatedEvent>(
+      const syncManager = new SyncManager<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>(
         eventBus,
         sessionManager,
         commandQueue,
@@ -903,7 +912,7 @@ describe('SyncManager', () => {
         } satisfies SeedRecordPage),
       }
 
-      const syncManager = new SyncManager<ServiceLink, unknown, IAnticipatedEvent>(
+      const syncManager = new SyncManager<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>(
         eventBus,
         sessionManager,
         commandQueue,
@@ -1235,10 +1244,10 @@ function createTestWriteQueue(eventBus: EventBus<ServiceLink>): WriteQueue<Servi
   return writeQueue
 }
 
-function createSessionManager(): SessionManager<ServiceLink> {
+function createSessionManager(): SessionManager<ServiceLink, EnqueueCommand> {
   return {
     isNetworkPaused: () => true,
     signalAuthenticated: vi.fn().mockResolvedValue({ resumed: false }),
     signalLoggedOut: vi.fn().mockResolvedValue(undefined),
-  } as unknown as SessionManager<ServiceLink>
+  } as unknown as SessionManager<ServiceLink, EnqueueCommand>
 }

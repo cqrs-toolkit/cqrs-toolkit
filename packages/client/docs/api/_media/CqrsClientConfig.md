@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / CqrsClientConfig
 
-# Interface: CqrsClientConfig\<TLink, TSchema, TEvent\>
+# Interface: CqrsClientConfig\<TLink, TCommand, TSchema, TEvent\>
 
 Main-thread CQRS Client configuration.
 
@@ -13,13 +13,17 @@ mode selection and worker script URL.
 
 ## Extends
 
-- [`CqrsConfig`](CqrsConfig.md)\<`TLink`, `TSchema`, `TEvent`\>
+- [`CqrsConfig`](CqrsConfig.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 ## Type Parameters
 
 ### TLink
 
 `TLink` _extends_ `Link`
+
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md)
 
 ### TSchema
 
@@ -71,7 +75,7 @@ Collection configurations.
 
 ### commandHandlers?
 
-> `optional` **commandHandlers**: [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`TLink`, `TSchema`, `TEvent`\>[]
+> `optional` **commandHandlers**: [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>[]
 
 Command handler registrations for local validation and optimistic updates.
 Each handler validates command data and produces anticipated events.
@@ -85,7 +89,7 @@ If not provided, commands are sent directly without local validation.
 
 ### commandSender?
 
-> `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)\<`TLink`\>
+> `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)\<`TLink`, `TCommand`\>
 
 Command sender for submitting commands to the server.
 If not provided, commands are queued but not sent.

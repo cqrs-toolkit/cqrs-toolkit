@@ -6,6 +6,7 @@ import {
   type ExecutionModeConfig,
 } from '@cqrs-toolkit/client'
 import { ServiceLink } from '@meticoeus/ddd-es'
+import { AppCommand } from '../.cqrs/commands.js'
 import DedicatedWorkerUrl from '../workers/dedicated-worker?worker&url'
 import SharedWorkerUrl from '../workers/shared-worker?worker&url'
 import SqliteWorkerUrl from '../workers/sqlite-worker?worker&url'
@@ -103,7 +104,7 @@ function workerUrlForMode(mode: ExecutionMode): string | undefined {
 // Client initialization
 // ---------------------------------------------------------------------------
 
-export async function initializeClient(): Promise<CqrsClient<ServiceLink>> {
+export async function initializeClient(): Promise<CqrsClient<ServiceLink, AppCommand>> {
   const requestedMode = options.mode
 
   // For 'auto', detectMode() picks the worker URL; for explicit modes, use as-is.

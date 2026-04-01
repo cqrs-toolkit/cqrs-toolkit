@@ -20,6 +20,7 @@ import {
   switchMap,
   takeUntil,
 } from 'rxjs'
+import { EnqueueCommand } from '../../types/index.js'
 import type { CacheKeyIdentity } from '../cache-manager/CacheKey.js'
 import type { CacheManager } from '../cache-manager/CacheManager.js'
 import type { EventBus } from '../events/EventBus.js'
@@ -37,10 +38,10 @@ import type {
 /**
  * Query manager configuration.
  */
-export interface QueryManagerConfig<TLink extends Link> {
+export interface QueryManagerConfig<TLink extends Link, TCommand extends EnqueueCommand> {
   eventBus: EventBus<TLink>
-  cacheManager: CacheManager<TLink>
-  readModelStore: ReadModelStore<TLink>
+  cacheManager: CacheManager<TLink, TCommand>
+  readModelStore: ReadModelStore<TLink, TCommand>
 }
 
 // Re-export types for backwards compatibility
@@ -49,15 +50,18 @@ export type { ListQueryResult, QueryOptions, QueryResult } from './types.js'
 /**
  * Query manager.
  */
-export class QueryManager<TLink extends Link> implements IQueryManager<TLink> {
+export class QueryManager<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+> implements IQueryManager<TLink> {
   private readonly eventBus: EventBus<TLink>
-  private readonly cacheManager: CacheManager<TLink>
-  private readonly readModelStore: ReadModelStore<TLink>
+  private readonly cacheManager: CacheManager<TLink, TCommand>
+  private readonly readModelStore: ReadModelStore<TLink, TCommand>
 
   private readonly destroy$ = new Subject<void>()
   private readonly activeHolds = new Map<string, number>()
 
-  constructor(config: QueryManagerConfig<TLink>) {
+  constructor(config: QueryManagerConfig<TLink, TCommand>) {
     this.eventBus = config.eventBus
     this.cacheManager = config.cacheManager
     this.readModelStore = config.readModelStore

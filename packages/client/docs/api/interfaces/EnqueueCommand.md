@@ -32,6 +32,14 @@ Commands this depends on (optional)
 
 ---
 
+### files?
+
+> `optional` **files**: `File`[]
+
+File attachments for upload commands. Provide File objects (from input elements or `new File()`).
+
+---
+
 ### path?
 
 > `optional` **path**: `unknown`

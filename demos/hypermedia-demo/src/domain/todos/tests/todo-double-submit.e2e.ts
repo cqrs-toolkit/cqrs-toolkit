@@ -26,7 +26,7 @@ test('toggling a todo produces exactly one status command', async ({ page, mode 
   const types = await page
     .locator('.command-item.command-succeeded .command-type')
     .allTextContents()
-  expect(types.sort()).toEqual(['ChangeTodoStatus', 'CreateTodo'])
+  expect(types.sort()).toEqual(['nb.ChangeTodoStatus', 'nb.CreateTodo'])
 })
 
 test('deleting a todo produces exactly one delete command', async ({ page, mode }) => {
@@ -47,7 +47,7 @@ test('deleting a todo produces exactly one delete command', async ({ page, mode 
   const types = await page
     .locator('.command-item.command-succeeded .command-type')
     .allTextContents()
-  expect(types.sort()).toEqual(['CreateTodo', 'DeleteTodo'])
+  expect(types.sort()).toEqual(['nb.CreateTodo', 'nb.DeleteTodo'])
 })
 
 test('editing a todo via Enter does not double-submit the update command', async ({
@@ -74,7 +74,7 @@ test('editing a todo via Enter does not double-submit the update command', async
   const types = await page
     .locator('.command-item.command-succeeded .command-type')
     .allTextContents()
-  expect(types.sort()).toEqual(['CreateTodo', 'UpdateTodoContent'])
+  expect(types.sort()).toEqual(['nb.CreateTodo', 'nb.UpdateTodoContent'])
 })
 
 test('editing a todo via ArrowDown does not double-submit', async ({ page, mode }) => {
@@ -98,7 +98,7 @@ test('editing a todo via ArrowDown does not double-submit', async ({ page, mode 
   const types = await page
     .locator('.command-item.command-succeeded .command-type')
     .allTextContents()
-  expect(types.sort()).toEqual(['CreateTodo', 'UpdateTodoContent'])
+  expect(types.sort()).toEqual(['nb.CreateTodo', 'nb.UpdateTodoContent'])
 })
 
 test('editing a todo via blur does not produce extra commands', async ({ page, mode }) => {
@@ -122,5 +122,5 @@ test('editing a todo via blur does not produce extra commands', async ({ page, m
   const types = await page
     .locator('.command-item.command-succeeded .command-type')
     .allTextContents()
-  expect(types.sort()).toEqual(['CreateTodo', 'UpdateTodoContent'])
+  expect(types.sort()).toEqual(['nb.CreateTodo', 'nb.UpdateTodoContent'])
 })

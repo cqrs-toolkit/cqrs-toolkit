@@ -72,6 +72,32 @@ export class FileObjectRepository extends Repository<FileObjectServerEvent, File
     return Array.from(this.readModels.values()).filter((f) => f.noteId === noteId)
   }
 
+  findByNotebookId(notebookId: string): FileObject[] {
+    return Array.from(this.readModels.values()).filter((f) => f.notebookId === notebookId)
+  }
+
+  listByNotebook(
+    notebookId: string,
+    cursor?: string,
+    limit = 50,
+  ): { items: FileObject[]; nextCursor: string | null } {
+    const filtered = this.findByNotebookId(notebookId)
+    const sorted = filtered.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+
+    let startIndex = 0
+    if (cursor) {
+      startIndex = sorted.findIndex((f) => f.id === cursor)
+      if (startIndex === -1) startIndex = 0
+      else startIndex += 1
+    }
+
+    const items = sorted.slice(startIndex, startIndex + limit)
+    const hasMore = startIndex + limit < sorted.length
+    const nextCursor = hasMore ? (items[items.length - 1]?.id ?? null) : null
+
+    return { items, nextCursor }
+  }
+
   listByNote(
     noteId: string,
     cursor?: string,

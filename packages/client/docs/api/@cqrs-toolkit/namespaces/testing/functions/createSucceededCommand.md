@@ -6,7 +6,7 @@
 
 # Function: createSucceededCommand()
 
-> **createSucceededCommand**\<`TLink`, `TData`, `TResponse`\>(`response`, `overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TLink`, `TData`, `TResponse`\>
+> **createSucceededCommand**\<`TLink`, `TCommand`, `TResponse`\>(`response`, `overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `TResponse`\>
 
 Create a succeeded command.
 
@@ -16,9 +16,9 @@ Create a succeeded command.
 
 `TLink` _extends_ `Link`\<`string`, `string`\>
 
-### TData
+### TCommand
 
-`TData` = `unknown`
+`TCommand` _extends_ [`EnqueueCommand`](../../../../interfaces/EnqueueCommand.md)\<`unknown`\>
 
 ### TResponse
 
@@ -32,8 +32,8 @@ Create a succeeded command.
 
 ### overrides?
 
-`Partial`\<[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TLink`, `TData`, `TResponse`\>\> = `{}`
+`Partial`\<[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `TResponse`\>\> = `{}`
 
 ## Returns
 
-[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TLink`, `TData`, `TResponse`\>
+[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `TResponse`\>

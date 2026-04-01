@@ -1,4 +1,5 @@
 import { SaveIcon, TrashIcon } from '#common/components'
+import { NOTEBOOKS_COLLECTION_NAME } from '#notebooks/domain'
 import type { Notebook } from '#notebooks/shared'
 import type { AutoRevision, SubmitResult } from '@cqrs-toolkit/client'
 import { useClient } from '@cqrs-toolkit/client-solid'
@@ -49,7 +50,10 @@ export function NotebookList(props: NotebookListProps) {
     const result = await props.onSubmitCreate({ name })
 
     if (result.ok) {
-      const [notebookId] = await client.getCommandEntities(result.value.commandId, 'notebooks')
+      const [notebookId] = await client.getCommandEntities(
+        result.value.commandId,
+        NOTEBOOKS_COLLECTION_NAME,
+      )
       setPlaceholderName(undefined)
       if (notebookId) {
         props.onSelect(notebookId)

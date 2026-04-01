@@ -7,7 +7,7 @@
  * All type imports from @cqrs-toolkit/client are `import type` — erased at compile.
  */
 
-import type { CommandRecord, CommandStatus } from '@cqrs-toolkit/client'
+import type { CommandRecord, CommandStatus, EnqueueCommand } from '@cqrs-toolkit/client'
 import type { ServiceLink } from '@meticoeus/ddd-es'
 import type {
   MSG_ACTION,
@@ -171,7 +171,7 @@ export interface SanitizedEvent {
  * Serialized command record — mirrors CommandRecord but with all values
  * safe for structured clone / JSON transfer.
  */
-export type SerializedCommandRecord = CommandRecord<ServiceLink>
+export type SerializedCommandRecord = CommandRecord<ServiceLink, EnqueueCommand>
 
 /**
  * Subset of CommandStatus values used for filter chips.

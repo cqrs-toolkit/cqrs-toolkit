@@ -1,5 +1,5 @@
 import { type Link, logProvider, type Result } from '@meticoeus/ddd-es'
-import type { TerminalCommandStatus } from '../../types/commands.js'
+import { EnqueueCommand, TerminalCommandStatus } from '../../types/commands.js'
 import type { Collection } from '../../types/config.js'
 import { noop } from '../../utils/index.js'
 import type { IAnticipatedEventHandler } from '../command-queue/CommandQueue.js'
@@ -20,14 +20,17 @@ import { type IAnticipatedEvent, isAnticipatedEventShape } from './AnticipatedEv
  * Tracks which entities were updated by each command's anticipated events. On failure
  * or cancellation, reverts those read models to their server baseline.
  */
-export class AnticipatedEventHandler<TLink extends Link> implements IAnticipatedEventHandler {
+export class AnticipatedEventHandler<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+> implements IAnticipatedEventHandler {
   /** commandId → ["collection:id", ...] tracking which entities were optimistically updated. */
   private anticipatedUpdates = new Map<string, string[]>()
 
   constructor(
-    private readonly eventCache: EventCache<TLink>,
-    private readonly eventProcessorRunner: EventProcessorRunner<TLink>,
-    private readonly readModelStore: ReadModelStore<TLink>,
+    private readonly eventCache: EventCache<TLink, TCommand>,
+    private readonly eventProcessorRunner: EventProcessorRunner<TLink, TCommand>,
+    private readonly readModelStore: ReadModelStore<TLink, TCommand>,
     private readonly collections: Collection<TLink>[],
     private readonly writeQueue: IWriteQueue<TLink>,
   ) {

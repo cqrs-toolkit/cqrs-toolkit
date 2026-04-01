@@ -1,4 +1,6 @@
 import { appCreateItemQuery, SaveIcon, TrashIcon } from '#common/components'
+import { AttachmentList } from '#file-objects/components'
+import { NOTES_COLLECTION_NAME } from '#notes/domain'
 import type { Note } from '#notes/shared'
 import type { AutoRevision, SubmitResult } from '@cqrs-toolkit/client'
 import { deriveEntityKey } from '@cqrs-toolkit/client'
@@ -25,6 +27,11 @@ interface NoteEditorProps {
     revision: AutoRevision
   }) => Promise<SubmitResult<unknown>>
   onSubmitDelete: (params: { id: string; revision: AutoRevision }) => Promise<SubmitResult<unknown>>
+  onSubmitUploadFile?: (params: { noteId: string; file: File }) => Promise<SubmitResult<unknown>>
+  onSubmitDeleteFile?: (params: {
+    id: string
+    revision: AutoRevision
+  }) => Promise<SubmitResult<unknown>>
   onError: (message: string | undefined) => void
   onIdChanged: (previousId: string, newId: string) => void
   onDeleted: () => void
@@ -37,7 +44,7 @@ export function NoteEditor(props: NoteEditorProps) {
   const client = useClient<ServiceLink>()
   const query = appCreateItemQuery<Note>(
     client.queryManager,
-    'notes',
+    NOTES_COLLECTION_NAME,
     () => props.noteId,
     deriveEntityKey({ service: 'nb', type: 'Notebook', id: props.notebookId }),
   )
@@ -45,6 +52,7 @@ export function NoteEditor(props: NoteEditorProps) {
   const [title, setTitle] = createSignal('')
   const [body, setBody] = createSignal('')
   const [saveState, setSaveState] = createSignal<SaveState>('idle')
+  const [dragOver, setDragOver] = createSignal(false)
 
   function isCreateMode(): boolean {
     return props.noteId === 'placeholder'
@@ -94,7 +102,10 @@ export function NoteEditor(props: NoteEditorProps) {
         body: body(),
       })
       if (result.ok) {
-        const [noteId] = await client.getCommandEntities(result.value.commandId, 'notes')
+        const [noteId] = await client.getCommandEntities(
+          result.value.commandId,
+          NOTES_COLLECTION_NAME,
+        )
         if (noteId) {
           props.onIdChanged('placeholder', noteId)
         }
@@ -179,10 +190,38 @@ export function NoteEditor(props: NoteEditorProps) {
     return false
   }
 
+  function handleDragOver(e: DragEvent) {
+    if (isCreateMode() || !props.onSubmitUploadFile) return
+    e.preventDefault()
+    setDragOver(true)
+  }
+
+  function handleDragLeave() {
+    setDragOver(false)
+  }
+
+  function handleDrop(e: DragEvent) {
+    e.preventDefault()
+    setDragOver(false)
+    if (isCreateMode() || !query.data || !props.onSubmitUploadFile) return
+
+    const files = e.dataTransfer?.files
+    if (!files) return
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      if (file) {
+        props.onSubmitUploadFile({ noteId: query.data.id, file })
+      }
+    }
+  }
+
   return (
     <div
-      class={`note-editor flex flex-col h-full editor-${saveState()}${isCreateMode() ? ' editor-create' : query.loading ? ' editor-loading' : query.data ? ' editor-ready' : ' editor-not-found'}`}
+      class={`note-editor flex flex-col h-full editor-${saveState()}${isCreateMode() ? ' editor-create' : query.loading ? ' editor-loading' : query.data ? ' editor-ready' : ' editor-not-found'}${dragOver() ? ' drag-over' : ''}`}
       data-note-id={query.data?.id}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       <div class="flex items-center gap-2 p-2 border-b border-neutral-200 dark:border-neutral-700">
         <input
@@ -218,6 +257,17 @@ export function NoteEditor(props: NoteEditorProps) {
         placeholder="Note body"
         disabled={isDisabled()}
       />
+
+      <Show
+        when={!isCreateMode() && query.data && props.onSubmitUploadFile && props.onSubmitDeleteFile}
+      >
+        <AttachmentList
+          noteId={props.noteId}
+          notebookId={props.notebookId}
+          onSubmitUpload={props.onSubmitUploadFile!}
+          onSubmitDelete={props.onSubmitDeleteFile!}
+        />
+      </Show>
 
       <Show when={saveState() === 'saving'}>
         <div class="text-xs text-neutral-400 px-2 py-1">Saving...</div>

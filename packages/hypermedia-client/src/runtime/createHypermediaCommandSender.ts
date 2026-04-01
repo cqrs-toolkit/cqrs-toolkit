@@ -5,9 +5,13 @@
  * formats the wire body, and sends the HTTP request.
  */
 
-import type { CommandRecord, ICommandSender } from '@cqrs-toolkit/client'
-import { CommandSendError } from '@cqrs-toolkit/client'
-import type { Link } from '@meticoeus/ddd-es'
+import {
+  CommandSendException,
+  EnqueueCommand,
+  ICommandSender,
+  type CommandRecord,
+} from '@cqrs-toolkit/client'
+import { Err, Ok, type Link, type Result } from '@meticoeus/ddd-es'
 import type { CommandManifest, CommandRouting, HypermediaCommandSenderOptions } from './types.js'
 
 /**
@@ -18,25 +22,29 @@ import type { CommandManifest, CommandRouting, HypermediaCommandSenderOptions } 
  * const sender = createHypermediaCommandSender(manifest, { baseUrl: 'http://localhost:3000' })
  * ```
  */
-export function createHypermediaCommandSender<TLink extends Link>(
+export function createHypermediaCommandSender<TLink extends Link, TCommand extends EnqueueCommand>(
   manifest: CommandManifest,
-  options: HypermediaCommandSenderOptions,
-): ICommandSender<TLink> {
+  options: HypermediaCommandSenderOptions<TLink, TCommand>,
+): ICommandSender<TLink, TCommand> {
   const doFetch = options.fetch ?? globalThis.fetch
 
-  const sender: ICommandSender<TLink> = {
+  const sender: ICommandSender<TLink, TCommand> = {
     async send(command) {
       const routing = manifest.commands[command.type]
       if (!routing) {
-        throw new CommandSendError(
-          `No routing found for command type '${command.type}'`,
-          'UNKNOWN_COMMAND',
-          false,
+        return Err(
+          new CommandSendException(
+            `No routing found for command type '${command.type}'`,
+            'UNKNOWN_COMMAND',
+            false,
+          ),
         )
       }
 
-      const url = expandTemplate(options.baseUrl, routing, command.path)
-      const body = formatBody(routing, command)
+      const urlResult = expandTemplate(options.baseUrl, routing, command.path)
+      if (!urlResult.ok) return urlResult
+
+      const requestBody = formatBody(routing, command)
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         Accept: 'application/json',
@@ -45,25 +53,45 @@ export function createHypermediaCommandSender<TLink extends Link>(
         'x-request-id': crypto.randomUUID(),
       }
 
-      const res = await doFetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-        credentials: 'include',
-      })
+      let res: Response
+      try {
+        res = await doFetch(urlResult.value, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(requestBody),
+          credentials: 'include',
+        })
+      } catch (err) {
+        return Err(
+          new CommandSendException(
+            `Network error: ${err instanceof Error ? err.message : String(err)}`,
+            'NETWORK',
+            true,
+          ),
+        )
+      }
 
       if (!res.ok) {
         const isRetryable = res.status >= 500 || res.status === 429
         const details = await safeParseJson(res)
-        throw new CommandSendError(
-          `Command ${command.type} failed: ${res.status}`,
-          String(res.status),
-          isRetryable,
-          details,
+        return Err(
+          new CommandSendException(
+            `Command ${command.type} failed: ${res.status}`,
+            String(res.status),
+            isRetryable,
+            details,
+          ),
         )
       }
 
-      return res.json()
+      const responseBody = await res.json()
+
+      const afterSend = options.afterSend?.[command.type]
+      if (afterSend) {
+        return afterSend(command, responseBody, res)
+      }
+
+      return Ok(responseBody)
     },
   }
   return sender
@@ -76,23 +104,29 @@ export function createHypermediaCommandSender<TLink extends Link>(
 /**
  * Expand a URI template using path values for variable substitution.
  */
-function expandTemplate(baseUrl: string, routing: CommandRouting, path: unknown): string {
+function expandTemplate(
+  baseUrl: string,
+  routing: CommandRouting,
+  path: unknown,
+): Result<string, CommandSendException> {
   let result = routing.template
   const record = (path ?? {}) as Record<string, unknown>
   for (const mapping of routing.mappings) {
     const value = record[mapping.variable]
     if (value === undefined && mapping.required) {
-      throw new CommandSendError(
-        `Missing required path variable '${mapping.variable}' for command template '${routing.template}'`,
-        'MISSING_TEMPLATE_VAR',
-        false,
+      return Err(
+        new CommandSendException(
+          `Missing required path variable '${mapping.variable}' for command template '${routing.template}'`,
+          'MISSING_TEMPLATE_VAR',
+          false,
+        ),
       )
     }
     if (value !== undefined) {
       result = result.replace(`{${mapping.variable}}`, String(value))
     }
   }
-  return `${baseUrl}${result}`
+  return Ok(`${baseUrl}${result}`)
 }
 
 /**
@@ -101,9 +135,9 @@ function expandTemplate(baseUrl: string, routing: CommandRouting, path: unknown)
  * - `create`: body is `command.data` directly
  * - `command` / other: body is an envelope `{ type, data, revision }`
  */
-function formatBody<TLink extends Link, TData>(
+function formatBody<TLink extends Link, TCommand extends EnqueueCommand>(
   routing: CommandRouting,
-  command: CommandRecord<TLink, TData>,
+  command: CommandRecord<TLink, TCommand>,
 ): unknown {
   if (routing.dispatch === 'create') {
     return command.data

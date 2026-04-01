@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / QueryManager
 
-# Class: QueryManager\<TLink\>
+# Class: QueryManager\<TLink, TCommand\>
 
 Query manager.
 
@@ -14,6 +14,10 @@ Query manager.
 
 `TLink` _extends_ `Link`
 
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md)
+
 ## Implements
 
 - [`IQueryManager`](../interfaces/IQueryManager.md)\<`TLink`\>
@@ -22,17 +26,17 @@ Query manager.
 
 ### Constructor
 
-> **new QueryManager**\<`TLink`\>(`config`): `QueryManager`\<`TLink`\>
+> **new QueryManager**\<`TLink`, `TCommand`\>(`config`): `QueryManager`\<`TLink`, `TCommand`\>
 
 #### Parameters
 
 ##### config
 
-[`QueryManagerConfig`](../interfaces/QueryManagerConfig.md)\<`TLink`\>
+[`QueryManagerConfig`](../interfaces/QueryManagerConfig.md)\<`TLink`, `TCommand`\>
 
 #### Returns
 
-`QueryManager`\<`TLink`\>
+`QueryManager`\<`TLink`, `TCommand`\>
 
 ## Methods
 

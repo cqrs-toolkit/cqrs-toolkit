@@ -4,12 +4,15 @@
 
 import {
   createEntityId,
-  deriveScopeKey,
   domainSuccess,
   type AsyncValidationContext,
   type HandlerContext,
   type ValidationError,
 } from '@cqrs-toolkit/client'
+import {
+  NOTEBOOK_SEED_KEY,
+  NOTEBOOKS_COLLECTION_NAME,
+} from '@cqrs-toolkit/demo-base/notebooks/domain'
 import type { Notebook } from '@cqrs-toolkit/demo-base/notebooks/shared'
 import { Err, Ok, ServiceLink, ValidationException, type Result } from '@meticoeus/ddd-es'
 import type { AppCommandHandlerRegistration } from '../utils/executors.js'
@@ -20,8 +23,8 @@ async function checkNameUniqueness(
   { queryManager }: AsyncValidationContext<ServiceLink>,
 ): Promise<Result<unknown, ValidationException<ValidationError[]>>> {
   const result = await queryManager.list<Notebook>({
-    collection: 'notebooks',
-    cacheKey: deriveScopeKey({ scopeType: 'notebooks' }),
+    collection: NOTEBOOKS_COLLECTION_NAME,
+    cacheKey: NOTEBOOK_SEED_KEY,
   })
   const duplicate = result.data.find(
     (n) => n.name === name && (excludeId === undefined || n.id !== excludeId),
@@ -38,7 +41,7 @@ async function checkNameUniqueness(
 
 export const notebookHandlers: AppCommandHandlerRegistration[] = [
   {
-    commandType: 'CreateNotebook',
+    commandType: 'nb.CreateNotebook',
     creates: { eventType: 'NotebookCreated', idStrategy: 'temporary' },
     async validateAsync(data: { name: string }, context: AsyncValidationContext<ServiceLink>) {
       const check = await checkNameUniqueness(data.name, undefined, context)
@@ -58,7 +61,7 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
     },
   },
   {
-    commandType: 'UpdateNotebookName',
+    commandType: 'nb.UpdateNotebookName',
     async validateAsync(data: { name: string }, context: AsyncValidationContext<ServiceLink>) {
       const { id } = context.path as { id: string }
       const check = await checkNameUniqueness(data.name, id, context)
@@ -69,7 +72,7 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
       const { id } = context.path as { id: string }
       return domainSuccess([
         {
-          type: 'NotebookNameUpdated',
+          type: 'nb.NotebookNameUpdated',
           data: { id, name: data.name, updatedAt: new Date().toISOString() },
           streamId: `Notebook-${id}`,
         },
@@ -77,14 +80,14 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
     },
   },
   {
-    commandType: 'DeleteNotebook',
+    commandType: 'nb.DeleteNotebook',
     handler(_data: unknown, context: HandlerContext) {
       const { id } = context.path as { id: string }
       return domainSuccess([{ type: 'NotebookDeleted', data: { id }, streamId: `Notebook-${id}` }])
     },
   },
   {
-    commandType: 'AddNotebookTag',
+    commandType: 'nb.AddNotebookTag',
     handler(data: { tag: string }, context: HandlerContext) {
       const { id } = context.path as { id: string }
       return domainSuccess([
@@ -97,7 +100,7 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
     },
   },
   {
-    commandType: 'RemoveNotebookTag',
+    commandType: 'nb.RemoveNotebookTag',
     handler(data: { tag: string }, context: HandlerContext) {
       const { id } = context.path as { id: string }
       return domainSuccess([

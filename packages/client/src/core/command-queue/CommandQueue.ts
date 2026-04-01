@@ -49,8 +49,8 @@ import type { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventSha
 import type { ParsedEvent } from '../event-processor/EventProcessorRunner.js'
 import type { EventBus } from '../events/EventBus.js'
 import { WriteQueueException } from '../write-queue/IWriteQueue.js'
+import type { ICommandFileStore } from './file-store/ICommandFileStore.js'
 import type { ICommandQueue, ICommandSender } from './types.js'
-import { CommandSendError } from './types.js'
 
 /**
  * Handler for anticipated event lifecycle.
@@ -90,21 +90,28 @@ export interface IAnticipatedEventHandler {
 /**
  * Command queue configuration.
  */
-export interface CommandQueueConfig<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent> {
-  storage: IStorage<TLink>
+export interface CommandQueueConfig<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+> {
+  storage: IStorage<TLink, TCommand>
   eventBus: EventBus<TLink>
   anticipatedEventHandler: IAnticipatedEventHandler
   domainExecutor?: IDomainExecutor
   /** Metadata lookup for command handler registrations (creates config). */
-  handlerMetadata?: ICommandHandlerMetadata<TLink, TSchema, TEvent>
-  commandSender?: ICommandSender<TLink>
+  handlerMetadata?: ICommandHandlerMetadata<TLink, TCommand, TSchema, TEvent>
+  commandSender?: ICommandSender<TLink, TCommand>
   retryConfig?: RetryConfig
   defaultService?: string
-  onCommandResponse?: (command: CommandRecord<TLink>, response: unknown) => Promise<void>
+  onCommandResponse?: (command: CommandRecord<TLink, TCommand>, response: unknown) => Promise<void>
   /** When true, terminal commands are retained in storage instead of being cleaned up. */
   retainTerminal?: boolean
   /** TTL for command ID mappings in milliseconds. Default: 5 minutes. */
   commandIdMappingTtl?: number
+  /** File store for commands with file attachments. */
+  fileStore?: ICommandFileStore
 }
 
 /**
@@ -143,23 +150,25 @@ interface AggregateChain {
 
 export class CommandQueue<
   TLink extends Link,
+  TCommand extends EnqueueCommand,
   TSchema,
   TEvent extends IAnticipatedEvent,
-> implements ICommandQueue<TLink> {
-  private readonly storage: IStorage<TLink>
+> implements ICommandQueue<TLink, TCommand> {
+  private readonly storage: IStorage<TLink, TCommand>
   private readonly eventBus: EventBus<TLink>
   private readonly anticipatedEventHandler: IAnticipatedEventHandler
   private readonly domainExecutor?: IDomainExecutor
-  private readonly handlerMetadata?: ICommandHandlerMetadata<TLink, TSchema, TEvent>
-  private readonly commandSender?: ICommandSender<TLink>
+  private readonly handlerMetadata?: ICommandHandlerMetadata<TLink, TCommand, TSchema, TEvent>
+  private readonly commandSender?: ICommandSender<TLink, TCommand>
   private readonly retryConfig: RetryConfig
   private readonly defaultService: string
   private readonly onCommandResponse?: (
-    command: CommandRecord<TLink>,
+    command: CommandRecord<TLink, TCommand>,
     response: unknown,
   ) => Promise<void>
   private readonly retainTerminal: boolean
   private readonly commandIdMappingTtl: number
+  private readonly fileStore?: ICommandFileStore
 
   protected readonly commandEvents = new Subject<CommandEvent>()
   private readonly destroy$ = new Subject<void>()
@@ -179,7 +188,7 @@ export class CommandQueue<
 
   readonly events$: Observable<CommandEvent>
 
-  constructor(config: CommandQueueConfig<TLink, TSchema, TEvent>) {
+  constructor(config: CommandQueueConfig<TLink, TCommand, TSchema, TEvent>) {
     this.storage = config.storage
     this.eventBus = config.eventBus
     this.anticipatedEventHandler = config.anticipatedEventHandler
@@ -191,6 +200,7 @@ export class CommandQueue<
     this.onCommandResponse = config.onCommandResponse
     this.retainTerminal = config.retainTerminal ?? false
     this.commandIdMappingTtl = config.commandIdMappingTtl ?? DEFAULT_COMMAND_ID_MAPPING_TTL
+    this.fileStore = config.fileStore
 
     this.events$ = this.commandEvents.asObservable().pipe(share(), takeUntil(this.destroy$))
   }
@@ -212,7 +222,7 @@ export class CommandQueue<
 
     // Run domain validation if executor is available and not skipped
     let anticipatedEvents: TEvent[] = []
-    let postProcess: CommandRecord<TLink>['postProcess']
+    let postProcess: CommandRecord<TLink, TCommand>['postProcess']
 
     if (this.domainExecutor && !skipValidation) {
       // Trust boundary: the consumer-provided domainExecutor is expected to produce
@@ -256,8 +266,26 @@ export class CommandQueue<
     // Determine initial status based on unresolved dependencies
     const initialStatus: CommandStatus = blockedBy.length > 0 ? 'blocked' : 'pending'
 
+    // Store attached files and build fileRefs metadata.
+    // In worker modes, the proxy writes files to OPFS and passes pre-built fileRefs.
+    // In online-only mode, files arrive directly and are stored here.
+    let fileRefs: CommandRecord<TLink, TCommand>['fileRefs'] = params.fileRefs
+    if (!fileRefs && command.files && command.files.length > 0 && this.fileStore) {
+      fileRefs = []
+      for (const file of command.files) {
+        const fileId = generateId()
+        await this.fileStore.save(commandId, fileId, file)
+        fileRefs.push({
+          id: fileId,
+          filename: file.name,
+          mimeType: file.type,
+          sizeBytes: file.size,
+        })
+      }
+    }
+
     // Create command record
-    const record: CommandRecord<TLink, TData> = {
+    const record: CommandRecord<TLink, TCommand> = {
       commandId,
       cacheKey,
       service: command.service ?? this.defaultService,
@@ -271,6 +299,7 @@ export class CommandQueue<
       postProcess,
       creates: registration?.creates,
       revision: patchedCommand.revision,
+      fileRefs,
       createdAt: now,
       updatedAt: now,
     }
@@ -398,11 +427,11 @@ export class CommandQueue<
     return this.events$.pipe(filter((event) => event.commandId === commandId))
   }
 
-  async getCommand(commandId: string): Promise<CommandRecord<TLink> | undefined> {
+  async getCommand(commandId: string): Promise<CommandRecord<TLink, TCommand> | undefined> {
     return this.storage.getCommand(commandId)
   }
 
-  async listCommands(filter?: CommandFilter): Promise<CommandRecord<TLink>[]> {
+  async listCommands(filter?: CommandFilter): Promise<CommandRecord<TLink, TCommand>[]> {
     return this.storage.getCommands(filter)
   }
 
@@ -484,7 +513,7 @@ export class CommandQueue<
     }
   }
 
-  private async processCommand(command: CommandRecord<TLink>): Promise<void> {
+  private async processCommand(command: CommandRecord<TLink, TCommand>): Promise<void> {
     if (!this.commandSender) {
       return
     }
@@ -521,8 +550,17 @@ export class CommandQueue<
     // Resolve AUTO_REVISION before sending — the server must never see the marker.
     const sendCommand = this.resolveAutoRevisionForSend(updatedCommand)
 
-    try {
-      const response = await this.commandSender.send(sendCommand)
+    // Hydrate file data from file store before sending
+    if (sendCommand.fileRefs && this.fileStore) {
+      for (const ref of sendCommand.fileRefs) {
+        ref.data = await this.fileStore.read(sendCommand.commandId, ref.id)
+      }
+    }
+
+    const result = await this.commandSender.send(sendCommand)
+
+    if (result.ok) {
+      const response = result.value
 
       this.eventBus.emitDebug('command:response', {
         commandId: current.commandId,
@@ -568,12 +606,17 @@ export class CommandQueue<
         type: current.type,
         cacheKey: current.cacheKey,
       })
-    } catch (error) {
-      const commandError = this.toCommandError(error)
+    } else {
+      const exception = result.error
+      const commandError: CommandError = {
+        source: 'server',
+        message: exception.message,
+        code: exception.errorCode,
+        details: exception.details,
+      }
 
-      // Check if we should retry
-      const isRetryable = error instanceof CommandSendError ? error.isRetryable : true
-      const canRetry = isRetryable && shouldRetry(updatedCommand.attempts, this.retryConfig)
+      const canRetry =
+        exception.isRetryable && shouldRetry(updatedCommand.attempts, this.retryConfig)
 
       if (canRetry) {
         // Back to pending for retry
@@ -609,7 +652,9 @@ export class CommandQueue<
     }
   }
 
-  private async unblockDependentCommands(parentCommand: CommandRecord<TLink>): Promise<void> {
+  private async unblockDependentCommands(
+    parentCommand: CommandRecord<TLink, TCommand>,
+  ): Promise<void> {
     const blockedCommands = await this.storage.getCommandsBlockedBy(parentCommand.commandId)
     if (blockedCommands.length === 0) return
 
@@ -720,7 +765,7 @@ export class CommandQueue<
    * create commands with temporary IDs.
    */
   private async reconcileCreateIds(
-    command: CommandRecord<TLink>,
+    command: CommandRecord<TLink, TCommand>,
   ): Promise<Record<string, IdMapEntry>> {
     const map: Record<string, IdMapEntry> = {}
     if (!command.creates || command.creates.idStrategy !== 'temporary') return map
@@ -768,7 +813,7 @@ export class CommandQueue<
    * Extract the revision from a command's server response body.
    * Reads the `nextExpectedRevision` field (globally configured default).
    */
-  private extractRevisionFromResponse(command: CommandRecord<TLink>): string | undefined {
+  private extractRevisionFromResponse(command: CommandRecord<TLink, TCommand>): string | undefined {
     if (!command.serverResponse) return undefined
     return this.readResponseField(command.serverResponse, 'nextExpectedRevision')
   }
@@ -790,7 +835,7 @@ export class CommandQueue<
    * ID replacement is handled by rewriteCommandsWithStaleIds — this only handles revision.
    */
   private async resolveDependentRevision(
-    command: CommandRecord<TLink>,
+    command: CommandRecord<TLink, TCommand>,
     parentRevision: string | undefined,
   ): Promise<void> {
     if (command.revision === undefined || parentRevision === undefined) return
@@ -854,7 +899,7 @@ export class CommandQueue<
     command: EnqueueCommand<TData>,
     registration:
       | {
-          creates?: CommandRecord<TLink>['creates']
+          creates?: CommandRecord<TLink, TCommand>['creates']
           parentRef?: ParentRefConfig[]
         }
       | undefined,
@@ -955,7 +1000,9 @@ export class CommandQueue<
    * Resolve AUTO_REVISION marker in a command's revision before sending to the server.
    * Returns a new command record with the resolved revision (or the original if no resolution needed).
    */
-  private resolveAutoRevisionForSend(command: CommandRecord<TLink>): CommandRecord<TLink> {
+  private resolveAutoRevisionForSend(
+    command: CommandRecord<TLink, TCommand>,
+  ): CommandRecord<TLink, TCommand> {
     if (!isAutoRevision(command.revision)) return command
 
     // Use the fallback revision from the marker (the read model revision the consumer passed)
@@ -975,7 +1022,7 @@ export class CommandQueue<
     commandType: string,
     data: unknown,
     anticipatedEvents: TEvent[],
-    registration: { creates?: CommandRecord<TLink>['creates'] } | undefined,
+    registration: { creates?: CommandRecord<TLink, TCommand>['creates'] } | undefined,
   ): string[] {
     if (!registration) return []
 
@@ -1054,7 +1101,7 @@ export class CommandQueue<
    * For mutate commands, the entity ID comes from data.id.
    */
   private buildUpdatingContext(
-    command: CommandRecord<TLink>,
+    command: CommandRecord<TLink, TCommand>,
     data: Record<string, unknown>,
   ): HandlerContext {
     const entityId = command.creates
@@ -1074,12 +1121,12 @@ export class CommandQueue<
   }
 
   private async updateCommandStatus(
-    command: CommandRecord<TLink>,
+    command: CommandRecord<TLink, TCommand>,
     newStatus: CommandStatus,
-    additionalUpdates?: Partial<CommandRecord<TLink>>,
-  ): Promise<CommandRecord<TLink>> {
+    additionalUpdates?: Partial<CommandRecord<TLink, TCommand>>,
+  ): Promise<CommandRecord<TLink, TCommand>> {
     const previousStatus = command.status
-    const updates: Partial<CommandRecord<TLink>> = {
+    const updates: Partial<CommandRecord<TLink, TCommand>> = {
       status: newStatus,
       updatedAt: Date.now(),
       ...additionalUpdates,
@@ -1087,7 +1134,7 @@ export class CommandQueue<
 
     await this.storage.updateCommand(command.commandId, updates)
 
-    // Clean up anticipated events when command reaches terminal state
+    // Clean up anticipated events and files when command reaches terminal state
     if (isTerminalStatus(newStatus)) {
       try {
         await this.anticipatedEventHandler.cleanup(command.commandId, newStatus)
@@ -1096,6 +1143,16 @@ export class CommandQueue<
           { err, commandId: command.commandId },
           'Failed to clean up anticipated events',
         )
+      }
+      if (this.fileStore && command.fileRefs) {
+        try {
+          await this.fileStore.deleteForCommand(command.commandId)
+        } catch (err) {
+          logProvider.log.error(
+            { err, commandId: command.commandId },
+            'Failed to clean up command files',
+          )
+        }
       }
     }
 
@@ -1121,7 +1178,7 @@ export class CommandQueue<
 
   private emitCommandEvent(
     eventType: CommandEvent['eventType'],
-    command: CommandRecord<TLink>,
+    command: CommandRecord<TLink, TCommand>,
     previousStatus?: CommandStatus,
   ): void {
     const event: CommandEvent = {
@@ -1138,7 +1195,7 @@ export class CommandQueue<
     this.commandEvents.next(event)
   }
 
-  private toCompletionResult(command: CommandRecord<TLink>): CommandCompletionResult {
+  private toCompletionResult(command: CommandRecord<TLink, TCommand>): CommandCompletionResult {
     switch (command.status) {
       case 'succeeded':
         return { status: 'succeeded', response: command.serverResponse }
@@ -1171,29 +1228,6 @@ export class CommandQueue<
     }
   }
 
-  private toCommandError(error: unknown): CommandError {
-    if (error instanceof CommandSendError) {
-      return {
-        source: 'server',
-        message: error.message,
-        code: error.code,
-        details: error.details,
-      }
-    }
-
-    if (error instanceof Error) {
-      return {
-        source: 'local',
-        message: error.message,
-      }
-    }
-
-    return {
-      source: 'local',
-      message: String(error),
-    }
-  }
-
   /**
    * Clear all command state for session destroy.
    * Pauses, clears retry timers, waits for in-flight, clears anticipated event tracking, deletes all commands.
@@ -1201,6 +1235,9 @@ export class CommandQueue<
   async clearAll(): Promise<void> {
     await this.reset()
     await this.anticipatedEventHandler.clearAll()
+    if (this.fileStore) {
+      await this.fileStore.clear()
+    }
     await this.storage.deleteAllCommands()
     await this.storage.deleteAllCommandIdMappings()
     this.aggregateChains.clear()

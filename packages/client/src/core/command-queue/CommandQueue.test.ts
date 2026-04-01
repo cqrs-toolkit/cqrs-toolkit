@@ -2,11 +2,11 @@
  * Unit tests for CommandQueue.
  */
 
-import type { AggregateEventData, ServiceLink } from '@meticoeus/ddd-es'
+import { Err, Ok, type AggregateEventData, type Result, type ServiceLink } from '@meticoeus/ddd-es'
 import { Subject } from 'rxjs'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
-import type { CommandEvent, CommandRecord } from '../../types/commands.js'
+import type { CommandEvent, CommandRecord, EnqueueCommand } from '../../types/commands.js'
 import type { HandlerContext, IDomainExecutor } from '../../types/domain.js'
 import {
   autoRevision,
@@ -21,18 +21,23 @@ import { EventBus } from '../events/EventBus.js'
 import type { IAnticipatedEventHandler } from './CommandQueue.js'
 import { CommandQueue } from './CommandQueue.js'
 import type { ICommandSender } from './types.js'
-import { CommandSendError } from './types.js'
+import { CommandSendException } from './types.js'
 
 const TODOS_CACHE_KEY = deriveScopeKey({ scopeType: 'todos' })
 
-class TestCommandQueue extends CommandQueue<ServiceLink, unknown, IAnticipatedEvent> {
+class TestCommandQueue extends CommandQueue<
+  ServiceLink,
+  EnqueueCommand,
+  unknown,
+  IAnticipatedEvent
+> {
   getCommandEvents(): Subject<CommandEvent> {
     return this.commandEvents
   }
 }
 
 describe('CommandQueue', () => {
-  let storage: InMemoryStorage<ServiceLink>
+  let storage: InMemoryStorage<ServiceLink, EnqueueCommand>
   let eventBus: EventBus<ServiceLink>
   let anticipatedEventHandler: IAnticipatedEventHandler & {
     cache: ReturnType<typeof vi.fn>
@@ -223,7 +228,7 @@ describe('CommandQueue', () => {
 
     it('marks command as pending when all dependencies are resolved', async () => {
       // Create and complete first command
-      const first: CommandRecord<ServiceLink> = {
+      const first: CommandRecord<ServiceLink, EnqueueCommand> = {
         commandId: 'cmd-1',
         cacheKey: TODOS_CACHE_KEY,
         service: 'test',
@@ -255,7 +260,7 @@ describe('CommandQueue', () => {
 
   describe('waitForCompletion', () => {
     it('returns immediately if command is already succeeded', async () => {
-      const command: CommandRecord<ServiceLink> = {
+      const command: CommandRecord<ServiceLink, EnqueueCommand> = {
         commandId: 'cmd-1',
         cacheKey: TODOS_CACHE_KEY,
         service: 'test',
@@ -281,7 +286,7 @@ describe('CommandQueue', () => {
     })
 
     it('returns immediately if command is already failed', async () => {
-      const command: CommandRecord<ServiceLink> = {
+      const command: CommandRecord<ServiceLink, EnqueueCommand> = {
         commandId: 'cmd-1',
         cacheKey: TODOS_CACHE_KEY,
         service: 'test',
@@ -426,7 +431,7 @@ describe('CommandQueue', () => {
     })
 
     it('throws when command is already succeeded', async () => {
-      const command: CommandRecord<ServiceLink> = {
+      const command: CommandRecord<ServiceLink, EnqueueCommand> = {
         commandId: 'cmd-1',
         cacheKey: TODOS_CACHE_KEY,
         service: 'test',
@@ -491,7 +496,7 @@ describe('CommandQueue', () => {
 
   describe('retryCommand', () => {
     it('retries a failed command', async () => {
-      const command: CommandRecord<ServiceLink> = {
+      const command: CommandRecord<ServiceLink, EnqueueCommand> = {
         commandId: 'cmd-1',
         cacheKey: TODOS_CACHE_KEY,
         service: 'test',
@@ -529,11 +534,11 @@ describe('CommandQueue', () => {
   })
 
   describe('command processing', () => {
-    let commandSender: ICommandSender<ServiceLink>
+    let commandSender: ICommandSender<ServiceLink, EnqueueCommand>
 
     beforeEach(() => {
       commandSender = {
-        send: vi.fn().mockResolvedValue({ id: '123' }),
+        send: vi.fn().mockResolvedValue(Ok({ id: '123' })),
       }
       commandQueue = new TestCommandQueue({
         storage,
@@ -576,9 +581,9 @@ describe('CommandQueue', () => {
 
     it('retries failed commands up to maxAttempts', async () => {
       vi.mocked(commandSender.send)
-        .mockRejectedValueOnce(new CommandSendError('Network error', 'NETWORK', true))
-        .mockRejectedValueOnce(new CommandSendError('Network error', 'NETWORK', true))
-        .mockResolvedValueOnce({ id: '123' })
+        .mockResolvedValueOnce(Err(new CommandSendException('Network error', 'NETWORK', true)))
+        .mockResolvedValueOnce(Err(new CommandSendException('Network error', 'NETWORK', true)))
+        .mockResolvedValueOnce(Ok({ id: '123' }))
 
       const result = await commandQueue.enqueue({
         command: { type: 'Test', data: {} },
@@ -598,8 +603,8 @@ describe('CommandQueue', () => {
     })
 
     it('marks command as failed after max retries', async () => {
-      vi.mocked(commandSender.send).mockRejectedValue(
-        new CommandSendError('Network error', 'NETWORK', true),
+      vi.mocked(commandSender.send).mockResolvedValue(
+        Err(new CommandSendException('Network error', 'NETWORK', true)),
       )
 
       const result = await commandQueue.enqueue({
@@ -620,8 +625,8 @@ describe('CommandQueue', () => {
     })
 
     it('does not retry non-retryable errors', async () => {
-      vi.mocked(commandSender.send).mockRejectedValue(
-        new CommandSendError('Validation error', 'VALIDATION', false),
+      vi.mocked(commandSender.send).mockResolvedValue(
+        Err(new CommandSendException('Validation error', 'VALIDATION', false)),
       )
 
       const result = await commandQueue.enqueue({
@@ -670,10 +675,10 @@ describe('CommandQueue', () => {
 
     it('processes commands enqueued during an active processing pass', async () => {
       // First send blocks; subsequent sends resolve immediately
-      let resolveSend: ((value: unknown) => void) | undefined
+      let resolveSend: ((value: Result<unknown, CommandSendException>) => void) | undefined
       vi.mocked(commandSender.send)
         .mockImplementationOnce(() => new Promise((resolve) => (resolveSend = resolve)))
-        .mockResolvedValue({ id: '2' })
+        .mockResolvedValue(Ok({ id: '2' }))
 
       commandQueue.resume()
       // Let resume's empty processing pass complete before enqueuing
@@ -697,7 +702,7 @@ describe('CommandQueue', () => {
       if (!second.ok) throw new Error('Expected success')
 
       // Complete the first send — this should trigger reprocessing of the second
-      resolveSend!({ id: '1' })
+      resolveSend!(Ok({ id: '1' }))
       await new Promise((resolve) => setTimeout(resolve, 10))
 
       // Without the reprocess fix, the second command stays pending forever
@@ -709,10 +714,10 @@ describe('CommandQueue', () => {
 
     it('does not process a command cancelled during an earlier send', async () => {
       // First send blocks via deferred promise; second should never be called
-      let resolveSend: ((value: unknown) => void) | undefined
+      let resolveSend: ((value: Result<unknown, CommandSendException>) => void) | undefined
       vi.mocked(commandSender.send)
         .mockImplementationOnce(() => new Promise((resolve) => (resolveSend = resolve)))
-        .mockResolvedValue({ id: '2' })
+        .mockResolvedValue(Ok({ id: '2' }))
 
       // Enqueue both commands while paused so they are in the same batch
       const first = await commandQueue.enqueue({
@@ -738,7 +743,7 @@ describe('CommandQueue', () => {
       await commandQueue.cancelCommand(second.value.commandId)
 
       // Resolve the first send — processing loop continues to second
-      resolveSend!({ id: '1' })
+      resolveSend!(Ok({ id: '1' }))
       await new Promise((resolve) => setTimeout(resolve, 10))
 
       // Second command should remain cancelled, send should only have been called once
@@ -757,8 +762,8 @@ describe('CommandQueue', () => {
         retryConfig: { maxAttempts: 3, initialDelay: 500 },
       })
 
-      vi.mocked(commandSender.send).mockRejectedValue(
-        new CommandSendError('Network error', 'NETWORK', true),
+      vi.mocked(commandSender.send).mockResolvedValue(
+        Err(new CommandSendException('Network error', 'NETWORK', true)),
       )
 
       const result = await commandQueue.enqueue({
@@ -784,7 +789,7 @@ describe('CommandQueue', () => {
     })
 
     it('awaits in-flight command processing on destroy', async () => {
-      let resolveSend: ((value: unknown) => void) | undefined
+      let resolveSend: ((value: Result<unknown, CommandSendException>) => void) | undefined
       vi.mocked(commandSender.send).mockImplementation(
         () => new Promise((resolve) => (resolveSend = resolve)),
       )
@@ -811,7 +816,7 @@ describe('CommandQueue', () => {
       expect(destroyResolved).toBe(false)
 
       // Complete the send
-      resolveSend!({ id: '123' })
+      resolveSend!(Ok({ id: '123' }))
 
       // Now destroy should resolve
       await destroyPromise
@@ -819,7 +824,9 @@ describe('CommandQueue', () => {
     })
 
     it('cancels dependent commands on failure', async () => {
-      vi.mocked(commandSender.send).mockRejectedValue(new CommandSendError('Error', 'ERROR', false))
+      vi.mocked(commandSender.send).mockResolvedValue(
+        Err(new CommandSendException('Error', 'ERROR', false)),
+      )
 
       const first = await commandQueue.enqueue({
         command: { type: 'First', data: {} },
@@ -987,11 +994,11 @@ describe('CommandQueue', () => {
   })
 
   describe('anticipated event cleanup', () => {
-    let commandSender: ICommandSender<ServiceLink>
+    let commandSender: ICommandSender<ServiceLink, EnqueueCommand>
 
     beforeEach(() => {
       commandSender = {
-        send: vi.fn().mockResolvedValue({ id: '123' }),
+        send: vi.fn().mockResolvedValue(Ok({ id: '123' })),
       }
       commandQueue = new TestCommandQueue({
         storage,
@@ -1019,8 +1026,8 @@ describe('CommandQueue', () => {
     })
 
     it('calls cleanup() when command fails permanently', async () => {
-      vi.mocked(commandSender.send).mockRejectedValue(
-        new CommandSendError('Validation error', 'VALIDATION', false),
+      vi.mocked(commandSender.send).mockResolvedValue(
+        Err(new CommandSendException('Validation error', 'VALIDATION', false)),
       )
 
       const result = await commandQueue.enqueue({
@@ -1051,7 +1058,9 @@ describe('CommandQueue', () => {
     })
 
     it('calls cleanup() for cascaded cancellations', async () => {
-      vi.mocked(commandSender.send).mockRejectedValue(new CommandSendError('Error', 'ERROR', false))
+      vi.mocked(commandSender.send).mockResolvedValue(
+        Err(new CommandSendException('Error', 'ERROR', false)),
+      )
 
       const first = await commandQueue.enqueue({
         command: { type: 'First', data: {} },
@@ -1078,8 +1087,8 @@ describe('CommandQueue', () => {
 
     it('does not call cleanup() on retry (stays pending)', async () => {
       vi.mocked(commandSender.send)
-        .mockRejectedValueOnce(new CommandSendError('Network error', 'NETWORK', true))
-        .mockResolvedValueOnce({ id: '123' })
+        .mockResolvedValueOnce(Err(new CommandSendException('Network error', 'NETWORK', true)))
+        .mockResolvedValueOnce(Ok({ id: '123' }))
 
       const result = await commandQueue.enqueue({
         command: { type: 'Test', data: {} },
@@ -1112,8 +1121,8 @@ describe('CommandQueue', () => {
     })
 
     it('clears pending retry timers', async () => {
-      const commandSender: ICommandSender<ServiceLink> = {
-        send: vi.fn().mockRejectedValue(new CommandSendError('Error', 'NETWORK', true)),
+      const commandSender: ICommandSender<ServiceLink, EnqueueCommand> = {
+        send: vi.fn().mockResolvedValue(Err(new CommandSendException('Error', 'NETWORK', true))),
       }
       commandQueue = new TestCommandQueue({
         storage,
@@ -1146,8 +1155,8 @@ describe('CommandQueue', () => {
     })
 
     it('waits for in-flight processing', async () => {
-      let resolveSend: ((value: unknown) => void) | undefined
-      const commandSender: ICommandSender<ServiceLink> = {
+      let resolveSend: ((value: Result<unknown, CommandSendException>) => void) | undefined
+      const commandSender: ICommandSender<ServiceLink, EnqueueCommand> = {
         send: vi.fn().mockImplementation(() => new Promise((resolve) => (resolveSend = resolve))),
       }
       commandQueue = new TestCommandQueue({
@@ -1177,7 +1186,7 @@ describe('CommandQueue', () => {
       expect(resetResolved).toBe(false)
 
       // Complete the send
-      resolveSend!({ id: '123' })
+      resolveSend!(Ok({ id: '123' }))
 
       await resetPromise
       expect(resetResolved).toBe(true)
@@ -1209,9 +1218,14 @@ describe('CommandQueue', () => {
   describe('cross-aggregate parent-child reconciliation', () => {
     function setupCrossAggregateQueue(senderResponses: Map<string, unknown>): {
       queue: TestCommandQueue
-      sender: ICommandSender<ServiceLink>
+      sender: ICommandSender<ServiceLink, EnqueueCommand>
     } {
-      const executor = createDomainExecutor<ServiceLink, unknown, IAnticipatedEvent>([
+      const executor = createDomainExecutor<
+        ServiceLink,
+        EnqueueCommand,
+        unknown,
+        IAnticipatedEvent
+      >([
         {
           commandType: 'CreateFolder',
           creates: { eventType: 'FolderCreated', idStrategy: 'temporary' },
@@ -1279,12 +1293,12 @@ describe('CommandQueue', () => {
         },
       ])
 
-      const sender: ICommandSender<ServiceLink> = {
-        async send(command: CommandRecord<ServiceLink>) {
+      const sender: ICommandSender<ServiceLink, EnqueueCommand> = {
+        async send(command: CommandRecord<ServiceLink, EnqueueCommand>) {
           const response = senderResponses.get(command.type)
-          if (typeof response === 'function') return response(command)
-          if (response !== undefined) return response
-          return { id: 'default-id', nextExpectedRevision: '1', events: [] }
+          if (typeof response === 'function') return Ok(response(command))
+          if (response !== undefined) return Ok(response)
+          return Ok({ id: 'default-id', nextExpectedRevision: '1', events: [] })
         },
       }
 
@@ -1840,8 +1854,13 @@ describe('CommandQueue', () => {
   describe('same-aggregate auto-chaining', () => {
     function setupItemQueue(
       senderResponses: Map<string, unknown>,
-    ): CommandQueue<ServiceLink, unknown, IAnticipatedEvent> {
-      const executor = createDomainExecutor<ServiceLink, unknown, IAnticipatedEvent>([
+    ): CommandQueue<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent> {
+      const executor = createDomainExecutor<
+        ServiceLink,
+        EnqueueCommand,
+        unknown,
+        IAnticipatedEvent
+      >([
         {
           commandType: 'CreateItem',
           creates: { eventType: 'ItemCreated', idStrategy: 'temporary' },
@@ -1871,12 +1890,12 @@ describe('CommandQueue', () => {
         },
       ])
 
-      const sender: ICommandSender<ServiceLink> = {
-        async send(command: CommandRecord<ServiceLink>) {
+      const sender: ICommandSender<ServiceLink, EnqueueCommand> = {
+        async send(command: CommandRecord<ServiceLink, EnqueueCommand>) {
           const response = senderResponses.get(command.type)
-          if (typeof response === 'function') return response(command)
-          if (response !== undefined) return response
-          return { id: 'default-id', nextExpectedRevision: '1', events: [] }
+          if (typeof response === 'function') return Ok(response(command))
+          if (response !== undefined) return Ok(response)
+          return Ok({ id: 'default-id', nextExpectedRevision: '1', events: [] })
         },
       }
 
@@ -2092,9 +2111,9 @@ describe('CommandQueue', () => {
     })
 
     it('auto-revision fallback used when no chain exists', async () => {
-      let sentCommand: CommandRecord<ServiceLink> | undefined
+      let sentCommand: CommandRecord<ServiceLink, EnqueueCommand> | undefined
       const responses = new Map<string, unknown>()
-      responses.set('UpdateItem', (cmd: CommandRecord<ServiceLink>) => {
+      responses.set('UpdateItem', (cmd: CommandRecord<ServiceLink, EnqueueCommand>) => {
         sentCommand = cmd
         return { id: 'existing-1', nextExpectedRevision: '6', events: [] }
       })

@@ -1,7 +1,12 @@
 import { type CollectionSyncStatus, deriveScopeKey, type LibraryEvent } from '@cqrs-toolkit/client'
 import { appCreateListQuery } from '@cqrs-toolkit/demo-base/common/components'
-import { NOTEBOOK_SEED_KEY } from '@cqrs-toolkit/demo-base/notebooks/domain'
+import {
+  NOTEBOOK_SEED_KEY,
+  NOTEBOOKS_COLLECTION_NAME,
+} from '@cqrs-toolkit/demo-base/notebooks/domain'
 import type { Notebook } from '@cqrs-toolkit/demo-base/notebooks/shared'
+import { NOTES_COLLECTION_NAME } from '@cqrs-toolkit/demo-base/notes/domain'
+import { TODOS_COLLECTION_NAME } from '@cqrs-toolkit/demo-base/todos/domain'
 import type { Todo } from '@cqrs-toolkit/demo-base/todos/shared'
 import { ServiceLink } from '@meticoeus/ddd-es'
 import { A } from '@solidjs/router'
@@ -15,12 +20,12 @@ export default function DashboardPage() {
   const client = useClient()
   const todosQuery = appCreateListQuery<Todo>(
     client.queryManager,
-    'todos',
+    TODOS_COLLECTION_NAME,
     deriveScopeKey({ scopeType: 'todos' }),
   )
   const notebooksQuery = appCreateListQuery<Notebook>(
     client.queryManager,
-    'notebooks',
+    NOTEBOOKS_COLLECTION_NAME,
     NOTEBOOK_SEED_KEY,
   )
   const [todosState, setTodosState] = createSignal<PanelState>('loading')
@@ -30,19 +35,19 @@ export default function DashboardPage() {
   const [notesSync, setNotesSync] = createSignal<CollectionSyncStatus>()
 
   function markReady(collection: string): void {
-    if (collection === 'todos') setTodosState('ready')
-    if (collection === 'notebooks') setNotebooksState('ready')
+    if (collection === TODOS_COLLECTION_NAME) setTodosState('ready')
+    if (collection === NOTEBOOKS_COLLECTION_NAME) setNotebooksState('ready')
   }
 
   function markError(collection: string): void {
-    if (collection === 'todos') setTodosState('error')
-    if (collection === 'notebooks') setNotebooksState('error')
+    if (collection === TODOS_COLLECTION_NAME) setTodosState('error')
+    if (collection === NOTEBOOKS_COLLECTION_NAME) setNotebooksState('error')
   }
 
   function refreshSyncStatus(): void {
-    setTodosSync(client.syncManager.getCollectionStatus('todos'))
-    setNotebooksSync(client.syncManager.getCollectionStatus('notebooks'))
-    setNotesSync(client.syncManager.getCollectionStatus('notes'))
+    setTodosSync(client.syncManager.getCollectionStatus(TODOS_COLLECTION_NAME))
+    setNotebooksSync(client.syncManager.getCollectionStatus(NOTEBOOKS_COLLECTION_NAME))
+    setNotesSync(client.syncManager.getCollectionStatus(NOTES_COLLECTION_NAME))
   }
 
   function recentIncompleteTodos(): Todo[] {
@@ -94,8 +99,8 @@ export default function DashboardPage() {
     // a synchronous stub — mark ready since data may already be cached in
     // the worker. Skip only when seeded is explicitly false (sync registered but
     // not yet complete).
-    const todosStatus = client.syncManager.getCollectionStatus('todos')
-    const notebooksStatus = client.syncManager.getCollectionStatus('notebooks')
+    const todosStatus = client.syncManager.getCollectionStatus(TODOS_COLLECTION_NAME)
+    const notebooksStatus = client.syncManager.getCollectionStatus(NOTEBOOKS_COLLECTION_NAME)
 
     if (todosStatus?.seeded !== false) setTodosState('ready')
     if (notebooksStatus?.seeded !== false) setNotebooksState('ready')

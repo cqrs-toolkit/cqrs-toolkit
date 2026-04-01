@@ -9,6 +9,7 @@ interface Representations {
   'nb:Todo': RepresentationSurfaces
   'nb:Note': RepresentationSurfaces
   'nb:Notebook': RepresentationSurfaces
+  'storage:FileObject': RepresentationSurfaces
 }
 
 export const representations: Representations = {
@@ -49,6 +50,19 @@ export const representations: Representations = {
     aggregateEvents: {
       href: '/api/events/notebooks',
       template: '/api/events/notebooks{?limit,afterPosition}',
+    },
+  },
+  'storage:FileObject': {
+    version: '1.0.0',
+    collection: { href: '/api/file-objects', template: '/api/file-objects{?cursor,limit,noteId}' },
+    resource: { template: '/api/file-objects/{id}' },
+    itemEvents: {
+      href: '/api/file-objects/{id}/events',
+      template: '/api/file-objects/{id}/events{?limit,afterPosition}',
+    },
+    aggregateEvents: {
+      href: '/api/events/file-objects',
+      template: '/api/events/file-objects{?limit,afterPosition}',
     },
   },
 }

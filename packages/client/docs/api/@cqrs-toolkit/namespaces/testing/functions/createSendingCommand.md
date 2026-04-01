@@ -6,7 +6,7 @@
 
 # Function: createSendingCommand()
 
-> **createSendingCommand**\<`TLink`, `TData`\>(`overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TLink`, `TData`\>
+> **createSendingCommand**\<`TLink`, `TCommand`\>(`overrides?`): [`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TLink`, `TCommand`\>
 
 Create a sending command.
 
@@ -16,16 +16,16 @@ Create a sending command.
 
 `TLink` _extends_ `Link`\<`string`, `string`\>
 
-### TData
+### TCommand
 
-`TData` = `unknown`
+`TCommand` _extends_ [`EnqueueCommand`](../../../../interfaces/EnqueueCommand.md)\<`unknown`\>
 
 ## Parameters
 
 ### overrides?
 
-`Partial`\<[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TLink`, `TData`\>\> = `{}`
+`Partial`\<[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TLink`, `TCommand`\>\> = `{}`
 
 ## Returns
 
-[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TLink`, `TData`\>
+[`CommandRecord`](../../../../interfaces/CommandRecord.md)\<`TLink`, `TCommand`\>

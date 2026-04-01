@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / QueryManagerConfig
 
-# Interface: QueryManagerConfig\<TLink\>
+# Interface: QueryManagerConfig\<TLink, TCommand\>
 
 Query manager configuration.
 
@@ -14,11 +14,15 @@ Query manager configuration.
 
 `TLink` _extends_ `Link`
 
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md)
+
 ## Properties
 
 ### cacheManager
 
-> **cacheManager**: [`CacheManager`](../classes/CacheManager.md)\<`TLink`\>
+> **cacheManager**: [`CacheManager`](../classes/CacheManager.md)\<`TLink`, `TCommand`\>
 
 ---
 
@@ -30,4 +34,4 @@ Query manager configuration.
 
 ### readModelStore
 
-> **readModelStore**: [`ReadModelStore`](../classes/ReadModelStore.md)\<`TLink`\>
+> **readModelStore**: [`ReadModelStore`](../classes/ReadModelStore.md)\<`TLink`, `TCommand`\>

@@ -1,4 +1,4 @@
-import type { CommandRecord, CommandStatus } from '@cqrs-toolkit/client'
+import type { CommandRecord, CommandStatus, EnqueueCommand } from '@cqrs-toolkit/client'
 import { useClient } from '@cqrs-toolkit/client-solid'
 import { CommandItem, StatusFilter } from '@cqrs-toolkit/demo-base/commands/components'
 import { ServiceLink } from '@meticoeus/ddd-es'
@@ -16,7 +16,7 @@ const ALL_STATUSES = new Set<CommandStatus>([
 
 export default function CommandsPage() {
   const client = useClient<ServiceLink>()
-  const [commands, setCommands] = createSignal<CommandRecord<ServiceLink>[]>([])
+  const [commands, setCommands] = createSignal<CommandRecord<ServiceLink, EnqueueCommand>[]>([])
   const [searchText, setSearchText] = createSignal('')
   const [selectedStatuses, setSelectedStatuses] = createSignal<Set<CommandStatus>>(
     new Set(ALL_STATUSES),

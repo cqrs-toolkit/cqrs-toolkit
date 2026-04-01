@@ -6,6 +6,7 @@ import {
   FetchContext,
   isCollectionWithFetchStreamEvents,
 } from '../../types/config.js'
+import { EnqueueCommand } from '../../types/index.js'
 import { noop } from '../../utils/index.js'
 import type { EventCache } from '../event-cache/EventCache.js'
 import type { EventProcessorRunner } from '../event-processor/index.js'
@@ -27,7 +28,7 @@ export interface GapRepairCoordinatorConfig<TLink extends Link> {
  * Owns the `repairing` guard set. Reads and writes the shared `knownRevisions`
  * map (owned by SyncManager) to detect revision discontinuities and drive repair.
  */
-export class GapRepairCoordinator<TLink extends Link> {
+export class GapRepairCoordinator<TLink extends Link, TCommand extends EnqueueCommand> {
   private readonly getFetchContext: () => Promise<FetchContext>
   private readonly onInvalidated: (collectionName: string, cacheKeys: string[]) => void
 
@@ -36,9 +37,9 @@ export class GapRepairCoordinator<TLink extends Link> {
   constructor(
     private readonly knownRevisions: Map<string, bigint>,
     private readonly eventBus: EventBus<TLink>,
-    private readonly eventCache: EventCache<TLink>,
-    private readonly eventProcessor: EventProcessorRunner<TLink>,
-    private readonly readModelStore: ReadModelStore<TLink>,
+    private readonly eventCache: EventCache<TLink, TCommand>,
+    private readonly eventProcessor: EventProcessorRunner<TLink, TCommand>,
+    private readonly readModelStore: ReadModelStore<TLink, TCommand>,
     private readonly collections: Collection<TLink>[],
     private readonly connectivity: ConnectivityManager<TLink>,
     private readonly writeQueue: IWriteQueue<TLink>,

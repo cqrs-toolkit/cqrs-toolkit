@@ -19,38 +19,51 @@ import {
   takeUntil,
   timer,
 } from 'rxjs'
+import type { ICommandFileStore } from '../../core/command-queue/file-store/ICommandFileStore.js'
 import type { ICommandQueue } from '../../core/command-queue/types.js'
 import type { WorkerMessageChannel } from '../../protocol/MessageChannel.js'
 import type { EventMessage } from '../../protocol/messages.js'
-import type {
+import {
   CommandCompletionResult,
   CommandError,
   CommandEvent,
   CommandFilter,
   CommandRecord,
+  EnqueueAndWaitException,
   EnqueueAndWaitParams,
   EnqueueAndWaitResult,
+  EnqueueCommand,
   EnqueueParams,
   EnqueueResult,
   WaitOptions,
+  isTerminalStatus,
 } from '../../types/commands.js'
-import { EnqueueAndWaitException, isTerminalStatus } from '../../types/commands.js'
 import type { ValidationError } from '../../types/validation.js'
+import { generateId } from '../../utils/uuid.js'
 
 const DEFAULT_WAIT_TIMEOUT = 30000
 
 /**
  * Main-thread proxy for the worker-side CommandQueue.
  */
-export class CommandQueueProxy<TLink extends Link> implements ICommandQueue<TLink> {
+export class CommandQueueProxy<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+> implements ICommandQueue<TLink, TCommand> {
   private readonly channel: WorkerMessageChannel
+  private readonly fileStore?: ICommandFileStore
   private readonly destroy$ = new Subject<void>()
   private readonly commandEvents = new Subject<CommandEvent>()
 
   readonly events$: Observable<CommandEvent>
 
-  constructor(channel: WorkerMessageChannel, broadcastEvents$: Observable<EventMessage>) {
+  constructor(
+    channel: WorkerMessageChannel,
+    broadcastEvents$: Observable<EventMessage>,
+    fileStore?: ICommandFileStore,
+  ) {
     this.channel = channel
+    this.fileStore = fileStore
 
     // Reconstruct command events from broadcasts
     broadcastEvents$.pipe(takeUntil(this.destroy$)).subscribe((event) => {
@@ -66,6 +79,25 @@ export class CommandQueueProxy<TLink extends Link> implements ICommandQueue<TLin
   async enqueue<TData, TEvent>(
     params: EnqueueParams<TLink, TData>,
   ): Promise<EnqueueResult<TEvent>> {
+    // Write files to OPFS from the window side before sending to worker (spec §3.14.3)
+    if (params.command.files?.length && this.fileStore) {
+      const commandId = params.commandId ?? generateId()
+      params.commandId = commandId
+      const fileRefs: import('../../types/commands.js').FileRef[] = []
+      for (const file of params.command.files) {
+        const fileId = generateId()
+        await this.fileStore.save(commandId, fileId, file)
+        fileRefs.push({
+          id: fileId,
+          filename: file.name,
+          mimeType: file.type,
+          sizeBytes: file.size,
+        })
+      }
+      params.command.files = undefined
+      params.fileRefs = fileRefs
+    }
+
     return this.channel.request<EnqueueResult<TEvent>>('commandQueue.enqueue', [params])
   }
 
@@ -141,14 +173,15 @@ export class CommandQueueProxy<TLink extends Link> implements ICommandQueue<TLin
     return this.events$.pipe(filter((event) => event.commandId === commandId))
   }
 
-  async getCommand(commandId: string): Promise<CommandRecord<TLink> | undefined> {
-    return this.channel.request<CommandRecord<TLink> | undefined>('commandQueue.getCommand', [
-      commandId,
-    ])
+  async getCommand(commandId: string): Promise<CommandRecord<TLink, TCommand> | undefined> {
+    return this.channel.request<CommandRecord<TLink, TCommand> | undefined>(
+      'commandQueue.getCommand',
+      [commandId],
+    )
   }
 
-  async listCommands(commandFilter?: CommandFilter): Promise<CommandRecord<TLink>[]> {
-    return this.channel.request<CommandRecord<TLink>[]>('commandQueue.listCommands', [
+  async listCommands(commandFilter?: CommandFilter): Promise<CommandRecord<TLink, TCommand>[]> {
+    return this.channel.request<CommandRecord<TLink, TCommand>[]>('commandQueue.listCommands', [
       commandFilter,
     ])
   }
@@ -201,7 +234,7 @@ export class CommandQueueProxy<TLink extends Link> implements ICommandQueue<TLin
 // Helpers
 // ---------------------------------------------------------------------------
 
-function broadcastToCommandEvent<TLink extends Link>(
+function broadcastToCommandEvent<TLink extends Link, TCommand extends EnqueueCommand>(
   event: EventMessage,
 ): CommandEvent | undefined {
   const data = event.data as Record<string, unknown>
@@ -220,8 +253,8 @@ function broadcastToCommandEvent<TLink extends Link>(
         eventType: 'status-changed',
         commandId: data.commandId as string,
         type: data.type as string,
-        status: data.status as CommandRecord<TLink>['status'],
-        previousStatus: data.previousStatus as CommandRecord<TLink>['status'] | undefined,
+        status: data.status as CommandRecord<TLink, TCommand>['status'],
+        previousStatus: data.previousStatus as CommandRecord<TLink, TCommand>['status'] | undefined,
         error: data.error as CommandError | undefined,
         response: data.response,
         timestamp: Date.now(),
@@ -249,8 +282,8 @@ function broadcastToCommandEvent<TLink extends Link>(
   }
 }
 
-function toCompletionResult<TLink extends Link>(
-  command: CommandRecord<TLink>,
+function toCompletionResult<TLink extends Link, TCommand extends EnqueueCommand>(
+  command: CommandRecord<TLink, TCommand>,
 ): CommandCompletionResult {
   switch (command.status) {
     case 'succeeded':

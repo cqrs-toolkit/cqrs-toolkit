@@ -4,19 +4,23 @@
 
 [@cqrs-toolkit/client](../globals.md) / ResolvedConfig
 
-# Interface: ResolvedConfig\<TLink, TSchema, TEvent\>
+# Interface: ResolvedConfig\<TLink, TCommand, TSchema, TEvent\>
 
 Resolved shared configuration with all defaults applied.
 
 ## Extends
 
-- `Required`\<`Omit`\<[`CqrsConfig`](CqrsConfig.md)\<`TLink`, `TSchema`, `TEvent`\>, `"commandHandlers"` \| `"commandSender"` \| `"schemaValidator"` \| `"workerSetup"` \| `"collections"` \| `"processors"`\>\>
+- `Required`\<`Omit`\<[`CqrsConfig`](CqrsConfig.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>, `"commandHandlers"` \| `"commandSender"` \| `"schemaValidator"` \| `"workerSetup"` \| `"collections"` \| `"processors"`\>\>
 
 ## Type Parameters
 
 ### TLink
 
 `TLink` _extends_ `Link`
+
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md)
 
 ### TSchema
 
@@ -62,13 +66,13 @@ Cache configuration.
 
 ### commandHandlers
 
-> **commandHandlers**: [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`TLink`, `TSchema`, `TEvent`\>[]
+> **commandHandlers**: [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>[]
 
 ---
 
 ### commandSender?
 
-> `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)\<`TLink`\>
+> `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)\<`TLink`, `TCommand`\>
 
 ---
 

@@ -36,7 +36,7 @@ test('deleting a note produces exactly one delete command', async ({ page, mode 
   const types = await page
     .locator('.command-item.command-succeeded .command-type')
     .allTextContents()
-  expect(types.sort()).toEqual(['CreateNote', 'CreateNotebook', 'DeleteNote'])
+  expect(types.sort()).toEqual(['nb.CreateNote', 'nb.CreateNotebook', 'nb.DeleteNote'])
 })
 
 test('editing a note title via save button does not double-submit', async ({ page, mode }) => {
@@ -64,7 +64,7 @@ test('editing a note title via save button does not double-submit', async ({ pag
   const types = await page
     .locator('.command-item.command-succeeded .command-type')
     .allTextContents()
-  expect(types.sort()).toEqual(['CreateNote', 'CreateNotebook', 'UpdateNoteTitle'])
+  expect(types.sort()).toEqual(['nb.CreateNote', 'nb.CreateNotebook', 'nb.UpdateNoteTitle'])
 })
 
 test('editing both note title and body produces exactly two update commands', async ({
@@ -96,10 +96,10 @@ test('editing both note title and body produces exactly two update commands', as
     .locator('.command-item.command-succeeded .command-type')
     .allTextContents()
   expect(types.sort()).toEqual([
-    'CreateNote',
-    'CreateNotebook',
-    'UpdateNoteBody',
-    'UpdateNoteTitle',
+    'nb.CreateNote',
+    'nb.CreateNotebook',
+    'nb.UpdateNoteBody',
+    'nb.UpdateNoteTitle',
   ])
 })
 
@@ -128,5 +128,5 @@ test('editing only the note body produces exactly one update command', async ({ 
   const types = await page
     .locator('.command-item.command-succeeded .command-type')
     .allTextContents()
-  expect(types.sort()).toEqual(['CreateNote', 'CreateNotebook', 'UpdateNoteBody'])
+  expect(types.sort()).toEqual(['nb.CreateNote', 'nb.CreateNotebook', 'nb.UpdateNoteBody'])
 })

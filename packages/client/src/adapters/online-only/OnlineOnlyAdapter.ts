@@ -13,6 +13,7 @@ import type { IStorage } from '../../storage/IStorage.js'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import type { ResolvedConfig } from '../../types/config.js'
 import type { LibraryEvent } from '../../types/events.js'
+import { EnqueueCommand } from '../../types/index.js'
 import { assert } from '../../utils/assert.js'
 import type { AdapterStatus, IOnlineOnlyAdapter } from '../base/IAdapter.js'
 
@@ -22,18 +23,19 @@ import type { AdapterStatus, IOnlineOnlyAdapter } from '../base/IAdapter.js'
  */
 export class OnlineOnlyAdapter<
   TLink extends Link,
+  TCommand extends EnqueueCommand,
   TSchema,
   TEvent extends IAnticipatedEvent,
-> implements IOnlineOnlyAdapter<TLink> {
+> implements IOnlineOnlyAdapter<TLink, TCommand> {
   readonly mode = 'online-only' as const
   readonly role = 'leader' as const
   readonly eventBus: EventBus<TLink>
 
   private _status: AdapterStatus = 'uninitialized'
-  private _storage: IStorage<TLink> | undefined
-  private _sessionManager: SessionManager<TLink> | undefined
+  private _storage: IStorage<TLink, TCommand> | undefined
+  private _sessionManager: SessionManager<TLink, TCommand> | undefined
 
-  constructor(config: ResolvedConfig<TLink, TSchema, TEvent>) {
+  constructor(config: ResolvedConfig<TLink, TCommand, TSchema, TEvent>) {
     this.eventBus = new EventBus()
     this.eventBus.debug = config.debug
   }
@@ -46,12 +48,12 @@ export class OnlineOnlyAdapter<
     return this.eventBus.events$
   }
 
-  get sessionManager(): SessionManager<TLink> {
+  get sessionManager(): SessionManager<TLink, TCommand> {
     assert(this._sessionManager, 'Adapter not initialized')
     return this._sessionManager
   }
 
-  get storage(): IStorage<TLink> {
+  get storage(): IStorage<TLink, TCommand> {
     assert(this._storage, 'Adapter not initialized')
     return this._storage
   }

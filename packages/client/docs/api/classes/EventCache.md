@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / EventCache
 
-# Class: EventCache\<TLink\>
+# Class: EventCache\<TLink, TCommand\>
 
 Event cache implementation.
 
@@ -14,21 +14,25 @@ Event cache implementation.
 
 `TLink` _extends_ `Link`
 
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md)
+
 ## Constructors
 
 ### Constructor
 
-> **new EventCache**\<`TLink`\>(`config`): `EventCache`\<`TLink`\>
+> **new EventCache**\<`TLink`, `TCommand`\>(`config`): `EventCache`\<`TLink`, `TCommand`\>
 
 #### Parameters
 
 ##### config
 
-[`EventCacheConfig`](../interfaces/EventCacheConfig.md)\<`TLink`\>
+[`EventCacheConfig`](../interfaces/EventCacheConfig.md)\<`TLink`, `TCommand`\>
 
 #### Returns
 
-`EventCache`\<`TLink`\>
+`EventCache`\<`TLink`, `TCommand`\>
 
 ## Methods
 

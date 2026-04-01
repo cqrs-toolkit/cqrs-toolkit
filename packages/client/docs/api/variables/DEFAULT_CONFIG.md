@@ -74,4 +74,4 @@ Default configuration values.
 
 #### storage.dbName
 
-> **dbName**: `string` = `'cqrs-client'`
+> **dbName**: `string` = `'cqrs-client-sqlite'`

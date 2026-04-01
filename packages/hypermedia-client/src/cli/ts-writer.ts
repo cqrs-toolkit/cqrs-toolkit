@@ -102,14 +102,21 @@ function generateCommandsTs(commands: Map<string, ParsedCommand>): string {
   const unionMembers: string[] = []
   for (const [name, cmd] of commands) {
     const requiredMappings = cmd.mappings.filter((m) => m.required)
+    const fields: string[] = [`type: '${name}'`]
     if (requiredMappings.length > 0) {
       const pathFields = requiredMappings.map((m) => `${m.variable}: string`).join('; ')
-      unionMembers.push(
-        `  | { type: '${name}'; path: { ${pathFields} }; data: unknown; revision?: string | AutoRevision }`,
-      )
-    } else {
-      unionMembers.push(`  | { type: '${name}'; data: unknown }`)
+      fields.push(`path: { ${pathFields} }`)
     }
+    fields.push('data: unknown')
+    if (cmd.files === 'one') {
+      fields.push('files: [File]')
+    } else if (cmd.files === 'many') {
+      fields.push('files: [File, ...File[]]')
+    }
+    if (requiredMappings.length > 0) {
+      fields.push('revision?: string | AutoRevision')
+    }
+    unionMembers.push(`  | { ${fields.join('; ')} }`)
   }
 
   const unionType =
@@ -180,12 +187,18 @@ export const schemas: SchemaRegistry = { commands: {}, common: {} }
   }
 
   const imports = allSchemas
-    .map((s) => `import ${s.name} from './schemas/${s.name}.json' with { type: 'json' }`)
+    .map(
+      (s) => `import ${toIdentifier(s.name)} from './schemas/${s.name}.json' with { type: 'json' }`,
+    )
     .join('\n')
 
-  const commandEntries = schemas.commands.map((s) => `    ${s.name}: ${s.name} as JSONSchema7`)
+  const commandEntries = schemas.commands.map(
+    (s) => `    ${quoteKey(s.name)}: ${toIdentifier(s.name)} as JSONSchema7`,
+  )
 
-  const commonEntries = schemas.common.map((s) => `    '${s.id}': ${s.name} as JSONSchema7`)
+  const commonEntries = schemas.common.map(
+    (s) => `    '${s.id}': ${toIdentifier(s.name)} as JSONSchema7`,
+  )
 
   const commonCommandsLine =
     schemas.commonCommands.length > 0
@@ -214,4 +227,14 @@ export const schemas: SchemaRegistry = {
 
 function sha256(content: string): string {
   return crypto.createHash('sha256').update(content).digest('hex')
+}
+
+const VALID_IDENTIFIER = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/
+
+function toIdentifier(name: string): string {
+  return name.replace(/[^a-zA-Z0-9_$]/g, '_')
+}
+
+function quoteKey(name: string): string {
+  return VALID_IDENTIFIER.test(name) ? name : `'${name}'`
 }

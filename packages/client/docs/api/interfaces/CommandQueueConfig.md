@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / CommandQueueConfig
 
-# Interface: CommandQueueConfig\<TLink, TSchema, TEvent\>
+# Interface: CommandQueueConfig\<TLink, TCommand, TSchema, TEvent\>
 
 Command queue configuration.
 
@@ -13,6 +13,10 @@ Command queue configuration.
 ### TLink
 
 `TLink` _extends_ `Link`
+
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md)
 
 ### TSchema
 
@@ -40,7 +44,7 @@ TTL for command ID mappings in milliseconds. Default: 5 minutes.
 
 ### commandSender?
 
-> `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)\<`TLink`\>
+> `optional` **commandSender**: [`ICommandSender`](ICommandSender.md)\<`TLink`, `TCommand`\>
 
 ---
 
@@ -62,9 +66,17 @@ TTL for command ID mappings in milliseconds. Default: 5 minutes.
 
 ---
 
+### fileStore?
+
+> `optional` **fileStore**: `ICommandFileStore`
+
+File store for commands with file attachments.
+
+---
+
 ### handlerMetadata?
 
-> `optional` **handlerMetadata**: [`ICommandHandlerMetadata`](ICommandHandlerMetadata.md)\<`TLink`, `TSchema`, `TEvent`\>
+> `optional` **handlerMetadata**: [`ICommandHandlerMetadata`](ICommandHandlerMetadata.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 Metadata lookup for command handler registrations (creates config).
 
@@ -78,7 +90,7 @@ Metadata lookup for command handler registrations (creates config).
 
 ##### command
 
-[`CommandRecord`](CommandRecord.md)\<`TLink`\>
+[`CommandRecord`](CommandRecord.md)\<`TLink`, `TCommand`\>
 
 ##### response
 
@@ -106,4 +118,4 @@ When true, terminal commands are retained in storage instead of being cleaned up
 
 ### storage
 
-> **storage**: [`IStorage`](IStorage.md)\<`TLink`\>
+> **storage**: [`IStorage`](IStorage.md)\<`TLink`, `TCommand`\>

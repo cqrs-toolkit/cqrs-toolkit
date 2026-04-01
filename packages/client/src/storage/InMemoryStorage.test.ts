@@ -6,12 +6,12 @@ import type { ServiceLink } from '@meticoeus/ddd-es'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { deriveScopeKey } from '../core/cache-manager/CacheKey.js'
 import { createTestCacheKey } from '../testing/factories/cacheKey.js'
-import type { CommandRecord } from '../types/commands.js'
+import { CommandRecord, EnqueueCommand } from '../types/commands.js'
 import { InMemoryStorage } from './InMemoryStorage.js'
 import type { CachedEventRecord, ReadModelRecord, SessionRecord } from './IStorage.js'
 
 describe('InMemoryStorage', () => {
-  let storage: InMemoryStorage<ServiceLink>
+  let storage: InMemoryStorage<ServiceLink, EnqueueCommand>
 
   beforeEach(async () => {
     storage = new InMemoryStorage()
@@ -184,7 +184,7 @@ describe('InMemoryStorage', () => {
   describe('command operations', () => {
     const TEST_CACHE_KEY = deriveScopeKey({ scopeType: 'test' })
 
-    const baseCommand: CommandRecord<ServiceLink> = {
+    const baseCommand: CommandRecord<ServiceLink, EnqueueCommand> = {
       commandId: 'cmd-1',
       cacheKey: TEST_CACHE_KEY,
       service: 'test-service',

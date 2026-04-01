@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / IOnlineOnlyAdapter
 
-# Interface: IOnlineOnlyAdapter\<TLink\>
+# Interface: IOnlineOnlyAdapter\<TLink, TCommand\>
 
 Online-only adapter provides raw components for main-thread wiring.
 createCqrsClient uses storage, eventBus, and sessionManager to wire
@@ -19,6 +19,10 @@ CommandQueue, CacheManager, QueryManager, SyncManager etc.
 ### TLink
 
 `TLink` _extends_ `Link`
+
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md)
 
 ## Properties
 
@@ -62,7 +66,7 @@ Role of this client instance.
 
 ### sessionManager
 
-> `readonly` **sessionManager**: [`SessionManager`](../classes/SessionManager.md)\<`TLink`\>
+> `readonly` **sessionManager**: [`SessionManager`](../classes/SessionManager.md)\<`TLink`, `TCommand`\>
 
 ---
 
@@ -80,7 +84,7 @@ Current adapter status.
 
 ### storage
 
-> `readonly` **storage**: [`IStorage`](IStorage.md)\<`TLink`\>
+> `readonly` **storage**: [`IStorage`](IStorage.md)\<`TLink`, `TCommand`\>
 
 ## Methods
 

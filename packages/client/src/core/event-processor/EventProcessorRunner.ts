@@ -5,6 +5,7 @@
 
 import { Link, logProvider } from '@meticoeus/ddd-es'
 import type { EventPersistence } from '../../types/events.js'
+import { EnqueueCommand } from '../../types/index.js'
 import type { IAnticipatedEventHandler } from '../command-queue/CommandQueue.js'
 import type { EventBus } from '../events/EventBus.js'
 import type { ReadModelStore, RevisionMeta } from '../read-model-store/ReadModelStore.js'
@@ -42,9 +43,9 @@ export interface ProcessEventResult {
 /**
  * Event processor runner.
  */
-export class EventProcessorRunner<TLink extends Link> {
+export class EventProcessorRunner<TLink extends Link, TCommand extends EnqueueCommand> {
   constructor(
-    private readonly readModelStore: ReadModelStore<TLink>,
+    private readonly readModelStore: ReadModelStore<TLink, TCommand>,
     private readonly eventBus: EventBus<TLink>,
     private readonly registry: EventProcessorRegistry,
     /** Anticipated event handler for create reconciliation. Optional — only needed with command handlers. */

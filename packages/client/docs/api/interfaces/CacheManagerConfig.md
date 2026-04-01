@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / CacheManagerConfig
 
-# Interface: CacheManagerConfig\<TLink\>
+# Interface: CacheManagerConfig\<TLink, TCommand\>
 
 Cache manager configuration.
 
@@ -13,6 +13,10 @@ Cache manager configuration.
 ### TLink
 
 `TLink` _extends_ `Link`
+
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md)
 
 ## Properties
 
@@ -30,7 +34,7 @@ Cache manager configuration.
 
 ### storage
 
-> **storage**: [`IStorage`](IStorage.md)\<`TLink`\>
+> **storage**: [`IStorage`](IStorage.md)\<`TLink`, `TCommand`\>
 
 ---
 

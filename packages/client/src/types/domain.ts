@@ -16,6 +16,7 @@ import type { IAnticipatedEvent } from '../core/command-lifecycle/AnticipatedEve
 import type { IQueryManager } from '../core/query-manager/types.js'
 import { assert } from '../utils/assert.js'
 import { generateId } from '../utils/uuid.js'
+import { EnqueueCommand } from './commands.js'
 import type { ValidationError } from './validation.js'
 
 /**
@@ -286,11 +287,12 @@ export interface SchemaValidator<TSchema> {
  */
 export interface CommandHandlerRegistration<
   TLink extends Link,
+  TCommand extends EnqueueCommand = EnqueueCommand,
   TSchema = unknown,
   TEvent extends IAnticipatedEvent = IAnticipatedEvent,
 > {
   /** Command type this handler processes */
-  commandType: string
+  commandType: TCommand['type']
   /** Phase 1: structural schema validation (library-driven). */
   schema?: TSchema
   /** Phase 2: custom sync validation for rules the schema can't cover. */
@@ -326,12 +328,13 @@ export interface ParentRefConfig {
  */
 export interface ICommandHandlerMetadata<
   TLink extends Link,
+  TCommand extends EnqueueCommand = EnqueueCommand,
   TSchema = unknown,
   TEvent extends IAnticipatedEvent = IAnticipatedEvent,
 > {
   getRegistration(
     commandType: string,
-  ): CommandHandlerRegistration<TLink, TSchema, TEvent> | undefined
+  ): CommandHandlerRegistration<TLink, TCommand, TSchema, TEvent> | undefined
 }
 
 /**
@@ -357,11 +360,19 @@ export interface CreateDomainExecutorOptions<TLink extends Link, TSchema = unkno
  *
  * Returns both the executor and a metadata lookup for registration config.
  */
-export function createDomainExecutor<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent>(
-  registrations: CommandHandlerRegistration<TLink, TSchema, TEvent>[],
+export function createDomainExecutor<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+>(
+  registrations: CommandHandlerRegistration<TLink, TCommand, TSchema, TEvent>[],
   options?: CreateDomainExecutorOptions<TLink, TSchema>,
-): IDomainExecutor<TEvent> & ICommandHandlerMetadata<TLink, TSchema, TEvent> {
-  const registrationMap = new Map<string, CommandHandlerRegistration<TLink, TSchema, TEvent>>()
+): IDomainExecutor<TEvent> & ICommandHandlerMetadata<TLink, TCommand, TSchema, TEvent> {
+  const registrationMap = new Map<
+    string,
+    CommandHandlerRegistration<TLink, TCommand, TSchema, TEvent>
+  >()
   const schemaValidator = options?.schemaValidator
   const queryManager = options?.queryManager
 
@@ -416,7 +427,7 @@ export function createDomainExecutor<TLink extends Link, TSchema, TEvent extends
 
     getRegistration(
       commandType: string,
-    ): CommandHandlerRegistration<TLink, TSchema, TEvent> | undefined {
+    ): CommandHandlerRegistration<TLink, TCommand, TSchema, TEvent> | undefined {
       return registrationMap.get(commandType)
     },
   }

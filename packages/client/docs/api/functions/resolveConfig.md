@@ -6,7 +6,7 @@
 
 # Function: resolveConfig()
 
-> **resolveConfig**\<`TLink`, `TSchema`, `TEvent`\>(`config`): [`ResolvedConfig`](../interfaces/ResolvedConfig.md)\<`TLink`, `TSchema`, `TEvent`\>
+> **resolveConfig**\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>(`config`): [`ResolvedConfig`](../interfaces/ResolvedConfig.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 Resolve shared configuration with defaults.
 
@@ -15,6 +15,10 @@ Resolve shared configuration with defaults.
 ### TLink
 
 `TLink` _extends_ `Link`\<`string`, `string`\>
+
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md)\<`unknown`\>
 
 ### TSchema
 
@@ -28,8 +32,8 @@ Resolve shared configuration with defaults.
 
 ### config
 
-[`CqrsConfig`](../interfaces/CqrsConfig.md)\<`TLink`, `TSchema`, `TEvent`\>
+[`CqrsConfig`](../interfaces/CqrsConfig.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 ## Returns
 
-[`ResolvedConfig`](../interfaces/ResolvedConfig.md)\<`TLink`, `TSchema`, `TEvent`\>
+[`ResolvedConfig`](../interfaces/ResolvedConfig.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>

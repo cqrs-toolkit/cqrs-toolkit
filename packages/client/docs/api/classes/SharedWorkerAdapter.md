@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / SharedWorkerAdapter
 
-# Class: SharedWorkerAdapter\<TLink\>
+# Class: SharedWorkerAdapter\<TLink, TCommand\>
 
 SharedWorker adapter for multi-tab offline support.
 
@@ -24,15 +24,19 @@ This adapter:
 
 `TLink` _extends_ `Link`
 
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md)
+
 ## Implements
 
-- [`IWorkerAdapter`](../interfaces/IWorkerAdapter.md)\<`TLink`\>
+- [`IWorkerAdapter`](../interfaces/IWorkerAdapter.md)\<`TLink`, `TCommand`\>
 
 ## Constructors
 
 ### Constructor
 
-> **new SharedWorkerAdapter**\<`TLink`\>(`config`): `SharedWorkerAdapter`\<`TLink`\>
+> **new SharedWorkerAdapter**\<`TLink`, `TCommand`\>(`config`): `SharedWorkerAdapter`\<`TLink`, `TCommand`\>
 
 #### Parameters
 
@@ -42,7 +46,7 @@ This adapter:
 
 #### Returns
 
-`SharedWorkerAdapter`\<`TLink`\>
+`SharedWorkerAdapter`\<`TLink`, `TCommand`\>
 
 ## Properties
 
@@ -76,11 +80,11 @@ This adapter:
 
 #### Get Signature
 
-> **get** **commandQueue**(): [`ICommandQueue`](../interfaces/ICommandQueue.md)\<`TLink`\>
+> **get** **commandQueue**(): [`ICommandQueue`](../interfaces/ICommandQueue.md)\<`TLink`, `TCommand`\>
 
 ##### Returns
 
-[`ICommandQueue`](../interfaces/ICommandQueue.md)\<`TLink`\>
+[`ICommandQueue`](../interfaces/ICommandQueue.md)\<`TLink`, `TCommand`\>
 
 #### Implementation of
 

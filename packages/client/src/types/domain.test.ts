@@ -2,6 +2,7 @@ import { Err, Ok, ServiceLink, ValidationException } from '@meticoeus/ddd-es'
 import { describe, expect, it } from 'vitest'
 import { IAnticipatedEvent } from '../core/command-lifecycle/AnticipatedEventShape.js'
 import type { IQueryManager } from '../core/query-manager/types.js'
+import { EnqueueCommand } from './commands.js'
 import type { CommandHandlerRegistration, HandlerContext } from './domain.js'
 import { createDomainExecutor, createEntityId, domainFailure, domainSuccess } from './domain.js'
 
@@ -50,7 +51,7 @@ describe('createDomainExecutor', () => {
 
   it('passes data and context to handler', async () => {
     let receivedContext: HandlerContext | undefined
-    const executor = createDomainExecutor<ServiceLink, unknown, IAnticipatedEvent>([
+    const executor = createDomainExecutor<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>([
       {
         commandType: 'Test',
         handler(data, context) {

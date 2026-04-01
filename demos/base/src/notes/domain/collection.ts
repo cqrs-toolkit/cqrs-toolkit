@@ -6,6 +6,8 @@ import {
 } from '@cqrs-toolkit/client'
 import type { ServiceLink } from '@meticoeus/ddd-es'
 
+export const NOTES_COLLECTION_NAME = 'notes'
+
 export const cacheKeysFromTopics: Collection<ServiceLink>['cacheKeysFromTopics'] = (topics) => {
   const seen = new Set<string>()
   const keys: CacheKeyIdentity<ServiceLink>[] = []

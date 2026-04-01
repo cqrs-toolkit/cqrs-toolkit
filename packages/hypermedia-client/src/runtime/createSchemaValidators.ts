@@ -2,8 +2,9 @@
  * AJV-based schema validator for JSON Schema command validation.
  */
 
-import type {
+import {
   CommandHandlerRegistration,
+  EnqueueCommand,
   IAnticipatedEvent,
   SchemaValidator,
   ValidationError,
@@ -59,10 +60,14 @@ function mapAjvErrors(errors: ErrorObject[] | null | undefined): ValidationError
  * ])
  * ```
  */
-export function withSchemaRegistry<TLink extends Link, TEvent extends IAnticipatedEvent>(
+export function withSchemaRegistry<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+  TEvent extends IAnticipatedEvent,
+>(
   registry: SchemaRegistry,
-  handlers: CommandHandlerRegistration<TLink, JSONSchema7, TEvent>[],
-): CommandHandlerRegistration<TLink, JSONSchema7, TEvent>[] {
+  handlers: CommandHandlerRegistration<TLink, TCommand, JSONSchema7, TEvent>[],
+): CommandHandlerRegistration<TLink, TCommand, JSONSchema7, TEvent>[] {
   return handlers.map((handler) => {
     if (handler.schema !== undefined) return handler
     const schema = registry.commands[handler.commandType]

@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / SessionManagerConfig
 
-# Interface: SessionManagerConfig\<TLink\>
+# Interface: SessionManagerConfig\<TLink, TCommand\>
 
 Session manager configuration.
 
@@ -13,6 +13,10 @@ Session manager configuration.
 ### TLink
 
 `TLink` _extends_ `Link`
+
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md)
 
 ## Properties
 
@@ -24,4 +28,4 @@ Session manager configuration.
 
 ### storage
 
-> **storage**: [`IStorage`](IStorage.md)\<`TLink`\>
+> **storage**: [`IStorage`](IStorage.md)\<`TLink`, `TCommand`\>

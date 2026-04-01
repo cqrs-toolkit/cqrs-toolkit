@@ -32,6 +32,7 @@ import { AnticipatedEventHandler } from './core/command-lifecycle/AnticipatedEve
 import type { IAnticipatedEvent } from './core/command-lifecycle/AnticipatedEventShape.js'
 import { createCommandResponseHandler } from './core/command-lifecycle/createCommandResponseHandler.js'
 import { CommandQueue } from './core/command-queue/CommandQueue.js'
+import { InMemoryCommandFileStore } from './core/command-queue/file-store/InMemoryCommandFileStore.js'
 import type { ICommandQueue } from './core/command-queue/types.js'
 import { detectMode, readModeCache, writeModeCache } from './core/detectMode.js'
 import { EventCache } from './core/event-cache/EventCache.js'
@@ -64,10 +65,11 @@ import { assert } from './utils/assert.js'
  */
 interface WindowWithDevtools<
   TLink extends Link,
+  TCommand extends EnqueueCommand,
   TSchema,
   TEvent extends IAnticipatedEvent,
 > extends Window {
-  __CQRS_TOOLKIT_DEVTOOLS__?: CqrsDevToolsHook<TLink, TSchema, TEvent>
+  __CQRS_TOOLKIT_DEVTOOLS__?: CqrsDevToolsHook<TLink, TCommand, TSchema, TEvent>
 }
 
 /**
@@ -98,11 +100,11 @@ export interface CqrsClientSyncManager<TLink extends Link> {
  *
  * All fields are available immediately — the client is fully initialized at construction time.
  */
-export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand = EnqueueCommand> {
+export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand> {
   /** Cache manager for cache key lifecycle and eviction. */
   readonly cacheManager: ICacheManager<TLink>
   /** Command queue for enqueuing and tracking commands. */
-  readonly commandQueue: ICommandQueue<TLink>
+  readonly commandQueue: ICommandQueue<TLink, TCommand>
   /** Query manager for reading cached data. */
   readonly queryManager: IQueryManager<TLink>
   /** Sync manager for collection sync status and manual triggers. */
@@ -110,13 +112,13 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand = En
   /** Resolved execution mode. */
   readonly mode: ExecutionMode
 
-  private readonly adapter: IAdapter<TLink>
+  private readonly adapter: IAdapter<TLink, TCommand>
   private readonly closeResources: () => Promise<void>
 
   constructor(
-    adapter: IAdapter<TLink>,
+    adapter: IAdapter<TLink, TCommand>,
     cacheManager: ICacheManager<TLink>,
-    commandQueue: ICommandQueue<TLink>,
+    commandQueue: ICommandQueue<TLink, TCommand>,
     queryManager: IQueryManager<TLink>,
     syncManager: CqrsClientSyncManager<TLink>,
     closeResources: () => Promise<void>,
@@ -338,14 +340,17 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand = En
  */
 export async function createCqrsClient<
   TLink extends Link,
+  TCommand extends EnqueueCommand = EnqueueCommand,
   TSchema = unknown,
   TEvent extends IAnticipatedEvent = IAnticipatedEvent,
->(config: CqrsClientConfig<TLink, TSchema, TEvent>): Promise<CqrsClient<TLink>> {
+>(
+  config: CqrsClientConfig<TLink, TCommand, TSchema, TEvent>,
+): Promise<CqrsClient<TLink, TCommand>> {
   const resolved = resolveConfig(config)
   const requestedMode = config.mode ?? 'auto'
 
   // 1. Create and initialize adapter (with OPFS fallback for auto mode)
-  const { adapter, mode } = await initializeAdapter<TLink, TSchema, TEvent>(
+  const { adapter, mode } = await initializeAdapter<TLink, TCommand, TSchema, TEvent>(
     requestedMode,
     config.workerUrl,
     config.sqliteWorkerUrl,
@@ -353,12 +358,16 @@ export async function createCqrsClient<
   )
 
   // Two paths based on adapter type
-  let client: CqrsClient<TLink>
+  let client: CqrsClient<TLink, TCommand>
   try {
     if (adapter.mode === 'online-only') {
-      client = await createOnlineOnlyClient<TLink, TSchema, TEvent>(adapter, resolved, mode)
+      client = await createOnlineOnlyClient<TLink, TCommand, TSchema, TEvent>(
+        adapter,
+        resolved,
+        mode,
+      )
     } else {
-      client = await createWorkerClient<TLink>(adapter, mode, resolved.debug)
+      client = await createWorkerClient<TLink, TCommand>(adapter, mode, resolved.debug)
     }
   } catch (error) {
     await adapter.close()
@@ -367,7 +376,8 @@ export async function createCqrsClient<
 
   // Register debug API on window hook if available
   if (resolved.debug && typeof window !== 'undefined') {
-    const hook = (window as WindowWithDevtools<TLink, TSchema, TEvent>).__CQRS_TOOLKIT_DEVTOOLS__
+    const hook = (window as WindowWithDevtools<TLink, TCommand, TSchema, TEvent>)
+      .__CQRS_TOOLKIT_DEVTOOLS__
     if (hook) {
       let debugStorage: DebugStorageAPI | undefined
       if (adapter.mode !== 'online-only') {
@@ -400,13 +410,14 @@ export async function createCqrsClient<
  */
 async function createOnlineOnlyClient<
   TLink extends Link,
+  TCommand extends EnqueueCommand,
   TSchema,
   TEvent extends IAnticipatedEvent,
 >(
-  adapter: IOnlineOnlyAdapter<TLink>,
-  resolved: ResolvedConfig<TLink, TSchema, TEvent>,
+  adapter: IOnlineOnlyAdapter<TLink, TCommand>,
+  resolved: ResolvedConfig<TLink, TCommand, TSchema, TEvent>,
   mode: ExecutionMode,
-): Promise<CqrsClient<TLink>> {
+): Promise<CqrsClient<TLink, TCommand>> {
   const { storage, eventBus } = adapter
 
   // Register event processors
@@ -416,7 +427,7 @@ async function createOnlineOnlyClient<
   }
 
   // Create core components
-  const cacheManager = new CacheManager<TLink>({
+  const cacheManager = new CacheManager<TLink, TCommand>({
     storage,
     eventBus,
     cacheConfig: resolved.cache,
@@ -424,7 +435,7 @@ async function createOnlineOnlyClient<
   })
   await cacheManager.initialize()
 
-  const eventCache = new EventCache<TLink>({
+  const eventCache = new EventCache<TLink, TCommand>({
     storage,
     eventBus,
   })
@@ -433,14 +444,18 @@ async function createOnlineOnlyClient<
     storage,
   })
 
-  const eventProcessorRunner = new EventProcessorRunner<TLink>(readModelStore, eventBus, registry)
+  const eventProcessorRunner = new EventProcessorRunner<TLink, TCommand>(
+    readModelStore,
+    eventBus,
+    registry,
+  )
 
   // Create WriteQueue — subsystems register their own handlers in their constructors.
   const writeQueue = new WriteQueue<TLink>(eventBus)
 
   // Lazy ref for SyncManager — safe because onCommandResponse is never called
   // before SyncManager exists (queue starts paused, only processes after resume).
-  let syncManagerRef: SyncManager<TLink, TSchema, TEvent>
+  let syncManagerRef: SyncManager<TLink, TCommand, TSchema, TEvent>
 
   const anticipatedEventHandler = new AnticipatedEventHandler(
     eventCache,
@@ -454,28 +469,32 @@ async function createOnlineOnlyClient<
   // Breaks the circular dependency: handler needs runner, runner needs handler.
   eventProcessorRunner.setAnticipatedEventHandler(anticipatedEventHandler)
 
-  const queryManager = new QueryManager<TLink>({
+  const queryManager = new QueryManager<TLink, TCommand>({
     eventBus,
     cacheManager,
     readModelStore,
   })
 
-  const commandQueue = new CommandQueue<TLink, TSchema, TEvent>({
+  const commandQueue = new CommandQueue<TLink, TCommand, TSchema, TEvent>({
     storage,
     eventBus,
     anticipatedEventHandler,
     ...(() => {
       if (resolved.commandHandlers.length === 0) return {}
-      const executor = createDomainExecutor<TLink, TSchema, TEvent>(resolved.commandHandlers, {
-        schemaValidator: resolved.schemaValidator,
-        queryManager,
-      })
+      const executor = createDomainExecutor<TLink, TCommand, TSchema, TEvent>(
+        resolved.commandHandlers,
+        {
+          schemaValidator: resolved.schemaValidator,
+          queryManager,
+        },
+      )
       return { domainExecutor: executor, handlerMetadata: executor }
     })(),
     commandSender: resolved.commandSender,
+    fileStore: new InMemoryCommandFileStore(),
     retryConfig: resolved.retry,
     retainTerminal: resolved.retainTerminal,
-    onCommandResponse: createCommandResponseHandler<TLink, TSchema, TEvent>(
+    onCommandResponse: createCommandResponseHandler<TLink, TCommand, TSchema, TEvent>(
       () => syncManagerRef,
       resolved.collections,
     ),
@@ -483,7 +502,7 @@ async function createOnlineOnlyClient<
 
   const stableQueryManager = new StableRefQueryManager<TLink>(queryManager)
 
-  const syncManager = new SyncManager<TLink, TSchema, TEvent>(
+  const syncManager = new SyncManager<TLink, TCommand, TSchema, TEvent>(
     eventBus,
     adapter.sessionManager,
     commandQueue,
@@ -525,7 +544,7 @@ async function createOnlineOnlyClient<
     await commandQueue.destroy()
   }
 
-  return new CqrsClient<TLink>(
+  return new CqrsClient<TLink, TCommand>(
     adapter,
     cacheManager,
     commandQueue,
@@ -543,11 +562,11 @@ async function createOnlineOnlyClient<
  * If debug is enabled, sends a `debug.enable` RPC to the worker so it
  * starts emitting debug events. This is one-way and idempotent.
  */
-async function createWorkerClient<TLink extends Link>(
-  adapter: IWorkerAdapter<TLink>,
+async function createWorkerClient<TLink extends Link, TCommand extends EnqueueCommand>(
+  adapter: IWorkerAdapter<TLink, TCommand>,
   mode: ExecutionMode,
   debug: boolean,
-): Promise<CqrsClient<TLink>> {
+): Promise<CqrsClient<TLink, TCommand>> {
   const { commandQueue, cacheManager, syncManager } = adapter
   const stableQueryManager = new StableRefQueryManager<TLink>(adapter.queryManager)
 
@@ -565,7 +584,7 @@ async function createWorkerClient<TLink extends Link>(
     await stableQueryManager.destroy()
   }
 
-  return new CqrsClient<TLink>(
+  return new CqrsClient<TLink, TCommand>(
     adapter,
     cacheManager,
     commandQueue,
@@ -584,12 +603,17 @@ async function createWorkerClient<TLink extends Link>(
  * If the worker adapter fails due to OPFS unavailability, falls back to
  * online-only transparently. For explicit modes: propagates all errors.
  */
-async function initializeAdapter<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent>(
+async function initializeAdapter<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+>(
   requestedMode: ExecutionModeConfig,
   workerUrl: string | undefined,
   sqliteWorkerUrl: string | undefined,
-  config: ResolvedConfig<TLink, TSchema, TEvent>,
-): Promise<{ adapter: IAdapter<TLink>; mode: ExecutionMode }> {
+  config: ResolvedConfig<TLink, TCommand, TSchema, TEvent>,
+): Promise<{ adapter: IAdapter<TLink, TCommand>; mode: ExecutionMode }> {
   let mode: ExecutionMode
 
   if (requestedMode === 'auto') {
@@ -599,7 +623,7 @@ async function initializeAdapter<TLink extends Link, TSchema, TEvent extends IAn
     mode = requestedMode
   }
 
-  const adapter = createAdapterForMode<TLink, TSchema, TEvent>(
+  const adapter = createAdapterForMode<TLink, TCommand, TSchema, TEvent>(
     mode,
     workerUrl,
     sqliteWorkerUrl,
@@ -619,7 +643,7 @@ async function initializeAdapter<TLink extends Link, TSchema, TEvent extends IAn
     // Only fall back for auto mode when a worker mode failed due to OPFS
     if (requestedMode === 'auto' && error instanceof OpfsUnavailableException) {
       await adapter.close().catch(() => {})
-      const fallback = createAdapterForMode<TLink, TSchema, TEvent>(
+      const fallback = createAdapterForMode<TLink, TCommand, TSchema, TEvent>(
         'online-only',
         undefined,
         undefined,
@@ -635,26 +659,31 @@ async function initializeAdapter<TLink extends Link, TSchema, TEvent extends IAn
 /**
  * Create the appropriate adapter for the given execution mode.
  */
-function createAdapterForMode<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent>(
+function createAdapterForMode<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+>(
   mode: ExecutionMode,
   workerUrl: string | undefined,
   sqliteWorkerUrl: string | undefined,
-  config: ResolvedConfig<TLink, TSchema, TEvent>,
-): IAdapter<TLink> {
+  config: ResolvedConfig<TLink, TCommand, TSchema, TEvent>,
+): IAdapter<TLink, TCommand> {
   switch (mode) {
     case 'online-only':
-      return new OnlineOnlyAdapter<TLink, TSchema, TEvent>(config)
+      return new OnlineOnlyAdapter<TLink, TCommand, TSchema, TEvent>(config)
     case 'shared-worker':
       assert(workerUrl, 'workerUrl is required for shared-worker mode')
       assert(sqliteWorkerUrl, 'sqliteWorkerUrl is required for shared-worker mode')
-      return new SharedWorkerAdapter<TLink>({
+      return new SharedWorkerAdapter<TLink, TCommand>({
         workerUrl,
         sqliteWorkerUrl,
         requestTimeout: config.network.timeout,
       })
     case 'dedicated-worker':
       assert(workerUrl, 'workerUrl is required for dedicated-worker mode')
-      return new DedicatedWorkerAdapter<TLink>({
+      return new DedicatedWorkerAdapter<TLink, TCommand>({
         workerUrl,
         requestTimeout: config.network.timeout,
       })

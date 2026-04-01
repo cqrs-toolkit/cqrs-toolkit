@@ -8,121 +8,167 @@ import type { CommandManifest } from '@cqrs-toolkit/hypermedia-client'
 
 export const commands: CommandManifest = {
   commands: {
-    CreateTodo: {
+    'nb.CreateTodo': {
       urn: 'urn:command:nb.CreateTodo:1.0.0',
       dispatch: 'create',
       template: '/api/todos',
       mappings: [],
     },
-    UpdateTodoContent: {
+    'nb.UpdateTodoContent': {
       urn: 'urn:command:nb.UpdateTodoContent:1.0.0',
       dispatch: 'command',
       commandType: 'updateContent',
       template: '/api/todos/{id}/command',
       mappings: [{ variable: 'id', required: true }],
     },
-    ChangeTodoStatus: {
+    'nb.ChangeTodoStatus': {
       urn: 'urn:command:nb.ChangeTodoStatus:1.0.0',
       dispatch: 'command',
       commandType: 'changeStatus',
       template: '/api/todos/{id}/command',
       mappings: [{ variable: 'id', required: true }],
     },
-    DeleteTodo: {
+    'nb.DeleteTodo': {
       urn: 'urn:command:nb.DeleteTodo:1.0.0',
       dispatch: 'command',
       commandType: 'delete',
       template: '/api/todos/{id}/command',
       mappings: [{ variable: 'id', required: true }],
     },
-    CreateNote: {
+    'nb.CreateNote': {
       urn: 'urn:command:nb.CreateNote:1.0.0',
       dispatch: 'create',
       template: '/api/notes',
       mappings: [],
     },
-    UpdateNoteTitle: {
+    'nb.UpdateNoteTitle': {
       urn: 'urn:command:nb.UpdateNoteTitle:1.0.0',
       dispatch: 'command',
       commandType: 'updateTitle',
       template: '/api/notes/{id}/command',
       mappings: [{ variable: 'id', required: true }],
     },
-    UpdateNoteBody: {
+    'nb.UpdateNoteBody': {
       urn: 'urn:command:nb.UpdateNoteBody:1.0.0',
       dispatch: 'command',
       commandType: 'updateBody',
       template: '/api/notes/{id}/command',
       mappings: [{ variable: 'id', required: true }],
     },
-    DeleteNote: {
+    'nb.DeleteNote': {
       urn: 'urn:command:nb.DeleteNote:1.0.0',
       dispatch: 'command',
       commandType: 'delete',
       template: '/api/notes/{id}/command',
       mappings: [{ variable: 'id', required: true }],
     },
-    CreateNotebook: {
+    'nb.CreateNotebook': {
       urn: 'urn:command:nb.CreateNotebook:1.0.0',
       dispatch: 'create',
       template: '/api/notebooks',
       mappings: [],
     },
-    UpdateNotebookName: {
+    'nb.UpdateNotebookName': {
       urn: 'urn:command:nb.UpdateNotebookName:1.0.0',
       dispatch: 'command',
       commandType: 'updateName',
       template: '/api/notebooks/{id}/command',
       mappings: [{ variable: 'id', required: true }],
     },
-    DeleteNotebook: {
+    'nb.DeleteNotebook': {
       urn: 'urn:command:nb.DeleteNotebook:1.0.0',
       dispatch: 'command',
       commandType: 'delete',
       template: '/api/notebooks/{id}/command',
       mappings: [{ variable: 'id', required: true }],
     },
+    'nb.AddNotebookTag': {
+      urn: 'urn:command:nb.AddNotebookTag:1.0.0',
+      dispatch: 'command',
+      commandType: 'addTag',
+      template: '/api/notebooks/{id}/command',
+      mappings: [{ variable: 'id', required: true }],
+    },
+    'nb.RemoveNotebookTag': {
+      urn: 'urn:command:nb.RemoveNotebookTag:1.0.0',
+      dispatch: 'command',
+      commandType: 'removeTag',
+      template: '/api/notebooks/{id}/command',
+      mappings: [{ variable: 'id', required: true }],
+    },
+    'storage.CreateFileObject': {
+      urn: 'urn:command:storage.CreateFileObject:1.0.0',
+      dispatch: 'create',
+      template: '/api/file-objects',
+      mappings: [],
+    },
+    'storage.DeleteFileObject': {
+      urn: 'urn:command:storage.DeleteFileObject:1.0.0',
+      dispatch: 'command',
+      commandType: 'delete',
+      template: '/api/file-objects/{id}/command',
+      mappings: [{ variable: 'id', required: true }],
+    },
   },
 }
 
 export type AppCommand =
-  | { type: 'CreateTodo'; data: unknown }
+  | { type: 'nb.CreateTodo'; data: unknown }
   | {
-      type: 'UpdateTodoContent'
+      type: 'nb.UpdateTodoContent'
       path: { id: string }
       data: unknown
       revision?: string | AutoRevision
     }
   | {
-      type: 'ChangeTodoStatus'
+      type: 'nb.ChangeTodoStatus'
       path: { id: string }
       data: unknown
       revision?: string | AutoRevision
     }
-  | { type: 'DeleteTodo'; path: { id: string }; data: unknown; revision?: string | AutoRevision }
-  | { type: 'CreateNote'; data: unknown }
+  | { type: 'nb.DeleteTodo'; path: { id: string }; data: unknown; revision?: string | AutoRevision }
+  | { type: 'nb.CreateNote'; data: unknown }
   | {
-      type: 'UpdateNoteTitle'
-      path: { id: string }
-      data: unknown
-      revision?: string | AutoRevision
-    }
-  | {
-      type: 'UpdateNoteBody'
-      path: { id: string }
-      data: unknown
-      revision?: string | AutoRevision
-    }
-  | { type: 'DeleteNote'; path: { id: string }; data: unknown; revision?: string | AutoRevision }
-  | { type: 'CreateNotebook'; data: unknown }
-  | {
-      type: 'UpdateNotebookName'
+      type: 'nb.UpdateNoteTitle'
       path: { id: string }
       data: unknown
       revision?: string | AutoRevision
     }
   | {
-      type: 'DeleteNotebook'
+      type: 'nb.UpdateNoteBody'
+      path: { id: string }
+      data: unknown
+      revision?: string | AutoRevision
+    }
+  | { type: 'nb.DeleteNote'; path: { id: string }; data: unknown; revision?: string | AutoRevision }
+  | { type: 'nb.CreateNotebook'; data: unknown }
+  | {
+      type: 'nb.UpdateNotebookName'
+      path: { id: string }
+      data: unknown
+      revision?: string | AutoRevision
+    }
+  | {
+      type: 'nb.DeleteNotebook'
+      path: { id: string }
+      data: unknown
+      revision?: string | AutoRevision
+    }
+  | {
+      type: 'nb.AddNotebookTag'
+      path: { id: string }
+      data: unknown
+      revision?: string | AutoRevision
+    }
+  | {
+      type: 'nb.RemoveNotebookTag'
+      path: { id: string }
+      data: unknown
+      revision?: string | AutoRevision
+    }
+  | { type: 'storage.CreateFileObject'; data: unknown; files: [File] }
+  | {
+      type: 'storage.DeleteFileObject'
       path: { id: string }
       data: unknown
       revision?: string | AutoRevision

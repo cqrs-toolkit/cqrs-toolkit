@@ -4,7 +4,7 @@
 
 [@cqrs-toolkit/client](../globals.md) / EventProcessorRunner
 
-# Class: EventProcessorRunner\<TLink\>
+# Class: EventProcessorRunner\<TLink, TCommand\>
 
 Event processor runner.
 
@@ -14,17 +14,21 @@ Event processor runner.
 
 `TLink` _extends_ `Link`
 
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md)
+
 ## Constructors
 
 ### Constructor
 
-> **new EventProcessorRunner**\<`TLink`\>(`readModelStore`, `eventBus`, `registry`, `anticipatedEventHandler?`): `EventProcessorRunner`\<`TLink`\>
+> **new EventProcessorRunner**\<`TLink`, `TCommand`\>(`readModelStore`, `eventBus`, `registry`, `anticipatedEventHandler?`): `EventProcessorRunner`\<`TLink`, `TCommand`\>
 
 #### Parameters
 
 ##### readModelStore
 
-[`ReadModelStore`](ReadModelStore.md)\<`TLink`\>
+[`ReadModelStore`](ReadModelStore.md)\<`TLink`, `TCommand`\>
 
 ##### eventBus
 
@@ -42,7 +46,7 @@ Anticipated event handler for create reconciliation. Optional — only needed wi
 
 #### Returns
 
-`EventProcessorRunner`\<`TLink`\>
+`EventProcessorRunner`\<`TLink`, `TCommand`\>
 
 ## Methods
 

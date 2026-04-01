@@ -11,25 +11,33 @@ import type { SyncManager } from '../../core/sync-manager/SyncManager.js'
 import type { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
 import type { ISqliteDb } from '../../storage/ISqliteDb.js'
 import type { IStorage } from '../../storage/IStorage.js'
+import { EnqueueCommand } from '../../types/index.js'
 
 /**
  * Dependencies needed for debug snapshot methods.
  */
-export interface DebugMethodDeps<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent> {
-  commandQueue: CommandQueue<TLink, TSchema, TEvent>
-  cacheManager: CacheManager<TLink>
-  syncManager: SyncManager<TLink, TSchema, TEvent>
-  storage: IStorage<TLink>
+export interface DebugMethodDeps<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+> {
+  commandQueue: CommandQueue<TLink, TCommand, TSchema, TEvent>
+  cacheManager: CacheManager<TLink, TCommand>
+  syncManager: SyncManager<TLink, TCommand, TSchema, TEvent>
+  storage: IStorage<TLink, TCommand>
   db: ISqliteDb
 }
 
 /**
  * Register debug snapshot RPC methods on the worker message handler.
  */
-export function registerDebugMethods<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent>(
-  handler: WorkerMessageHandler,
-  deps: DebugMethodDeps<TLink, TSchema, TEvent>,
-): void {
+export function registerDebugMethods<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+>(handler: WorkerMessageHandler, deps: DebugMethodDeps<TLink, TCommand, TSchema, TEvent>): void {
   const { commandQueue, cacheManager, syncManager, storage, db } = deps
 
   handler.registerMethod('debug.getCommandSnapshot', async () => {

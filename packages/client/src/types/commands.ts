@@ -49,7 +49,11 @@ export interface CommandError {
 /**
  * Persisted command record.
  */
-export interface CommandRecord<TLink extends Link, TData = unknown, TResponse = unknown> {
+export interface CommandRecord<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+  TResponse = unknown,
+> {
   /** Unique command identifier (client-generated) */
   commandId: string
   /** Cache key identity — associates this command's events with the correct data scope. Serialized as JSON in SQL storage. */
@@ -57,9 +61,9 @@ export interface CommandRecord<TLink extends Link, TData = unknown, TResponse = 
   /** Target service for the command */
   service: string
   /** Command type (e.g., 'CreateTodo', 'UpdateUser') */
-  type: string
+  type: TCommand['type']
   /** Command data */
-  data: TData
+  data: TCommand['data']
   /** URL path template values for command sender URL expansion. */
   path?: unknown
   /** Current status */
@@ -82,10 +86,33 @@ export interface CommandRecord<TLink extends Link, TData = unknown, TResponse = 
   creates?: CreateCommandConfig
   /** Revision for optimistic concurrency. AutoRevision markers are resolved before send. */
   revision?: string | AutoRevision
+  /** File attachments — metadata at rest, hydrated with Blob data before send(). */
+  fileRefs?: FileRef[]
   /** Creation timestamp */
   createdAt: number
   /** Last update timestamp */
   updatedAt: number
+}
+
+/**
+ * Metadata for a file attached to a command.
+ *
+ * At rest (persisted): `data` is undefined — binary lives in OPFS or in-memory file store.
+ * Before send: the library hydrates `data` with a Blob read from the file store.
+ */
+export interface FileRef {
+  /** Unique file identifier (UUID) — used for OPFS path and per-file operations. */
+  id: string
+  /** Original filename */
+  filename: string
+  /** MIME type */
+  mimeType: string
+  /** File size in bytes */
+  sizeBytes: number
+  /** Optional integrity check (e.g. SHA-256 hex) */
+  checksum?: string
+  /** File data — undefined at rest, populated by the library before send(). */
+  data?: Blob
 }
 
 /**
@@ -96,6 +123,8 @@ export interface EnqueueCommand<TData = unknown> {
   type: string
   /** Command data (HTTP body payload) */
   data: TData
+  /** File attachments for upload commands. Provide File objects (from input elements or `new File()`). */
+  files?: File[]
   /** URL path template values (e.g. `{ id: '...' }`). Used by the command sender for URL expansion. */
   path?: unknown
   /** Revision for optimistic concurrency (mutate commands). Absent for creates. */
@@ -124,6 +153,8 @@ export interface EnqueueOptions<TLink extends Link> {
 export interface EnqueueParams<TLink extends Link, TData = unknown> extends EnqueueOptions<TLink> {
   /** Command to enqueue */
   command: EnqueueCommand<TData>
+  /** Pre-built file refs from the window-side proxy (internal — set by CommandQueueProxy, not consumers). */
+  fileRefs?: FileRef[]
 }
 
 /**

@@ -8,6 +8,7 @@ import type { CacheKeyIdentity, CacheKeyMatcher } from '../core/cache-manager/Ca
 import type { IAnticipatedEvent } from '../core/command-lifecycle/AnticipatedEventShape.js'
 import type { ICommandSender } from '../core/command-queue/types.js'
 import type { ProcessorRegistration } from '../core/event-processor/types.js'
+import { EnqueueCommand } from './commands.js'
 import type { CommandHandlerRegistration, SchemaValidator } from './domain.js'
 
 /**
@@ -369,6 +370,7 @@ export function isCollectionWithFetchStreamEvents<TLink extends Link>(
  */
 export interface CqrsConfig<
   TLink extends Link,
+  TCommand extends EnqueueCommand,
   TSchema = unknown,
   TEvent extends IAnticipatedEvent = IAnticipatedEvent,
 > {
@@ -385,7 +387,7 @@ export interface CqrsConfig<
    * Each handler validates command data and produces anticipated events.
    * If not provided, commands are sent directly without local validation.
    */
-  commandHandlers?: CommandHandlerRegistration<TLink, TSchema, TEvent>[]
+  commandHandlers?: CommandHandlerRegistration<TLink, TCommand, TSchema, TEvent>[]
 
   /**
    * Auth strategy for transport-level authentication.
@@ -423,7 +425,7 @@ export interface CqrsConfig<
    * Command sender for submitting commands to the server.
    * If not provided, commands are queued but not sent.
    */
-  commandSender?: ICommandSender<TLink>
+  commandSender?: ICommandSender<TLink, TCommand>
 
   /**
    * Event processors to register.
@@ -457,9 +459,10 @@ export interface CqrsConfig<
  */
 export interface CqrsClientConfig<
   TLink extends Link,
+  TCommand extends EnqueueCommand,
   TSchema = unknown,
   TEvent extends IAnticipatedEvent = IAnticipatedEvent,
-> extends CqrsConfig<TLink, TSchema, TEvent> {
+> extends CqrsConfig<TLink, TCommand, TSchema, TEvent> {
   /**
    * Execution mode.
    * Defaults to 'auto': SharedWorker > Dedicated Worker > Online-only
@@ -491,7 +494,7 @@ export interface CqrsClientConfig<
 export const DEFAULT_CONFIG = {
   mode: 'auto' as const,
   storage: {
-    dbName: 'cqrs-client',
+    dbName: 'cqrs-client-sqlite',
   } satisfies Omit<StorageConfig, 'migrations'>,
   retry: {
     maxAttempts: 3,
@@ -516,11 +519,12 @@ export const DEFAULT_CONFIG = {
  */
 export interface ResolvedConfig<
   TLink extends Link,
+  TCommand extends EnqueueCommand,
   TSchema,
   TEvent extends IAnticipatedEvent,
 > extends Required<
   Omit<
-    CqrsConfig<TLink, TSchema, TEvent>,
+    CqrsConfig<TLink, TCommand, TSchema, TEvent>,
     | 'commandHandlers'
     | 'commandSender'
     | 'schemaValidator'
@@ -529,8 +533,8 @@ export interface ResolvedConfig<
     | 'processors'
   >
 > {
-  commandHandlers: CommandHandlerRegistration<TLink, TSchema, TEvent>[]
-  commandSender?: ICommandSender<TLink>
+  commandHandlers: CommandHandlerRegistration<TLink, TCommand, TSchema, TEvent>[]
+  commandSender?: ICommandSender<TLink, TCommand>
   schemaValidator?: SchemaValidator<unknown>
   workerSetup?: string[]
   collections: Collection<TLink>[]
@@ -540,9 +544,14 @@ export interface ResolvedConfig<
 /**
  * Resolve shared configuration with defaults.
  */
-export function resolveConfig<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent>(
-  config: CqrsConfig<TLink, TSchema, TEvent>,
-): ResolvedConfig<TLink, TSchema, TEvent> {
+export function resolveConfig<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+>(
+  config: CqrsConfig<TLink, TCommand, TSchema, TEvent>,
+): ResolvedConfig<TLink, TCommand, TSchema, TEvent> {
   return {
     commandHandlers: config.commandHandlers ?? [],
     commandSender: config.commandSender,

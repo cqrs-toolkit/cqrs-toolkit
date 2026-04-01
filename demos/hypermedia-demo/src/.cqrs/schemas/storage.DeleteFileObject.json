@@ -1,0 +1,6 @@
+{
+  "$id": "http://localhost:3002/api/meta/schemas/urn/schema/storage.DeleteFileObjectData/1.0.0.json",
+  "additionalProperties": false,
+  "properties": {},
+  "type": "object"
+}

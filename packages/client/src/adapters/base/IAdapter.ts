@@ -16,6 +16,7 @@ import type { SessionManager } from '../../core/session/SessionManager.js'
 import type { CqrsClientSyncManager } from '../../createCqrsClient.js'
 import type { IStorage } from '../../storage/IStorage.js'
 import type { LibraryEvent } from '../../types/events.js'
+import { EnqueueCommand } from '../../types/index.js'
 
 /**
  * Re-export CqrsClientSyncManager for proxy implementations.
@@ -64,20 +65,26 @@ interface IAdapterBase<TLink extends Link> {
  * createCqrsClient uses storage, eventBus, and sessionManager to wire
  * CommandQueue, CacheManager, QueryManager, SyncManager etc.
  */
-export interface IOnlineOnlyAdapter<TLink extends Link> extends IAdapterBase<TLink> {
+export interface IOnlineOnlyAdapter<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+> extends IAdapterBase<TLink> {
   readonly mode: 'online-only'
-  readonly storage: IStorage<TLink>
+  readonly storage: IStorage<TLink, TCommand>
   readonly eventBus: EventBus<TLink>
-  readonly sessionManager: SessionManager<TLink>
+  readonly sessionManager: SessionManager<TLink, TCommand>
 }
 
 /**
  * Worker adapter provides proxy objects. All orchestration happens in the
  * worker; createCqrsClient just wraps the proxies.
  */
-export interface IWorkerAdapter<TLink extends Link> extends IAdapterBase<TLink> {
+export interface IWorkerAdapter<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+> extends IAdapterBase<TLink> {
   readonly mode: 'shared-worker' | 'dedicated-worker'
-  readonly commandQueue: ICommandQueue<TLink>
+  readonly commandQueue: ICommandQueue<TLink, TCommand>
   readonly queryManager: IQueryManager<TLink>
   readonly cacheManager: ICacheManager<TLink>
   readonly syncManager: CqrsClientSyncManager<TLink>
@@ -100,4 +107,6 @@ export interface IWorkerAdapter<TLink extends Link> extends IAdapterBase<TLink> 
  * Discriminated union of all adapter types.
  * Discriminant: `mode` field.
  */
-export type IAdapter<TLink extends Link> = IOnlineOnlyAdapter<TLink> | IWorkerAdapter<TLink>
+export type IAdapter<TLink extends Link, TCommand extends EnqueueCommand> =
+  | IOnlineOnlyAdapter<TLink, TCommand>
+  | IWorkerAdapter<TLink, TCommand>

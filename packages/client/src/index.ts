@@ -65,7 +65,7 @@ export type {
   ScopeCacheKey,
   ScopeKeyMatcher,
 } from './core/cache-manager/index.js'
-export { CommandQueue, CommandSendError } from './core/command-queue/index.js'
+export { CommandQueue, CommandSendException } from './core/command-queue/index.js'
 export type {
   CommandQueueConfig,
   ICommandQueue,

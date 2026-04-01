@@ -19,6 +19,7 @@ import type { IAnticipatedEvent } from '../../core/command-lifecycle/Anticipated
 import { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
 import type { CqrsConfig } from '../../types/config.js'
 import { resolveConfig } from '../../types/config.js'
+import { EnqueueCommand } from '../../types/index.js'
 import { WorkerOrchestrator } from './WorkerOrchestrator.js'
 
 // Set a default warn-level console logger so logProvider doesn't throw before consumer setup
@@ -34,12 +35,18 @@ logProvider.setLogger(createConsoleLogger({ level: 'warn' }))
  *
  * @param config - Shared CQRS config (same object the main thread uses)
  */
-export function startDedicatedWorker<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent>(
-  config: CqrsConfig<TLink, TSchema, TEvent>,
-): void {
+export function startDedicatedWorker<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+>(config: CqrsConfig<TLink, TCommand, TSchema, TEvent>): void {
   const resolved = resolveConfig(config)
   const messageHandler = new WorkerMessageHandler()
-  const orchestrator = new WorkerOrchestrator<TLink, TSchema, TEvent>(messageHandler, resolved)
+  const orchestrator = new WorkerOrchestrator<TLink, TCommand, TSchema, TEvent>(
+    messageHandler,
+    resolved,
+  )
 
   // Register Mode B lifecycle methods
   messageHandler.registerMethod('orchestrator.initialize', async () => {

@@ -1,14 +1,13 @@
-import {
-  type CollectionSyncStatus,
-  deriveEntityKey,
-  deriveScopeKey,
-  type LibraryEvent,
-} from '@cqrs-toolkit/client'
+import { type CollectionSyncStatus, deriveEntityKey, type LibraryEvent } from '@cqrs-toolkit/client'
 import { appCreateListQuery } from '@cqrs-toolkit/demo-base/common/components'
 import { NotebookList } from '@cqrs-toolkit/demo-base/notebooks/components'
-import { NOTEBOOK_SEED_KEY } from '@cqrs-toolkit/demo-base/notebooks/domain'
+import {
+  NOTEBOOK_SEED_KEY,
+  NOTEBOOKS_COLLECTION_NAME,
+} from '@cqrs-toolkit/demo-base/notebooks/domain'
 import type { Notebook } from '@cqrs-toolkit/demo-base/notebooks/shared'
 import { NoteEditor, NoteTitleList } from '@cqrs-toolkit/demo-base/notes/components'
+import { NOTES_COLLECTION_NAME } from '@cqrs-toolkit/demo-base/notes/domain'
 import type { Note } from '@cqrs-toolkit/demo-base/notes/shared'
 import type { ServiceLink } from '@meticoeus/ddd-es'
 import { A } from '@solidjs/router'
@@ -24,8 +23,8 @@ export default function NotesPage() {
 
   const notebooksQuery = appCreateListQuery<Notebook>(
     client.queryManager,
-    'notebooks',
-    deriveScopeKey({ scopeType: 'notebooks' }),
+    NOTEBOOKS_COLLECTION_NAME,
+    NOTEBOOK_SEED_KEY,
   )
   const notesQuery = appCreateListQuery<Note>(client.queryManager, 'notes', () =>
     selectedNotebookId()
@@ -42,8 +41,8 @@ export default function NotesPage() {
   const [notesSync, setNotesSync] = createSignal<CollectionSyncStatus>()
 
   function refreshSyncStatus(): void {
-    setNotebooksSync(client.syncManager.getCollectionStatus('notebooks'))
-    setNotesSync(client.syncManager.getCollectionStatus('notes'))
+    setNotebooksSync(client.syncManager.getCollectionStatus(NOTEBOOKS_COLLECTION_NAME))
+    setNotesSync(client.syncManager.getCollectionStatus(NOTES_COLLECTION_NAME))
   }
 
   function syncLabel(status: CollectionSyncStatus | undefined): string {
@@ -134,14 +133,14 @@ export default function NotesPage() {
             onSelect={handleSelectNotebook}
             onSubmitCreate={(p) =>
               client.submit({
-                command: { type: 'CreateNotebook', data: p },
+                command: { type: 'nb.CreateNotebook', data: p },
                 cacheKey: NOTEBOOK_SEED_KEY,
               })
             }
             onSubmitRename={(p) =>
               client.submit({
                 command: {
-                  type: 'UpdateNotebookName',
+                  type: 'nb.UpdateNotebookName',
                   path: { id: p.id },
                   data: { name: p.name },
                   revision: p.revision,
@@ -152,7 +151,7 @@ export default function NotesPage() {
             onSubmitDelete={(p) =>
               client.submit({
                 command: {
-                  type: 'DeleteNotebook',
+                  type: 'nb.DeleteNotebook',
                   path: { id: p.id },
                   data: {},
                   revision: p.revision,
@@ -200,14 +199,14 @@ export default function NotesPage() {
                 notebookId={selectedNotebookId()!}
                 onSubmitCreate={(p) =>
                   client.submit({
-                    command: { type: 'CreateNote', data: p },
+                    command: { type: 'nb.CreateNote', data: p },
                     cacheKey: notebookCacheKey(),
                   })
                 }
                 onSubmitUpdateTitle={async (p) =>
                   client.submit({
                     command: {
-                      type: 'UpdateNoteTitle',
+                      type: 'nb.UpdateNoteTitle',
                       path: { id: p.id },
                       data: { title: p.title },
                       revision: p.revision,
@@ -218,7 +217,7 @@ export default function NotesPage() {
                 onSubmitUpdateBody={(p) =>
                   client.submit({
                     command: {
-                      type: 'UpdateNoteBody',
+                      type: 'nb.UpdateNoteBody',
                       path: { id: p.id },
                       data: { body: p.body },
                       revision: p.revision,
@@ -229,7 +228,28 @@ export default function NotesPage() {
                 onSubmitDelete={(p) =>
                   client.submit({
                     command: {
-                      type: 'DeleteNote',
+                      type: 'nb.DeleteNote',
+                      path: { id: p.id },
+                      data: {},
+                      revision: p.revision,
+                    },
+                    cacheKey: notebookCacheKey(),
+                  })
+                }
+                onSubmitUploadFile={(p) =>
+                  client.submit({
+                    command: {
+                      type: 'storage.CreateFileObject',
+                      data: { noteId: p.noteId, filename: p.file.name, size: p.file.size },
+                      files: [p.file],
+                    },
+                    cacheKey: notebookCacheKey(),
+                  })
+                }
+                onSubmitDeleteFile={(p) =>
+                  client.submit({
+                    command: {
+                      type: 'storage.DeleteFileObject',
                       path: { id: p.id },
                       data: {},
                       revision: p.revision,

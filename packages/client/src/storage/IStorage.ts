@@ -4,7 +4,7 @@
  */
 
 import type { Link } from '@meticoeus/ddd-es'
-import type { CommandFilter, CommandRecord, CommandStatus } from '../types/commands.js'
+import { CommandFilter, CommandRecord, CommandStatus, EnqueueCommand } from '../types/commands.js'
 
 /**
  * Session record stored in the database.
@@ -172,7 +172,7 @@ export interface IStorageQueryOptions {
  * Storage interface.
  * All methods are async to support both sync (in-memory) and async (SQLite) backends.
  */
-export interface IStorage<TLink extends Link> {
+export interface IStorage<TLink extends Link, TCommand extends EnqueueCommand> {
   // Lifecycle
   /**
    * Initialize the storage backend.
@@ -266,32 +266,34 @@ export interface IStorage<TLink extends Link> {
   /**
    * Get a command by ID.
    */
-  getCommand(commandId: string): Promise<CommandRecord<TLink> | undefined>
+  getCommand(commandId: string): Promise<CommandRecord<TLink, TCommand> | undefined>
 
   /**
    * Get commands matching a filter.
    */
-  getCommands(filter?: CommandFilter): Promise<CommandRecord<TLink>[]>
+  getCommands(filter?: CommandFilter): Promise<CommandRecord<TLink, TCommand>[]>
 
   /**
    * Get commands by status.
    */
-  getCommandsByStatus(status: CommandStatus | CommandStatus[]): Promise<CommandRecord<TLink>[]>
+  getCommandsByStatus(
+    status: CommandStatus | CommandStatus[],
+  ): Promise<CommandRecord<TLink, TCommand>[]>
 
   /**
    * Get commands blocked by a specific command.
    */
-  getCommandsBlockedBy(commandId: string): Promise<CommandRecord<TLink>[]>
+  getCommandsBlockedBy(commandId: string): Promise<CommandRecord<TLink, TCommand>[]>
 
   /**
    * Save a new command.
    */
-  saveCommand(command: CommandRecord<TLink>): Promise<void>
+  saveCommand(command: CommandRecord<TLink, TCommand>): Promise<void>
 
   /**
    * Update an existing command.
    */
-  updateCommand(commandId: string, updates: Partial<CommandRecord<TLink>>): Promise<void>
+  updateCommand(commandId: string, updates: Partial<CommandRecord<TLink, TCommand>>): Promise<void>
 
   /**
    * Delete a command.

@@ -69,12 +69,15 @@ export function fileObjectRoutes(
 ): FastifyPluginAsync {
   return async function routes(app: FastifyInstance): Promise<void> {
     app.get<{
-      Querystring: { cursor?: string; limit?: string; noteId?: string }
+      Querystring: { cursor?: string; limit?: string; noteId?: string; notebookId?: string }
       Reply: ListFileObjectsResponse
     }>('/file-objects', async (request) => {
       const limit = parseInt(request.query.limit ?? '50', 10)
       if (request.query.noteId) {
         return fileObjectRepo.listByNote(request.query.noteId, request.query.cursor, limit)
+      }
+      if (request.query.notebookId) {
+        return fileObjectRepo.listByNotebook(request.query.notebookId, request.query.cursor, limit)
       }
       return fileObjectRepo.list(request.query.cursor, limit)
     })

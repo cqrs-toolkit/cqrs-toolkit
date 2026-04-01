@@ -18,6 +18,7 @@ import { AnticipatedEventHandler } from '../../core/command-lifecycle/Anticipate
 import type { IAnticipatedEvent } from '../../core/command-lifecycle/AnticipatedEventShape.js'
 import { createCommandResponseHandler } from '../../core/command-lifecycle/createCommandResponseHandler.js'
 import { CommandQueue } from '../../core/command-queue/CommandQueue.js'
+import { OpfsCommandFileStore } from '../../core/command-queue/file-store/OpfsCommandFileStore.js'
 import { EventCache } from '../../core/event-cache/EventCache.js'
 import { EventProcessorRegistry } from '../../core/event-processor/EventProcessorRegistry.js'
 import { EventProcessorRunner } from '../../core/event-processor/EventProcessorRunner.js'
@@ -32,8 +33,9 @@ import type { ISqliteDb } from '../../storage/ISqliteDb.js'
 import type { IStorage } from '../../storage/IStorage.js'
 import { loadAndOpenDb } from '../../storage/LocalSqliteDb.js'
 import { SQLiteStorage } from '../../storage/SQLiteStorage.js'
+import { DEFAULT_CONFIG } from '../../types/config.js'
 import { createDomainExecutor } from '../../types/domain.js'
-import type { ResolvedConfig } from '../../types/index.js'
+import { EnqueueCommand, ResolvedConfig } from '../../types/index.js'
 import { probeOpfs } from './probeOpfs.js'
 import { registerCacheManagerMethods } from './registerCacheManagerMethods.js'
 import { registerCommandQueueMethods } from './registerCommandQueueMethods.js'
@@ -47,25 +49,30 @@ import { registerSyncManagerMethods } from './registerSyncManagerMethods.js'
  * Config is provided at construction time (from the consumer's worker entry point).
  * Lifecycle methods are registered externally by the startup functions.
  */
-export class WorkerOrchestrator<TLink extends Link, TSchema, TEvent extends IAnticipatedEvent> {
+export class WorkerOrchestrator<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+> {
   private readonly messageHandler: WorkerMessageHandler
-  private readonly config: ResolvedConfig<TLink, TSchema, TEvent>
+  private readonly config: ResolvedConfig<TLink, TCommand, TSchema, TEvent>
 
-  private storage: IStorage<TLink> | undefined
+  private storage: IStorage<TLink, TCommand> | undefined
   private eventBus: EventBus<TLink> | undefined
-  private sessionManager: SessionManager<TLink> | undefined
-  private cacheManager: CacheManager<TLink> | undefined
-  private eventCache: EventCache<TLink> | undefined
-  private readModelStore: ReadModelStore<TLink> | undefined
-  private commandQueue: CommandQueue<TLink, TSchema, TEvent> | undefined
-  private queryManager: QueryManager<TLink> | undefined
-  private syncManager: SyncManager<TLink, TSchema, TEvent> | undefined
+  private sessionManager: SessionManager<TLink, TCommand> | undefined
+  private cacheManager: CacheManager<TLink, TCommand> | undefined
+  private eventCache: EventCache<TLink, TCommand> | undefined
+  private readModelStore: ReadModelStore<TLink, TCommand> | undefined
+  private commandQueue: CommandQueue<TLink, TCommand, TSchema, TEvent> | undefined
+  private queryManager: QueryManager<TLink, TCommand> | undefined
+  private syncManager: SyncManager<TLink, TCommand, TSchema, TEvent> | undefined
   private writeQueue: WriteQueue<TLink> | undefined
   private eventBroadcastSub: Subscription | undefined
 
   constructor(
     messageHandler: WorkerMessageHandler,
-    config: ResolvedConfig<TLink, TSchema, TEvent>,
+    config: ResolvedConfig<TLink, TCommand, TSchema, TEvent>,
   ) {
     this.messageHandler = messageHandler
     this.config = config
@@ -88,7 +95,7 @@ export class WorkerOrchestrator<TLink extends Link, TSchema, TEvent extends IAnt
     }
 
     // 2. Create database handle and initialize storage
-    const dbName = config.storage.dbName ?? 'cqrs-client'
+    const dbName = config.storage.dbName ?? DEFAULT_CONFIG.storage.dbName
     const vfs = config.storage.vfs ?? 'opfs'
     let db: ISqliteDb
 
@@ -104,7 +111,10 @@ export class WorkerOrchestrator<TLink extends Link, TSchema, TEvent extends IAnt
       db = await loadAndOpenDb({ dbName, vfs })
     }
 
-    const storage = new SQLiteStorage<TLink>({ db, migrations: config.storage.migrations })
+    const storage = new SQLiteStorage<TLink, TCommand>({
+      db,
+      migrations: config.storage.migrations,
+    })
     await storage.initialize()
     this.storage = storage
 
@@ -128,7 +138,7 @@ export class WorkerOrchestrator<TLink extends Link, TSchema, TEvent extends IAnt
 
     // 6. Create CacheManager
     const windowId = crypto.randomUUID()
-    const cacheManager = new CacheManager<TLink>({
+    const cacheManager = new CacheManager<TLink, TCommand>({
       storage,
       eventBus,
       cacheConfig: config.cache,
@@ -153,7 +163,7 @@ export class WorkerOrchestrator<TLink extends Link, TSchema, TEvent extends IAnt
     this.writeQueue = writeQueue
 
     // 11. Create CommandQueue with anticipated event handler and response handler
-    let syncManagerRef: SyncManager<TLink, TSchema, TEvent>
+    let syncManagerRef: SyncManager<TLink, TCommand, TSchema, TEvent>
 
     const anticipatedEventHandler = new AnticipatedEventHandler(
       eventCache,
@@ -164,29 +174,33 @@ export class WorkerOrchestrator<TLink extends Link, TSchema, TEvent extends IAnt
     )
     eventProcessorRunner.setAnticipatedEventHandler(anticipatedEventHandler)
 
-    const queryManager = new QueryManager<TLink>({
+    const queryManager = new QueryManager<TLink, TCommand>({
       eventBus,
       cacheManager,
       readModelStore,
     })
     this.queryManager = queryManager
 
-    const commandQueue = new CommandQueue<TLink, TSchema, TEvent>({
+    const commandQueue = new CommandQueue<TLink, TCommand, TSchema, TEvent>({
       storage,
       eventBus,
       anticipatedEventHandler,
       ...(() => {
         if (config.commandHandlers.length === 0) return {}
-        const executor = createDomainExecutor<TLink, TSchema, TEvent>(config.commandHandlers, {
-          schemaValidator: config.schemaValidator,
-          queryManager,
-        })
+        const executor = createDomainExecutor<TLink, TCommand, TSchema, TEvent>(
+          config.commandHandlers,
+          {
+            schemaValidator: config.schemaValidator,
+            queryManager,
+          },
+        )
         return { domainExecutor: executor, handlerMetadata: executor }
       })(),
       commandSender: config.commandSender,
+      fileStore: new OpfsCommandFileStore(),
       retryConfig: config.retry,
       retainTerminal: config.retainTerminal,
-      onCommandResponse: createCommandResponseHandler<TLink, TSchema, TEvent>(
+      onCommandResponse: createCommandResponseHandler<TLink, TCommand, TSchema, TEvent>(
         () => syncManagerRef,
         config.collections,
       ),
@@ -194,7 +208,7 @@ export class WorkerOrchestrator<TLink extends Link, TSchema, TEvent extends IAnt
     this.commandQueue = commandQueue
 
     // 13. Create SyncManager — sets the queue's session reset handler internally.
-    const syncManager = new SyncManager<TLink, TSchema, TEvent>(
+    const syncManager = new SyncManager<TLink, TCommand, TSchema, TEvent>(
       eventBus,
       sessionManager,
       commandQueue,

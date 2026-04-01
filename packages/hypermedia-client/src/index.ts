@@ -9,6 +9,7 @@ export { createAjvSchemaValidator, withSchemaRegistry } from './runtime/createSc
 export type { SchemaMap, SchemaRegistry } from './runtime/createSchemaValidators.js'
 export { fetchEventPage, fetchStreamEvents } from './runtime/fetchHelpers.js'
 export type {
+  AfterSendHandler,
   CommandManifest,
   CommandRouting,
   HypermediaCommandSenderOptions,

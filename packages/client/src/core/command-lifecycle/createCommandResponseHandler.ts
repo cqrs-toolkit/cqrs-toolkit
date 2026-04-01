@@ -1,5 +1,5 @@
 import { type Link, logProvider } from '@meticoeus/ddd-es'
-import type { Collection, CommandRecord } from '../../types/index.js'
+import { Collection, CommandRecord, EnqueueCommand } from '../../types/index.js'
 import type { ParsedEvent } from '../event-processor/index.js'
 import { SyncManager } from '../sync-manager/index.js'
 import type { IAnticipatedEvent } from './AnticipatedEventShape.js'
@@ -19,13 +19,14 @@ import { hasResponseEvents, isResponseEvent } from './ResponseEvent.js'
  */
 export function createCommandResponseHandler<
   TLink extends Link,
+  TCommand extends EnqueueCommand,
   TSchema,
   TEvent extends IAnticipatedEvent,
 >(
-  getSyncManager: () => SyncManager<TLink, TSchema, TEvent>,
+  getSyncManager: () => SyncManager<TLink, TCommand, TSchema, TEvent>,
   collections: Collection<TLink>[],
-): (command: CommandRecord<TLink>, response: unknown) => Promise<void> {
-  return async (command: CommandRecord<TLink>, response: unknown) => {
+): (command: CommandRecord<TLink, TCommand>, response: unknown) => Promise<void> {
+  return async (command: CommandRecord<TLink, TCommand>, response: unknown) => {
     if (!hasResponseEvents(response)) return
 
     const events = response.events

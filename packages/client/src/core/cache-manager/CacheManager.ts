@@ -13,6 +13,7 @@
 import type { Link } from '@meticoeus/ddd-es'
 import type { CacheKeyRecord, IStorage } from '../../storage/IStorage.js'
 import type { CacheConfig } from '../../types/config.js'
+import { EnqueueCommand } from '../../types/index.js'
 import type { EventBus } from '../events/EventBus.js'
 import { type CacheKeyIdentity, hydrateCacheKeyIdentity, identityToRecord } from './CacheKey.js'
 import type { AcquireCacheKeyOptions, ICacheManager } from './types.js'
@@ -20,8 +21,8 @@ import type { AcquireCacheKeyOptions, ICacheManager } from './types.js'
 /**
  * Cache manager configuration.
  */
-export interface CacheManagerConfig<TLink extends Link> {
-  storage: IStorage<TLink>
+export interface CacheManagerConfig<TLink extends Link, TCommand extends EnqueueCommand> {
+  storage: IStorage<TLink, TCommand>
   eventBus: EventBus<TLink>
   cacheConfig?: CacheConfig
   /** Unique identifier for this window/tab */
@@ -34,8 +35,11 @@ export type { AcquireCacheKeyOptions } from './types.js'
 /**
  * Cache manager implementation.
  */
-export class CacheManager<TLink extends Link> implements ICacheManager<TLink> {
-  private readonly storage: IStorage<TLink>
+export class CacheManager<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+> implements ICacheManager<TLink> {
+  private readonly storage: IStorage<TLink, TCommand>
   private readonly eventBus: EventBus<TLink>
   private readonly maxCacheKeys: number
   private readonly defaultTtl: number
@@ -49,7 +53,7 @@ export class CacheManager<TLink extends Link> implements ICacheManager<TLink> {
   /** Registered windows (for capacity guard) */
   private readonly registeredWindows = new Set<string>()
 
-  constructor(config: CacheManagerConfig<TLink>) {
+  constructor(config: CacheManagerConfig<TLink, TCommand>) {
     this.storage = config.storage
     this.eventBus = config.eventBus
     this.maxCacheKeys = config.cacheConfig?.maxCacheKeys ?? 1000

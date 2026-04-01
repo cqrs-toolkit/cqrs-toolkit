@@ -30,11 +30,16 @@ export default defineConfig({
     'urn:command:nb.CreateNotebook:1.0.0',
     'urn:command:nb.UpdateNotebookName:1.0.0',
     'urn:command:nb.DeleteNotebook:1.0.0',
+    'urn:command:nb.AddNotebookTag:1.0.0',
+    'urn:command:nb.RemoveNotebookTag:1.0.0',
+    { urn: 'urn:command:storage.CreateFileObject:1.0.0', files: 'one' },
+    'urn:command:storage.DeleteFileObject:1.0.0',
   ],
 
   representations: [
     'urn:representation:nb.Todo:1.0.0',
     'urn:representation:nb.Note:1.0.0',
     'urn:representation:nb.Notebook:1.0.0',
+    'urn:representation:storage.FileObject:1.0.0',
   ],
 })

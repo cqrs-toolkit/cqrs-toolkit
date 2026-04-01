@@ -6,7 +6,7 @@
 
 # Function: CqrsProvider()
 
-> **CqrsProvider**\<`TLink`\>(`props`): `Element`
+> **CqrsProvider**\<`TLink`, `TCommand`\>(`props`): `Element`
 
 ## Type Parameters
 
@@ -14,11 +14,15 @@
 
 `TLink` _extends_ `Link`\<`string`, `string`\>
 
+### TCommand
+
+`TCommand` _extends_ `EnqueueCommand`\<`unknown`\>
+
 ## Parameters
 
 ### props
 
-`CqrsProviderProps`\<`TLink`\>
+`CqrsProviderProps`\<`TLink`, `TCommand`\>
 
 ## Returns
 

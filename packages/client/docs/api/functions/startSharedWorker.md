@@ -6,7 +6,7 @@
 
 # Function: startSharedWorker()
 
-> **startSharedWorker**\<`TLink`, `TSchema`, `TEvent`\>(`config`): `void`
+> **startSharedWorker**\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>(`config`): `void`
 
 Bootstrap a SharedWorker with CQRS orchestration.
 
@@ -18,6 +18,10 @@ managing per-tab SQLite workers and active tab routing.
 ### TLink
 
 `TLink` _extends_ `Link`\<`string`, `string`\>
+
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md)\<`unknown`\>
 
 ### TSchema
 
@@ -31,7 +35,7 @@ managing per-tab SQLite workers and active tab routing.
 
 ### config
 
-[`CqrsConfig`](../interfaces/CqrsConfig.md)\<`TLink`, `TSchema`, `TEvent`\>
+[`CqrsConfig`](../interfaces/CqrsConfig.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 Shared CQRS config (same object the main thread uses)
 

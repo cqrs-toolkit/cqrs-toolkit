@@ -14,12 +14,13 @@ import type {
   IStorageQueryOptions,
   ReadModelRecord,
 } from '../../storage/IStorage.js'
+import { EnqueueCommand } from '../../types/index.js'
 
 /**
  * Read model store configuration.
  */
-export interface ReadModelStoreConfig<TLink extends Link> {
-  storage: IStorage<TLink>
+export interface ReadModelStoreConfig<TLink extends Link, TCommand extends EnqueueCommand> {
+  storage: IStorage<TLink, TCommand>
 }
 
 /**
@@ -67,10 +68,10 @@ export interface ReadModelQueryOptions extends IStorageQueryOptions {
 /**
  * Read model store implementation.
  */
-export class ReadModelStore<TLink extends Link> {
-  private readonly storage: IStorage<TLink>
+export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand> {
+  private readonly storage: IStorage<TLink, TCommand>
 
-  constructor(config: ReadModelStoreConfig<TLink>) {
+  constructor(config: ReadModelStoreConfig<TLink, TCommand>) {
     this.storage = config.storage
   }
 
