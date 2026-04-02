@@ -11,6 +11,29 @@ export const RENAME_SCHEMA: JSONSchema7 = {
   additionalProperties: false,
 }
 
+export const PERMIT_RESPONSE_SCHEMA: JSONSchema7 = {
+  $id: 'urn:schema:test.PermitResponse:1.0.0',
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    data: {
+      type: 'object',
+      properties: {
+        uploadForm: {
+          type: 'object',
+          properties: {
+            url: { type: 'string' },
+            fields: { type: 'object' },
+          },
+          required: ['url', 'fields'],
+        },
+      },
+      required: ['uploadForm'],
+    },
+  },
+  required: ['id', 'data'],
+}
+
 export function minimalRepresentation(): HydraDoc.Representation {
   return new HydraDoc.Representation({
     id: '#test-entity-v1_0_0',

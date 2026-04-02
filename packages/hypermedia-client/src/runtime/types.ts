@@ -16,6 +16,16 @@ export interface TemplateMapping {
 }
 
 /**
+ * A per-content-type response schema entry in command routing.
+ */
+export interface ResponseSchemaEntry {
+  /** Media type (e.g. 'application/json') */
+  contentType: string
+  /** Full URL to the JSON schema */
+  schemaUrl: string
+}
+
+/**
  * Routing info for a single command, read from commands.json.
  */
 export interface CommandRouting {
@@ -29,6 +39,10 @@ export interface CommandRouting {
   template: string
   /** Template variable mappings */
   mappings: TemplateMapping[]
+  /** Per-content-type response schemas for this command's success response */
+  responseSchema?: ResponseSchemaEntry[]
+  /** Workflow annotation — type identifies the convention, nextStepId references an external endpoint */
+  workflow?: { type: string; nextStepId?: string }
 }
 
 /**

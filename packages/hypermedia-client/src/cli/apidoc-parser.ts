@@ -3,7 +3,6 @@
  */
 
 import assert from 'node:assert'
-import type { FileCardinality } from '../config.js'
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -14,6 +13,13 @@ export interface TemplateMapping {
   variable: string
   /** Whether the mapping is required */
   required: boolean
+}
+
+export interface ParsedResponseSchema {
+  /** Media type (e.g. 'application/json') */
+  contentType: string
+  /** Full URL to the JSON schema (already resolved in served apidoc) */
+  schemaUrl: string
 }
 
 export interface ParsedCommand {
@@ -29,8 +35,10 @@ export interface ParsedCommand {
   mappings: TemplateMapping[]
   /** Full URL to the JSON schema (already resolved in served apidoc) */
   schemaUrl?: string
-  /** File attachment cardinality (from config, not apidoc) */
-  files?: FileCardinality
+  /** Per-content-type response schemas, read from apidoc */
+  responseSchema?: ParsedResponseSchema[]
+  /** Workflow annotation from apidoc */
+  workflow?: { type: string; nextStepId?: string }
 }
 
 export interface ParseResult {
@@ -59,6 +67,16 @@ interface JsonLdSurface {
   'svc:template': JsonLdTemplate
 }
 
+interface JsonLdContentTypeSchema {
+  'svc:contentType': string
+  'svc:jsonSchema': string
+}
+
+interface JsonLdWorkflow {
+  '@type': string
+  'svc:nextStep'?: { '@id': string; '@type': string }
+}
+
 interface JsonLdCommand {
   '@id': string
   'svc:stableId': string
@@ -67,6 +85,8 @@ interface JsonLdCommand {
   'svc:commandType'?: string
   'svc:jsonSchema'?: string
   'svc:surface'?: JsonLdTemplate
+  'svc:responseSchema'?: JsonLdContentTypeSchema[]
+  'svc:workflow'?: JsonLdWorkflow
 }
 
 interface JsonLdCommands {
@@ -121,6 +141,19 @@ export function parseApidoc(apidoc: unknown, requestedUrns: string[]): ParseResu
         template: surface.template,
         mappings: surface.mappings,
         schemaUrl: cap['svc:jsonSchema'],
+      }
+      if (cap['svc:responseSchema']?.length) {
+        parsed.responseSchema = cap['svc:responseSchema'].map((rs) => ({
+          contentType: rs['svc:contentType'],
+          schemaUrl: rs['svc:jsonSchema'],
+        }))
+      }
+      if (cap['svc:workflow']) {
+        const w = cap['svc:workflow']
+        parsed.workflow = {
+          type: w['@type'],
+          ...(w['svc:nextStep'] ? { nextStepId: w['svc:nextStep']['@id'] } : {}),
+        }
       }
       if (cap['svc:commandType']) {
         parsed.commandType = cap['svc:commandType']

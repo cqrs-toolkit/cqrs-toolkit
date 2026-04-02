@@ -22,14 +22,6 @@ export type SchemaMode = 'bundled' | 'live'
 export type EnvelopeExtractor = (schema: JSONSchema7) => string | undefined
 
 /**
- * File attachment cardinality for commands that accept file uploads.
- *
- * - `'one'`  — exactly one file required (generates `files: [File]`)
- * - `'many'` — one or more files required (generates `files: [File, ...File[]]`)
- */
-export type FileCardinality = 'one' | 'many'
-
-/**
  * Command entry — either a plain URN string or an object with per-command overrides.
  */
 export type CommandEntry =
@@ -37,7 +29,6 @@ export type CommandEntry =
   | {
       urn: string
       extractEnvelope?: EnvelopeExtractor
-      files?: FileCardinality
     }
 
 /**

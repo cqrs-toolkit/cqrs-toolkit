@@ -34,6 +34,29 @@ const createFileObjectPermitSchema: JSONSchema7 = {
   additionalProperties: false,
 }
 
+const permitResponseSchema: JSONSchema7 = {
+  $id: 'urn:schema:storage.PresignedPermitResponse:1.0.0',
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    data: {
+      type: 'object',
+      properties: {
+        uploadForm: {
+          type: 'object',
+          properties: {
+            url: { type: 'string' },
+            fields: { type: 'object', additionalProperties: { type: 'string' } },
+          },
+          required: ['url', 'fields'],
+        },
+      },
+      required: ['uploadForm'],
+    },
+  },
+  required: ['id', 'data'],
+}
+
 const deleteFileObjectDataSchema: JSONSchema7 = {
   type: 'object',
   properties: {},
@@ -56,6 +79,14 @@ export const FileObjectCommands = new HydraDoc.CommandsDef<never>({
       id: 'urn:command:storage.CreateFileObject:1.0.0',
       stableId: FileObjectCommandIds.CreateFileObject,
       dispatch: 'create',
+      responseSchema: [{ contentType: 'application/json', schema: permitResponseSchema }],
+      workflow: {
+        type: 'svc:PresignedPostUpload',
+        nextStep: {
+          id: 'svc:S3FormPost',
+          supportedOperation: [{ method: 'POST', expects: 'multipart/form-data' }],
+        },
+      },
     }),
     addCommandCapabilitySchema(deleteFileObjectDataSchema, {
       id: 'urn:command:storage.DeleteFileObject:1.0.0',

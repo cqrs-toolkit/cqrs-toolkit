@@ -32,7 +32,7 @@ export default defineConfig({
     'urn:command:nb.DeleteNotebook:1.0.0',
     'urn:command:nb.AddNotebookTag:1.0.0',
     'urn:command:nb.RemoveNotebookTag:1.0.0',
-    { urn: 'urn:command:storage.CreateFileObject:1.0.0', files: 'one' },
+    'urn:command:storage.CreateFileObject:1.0.0',
     'urn:command:storage.DeleteFileObject:1.0.0',
   ],
 

@@ -23,7 +23,6 @@ import type { JSONSchema7 } from 'json-schema'
 import { AppCommand, commands } from '../.cqrs/commands.js'
 import { schemas } from '../.cqrs/schemas.js'
 import { fileObjectsCollection } from '../domain/file-objects/collection.js'
-import { handleCreateFileObjectResponse } from '../domain/file-objects/commands.js'
 import { fileObjectHandlers } from '../domain/file-objects/executor.js'
 import { fileObjectProcessors } from '../domain/file-objects/processor.js'
 import { notebooksCollection } from '../domain/notebooks/collection.js'
@@ -73,9 +72,6 @@ export const cqrsConfig: CqrsConfig<ServiceLink, AppCommand, JSONSchema7, IAntic
   ]),
   commandSender: createHypermediaCommandSender<ServiceLink, AppCommand>(commands, {
     baseUrl: location.origin,
-    afterSend: {
-      'storage.CreateFileObject': handleCreateFileObjectResponse,
-    },
   }),
   retainTerminal: true,
   debug: true,

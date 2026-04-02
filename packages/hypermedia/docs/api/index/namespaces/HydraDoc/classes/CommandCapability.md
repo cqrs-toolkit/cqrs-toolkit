@@ -84,6 +84,14 @@ True if this is the latest (highest semver) version within its stableId group.
 
 ---
 
+### responseSchema?
+
+> `readonly` `optional` **responseSchema**: readonly [`ContentTypeSchema`](../interfaces/ContentTypeSchema.md)[]
+
+Per-content-type response schemas for this command's success response.
+
+---
+
 ### schema?
 
 > `readonly` `optional` **schema**: `JSONSchema7`
@@ -113,3 +121,11 @@ Present only for custom-endpoint commands.
 > `readonly` **version**: `string`
 
 Semantic version of this command capability.
+
+---
+
+### workflow?
+
+> `readonly` `optional` **workflow**: [`Workflow`](../interfaces/Workflow.md)
+
+Workflow annotation declaring chained operation semantics.

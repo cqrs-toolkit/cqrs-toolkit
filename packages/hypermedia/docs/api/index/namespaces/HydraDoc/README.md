@@ -22,7 +22,10 @@
 - [BaseCommandCapability](interfaces/BaseCommandCapability.md)
 - [ClassDef](interfaces/ClassDef.md)
 - [CollectionSurface](interfaces/CollectionSurface.md)
+- [ContentTypeSchema](interfaces/ContentTypeSchema.md)
 - [EventsResourceConfig](interfaces/EventsResourceConfig.md)
+- [ExternalEndpoint](interfaces/ExternalEndpoint.md)
+- [ExternalEndpointOperation](interfaces/ExternalEndpointOperation.md)
 - [IriTemplateMapping](interfaces/IriTemplateMapping.md)
 - [PlainCommandsDef](interfaces/PlainCommandsDef.md)
 - [PlainCommandSurfaceBase](interfaces/PlainCommandSurfaceBase.md)
@@ -35,6 +38,7 @@
 - [PlainRepresentation](interfaces/PlainRepresentation.md)
 - [PlainViewRepresentation](interfaces/PlainViewRepresentation.md)
 - [ResourceSurface](interfaces/ResourceSurface.md)
+- [Workflow](interfaces/Workflow.md)
 
 ## Type Aliases
 

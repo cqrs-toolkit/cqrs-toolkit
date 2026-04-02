@@ -124,6 +124,18 @@ Example: 'urn:command:chat.RenameRoom:1.0.0'
 
 ---
 
+### responseSchema?
+
+> `optional` **responseSchema**: readonly [`ContentTypeSchema`](ContentTypeSchema.md)[]
+
+Per-content-type response schemas for this command's success response.
+
+#### Inherited from
+
+[`BaseCommandCapability`](BaseCommandCapability.md).[`responseSchema`](BaseCommandCapability.md#responseschema)
+
+---
+
 ### schema?
 
 > `optional` **schema**: `JSONSchema7`
@@ -167,3 +179,15 @@ Semantic version of this command capability (e.g. '1.0.0').
 #### Inherited from
 
 [`BaseCommandCapability`](BaseCommandCapability.md).[`version`](BaseCommandCapability.md#version)
+
+---
+
+### workflow?
+
+> `optional` **workflow**: [`Workflow`](Workflow.md)
+
+Workflow annotation declaring chained operation semantics.
+
+#### Inherited from
+
+[`BaseCommandCapability`](BaseCommandCapability.md).[`workflow`](BaseCommandCapability.md#workflow)

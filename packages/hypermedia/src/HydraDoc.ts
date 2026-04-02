@@ -15,6 +15,34 @@ export namespace HydraDoc {
     required?: boolean
   }
 
+  export interface ContentTypeSchema {
+    /** Media type (e.g. 'application/json', 'application/hal+json') */
+    contentType: string
+    /** JSON Schema describing the response body for this content type. Must have $id. */
+    schema: JSONSchema7
+  }
+
+  export interface ExternalEndpointOperation {
+    /** HTTP method */
+    method: string
+    /** Expected request content type (e.g. 'multipart/form-data') */
+    expects?: string
+  }
+
+  export interface ExternalEndpoint {
+    /** JSON-LD @id for this endpoint (e.g. 'svc:S3FormPost') */
+    id: string
+    /** Operations supported by this external endpoint */
+    supportedOperation?: readonly ExternalEndpointOperation[]
+  }
+
+  export interface Workflow {
+    /** Workflow type URI identifying the convention (e.g. 'svc:PresignedPostUpload') */
+    type: string
+    /** External endpoint definition for the next step */
+    nextStep?: ExternalEndpoint
+  }
+
   export interface PlainIriTemplate {
     /** JSON-LD @id (use a fragment for doc-local anchors) */
     id: string
@@ -143,6 +171,12 @@ export namespace HydraDoc {
     /** JSON Schema describing the request body for this command version. */
     schema?: JSONSchema7
 
+    /** Per-content-type response schemas for this command's success response. */
+    responseSchema?: readonly ContentTypeSchema[]
+
+    /** Workflow annotation declaring chained operation semantics. */
+    workflow?: Workflow
+
     /** Runtime adapter that transforms old-version data to the current shape. */
     adapt?: (oldData: unknown) => unknown
 
@@ -227,6 +261,8 @@ export namespace HydraDoc {
      * - For a resource, include to document all id parameters.
      */
     template: PlainIriTemplate
+    /** Per-content-type response schemas for this surface. */
+    responseSchema?: readonly ContentTypeSchema[]
   }
 
   export interface ResourceSurface extends PlainQuerySurface {
@@ -494,6 +530,12 @@ export namespace HydraDoc {
     /** True if this is the latest (highest semver) version within its stableId group. */
     readonly isLatest: boolean
 
+    /** Per-content-type response schemas for this command's success response. */
+    readonly responseSchema?: readonly ContentTypeSchema[]
+
+    /** Workflow annotation declaring chained operation semantics. */
+    readonly workflow?: Workflow
+
     /** Runtime adapter that transforms old-version data to the current shape. */
     readonly adapt?: Adapter
 
@@ -509,6 +551,8 @@ export namespace HydraDoc {
       this.deprecated = plain.deprecated ?? false
       this.stableId = plain.stableId
       this.schema = plain.schema
+      this.responseSchema = plain.responseSchema
+      this.workflow = plain.workflow
       this.version = plain.version
       this.isLatest = envelope.isLatest
       this.adapt = plain.adapt
@@ -644,9 +688,10 @@ export namespace HydraDoc {
     readonly profile: string
     readonly template: IriTemplate
     readonly href?: `/${string}`
+    readonly responseSchema?: readonly ContentTypeSchema[]
 
     constructor(plain: ResourceSurface | CollectionSurface) {
-      const { formats, profile, template, href } = plain
+      const { formats, profile, template, href, responseSchema } = plain
       assert(formats?.length, 'QuerySurface.formats must be non-empty')
       assert(profile, 'QuerySurface.profile is required')
       this.formats = formats
@@ -658,6 +703,17 @@ export namespace HydraDoc {
         template.variableRepresentation,
       )
       this.href = href
+      this.responseSchema = responseSchema
+
+      if (responseSchema) {
+        const formatSet = new Set(formats)
+        for (const rs of responseSchema) {
+          assert(
+            formatSet.has(rs.contentType),
+            `QuerySurface responseSchema contentType '${rs.contentType}' is not in formats [${formats.join(', ')}]`,
+          )
+        }
+      }
     }
 
     /** Non-templated canonical href (override or derived) */

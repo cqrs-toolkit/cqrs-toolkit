@@ -1,7 +1,13 @@
 import type { JSONSchema7 } from 'json-schema'
 import { describe, expect, it } from 'vitest'
 import { HydraDoc } from '../HydraDoc.js'
-import { makeClassDef, minimalRepresentation, PREFIXES, RENAME_SCHEMA } from './builder.fixtures.js'
+import {
+  makeClassDef,
+  minimalRepresentation,
+  PERMIT_RESPONSE_SCHEMA,
+  PREFIXES,
+  RENAME_SCHEMA,
+} from './builder.fixtures.js'
 import { buildHydraApiDocumentation, type BuildResult } from './HydraBuilder.js'
 
 const CREATE_SCHEMA: JSONSchema7 = {
@@ -204,6 +210,296 @@ describe('buildHydraApiDocumentation', () => {
           strictPrefixes: true,
         }),
       ).toThrow('Missing required $id')
+    })
+  })
+
+  describe('response schemas', () => {
+    it('renders svc:responseSchema on command capabilities', () => {
+      const result = buildWithResponseSchema()
+      const cmd = findCommand(result, 'urn:command:test.CreateItem:1.0.0')
+      const responseSchema = cmd['svc:responseSchema']
+      expect(responseSchema).toBeDefined()
+      expect(responseSchema).toHaveLength(1)
+      expect(responseSchema[0]['@type']).toBe('svc:ContentTypeSchema')
+      expect(responseSchema[0]['svc:contentType']).toBe('application/json')
+      expect(responseSchema[0]['svc:jsonSchema']).toBe('urn:schema:test.PermitResponse:1.0.0')
+    })
+
+    it('omits svc:responseSchema when not provided', () => {
+      const result = buildWithSchema()
+      const cmd = findCommand(result, 'urn:command:test.RenameItem:1.0.0')
+      expect(cmd).not.toHaveProperty('svc:responseSchema')
+    })
+
+    it('collects response schemas into schemas map alongside request schemas', () => {
+      const result = buildWithResponseSchema()
+      const permitPath = 'schemas/urn/schema/test.PermitResponse/1.0.0.json'
+      const permitEntry = result.schemas.get(permitPath)
+      expect(permitEntry).toBeDefined()
+      expect(JSON.parse(permitEntry!.content).$id).toBe('urn:schema:test.PermitResponse:1.0.0')
+
+      // Request schema is also present
+      const createPath = 'schemas/urn/schema/test.CreateItem/1.0.0.json'
+      expect(result.schemas.has(createPath)).toBe(true)
+    })
+
+    it('throws when response schema is missing $id', () => {
+      expect(() =>
+        buildHydraApiDocumentation({
+          classes: [
+            makeClassDef({
+              surfaces: HydraDoc.standardCommandSurfaces({
+                idStem: '#test',
+                collectionHref: '/api/test/entities',
+                idProperty: 'test:entityId',
+              }),
+              commands: [
+                {
+                  id: 'urn:command:test.CreateItem:1.0.0',
+                  stableId: 'test.CreateItem',
+                  version: '1.0.0',
+                  dispatch: 'create',
+                  schema: CREATE_SCHEMA,
+                  responseSchema: [
+                    {
+                      contentType: 'application/json',
+                      schema: { type: 'object' } as JSONSchema7,
+                    },
+                  ],
+                },
+              ],
+            }),
+          ],
+          prefixes: PREFIXES,
+          strictPrefixes: true,
+        }),
+      ).toThrow('missing $id')
+    })
+
+    it('throws on invalid response schema content type', () => {
+      expect(() =>
+        buildHydraApiDocumentation({
+          classes: [
+            makeClassDef({
+              surfaces: HydraDoc.standardCommandSurfaces({
+                idStem: '#test',
+                collectionHref: '/api/test/entities',
+                idProperty: 'test:entityId',
+              }),
+              commands: [
+                {
+                  id: 'urn:command:test.CreateItem:1.0.0',
+                  stableId: 'test.CreateItem',
+                  version: '1.0.0',
+                  dispatch: 'create',
+                  schema: CREATE_SCHEMA,
+                  responseSchema: [
+                    {
+                      contentType: 'not a media type',
+                      schema: PERMIT_RESPONSE_SCHEMA,
+                    },
+                  ],
+                },
+              ],
+            }),
+          ],
+          prefixes: PREFIXES,
+          strictPrefixes: true,
+        }),
+      ).toThrow('invalid content type')
+    })
+
+    it('renders svc:responseSchema on representation surfaces', () => {
+      const responseSchema: JSONSchema7 = {
+        $id: 'urn:schema:test.EntityResponse:1.0.0',
+        type: 'object',
+        properties: { id: { type: 'string' } },
+      }
+      const result = buildHydraApiDocumentation({
+        classes: [
+          {
+            class: 'test:Entity',
+            representations: [
+              new HydraDoc.Representation({
+                id: '#test-entity-v1_0_0',
+                version: '1.0.0',
+                resource: {
+                  profile: 'urn:profile:test.Entity:1.0.0',
+                  formats: ['application/json'],
+                  template: {
+                    id: '#test-entity-resource-v1_0_0',
+                    template: '/api/test/entities/{id}',
+                    mappings: [{ variable: 'id', property: 'test:entityId', required: true }],
+                  },
+                  responseSchema: [{ contentType: 'application/json', schema: responseSchema }],
+                },
+                collection: {
+                  profile: 'urn:profile:test.EntityCollection:1.0.0',
+                  formats: ['application/json'],
+                  href: '/api/test/entities',
+                  template: {
+                    id: '#test-entity-collection-v1_0_0',
+                    template: '/api/test/entities',
+                    mappings: [{ variable: 'q', property: 'svc:query' }],
+                  },
+                },
+              }),
+            ],
+          },
+        ],
+        prefixes: PREFIXES,
+        strictPrefixes: true,
+      })
+
+      const cls = result.jsonld['hydra:supportedClass'][0]
+      const rep = cls['svc:representation'][0]
+      const resourceResponseSchema = rep['svc:resource']['svc:responseSchema']
+      expect(resourceResponseSchema).toBeDefined()
+      expect(resourceResponseSchema).toHaveLength(1)
+      expect(resourceResponseSchema[0]['svc:contentType']).toBe('application/json')
+      expect(resourceResponseSchema[0]['svc:jsonSchema']).toBe(
+        'urn:schema:test.EntityResponse:1.0.0',
+      )
+
+      // Collection should not have responseSchema (not provided)
+      expect(rep['svc:collection']).not.toHaveProperty('svc:responseSchema')
+
+      // Schema should be in the schemas map
+      const schemaPath = 'schemas/urn/schema/test.EntityResponse/1.0.0.json'
+      expect(result.schemas.has(schemaPath)).toBe(true)
+    })
+
+    it('extracts shared sub-schemas across request and response schemas', () => {
+      // Same object reference in both schemas — this is how shared sub-schemas work in practice.
+      // SchemaRegistry mutates inline $id sub-schemas to $ref pointers, so both parents
+      // must reference the same object for the dedup to work correctly.
+      const sharedSubSchema: JSONSchema7 = {
+        $id: 'urn:schema:test.SharedId:1.0.0',
+        type: 'string',
+        format: 'uuid',
+      }
+      const requestSchema: JSONSchema7 = {
+        $id: 'urn:schema:test.CreateItem:1.0.0',
+        type: 'object',
+        properties: { targetId: sharedSubSchema },
+        required: ['targetId'],
+        additionalProperties: false,
+      }
+      const responseSchema: JSONSchema7 = {
+        $id: 'urn:schema:test.CreateItemResponse:1.0.0',
+        type: 'object',
+        properties: { createdId: sharedSubSchema },
+        required: ['createdId'],
+      }
+
+      const result = buildHydraApiDocumentation({
+        classes: [
+          makeClassDef({
+            surfaces: HydraDoc.standardCommandSurfaces({
+              idStem: '#test',
+              collectionHref: '/api/test/entities',
+              idProperty: 'test:entityId',
+            }),
+            commands: [
+              {
+                id: 'urn:command:test.CreateItem:1.0.0',
+                stableId: 'test.CreateItem',
+                version: '1.0.0',
+                dispatch: 'create',
+                schema: requestSchema,
+                responseSchema: [{ contentType: 'application/json', schema: responseSchema }],
+              },
+            ],
+          }),
+        ],
+        prefixes: PREFIXES,
+        strictPrefixes: true,
+      })
+
+      // Shared sub-schema appears once
+      const commonPath = 'schemas/urn/schema/test.SharedId/1.0.0.json'
+      expect(result.schemas.has(commonPath)).toBe(true)
+
+      // Request schema has $ref, not inline
+      const reqPath = 'schemas/urn/schema/test.CreateItem/1.0.0.json'
+      const reqParsed = JSON.parse(result.schemas.get(reqPath)!.content)
+      expect(reqParsed.properties.targetId).toEqual({ $ref: 'urn:schema:test.SharedId:1.0.0' })
+
+      // Response schema has $ref, not inline
+      const resPath = 'schemas/urn/schema/test.CreateItemResponse/1.0.0.json'
+      const resParsed = JSON.parse(result.schemas.get(resPath)!.content)
+      expect(resParsed.properties.createdId).toEqual({ $ref: 'urn:schema:test.SharedId:1.0.0' })
+    })
+
+    it('includes context entries for response schema terms', () => {
+      const result = buildWithResponseSchema()
+      const ctx = result.jsonld['@context']
+      expect(ctx['svc:responseSchema']).toEqual({ '@container': '@set' })
+      expect(ctx['svc:contentType']).toEqual({})
+    })
+  })
+
+  describe('workflow', () => {
+    it('renders svc:workflow with nextStep on command capabilities', () => {
+      const result = buildWithWorkflow()
+      const cmd = findCommand(result, 'urn:command:test.CreateItem:1.0.0')
+      const workflow = cmd['svc:workflow']
+      expect(workflow).toBeDefined()
+      expect(workflow['@type']).toBe('svc:PresignedPostUpload')
+
+      const nextStep = workflow['svc:nextStep']
+      expect(nextStep).toBeDefined()
+      expect(nextStep['@id']).toBe('svc:S3FormPost')
+      expect(nextStep['@type']).toBe('svc:ExternalEndpoint')
+
+      const ops = nextStep['hydra:supportedOperation']
+      expect(ops).toHaveLength(1)
+      expect(ops[0]['@type']).toBe('hydra:Operation')
+      expect(ops[0]['hydra:method']).toBe('POST')
+      expect(ops[0]['hydra:expects']).toBe('multipart/form-data')
+    })
+
+    it('renders workflow without nextStep', () => {
+      const result = buildHydraApiDocumentation({
+        classes: [
+          makeClassDef({
+            surfaces: HydraDoc.standardCommandSurfaces({
+              idStem: '#test',
+              collectionHref: '/api/test/entities',
+              idProperty: 'test:entityId',
+            }),
+            commands: [
+              {
+                id: 'urn:command:test.CreateItem:1.0.0',
+                stableId: 'test.CreateItem',
+                version: '1.0.0',
+                dispatch: 'create',
+                schema: CREATE_SCHEMA,
+                workflow: { type: 'svc:PresignedPostUpload' },
+              },
+            ],
+          }),
+        ],
+        prefixes: PREFIXES,
+        strictPrefixes: true,
+      })
+      const cmd = findCommand(result, 'urn:command:test.CreateItem:1.0.0')
+      const workflow = cmd['svc:workflow']
+      expect(workflow['@type']).toBe('svc:PresignedPostUpload')
+      expect(workflow).not.toHaveProperty('svc:nextStep')
+    })
+
+    it('omits svc:workflow when not provided', () => {
+      const result = buildWithSchema()
+      const cmd = findCommand(result, 'urn:command:test.RenameItem:1.0.0')
+      expect(cmd).not.toHaveProperty('svc:workflow')
+    })
+
+    it('includes workflow context entries', () => {
+      const result = buildWithWorkflow()
+      const ctx = result.jsonld['@context']
+      expect(ctx['svc:workflow']).toEqual({})
+      expect(ctx['svc:nextStep']).toEqual({})
     })
   })
 })
@@ -482,6 +778,64 @@ function buildWithCustomSchema(schema: JSONSchema7): BuildResult {
       }),
     ],
 
+    prefixes: PREFIXES,
+    strictPrefixes: true,
+  })
+}
+
+function buildWithResponseSchema(): BuildResult {
+  return buildHydraApiDocumentation({
+    classes: [
+      makeClassDef({
+        surfaces: HydraDoc.standardCommandSurfaces({
+          idStem: '#test',
+          collectionHref: '/api/test/entities',
+          idProperty: 'test:entityId',
+        }),
+        commands: [
+          {
+            id: 'urn:command:test.CreateItem:1.0.0',
+            stableId: 'test.CreateItem',
+            version: '1.0.0',
+            dispatch: 'create',
+            schema: CREATE_SCHEMA,
+            responseSchema: [{ contentType: 'application/json', schema: PERMIT_RESPONSE_SCHEMA }],
+          },
+        ],
+      }),
+    ],
+    prefixes: PREFIXES,
+    strictPrefixes: true,
+  })
+}
+
+function buildWithWorkflow(): BuildResult {
+  return buildHydraApiDocumentation({
+    classes: [
+      makeClassDef({
+        surfaces: HydraDoc.standardCommandSurfaces({
+          idStem: '#test',
+          collectionHref: '/api/test/entities',
+          idProperty: 'test:entityId',
+        }),
+        commands: [
+          {
+            id: 'urn:command:test.CreateItem:1.0.0',
+            stableId: 'test.CreateItem',
+            version: '1.0.0',
+            dispatch: 'create',
+            schema: CREATE_SCHEMA,
+            workflow: {
+              type: 'svc:PresignedPostUpload',
+              nextStep: {
+                id: 'svc:S3FormPost',
+                supportedOperation: [{ method: 'POST', expects: 'multipart/form-data' }],
+              },
+            },
+          },
+        ],
+      }),
+    ],
     prefixes: PREFIXES,
     strictPrefixes: true,
   })

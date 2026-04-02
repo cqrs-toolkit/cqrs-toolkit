@@ -34,6 +34,14 @@ Template variable mappings
 
 ---
 
+### responseSchema?
+
+> `optional` **responseSchema**: `ResponseSchemaEntry`[]
+
+Per-content-type response schemas for this command's success response
+
+---
+
 ### template
 
 > **template**: `string`
@@ -47,3 +55,19 @@ URI template (e.g. '/api/todos/{id}/command')
 > **urn**: `string`
 
 Full command URN
+
+---
+
+### workflow?
+
+> `optional` **workflow**: `object`
+
+Workflow annotation — type identifies the convention, nextStepId references an external endpoint
+
+#### nextStepId?
+
+> `optional` **nextStepId**: `string`
+
+#### type
+
+> **type**: `string`

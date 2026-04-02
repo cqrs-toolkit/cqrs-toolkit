@@ -11,6 +11,7 @@
     },
     "svc:commandType": {},
     "svc:commands": {},
+    "svc:contentType": {},
     "svc:dispatch": {},
     "svc:formats": {
       "@container": "@set"
@@ -20,17 +21,22 @@
     },
     "svc:method": {},
     "svc:name": {},
+    "svc:nextStep": {},
     "svc:profile": {
       "@type": "@id"
     },
     "svc:representation": {
       "@container": "@set"
     },
+    "svc:responseSchema": {
+      "@container": "@set"
+    },
     "svc:stableId": {},
     "svc:supportedCommand": {
       "@container": "@set"
     },
-    "svc:surface": {}
+    "svc:surface": {},
+    "svc:workflow": {}
   },
   "@id": "urn:apidoc",
   "@type": "hydra:ApiDocumentation",
@@ -666,7 +672,28 @@
             "schema:version": "1.0.0",
             "svc:dispatch": "create",
             "svc:jsonSchema": "urn:schema:storage.CreateFileObject:1.0.0",
-            "svc:stableId": "storage.CreateFileObject"
+            "svc:responseSchema": [
+              {
+                "@type": "svc:ContentTypeSchema",
+                "svc:contentType": "application/json",
+                "svc:jsonSchema": "urn:schema:storage.PresignedPermitResponse:1.0.0"
+              }
+            ],
+            "svc:stableId": "storage.CreateFileObject",
+            "svc:workflow": {
+              "@type": "svc:PresignedPostUpload",
+              "svc:nextStep": {
+                "@id": "svc:S3FormPost",
+                "@type": "svc:ExternalEndpoint",
+                "hydra:supportedOperation": [
+                  {
+                    "@type": "hydra:Operation",
+                    "hydra:expects": "multipart/form-data",
+                    "hydra:method": "POST"
+                  }
+                ]
+              }
+            }
           },
           {
             "@id": "urn:command:storage.DeleteFileObject:1.0.0",

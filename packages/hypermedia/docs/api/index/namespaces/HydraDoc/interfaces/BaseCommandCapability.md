@@ -88,6 +88,14 @@ Example: 'urn:command:chat.RenameRoom:1.0.0'
 
 ---
 
+### responseSchema?
+
+> `optional` **responseSchema**: readonly [`ContentTypeSchema`](ContentTypeSchema.md)[]
+
+Per-content-type response schemas for this command's success response.
+
+---
+
 ### schema?
 
 > `optional` **schema**: `JSONSchema7`
@@ -111,3 +119,11 @@ version is "latest" and to route old payloads through adapters.
 > **version**: `string`
 
 Semantic version of this command capability (e.g. '1.0.0').
+
+---
+
+### workflow?
+
+> `optional` **workflow**: [`Workflow`](Workflow.md)
+
+Workflow annotation declaring chained operation semantics.

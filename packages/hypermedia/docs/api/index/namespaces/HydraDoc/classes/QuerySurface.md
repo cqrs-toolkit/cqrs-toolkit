@@ -42,6 +42,12 @@
 
 ---
 
+### responseSchema?
+
+> `readonly` `optional` **responseSchema**: readonly [`ContentTypeSchema`](../interfaces/ContentTypeSchema.md)[]
+
+---
+
 ### template
 
 > `readonly` **template**: [`IriTemplate`](IriTemplate.md)

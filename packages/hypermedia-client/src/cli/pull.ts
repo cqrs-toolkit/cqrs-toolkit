@@ -4,7 +4,7 @@
  */
 
 import type { JSONSchema7 } from 'json-schema'
-import type { EnvelopeExtractor, FileCardinality } from '../config.js'
+import type { EnvelopeExtractor } from '../config.js'
 import { parseApidoc, type ParsedCommand } from './apidoc-parser.js'
 import { parseRepresentations } from './apidoc-representations.js'
 import { loadConfig } from './config.js'
@@ -18,7 +18,6 @@ export async function pull(projectRoot: string): Promise<void> {
   // Extract URNs and per-command overrides from CommandEntry[]
   const commandUrns: string[] = []
   const perCommandExtractors = new Map<string, EnvelopeExtractor>()
-  const perCommandFiles = new Map<string, FileCardinality>()
   for (const entry of config.commands) {
     if (typeof entry === 'string') {
       commandUrns.push(entry)
@@ -26,9 +25,6 @@ export async function pull(projectRoot: string): Promise<void> {
       commandUrns.push(entry.urn)
       if (entry.extractEnvelope) {
         perCommandExtractors.set(entry.urn, entry.extractEnvelope)
-      }
-      if (entry.files) {
-        perCommandFiles.set(entry.urn, entry.files)
       }
     }
   }
@@ -53,14 +49,6 @@ export async function pull(projectRoot: string): Promise<void> {
 
   if (commandResult.commands.size === 0) {
     throw new Error('No matching commands found in apidoc')
-  }
-
-  // Stamp file cardinality from config onto parsed commands
-  for (const [, cmd] of commandResult.commands) {
-    const files = perCommandFiles.get(cmd.urn)
-    if (files) {
-      cmd.files = files
-    }
   }
 
   // Parse representations

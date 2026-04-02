@@ -12,7 +12,18 @@ import {
   type CommandRecord,
 } from '@cqrs-toolkit/client'
 import { Err, Ok, type Link, type Result } from '@meticoeus/ddd-es'
-import type { CommandManifest, CommandRouting, HypermediaCommandSenderOptions } from './types.js'
+import { createPresignedUploadHandler } from './presignedUpload.js'
+import type {
+  AfterSendHandler,
+  CommandManifest,
+  CommandRouting,
+  HypermediaCommandSenderOptions,
+} from './types.js'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const BUILTIN_WORKFLOW_HANDLERS: Record<string, AfterSendHandler<any, any>> = {
+  'svc:PresignedPostUpload': createPresignedUploadHandler(),
+}
 
 /**
  * Create an `ICommandSender` that auto-wires HTTP requests from a `commands.json` manifest.
@@ -89,6 +100,14 @@ export function createHypermediaCommandSender<TLink extends Link, TCommand exten
       const afterSend = options.afterSend?.[command.type]
       if (afterSend) {
         return afterSend(command, responseBody, res)
+      }
+
+      // Auto-wire known workflow handlers from routing manifest
+      if (routing.workflow) {
+        const workflowHandler = BUILTIN_WORKFLOW_HANDLERS[routing.workflow.type]
+        if (workflowHandler) {
+          return workflowHandler(command, responseBody, res)
+        }
       }
 
       return Ok(responseBody)

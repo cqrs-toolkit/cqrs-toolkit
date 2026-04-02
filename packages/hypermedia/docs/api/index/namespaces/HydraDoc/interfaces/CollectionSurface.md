@@ -51,6 +51,18 @@ Example: 'urn:profile:storage.FileObject:1.0.0'
 
 ---
 
+### responseSchema?
+
+> `optional` **responseSchema**: readonly [`ContentTypeSchema`](ContentTypeSchema.md)[]
+
+Per-content-type response schemas for this surface.
+
+#### Inherited from
+
+[`PlainQuerySurface`](PlainQuerySurface.md).[`responseSchema`](PlainQuerySurface.md#responseschema)
+
+---
+
 ### template
 
 > **template**: [`PlainIriTemplate`](PlainIriTemplate.md)

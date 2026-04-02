@@ -87,12 +87,22 @@ function generateCommandsTs(commands: Map<string, ParsedCommand>): string {
       .map((m) => `{ variable: '${m.variable}', required: ${m.required} }`)
       .join(', ')
 
+    const responseSchemaStr = cmd.responseSchema
+      ?.map((rs) => `{ contentType: '${rs.contentType}', schemaUrl: '${rs.schemaUrl}' }`)
+      .join(', ')
+
+    const workflowStr = cmd.workflow
+      ? `{ type: '${cmd.workflow.type}'${cmd.workflow.nextStepId ? `, nextStepId: '${cmd.workflow.nextStepId}'` : ''} }`
+      : undefined
+
     const fields = [
       `      urn: '${cmd.urn}'`,
       `      dispatch: '${cmd.dispatch}'`,
       ...(cmd.commandType ? [`      commandType: '${cmd.commandType}'`] : []),
       `      template: '${cmd.template}'`,
       `      mappings: [${mappingsStr}]`,
+      ...(responseSchemaStr ? [`      responseSchema: [${responseSchemaStr}]`] : []),
+      ...(workflowStr ? [`      workflow: ${workflowStr}`] : []),
     ]
 
     entries.push(`    '${name}': {\n${fields.join(',\n')},\n    }`)
@@ -108,10 +118,9 @@ function generateCommandsTs(commands: Map<string, ParsedCommand>): string {
       fields.push(`path: { ${pathFields} }`)
     }
     fields.push('data: unknown')
-    if (cmd.files === 'one') {
+    if (cmd.workflow) {
+      // All upload workflows are single-file per request
       fields.push('files: [File]')
-    } else if (cmd.files === 'many') {
-      fields.push('files: [File, ...File[]]')
     }
     if (requiredMappings.length > 0) {
       fields.push('revision?: string | AutoRevision')

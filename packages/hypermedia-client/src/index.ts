@@ -8,6 +8,8 @@ export { createHypermediaCommandSender } from './runtime/createHypermediaCommand
 export { createAjvSchemaValidator, withSchemaRegistry } from './runtime/createSchemaValidators.js'
 export type { SchemaMap, SchemaRegistry } from './runtime/createSchemaValidators.js'
 export { fetchEventPage, fetchStreamEvents } from './runtime/fetchHelpers.js'
+export { createPresignedUploadHandler, isPresignedPermit } from './runtime/presignedUpload.js'
+export type { PresignedPermit } from './runtime/presignedUpload.js'
 export type {
   AfterSendHandler,
   CommandManifest,

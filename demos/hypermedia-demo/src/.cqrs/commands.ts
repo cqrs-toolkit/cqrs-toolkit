@@ -101,6 +101,14 @@ export const commands: CommandManifest = {
       dispatch: 'create',
       template: '/api/file-objects',
       mappings: [],
+      responseSchema: [
+        {
+          contentType: 'application/json',
+          schemaUrl:
+            'http://localhost:3002/api/meta/schemas/urn/schema/storage.PresignedPermitResponse/1.0.0.json',
+        },
+      ],
+      workflow: { type: 'svc:PresignedPostUpload', nextStepId: 'svc:S3FormPost' },
     },
     'storage.DeleteFileObject': {
       urn: 'urn:command:storage.DeleteFileObject:1.0.0',

@@ -1,5 +1,6 @@
 import { SchemaRegistry } from '@cqrs-toolkit/schema'
 import { Ajv } from 'ajv'
+import type { JSONSchema7 } from 'json-schema'
 import assert from 'node:assert'
 import { HydraDoc } from '../HydraDoc.js'
 
@@ -110,6 +111,27 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
       if (!m.property) throw new Error(`Rep ${repId} ${label} template mapping missing 'property'`)
       const pp = curiePrefix(m.property)
       if (pp) prefixUse.add(pp)
+    }
+
+    if (surf.responseSchema) {
+      const formatSet = new Set(surf.formats)
+      for (const rs of surf.responseSchema) {
+        if (!mtRe.test(rs.contentType)) {
+          throw new Error(
+            `Rep ${repId} ${label} responseSchema has invalid content type: ${rs.contentType}`,
+          )
+        }
+        if (!rs.schema.$id) {
+          throw new Error(
+            `Rep ${repId} ${label} responseSchema entry for '${rs.contentType}' is missing $id`,
+          )
+        }
+        if (!formatSet.has(rs.contentType)) {
+          throw new Error(
+            `Rep ${repId} ${label} responseSchema contentType '${rs.contentType}' is not in formats [${surf.formats.join(', ')}]`,
+          )
+        }
+      }
     }
   }
 
@@ -222,6 +244,30 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
             `Class ${cls.class} command ${c.id} targets '/command' but is missing commandType`,
           )
         }
+
+        if (c.responseSchema) {
+          for (const rs of c.responseSchema) {
+            if (!mtRe.test(rs.contentType)) {
+              throw new Error(
+                `Class ${cls.class} command ${c.id} responseSchema has invalid content type: ${rs.contentType}`,
+              )
+            }
+            if (!rs.schema.$id) {
+              throw new Error(
+                `Class ${cls.class} command ${c.id} responseSchema entry for '${rs.contentType}' is missing $id`,
+              )
+            }
+          }
+        }
+
+        if (c.workflow) {
+          if (!c.workflow.type) {
+            throw new Error(`Class ${cls.class} command ${c.id} workflow is missing type`)
+          }
+          if (c.workflow.nextStep && !c.workflow.nextStep.id) {
+            throw new Error(`Class ${cls.class} command ${c.id} workflow nextStep is missing id`)
+          }
+        }
       }
     }
   }
@@ -257,6 +303,14 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
     'svc:name': {},
     'svc:jsonSchema': { '@type': '@id' },
 
+    // ---- response schemas ----
+    'svc:responseSchema': { '@container': '@set' },
+    'svc:contentType': {},
+
+    // ---- workflows ----
+    'svc:workflow': {},
+    'svc:nextStep': {},
+
     // no @type coercion needed here.
     ...(opts.extraContext ?? {}),
   }
@@ -284,35 +338,61 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
   }
 
   // ---- collect schemas (with SchemaRegistry normalization) ----
+  // All schemas — request bodies, response schemas — share a single registry.
+  // A schema is identified only by its $id URN regardless of role.
   const ajv = new Ajv()
   const registry = new SchemaRegistry(ajv, [])
 
   const schemas = new Map<string, SchemaEntry>()
   const schemaSource = new Map<string, object>()
-  for (const cls of classes) {
-    if (!cls.commands) continue
-    for (const c of cls.commands.commands) {
-      if (!c.schema) continue
-      const schemaId = c.schema.$id
-      assert(schemaId, `Command ${c.id} received invalid schema. Missing required $id.`)
 
-      const path = `schemas/${schemaId.replaceAll(':', '/')}.json`
-      if (schemas.has(path)) {
-        // Same object instance = intentionally shared schema (e.g. core.DeleteAggregate)
-        if (schemaSource.get(path) !== c.schema) {
-          warnings.push(`Schema path collision: ${path} (command ${c.id})`)
-        }
-        continue
+  const collectSchema = (schema: JSONSchema7, isLatest: boolean, label: string) => {
+    const schemaId = schema.$id
+    assert(schemaId, `${label} received invalid schema. Missing required $id.`)
+
+    const path = `schemas/${schemaId.replaceAll(':', '/')}.json`
+    if (schemas.has(path)) {
+      // Same object instance = intentionally shared schema (e.g. core.DeleteAggregate)
+      if (schemaSource.get(path) !== schema) {
+        warnings.push(`Schema path collision: ${path} (${label})`)
       }
+      return
+    }
 
-      // Walk + normalize: replaces inline $id sub-schemas with $ref pointers
-      registry.register(c.schema)
+    // Walk + normalize: replaces inline $id sub-schemas with $ref pointers
+    registry.register(schema)
 
-      schemaSource.set(path, c.schema)
-      schemas.set(path, {
-        content: renderJson(c.schema),
-        isLatest: c.isLatest,
-      })
+    schemaSource.set(path, schema)
+    schemas.set(path, {
+      content: renderJson(schema),
+      isLatest,
+    })
+  }
+
+  for (const cls of classes) {
+    // Command request schemas
+    if (cls.commands) {
+      for (const c of cls.commands.commands) {
+        if (c.schema) {
+          collectSchema(c.schema, c.isLatest, `Command ${c.id}`)
+        }
+        if (c.responseSchema) {
+          for (const rs of c.responseSchema) {
+            collectSchema(rs.schema, c.isLatest, `Command ${c.id} response [${rs.contentType}]`)
+          }
+        }
+      }
+    }
+
+    // Representation response schemas
+    for (const rep of cls.representations) {
+      for (const surf of [rep.resource, rep.collection]) {
+        if (surf.responseSchema) {
+          for (const rs of surf.responseSchema) {
+            collectSchema(rs.schema, true, `Rep ${rep.id} response [${rs.contentType}]`)
+          }
+        }
+      }
     }
   }
 
@@ -337,42 +417,32 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
       '@type': 'svc:Representation',
       'schema:version': rep.version,
       ...(rep.deprecated ? { 'rdf:type': ['svc:Deprecated'] } : {}),
-      'svc:resource': {
-        '@type': 'svc:Surface',
-        'svc:formats': rep.resource.formats,
-        'svc:profile': { '@id': rep.resource.profile },
-        'svc:template': iriTemplateNode(rep.resource.template),
-      },
-      'svc:collection': {
-        '@type': 'svc:Surface',
-        'svc:formats': rep.collection.formats,
-        'svc:profile': { '@id': rep.collection.profile },
-        'svc:template': iriTemplateNode(rep.collection.template),
-      },
+      'svc:resource': renderSurface(rep.resource),
+      'svc:collection': renderSurface(rep.collection),
     }
 
     if (!isQueryRepresentation(rep)) return base
 
     return {
       ...base,
-      ...(rep.aggregateEvents
+      ...(rep.aggregateEvents ? { 'svc:aggregateEvents': renderSurface(rep.aggregateEvents) } : {}),
+      ...(rep.itemEvents ? { 'svc:itemEvents': renderSurface(rep.itemEvents) } : {}),
+    }
+  }
+
+  function renderSurface(surf: HydraDoc.QuerySurface): JsonLd {
+    return {
+      '@type': 'svc:Surface',
+      'svc:formats': surf.formats,
+      'svc:profile': { '@id': surf.profile },
+      'svc:template': iriTemplateNode(surf.template),
+      ...(surf.responseSchema?.length
         ? {
-            'svc:aggregateEvents': {
-              '@type': 'svc:Surface',
-              'svc:formats': rep.aggregateEvents.formats,
-              'svc:profile': { '@id': rep.aggregateEvents.profile },
-              'svc:template': iriTemplateNode(rep.aggregateEvents.template),
-            },
-          }
-        : {}),
-      ...(rep.itemEvents
-        ? {
-            'svc:itemEvents': {
-              '@type': 'svc:Surface',
-              'svc:formats': rep.itemEvents.formats,
-              'svc:profile': { '@id': rep.itemEvents.profile },
-              'svc:template': iriTemplateNode(rep.itemEvents.template),
-            },
+            'svc:responseSchema': surf.responseSchema.map((rs) => ({
+              '@type': 'svc:ContentTypeSchema',
+              'svc:contentType': rs.contentType,
+              'svc:jsonSchema': rs.schema.$id,
+            })),
           }
         : {}),
     }
@@ -407,8 +477,41 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
               },
             }
           : {}),
+        ...(c.responseSchema?.length
+          ? {
+              'svc:responseSchema': c.responseSchema.map((rs) => ({
+                '@type': 'svc:ContentTypeSchema',
+                'svc:contentType': rs.contentType,
+                'svc:jsonSchema': rs.schema.$id,
+              })),
+            }
+          : {}),
+        ...(c.workflow ? { 'svc:workflow': renderWorkflow(c.workflow) } : {}),
       })),
     }
+  }
+}
+
+function renderWorkflow(w: HydraDoc.Workflow): JsonLd {
+  return {
+    '@type': w.type,
+    ...(w.nextStep
+      ? {
+          'svc:nextStep': {
+            '@id': w.nextStep.id,
+            '@type': 'svc:ExternalEndpoint',
+            ...(w.nextStep.supportedOperation?.length
+              ? {
+                  'hydra:supportedOperation': w.nextStep.supportedOperation.map((op) => ({
+                    '@type': 'hydra:Operation',
+                    'hydra:method': op.method,
+                    ...(op.expects ? { 'hydra:expects': op.expects } : {}),
+                  })),
+                }
+              : {}),
+          },
+        }
+      : {}),
   }
 }
 
