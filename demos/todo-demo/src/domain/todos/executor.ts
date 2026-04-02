@@ -2,7 +2,7 @@
  * Todo command handlers — anticipated event production from validated data.
  */
 
-import { createEntityId, domainSuccess, type HandlerContext } from '@cqrs-toolkit/client'
+import { createEntityId, domainSuccess } from '@cqrs-toolkit/client'
 import {
   changeTodoStatusPayloadSchema,
   createTodoPayloadSchema,
@@ -16,13 +16,14 @@ export const todoHandlers: AppCommandHandlerRegistration[] = [
     commandType: 'CreateTodo',
     schema: createTodoPayloadSchema,
     creates: { eventType: 'TodoCreated', idStrategy: 'temporary' },
-    handler(data: { content: string }, context: HandlerContext) {
+    handler(command, context) {
+      const { content } = command.data as { content: string }
       const id = createEntityId(context)
       const now = new Date().toISOString()
       return domainSuccess([
         {
           type: 'TodoCreated',
-          data: { id, content: data.content, status: 'pending', createdAt: now },
+          data: { id, content, status: 'pending', createdAt: now },
           streamId: `Todo-${id}`,
         },
       ])
@@ -31,12 +32,13 @@ export const todoHandlers: AppCommandHandlerRegistration[] = [
   {
     commandType: 'UpdateTodoContent',
     schema: updateTodoContentPayloadSchema,
-    handler(data: { id: string; content: string }) {
+    handler(command) {
+      const { id, content } = command.data as { id: string; content: string }
       return domainSuccess([
         {
           type: 'TodoContentUpdated',
-          data: { id: data.id, content: data.content, updatedAt: new Date().toISOString() },
-          streamId: `Todo-${data.id}`,
+          data: { id, content, updatedAt: new Date().toISOString() },
+          streamId: `Todo-${id}`,
         },
       ])
     },
@@ -44,12 +46,13 @@ export const todoHandlers: AppCommandHandlerRegistration[] = [
   {
     commandType: 'ChangeTodoStatus',
     schema: changeTodoStatusPayloadSchema,
-    handler(data: { id: string; status: string }) {
+    handler(command) {
+      const { id, status } = command.data as { id: string; status: string }
       return domainSuccess([
         {
           type: 'TodoStatusChanged',
-          data: { id: data.id, status: data.status, updatedAt: new Date().toISOString() },
-          streamId: `Todo-${data.id}`,
+          data: { id, status, updatedAt: new Date().toISOString() },
+          streamId: `Todo-${id}`,
         },
       ])
     },
@@ -57,9 +60,14 @@ export const todoHandlers: AppCommandHandlerRegistration[] = [
   {
     commandType: 'DeleteTodo',
     schema: deleteTodoPayloadSchema,
-    handler(data: { id: string }) {
+    handler(command) {
+      const { id } = command.data as { id: string }
       return domainSuccess([
-        { type: 'TodoDeleted', data: { id: data.id }, streamId: `Todo-${data.id}` },
+        {
+          type: 'TodoDeleted',
+          data: { id },
+          streamId: `Todo-${id}`,
+        },
       ])
     },
   },

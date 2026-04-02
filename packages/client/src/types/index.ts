@@ -17,13 +17,7 @@ export { hydrateSerializedEvent, normalizeEventPersistence } from './events.js'
 // Validation
 export type { ValidationError, ValidationResult } from './validation.js'
 
-export {
-  createValidationError,
-  isValidationFailure,
-  isValidationSuccess,
-  validationFailure,
-  validationSuccess,
-} from './validation.js'
+export { ValidationException } from './validation.js'
 
 // Domain
 export type {
@@ -31,6 +25,7 @@ export type {
   AutoRevision,
   CommandHandlerRegistration,
   CreateCommandConfig,
+  DomainExecutionError,
   DomainExecutionResult,
   DomainExecutionSuccess,
   ExecutorCommand,
@@ -44,6 +39,7 @@ export type {
 } from './domain.js'
 
 export {
+  UnknownCommandException,
   autoRevision,
   createEntityId,
   domainFailure,
@@ -51,22 +47,20 @@ export {
   isAutoRevision,
   isDomainFailure,
   isDomainSuccess,
+  isUnknownCommand,
 } from './domain.js'
 
 // Commands
 export type {
-  CommandCompletionResult,
-  CommandError,
+  CommandCompletionError,
   CommandErrorSource,
   CommandEvent,
   CommandEventType,
+  CommandFailedDetails,
   CommandFilter,
   CommandRecord,
   CommandStatus,
-  CompletionCancelled,
-  CompletionFailed,
-  CompletionSucceeded,
-  CompletionTimeout,
+  EnqueueAndWaitError,
   EnqueueAndWaitOptions,
   EnqueueAndWaitResult,
   EnqueueAndWaitSuccess,
@@ -74,6 +68,7 @@ export type {
   EnqueueOptions,
   EnqueueResult,
   EnqueueSuccess,
+  SubmitError,
   SubmitOptions,
   SubmitParams,
   SubmitResult,
@@ -82,10 +77,18 @@ export type {
 } from './commands.js'
 
 export {
-  EnqueueAndWaitException,
-  SubmitException,
+  CommandCancelledException,
+  CommandFailedException,
+  CommandNotFoundException,
+  CommandTimeoutException,
+  InvalidCommandStatusException,
+  isCommandCancelled,
+  isCommandFailed,
+  isCommandNotFound,
+  isCommandTimeout,
   isEnqueueFailure,
   isEnqueueSuccess,
+  isInvalidCommandStatus,
   isTerminalStatus,
 } from './commands.js'
 

@@ -6,7 +6,7 @@
 
 # Function: isEnqueueFailure()
 
-> **isEnqueueFailure**\<`TEvent`\>(`result`): `result is ErrResult<ValidationException<ValidationError[]>>`
+> **isEnqueueFailure**\<`TEvent`\>(`result`): `result is ErrResult<ValidationException>`
 
 Type guard for failed enqueue result.
 
@@ -24,4 +24,4 @@ Type guard for failed enqueue result.
 
 ## Returns
 
-`result is ErrResult<ValidationException<ValidationError[]>>`
+`result is ErrResult<ValidationException>`

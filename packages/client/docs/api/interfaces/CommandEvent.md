@@ -20,7 +20,7 @@ Command ID
 
 ### error?
 
-> `optional` **error**: [`CommandError`](CommandError.md)
+> `optional` **error**: `IException`\<`unknown`\>
 
 Error information (for failed events)
 

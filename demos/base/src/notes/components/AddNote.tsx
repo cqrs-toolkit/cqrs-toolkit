@@ -43,8 +43,7 @@ export function AddNote(props: AddNoteProps) {
       setTitle('')
       setBody('')
     } else {
-      pendingCommandId = result.error.details?.commandId
-      props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
+      props.onError(result.error.message)
     }
     setEditState('editing')
   }

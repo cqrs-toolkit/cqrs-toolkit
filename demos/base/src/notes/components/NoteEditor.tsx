@@ -110,7 +110,7 @@ export function NoteEditor(props: NoteEditorProps) {
           props.onIdChanged('placeholder', noteId)
         }
       } else {
-        props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
+        props.onError(result.error.message)
       }
     } else {
       const note = query.data
@@ -137,7 +137,7 @@ export function NoteEditor(props: NoteEditorProps) {
         })
         if (!result.ok) {
           setSaveState('idle')
-          props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
+          props.onError(result.error.message)
           return
         }
       }
@@ -150,7 +150,7 @@ export function NoteEditor(props: NoteEditorProps) {
         })
         if (!result.ok) {
           setSaveState('idle')
-          props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
+          props.onError(result.error.message)
           return
         }
       }
@@ -179,7 +179,7 @@ export function NoteEditor(props: NoteEditorProps) {
       props.onDeleted()
     } else {
       setSaveState('idle')
-      props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
+      props.onError(result.error.message)
     }
   }
 

@@ -10,19 +10,11 @@ Generic validation error for a single field.
 
 ## Properties
 
-### code?
+### code
 
-> `optional` **code**: `string`
+> **code**: `string`
 
-Error code for programmatic handling (optional)
-
----
-
-### context?
-
-> `optional` **context**: `Record`\<`string`, `unknown`\>
-
-Additional context (optional)
+Error code for programmatic handling
 
 ---
 
@@ -31,6 +23,14 @@ Additional context (optional)
 > **message**: `string`
 
 Error message for display
+
+---
+
+### params
+
+> **params**: `Record`\<`string`, `unknown`\>
+
+Additional context
 
 ---
 

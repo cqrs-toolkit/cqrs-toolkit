@@ -19,14 +19,6 @@ instead of generating a new ID.
 
 ---
 
-### path?
-
-> `optional` **path**: `unknown`
-
-URL path template values from the command envelope.
-
----
-
 ### phase
 
 > **phase**: `"updating"`

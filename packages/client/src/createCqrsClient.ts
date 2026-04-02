@@ -47,7 +47,7 @@ import type { CollectionSyncStatus } from './core/sync-manager/SeedStatusIndex.j
 import { SyncManager } from './core/sync-manager/SyncManager.js'
 import { WriteQueue } from './core/write-queue/WriteQueue.js'
 import type { EnqueueCommand, SubmitParams, SubmitResult, SubmitSuccess } from './types/commands.js'
-import { SubmitException } from './types/commands.js'
+import { isCommandTimeout } from './types/commands.js'
 import type {
   CqrsClientConfig,
   ExecutionMode,
@@ -188,8 +188,7 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand> {
 
     // Step 3: If validation fails, return error with no commandId
     if (!enqueueResult.ok) {
-      const errors = enqueueResult.error.details ?? []
-      return Err(new SubmitException(errors, 'local'))
+      return Err(enqueueResult.error)
     }
 
     const resolvedCommandId = enqueueResult.value.commandId
@@ -216,37 +215,23 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand> {
     // Step 6: Online — wait for completion
     const completion = await this.commandQueue.waitForCompletion(commandId, { timeout })
 
-    switch (completion.status) {
-      case 'succeeded':
-        return Ok({
-          stage: 'confirmed',
-          commandId,
-          response: completion.response as TResponse,
-        } satisfies SubmitSuccess<TResponse>)
+    if (completion.ok) {
+      return Ok({
+        stage: 'confirmed',
+        commandId,
+        response: completion.value as TResponse,
+      } satisfies SubmitSuccess<TResponse>)
+    }
 
-      case 'failed': {
-        const errors = completion.error.validationErrors ?? [
-          { path: '_', message: completion.error.message },
-        ]
-        return Err(new SubmitException(errors, completion.error.source, commandId))
-      }
-
-      case 'cancelled':
-        return Err(
-          new SubmitException([{ path: '_', message: 'Command cancelled' }], 'local', commandId),
-        )
-
-      case 'timeout': {
-        // Check if we went offline during the wait
-        const stillOnline = this.syncManager.connectivity.isOnline()
-        if (!stillOnline) {
-          return Ok({ stage: 'enqueued', commandId } satisfies SubmitSuccess<TResponse>)
-        }
-        return Err(
-          new SubmitException([{ path: '_', message: 'Command timed out' }], 'local', commandId),
-        )
+    // Check if we went offline during the wait (timeout case)
+    if (isCommandTimeout(completion.error)) {
+      const stillOnline = this.syncManager.connectivity.isOnline()
+      if (!stillOnline) {
+        return Ok({ stage: 'enqueued', commandId } satisfies SubmitSuccess<TResponse>)
       }
     }
+
+    return Err(completion.error)
   }
 
   /**

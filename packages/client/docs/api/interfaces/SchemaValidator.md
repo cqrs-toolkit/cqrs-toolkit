@@ -26,7 +26,7 @@ subsequent phases and is persisted to `CommandRecord.data`.
 
 ### validate()
 
-> **validate**(`schema`, `data`): `Result`\<`unknown`, `ValidationException`\<[`ValidationError`](ValidationError.md)[]\>\>
+> **validate**(`schema`, `data`): `Result`\<`unknown`, [`ValidationException`](../classes/ValidationException.md)\>
 
 #### Parameters
 
@@ -40,4 +40,4 @@ subsequent phases and is persisted to `CommandRecord.data`.
 
 #### Returns
 
-`Result`\<`unknown`, `ValidationException`\<[`ValidationError`](ValidationError.md)[]\>\>
+`Result`\<`unknown`, [`ValidationException`](../classes/ValidationException.md)\>

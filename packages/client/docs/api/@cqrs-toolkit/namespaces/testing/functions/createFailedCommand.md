@@ -24,7 +24,7 @@ Create a failed command.
 
 ### error
 
-[`CommandError`](../../../../interfaces/CommandError.md) | `undefined`
+`IException`\<`unknown`\> | `undefined`
 
 ### overrides?
 

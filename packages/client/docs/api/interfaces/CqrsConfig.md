@@ -63,7 +63,7 @@ Collection configurations.
 
 ### commandHandlers?
 
-> `optional` **commandHandlers**: [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>[]
+> `optional` **commandHandlers**: [`CommandHandlerRegistration`](../type-aliases/CommandHandlerRegistration.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>[]
 
 Command handler registrations for local validation and optimistic updates.
 Each handler validates command data and produces anticipated events.

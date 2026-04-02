@@ -1,5 +1,5 @@
-import type { SchemaValidator, ValidationError } from '@cqrs-toolkit/client'
-import { Err, Ok, ValidationException } from '@meticoeus/ddd-es'
+import { SchemaValidator, ValidationError, ValidationException } from '@cqrs-toolkit/client'
+import { Err, Ok } from '@meticoeus/ddd-es'
 import { Ajv, type ErrorObject } from 'ajv'
 import type { JSONSchema7 } from 'json-schema'
 
@@ -11,8 +11,9 @@ export function mapAjvErrors(errors: ErrorObject[] | null | undefined): Validati
     path:
       err.instancePath.replace(/^\//, '').replaceAll('/', '.') ||
       String(err.params['missingProperty'] ?? ''),
-    message: err.message ?? 'Validation failed',
     code: err.keyword,
+    message: err.message ?? 'Validation failed',
+    params: err.params,
   }))
 }
 
@@ -22,6 +23,6 @@ export const schemaValidator: SchemaValidator<JSONSchema7> = {
     if (validate(data)) {
       return Ok(data)
     }
-    return Err(new ValidationException(undefined, mapAjvErrors(validate.errors)))
+    return Err(new ValidationException(mapAjvErrors(validate.errors)))
   },
 }

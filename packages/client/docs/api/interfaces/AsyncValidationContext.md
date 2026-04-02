@@ -18,14 +18,6 @@ Gives access to the local read model for business rule checks
 
 ## Properties
 
-### path?
-
-> `optional` **path**: `unknown`
-
-URL path template values from the command envelope.
-
----
-
 ### queryManager
 
 > **queryManager**: [`IQueryManager`](IQueryManager.md)\<`TLink`\>

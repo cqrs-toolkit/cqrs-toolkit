@@ -6,7 +6,7 @@
 
 # Type Alias: SubmitResult\<TResponse\>
 
-> **SubmitResult**\<`TResponse`\> = `Result`\<[`SubmitSuccess`](SubmitSuccess.md)\<`TResponse`\>, [`SubmitException`](../classes/SubmitException.md)\>
+> **SubmitResult**\<`TResponse`\> = `Result`\<[`SubmitSuccess`](SubmitSuccess.md)\<`TResponse`\>, [`SubmitError`](SubmitError.md)\>
 
 Result of the network-aware submit operation.
 

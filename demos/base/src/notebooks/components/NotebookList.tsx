@@ -59,7 +59,7 @@ export function NotebookList(props: NotebookListProps) {
         props.onSelect(notebookId)
       }
     } else {
-      props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
+      props.onError(result.error.message)
     }
     setPlaceholderState('idle')
   }
@@ -96,7 +96,7 @@ export function NotebookList(props: NotebookListProps) {
     })
 
     if (!result.ok) {
-      props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
+      props.onError(result.error.message)
     }
     setRenameState('idle')
     setRenamingId(undefined)
@@ -117,7 +117,7 @@ export function NotebookList(props: NotebookListProps) {
       revision: { __autoRevision: true, fallback: notebook.latestRevision },
     })
     if (!result.ok) {
-      props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
+      props.onError(result.error.message)
     }
   }
 

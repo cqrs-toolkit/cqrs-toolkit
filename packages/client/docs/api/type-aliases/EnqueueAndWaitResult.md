@@ -6,7 +6,7 @@
 
 # Type Alias: EnqueueAndWaitResult\<TResponse\>
 
-> **EnqueueAndWaitResult**\<`TResponse`\> = `Result`\<[`EnqueueAndWaitSuccess`](../interfaces/EnqueueAndWaitSuccess.md)\<`TResponse`\>, [`EnqueueAndWaitException`](../classes/EnqueueAndWaitException.md)\>
+> **EnqueueAndWaitResult**\<`TResponse`\> = `Result`\<[`EnqueueAndWaitSuccess`](../interfaces/EnqueueAndWaitSuccess.md)\<`TResponse`\>, [`EnqueueAndWaitError`](EnqueueAndWaitError.md)\>
 
 Result of enqueueAndWait operation.
 

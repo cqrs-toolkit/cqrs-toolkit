@@ -62,7 +62,7 @@ export function CommandItem(props: CommandItemProps) {
           <Show when={cmd().error} keyed>
             {(error) => (
               <div>
-                <span class="text-red-500">Error ({error.source})</span>
+                <span class="text-red-500">Error ({error.name})</span>
                 <pre class="mt-0.5 p-2 rounded bg-red-50 dark:bg-red-950 overflow-x-auto text-xs text-red-700 dark:text-red-300">
                   {error.message}
                   {error.details ? `\n${JSON.stringify(error.details, null, 2)}` : ''}

@@ -2,45 +2,43 @@
 
 ---
 
-[@cqrs-toolkit/client](../globals.md) / EnqueueAndWaitException
+[@cqrs-toolkit/client](../globals.md) / ValidationException
 
-# Class: EnqueueAndWaitException
-
-Exception for enqueueAndWait failures, carrying validation errors and their source.
+# Class: ValidationException
 
 ## Extends
 
-- `Exception`\<\{ `errors`: [`ValidationError`](../interfaces/ValidationError.md)[]; `source`: [`CommandErrorSource`](../type-aliases/CommandErrorSource.md); \}\>
+- `Exception`\<[`ValidationError`](../interfaces/ValidationError.md)[]\>
 
 ## Constructors
 
 ### Constructor
 
-> **new EnqueueAndWaitException**(`errors`, `source`): `EnqueueAndWaitException`
+> **new ValidationException**(`details`, `message?`): `ValidationException`
 
 #### Parameters
 
-##### errors
+##### details
 
 [`ValidationError`](../interfaces/ValidationError.md)[]
 
-##### source
+##### message?
 
-[`CommandErrorSource`](../type-aliases/CommandErrorSource.md)
+`string` = ``'Validation failed. See `details` for more information.'``
 
 #### Returns
 
-`EnqueueAndWaitException`
+`ValidationException`
 
 #### Overrides
 
-`Exception<{ errors: ValidationError[] source: CommandErrorSource }>.constructor`
+`Exception<ValidationError[]>.constructor`
 
 ## Properties
 
 ### \_details
 
-> `protected` **\_details**: \{ `errors`: [`ValidationError`](../interfaces/ValidationError.md)[]; `source`: [`CommandErrorSource`](../type-aliases/CommandErrorSource.md); \} \| `undefined`
+> `protected` **\_details**: [`ValidationError`](../interfaces/ValidationError.md)[] \| `undefined`
 
 #### Inherited from
 
@@ -64,7 +62,7 @@ Exception for enqueueAndWait failures, carrying validation errors and their sour
 
 #### Inherited from
 
-`Exception.code`
+[`OpfsUnavailableException`](OpfsUnavailableException.md).[`code`](OpfsUnavailableException.md#code)
 
 ---
 
@@ -74,7 +72,7 @@ Exception for enqueueAndWait failures, carrying validation errors and their sour
 
 #### Inherited from
 
-`Exception.message`
+[`OpfsUnavailableException`](OpfsUnavailableException.md).[`message`](OpfsUnavailableException.md#message)
 
 ---
 
@@ -84,7 +82,7 @@ Exception for enqueueAndWait failures, carrying validation errors and their sour
 
 #### Inherited from
 
-`Exception.name`
+[`OpfsUnavailableException`](OpfsUnavailableException.md).[`name`](OpfsUnavailableException.md#name)
 
 ## Accessors
 
@@ -116,4 +114,4 @@ Exception for enqueueAndWait failures, carrying validation errors and their sour
 
 #### Inherited from
 
-`Exception.userMessage`
+[`OpfsUnavailableException`](OpfsUnavailableException.md).[`userMessage`](OpfsUnavailableException.md#usermessage)

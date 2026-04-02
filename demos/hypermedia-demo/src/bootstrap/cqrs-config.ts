@@ -65,7 +65,7 @@ export const cqrsConfig: CqrsConfig<ServiceLink, AppCommand, JSONSchema7, IAntic
     ...noteProcessors,
     ...fileObjectProcessors,
   ],
-  commandHandlers: withSchemaRegistry(schemas, [
+  commandHandlers: withSchemaRegistry<ServiceLink, AppCommand, IAnticipatedEvent>(schemas, [
     ...todoHandlers,
     ...notebookHandlers,
     ...noteHandlers,

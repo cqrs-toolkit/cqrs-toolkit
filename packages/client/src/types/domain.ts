@@ -6,18 +6,18 @@
 import {
   Err,
   type ErrResult,
+  Exception,
   type Link,
   Ok,
   type OkResult,
   type Result,
-  ValidationException,
 } from '@meticoeus/ddd-es'
 import type { IAnticipatedEvent } from '../core/command-lifecycle/AnticipatedEventShape.js'
 import type { IQueryManager } from '../core/query-manager/types.js'
 import { assert } from '../utils/assert.js'
 import { generateId } from '../utils/uuid.js'
 import { EnqueueCommand } from './commands.js'
-import type { ValidationError } from './validation.js'
+import { ValidationError, ValidationException } from './validation.js'
 
 /**
  * Post-processing plan for after server confirmation.
@@ -95,11 +95,32 @@ export interface DomainExecutionSuccess<TEvent> {
 }
 
 /**
+ * The domain executor received a command type with no registered handler.
+ */
+export class UnknownCommandException extends Exception {
+  readonly commandType: string
+
+  constructor(commandType: string) {
+    super('UnknownCommand', `Unknown command type: ${commandType}`)
+    this.commandType = commandType
+  }
+}
+
+export function isUnknownCommand(e: unknown): e is UnknownCommandException {
+  return typeof e === 'object' && e !== null && 'name' in e && e.name === 'UnknownCommand'
+}
+
+/**
+ * Domain execution error — either validation failure or unknown command.
+ */
+export type DomainExecutionError = ValidationException | UnknownCommandException
+
+/**
  * Result of domain command execution.
  */
 export type DomainExecutionResult<TEvent> = Result<
   DomainExecutionSuccess<TEvent>,
-  ValidationException<ValidationError[]>
+  DomainExecutionError
 >
 
 // ---------------------------------------------------------------------------
@@ -112,8 +133,6 @@ export type DomainExecutionResult<TEvent> = Result<
 export interface InitializingContext {
   /** First execution for this command. */
   phase: 'initializing'
-  /** URL path template values from the command envelope. */
-  path?: unknown
 }
 
 /**
@@ -125,8 +144,6 @@ export interface UpdatingContext {
   /** The entity ID established during initial execution. Create handlers should reuse this
    *  instead of generating a new ID. */
   entityId: string
-  /** URL path template values from the command envelope. */
-  path?: unknown
 }
 
 /**
@@ -162,8 +179,6 @@ export function createEntityId(context: HandlerContext): string {
 export interface AsyncValidationContext<TLink extends Link> {
   /** Query the local read model store. */
   queryManager: IQueryManager<TLink>
-  /** URL path template values from the command envelope. */
-  path?: unknown
 }
 
 /**
@@ -215,7 +230,7 @@ export function isDomainSuccess<TEvent>(
  */
 export function isDomainFailure<TEvent>(
   result: DomainExecutionResult<TEvent>,
-): result is ErrResult<ValidationException<ValidationError[]>> {
+): result is ErrResult<DomainExecutionError> {
   return !result.ok
 }
 
@@ -233,7 +248,7 @@ export function domainSuccess<TEvent>(
  * Helper to create a failed domain execution result.
  */
 export function domainFailure(errors: ValidationError[]): DomainExecutionResult<never> {
-  return Err(new ValidationException(undefined, errors))
+  return Err(new ValidationException(errors))
 }
 
 // ---------------------------------------------------------------------------
@@ -252,7 +267,7 @@ export function domainFailure(errors: ValidationError[]): DomainExecutionResult<
  * subsequent phases and is persisted to `CommandRecord.data`.
  */
 export interface SchemaValidator<TSchema> {
-  validate(schema: TSchema, data: unknown): Result<unknown, ValidationException<ValidationError[]>>
+  validate(schema: TSchema, data: unknown): Result<unknown, ValidationException>
 }
 
 // ---------------------------------------------------------------------------
@@ -278,37 +293,38 @@ export interface SchemaValidator<TSchema> {
  * Schema validation is opt-in. Consumers can validate in their own UI forms
  * before submitting, use the `validate` step, or rely on schema validation.
  *
- * Uses method syntax for `handler` and `validate` so that registrations with
- * specific data types are assignable to `CommandHandlerRegistration[]`
- * (bivariant parameter checking — same pattern as ProcessorRegistration).
+ * Distributive conditional type: when TCommand is a union, each member produces
+ * its own registration variant with `commandType` and `handler(data)` correctly paired.
  *
  * @template TEvent - Anticipated event type produced by the handler.
  * @template TSchema - Schema type for structural validation (JSONSchema7, z.ZodType, etc.).
  */
-export interface CommandHandlerRegistration<
+export type CommandHandlerRegistration<
   TLink extends Link,
   TCommand extends EnqueueCommand = EnqueueCommand,
   TSchema = unknown,
   TEvent extends IAnticipatedEvent = IAnticipatedEvent,
-> {
-  /** Command type this handler processes */
-  commandType: TCommand['type']
-  /** Phase 1: structural schema validation (library-driven). */
-  schema?: TSchema
-  /** Phase 2: custom sync validation for rules the schema can't cover. */
-  validate?(data: unknown): Result<unknown, ValidationException<ValidationError[]>>
-  /** Phase 3: async validation querying local data (permissions, name conflicts, etc.). */
-  validateAsync?(
-    data: unknown,
-    context: AsyncValidationContext<TLink>,
-  ): Promise<Result<unknown, ValidationException<ValidationError[]>>>
-  /** Phase 4: produce anticipated events from validated data. */
-  handler(data: unknown, context: HandlerContext): DomainExecutionResult<TEvent>
-  /** If this command creates a new aggregate, configure how to extract the server ID. */
-  creates?: CreateCommandConfig
-  /** Cross-aggregate parent references. Each entry maps a data field to the command that produces the ID. */
-  parentRef?: ParentRefConfig[]
-}
+> = TCommand extends infer C extends EnqueueCommand
+  ? {
+      /** Command type this handler processes */
+      commandType: C['type']
+      /** Phase 1: structural schema validation (library-driven). */
+      schema?: TSchema
+      /** Phase 2: custom sync validation for rules the schema can't cover. */
+      validate?(data: unknown): Result<unknown, ValidationException>
+      /** Phase 3: async validation querying local data (permissions, name conflicts, etc.). */
+      validateAsync?(
+        command: C,
+        context: AsyncValidationContext<TLink>,
+      ): Promise<Result<unknown, ValidationException>>
+      /** Phase 4: produce anticipated events from validated data. */
+      handler(command: C, context: HandlerContext): DomainExecutionResult<TEvent>
+      /** If this command creates a new aggregate, configure how to extract the server ID. */
+      creates?: CreateCommandConfig
+      /** Cross-aggregate parent references. Each entry maps a data field to the command that produces the ID. */
+      parentRef?: ParentRefConfig[]
+    }
+  : never
 
 /**
  * Configuration for a cross-aggregate parent reference in a command data.
@@ -389,10 +405,10 @@ export function createDomainExecutor<
       command: ExecutorCommand,
       context: HandlerContext,
     ): Promise<DomainExecutionResult<TEvent>> {
-      const { type, data, path } = command
+      const { type, data } = command
       const reg = registrationMap.get(type)
       if (!reg) {
-        return domainFailure([{ path: 'type', message: `Unknown command type: ${type}` }])
+        return Err(new UnknownCommandException(type))
       }
 
       let currentData = data
@@ -416,13 +432,16 @@ export function createDomainExecutor<
 
         // Phase 3: async validation (queries local read model)
         if (reg.validateAsync && queryManager) {
-          const asyncResult = await reg.validateAsync(currentData, { queryManager, path })
+          const asyncResult = await reg.validateAsync(
+            { ...command, data: currentData } as TCommand,
+            { queryManager },
+          )
           if (!asyncResult.ok) return asyncResult
           currentData = asyncResult.value
         }
       }
 
-      return reg.handler(currentData, context)
+      return reg.handler({ ...command, data: currentData } as TCommand, context)
     },
 
     getRegistration(

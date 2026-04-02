@@ -6,6 +6,6 @@
 
 # Type Alias: ValidationResult
 
-> **ValidationResult** = `Result`\<`void`, `ValidationException`\<[`ValidationError`](../interfaces/ValidationError.md)[]\>\>
+> **ValidationResult** = `Result`\<`void`, [`ValidationException`](../classes/ValidationException.md)\>
 
 Validation result type - either success or failure with validation errors.

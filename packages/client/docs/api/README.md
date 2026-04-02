@@ -97,9 +97,9 @@ console.log(todos.data) // Todo[]
 
 Configuration is split into two layers:
 
-- [`CqrsConfig`](_media/CqrsConfig.md) -- shared domain config, imported by both the main thread and worker entry points.
+- [`CqrsConfig`](docs/api/interfaces/CqrsConfig.md) -- shared domain config, imported by both the main thread and worker entry points.
   No serialization needed; each context runs the module independently.
-- [`CqrsClientConfig`](_media/CqrsClientConfig.md) -- extends `CqrsConfig` with main-thread concerns: `mode`, `workerUrl`, `sqliteWorkerUrl`.
+- [`CqrsClientConfig`](docs/api/interfaces/CqrsClientConfig.md) -- extends `CqrsConfig` with main-thread concerns: `mode`, `workerUrl`, `sqliteWorkerUrl`.
 
 | Field             | Required | Description                                                                  |
 | ----------------- | -------- | ---------------------------------------------------------------------------- |
@@ -143,7 +143,7 @@ client.queryManager.watchCollection('todos').subscribe(async (changedIds) => {
 ```
 
 Additional methods: `getByIds`, `exists`, `count`.
-See [`IQueryManager`](_media/IQueryManager.md) for the full interface.
+See [`IQueryManager`](docs/api/interfaces/IQueryManager.md) for the full interface.
 
 ## Sending Commands
 
@@ -169,7 +169,7 @@ if (result.ok) {
 ```
 
 For lower-level control, `commandQueue.enqueue()` and `commandQueue.enqueueAndWait()` are also available.
-See [`ICommandQueue`](_media/ICommandQueue.md) for the full interface.
+See [`ICommandQueue`](docs/api/interfaces/ICommandQueue.md) for the full interface.
 
 ## Event Processors
 
@@ -295,7 +295,7 @@ import { cookieAuthStrategy } from '@cqrs-toolkit/client'
 const config = { auth: cookieAuthStrategy, ... }
 ```
 
-For token-based auth, implement the [`AuthStrategy`](_media/AuthStrategy.md) interface with hooks for HTTP headers, WebSocket URL preparation, and WebSocket authentication.
+For token-based auth, implement the [`AuthStrategy`](docs/api/interfaces/AuthStrategy.md) interface with hooks for HTTP headers, WebSocket URL preparation, and WebSocket authentication.
 
 After client creation, signal auth state changes to start or stop sync:
 
@@ -328,20 +328,20 @@ Runtime properties:
 
 ## API Reference
 
-Full API documentation is generated from source and available at [docs/api](_media/README.md).
+Full API documentation is generated from source and available at [docs/api](docs/api/README.md).
 
 Key entry points:
 
-- [`createCqrsClient`](_media/createCqrsClient.md) -- Factory function
-- [`CqrsClient`](_media/CqrsClient.md) -- Client class
-- [`CqrsClientConfig`](_media/CqrsClientConfig.md) -- Main-thread configuration
-- [`CqrsConfig`](_media/CqrsConfig.md) -- Shared configuration
-- [`Collection`](_media/Collection.md) -- Collection definition
-- [`IQueryManager`](_media/IQueryManager.md) -- Read model queries
-- [`ICommandQueue`](_media/ICommandQueue.md) -- Command queuing
-- [`ICommandSender`](_media/ICommandSender.md) -- Server transport contract
-- [`ProcessorRegistration`](_media/ProcessorRegistration.md) -- Event processor setup
-- [`CommandHandlerRegistration`](_media/CommandHandlerRegistration.md) -- Command handler setup
-- [`AuthStrategy`](_media/AuthStrategy.md) -- Authentication hooks
-- [`CqrsClientSyncManager`](_media/CqrsClientSyncManager.md) -- Sync manager facade
-- [`SubmitException`](_media/SubmitException.md) -- Submit error type
+- [`createCqrsClient`](docs/api/functions/createCqrsClient.md) -- Factory function
+- [`CqrsClient`](docs/api/classes/CqrsClient.md) -- Client class
+- [`CqrsClientConfig`](docs/api/interfaces/CqrsClientConfig.md) -- Main-thread configuration
+- [`CqrsConfig`](docs/api/interfaces/CqrsConfig.md) -- Shared configuration
+- [`Collection`](docs/api/interfaces/Collection.md) -- Collection definition
+- [`IQueryManager`](docs/api/interfaces/IQueryManager.md) -- Read model queries
+- [`ICommandQueue`](docs/api/interfaces/ICommandQueue.md) -- Command queuing
+- [`ICommandSender`](docs/api/interfaces/ICommandSender.md) -- Server transport contract
+- [`ProcessorRegistration`](docs/api/interfaces/ProcessorRegistration.md) -- Event processor setup
+- [`CommandHandlerRegistration`](docs/api/interfaces/CommandHandlerRegistration.md) -- Command handler setup
+- [`AuthStrategy`](docs/api/interfaces/AuthStrategy.md) -- Authentication hooks
+- [`CqrsClientSyncManager`](docs/api/interfaces/CqrsClientSyncManager.md) -- Sync manager facade
+- [`SubmitException`](docs/api/classes/SubmitException.md) -- Submit error type

@@ -32,7 +32,7 @@ Emits for all command status changes.
 
 ### cancelCommand()
 
-> **cancelCommand**(`commandId`): `Promise`\<`void`\>
+> **cancelCommand**(`commandId`): `Promise`\<`Result`\<`void`, [`CommandNotFoundException`](../classes/CommandNotFoundException.md) \| [`InvalidCommandStatusException`](../classes/InvalidCommandStatusException.md)\>\>
 
 Cancel a pending command.
 Cannot cancel commands that are already sending or completed.
@@ -47,7 +47,7 @@ Command ID to cancel
 
 #### Returns
 
-`Promise`\<`void`\>
+`Promise`\<`Result`\<`void`, [`CommandNotFoundException`](../classes/CommandNotFoundException.md) \| [`InvalidCommandStatusException`](../classes/InvalidCommandStatusException.md)\>\>
 
 ---
 
@@ -265,7 +265,7 @@ Resume command processing.
 
 ### retryCommand()
 
-> **retryCommand**(`commandId`): `Promise`\<`void`\>
+> **retryCommand**(`commandId`): `Promise`\<`Result`\<`void`, [`CommandNotFoundException`](../classes/CommandNotFoundException.md) \| [`InvalidCommandStatusException`](../classes/InvalidCommandStatusException.md)\>\>
 
 Retry a failed command.
 
@@ -279,13 +279,13 @@ Command ID to retry
 
 #### Returns
 
-`Promise`\<`void`\>
+`Promise`\<`Result`\<`void`, [`CommandNotFoundException`](../classes/CommandNotFoundException.md) \| [`InvalidCommandStatusException`](../classes/InvalidCommandStatusException.md)\>\>
 
 ---
 
 ### waitForCompletion()
 
-> **waitForCompletion**(`commandId`, `options?`): `Promise`\<[`CommandCompletionResult`](../type-aliases/CommandCompletionResult.md)\>
+> **waitForCompletion**(`commandId`, `options?`): `Promise`\<`Result`\<`unknown`, [`CommandCompletionError`](../type-aliases/CommandCompletionError.md)\>\>
 
 Wait for a specific command to reach a terminal state.
 Returns when command succeeds, fails, or is cancelled.
@@ -308,6 +308,6 @@ Optional wait options (timeout)
 
 #### Returns
 
-`Promise`\<[`CommandCompletionResult`](../type-aliases/CommandCompletionResult.md)\>
+`Promise`\<`Result`\<`unknown`, [`CommandCompletionError`](../type-aliases/CommandCompletionError.md)\>\>
 
 Completion result

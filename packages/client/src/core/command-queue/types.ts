@@ -5,15 +5,17 @@
 import { Exception, type Link, type Result } from '@meticoeus/ddd-es'
 import type { Observable } from 'rxjs'
 import {
-  CommandCompletionResult,
+  CommandCompletionError,
   CommandEvent,
   CommandFilter,
+  CommandNotFoundException,
   CommandRecord,
   EnqueueAndWaitParams,
   EnqueueAndWaitResult,
   EnqueueCommand,
   EnqueueParams,
   EnqueueResult,
+  InvalidCommandStatusException,
   WaitOptions,
 } from '../../types/commands.js'
 import type { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventShape.js'
@@ -45,7 +47,10 @@ export interface ICommandQueue<TLink extends Link, TCommand extends EnqueueComma
    * @param options - Optional wait options (timeout)
    * @returns Completion result
    */
-  waitForCompletion(commandId: string, options?: WaitOptions): Promise<CommandCompletionResult>
+  waitForCompletion(
+    commandId: string,
+    options?: WaitOptions,
+  ): Promise<Result<unknown, CommandCompletionError>>
 
   /**
    * Convenience: enqueue and wait for completion in one call.
@@ -94,14 +99,18 @@ export interface ICommandQueue<TLink extends Link, TCommand extends EnqueueComma
    *
    * @param commandId - Command ID to cancel
    */
-  cancelCommand(commandId: string): Promise<void>
+  cancelCommand(
+    commandId: string,
+  ): Promise<Result<void, CommandNotFoundException | InvalidCommandStatusException>>
 
   /**
    * Retry a failed command.
    *
    * @param commandId - Command ID to retry
    */
-  retryCommand(commandId: string): Promise<void>
+  retryCommand(
+    commandId: string,
+  ): Promise<Result<void, CommandNotFoundException | InvalidCommandStatusException>>
 
   /**
    * Process pending commands.

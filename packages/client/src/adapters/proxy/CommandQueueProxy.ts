@@ -7,7 +7,7 @@
  * to avoid long-running RPC timeouts.
  */
 
-import { Err, type Link, Ok } from '@meticoeus/ddd-es'
+import { Err, type IException, type Link, Ok, type Result } from '@meticoeus/ddd-es'
 import {
   Observable,
   Subject,
@@ -23,22 +23,26 @@ import type { ICommandFileStore } from '../../core/command-queue/file-store/ICom
 import type { ICommandQueue } from '../../core/command-queue/types.js'
 import type { WorkerMessageChannel } from '../../protocol/MessageChannel.js'
 import type { EventMessage } from '../../protocol/messages.js'
+import type { CommandCompletionError } from '../../types/commands.js'
 import {
-  CommandCompletionResult,
-  CommandError,
+  CommandCancelledException,
   CommandEvent,
+  CommandFailedException,
   CommandFilter,
+  CommandNotFoundException,
   CommandRecord,
-  EnqueueAndWaitException,
+  CommandTimeoutException,
   EnqueueAndWaitParams,
   EnqueueAndWaitResult,
   EnqueueCommand,
   EnqueueParams,
   EnqueueResult,
+  InvalidCommandStatusException,
   WaitOptions,
+  isCommandFailed,
   isTerminalStatus,
 } from '../../types/commands.js'
-import type { ValidationError } from '../../types/validation.js'
+import { assert } from '../../utils/assert.js'
 import { generateId } from '../../utils/uuid.js'
 
 const DEFAULT_WAIT_TIMEOUT = 30000
@@ -104,13 +108,13 @@ export class CommandQueueProxy<
   async waitForCompletion(
     commandId: string,
     options?: WaitOptions,
-  ): Promise<CommandCompletionResult> {
+  ): Promise<Result<unknown, CommandCompletionError>> {
     const timeout = options?.timeout ?? DEFAULT_WAIT_TIMEOUT
 
     // Check if command is already in terminal state
     const command = await this.getCommand(commandId)
     if (!command) {
-      return { status: 'failed', error: { source: 'local', message: 'Command not found' } }
+      return Err(new CommandFailedException('local', `Command not found: ${commandId}`))
     }
 
     if (isTerminalStatus(command.status)) {
@@ -124,7 +128,7 @@ export class CommandQueueProxy<
     )
 
     const timeout$ = timer(timeout).pipe(
-      map((): CommandCompletionResult => ({ status: 'timeout' })),
+      map((): Result<unknown, CommandCompletionError> => Err(new CommandTimeoutException())),
     )
 
     return firstValueFrom(race(terminalEvent$, timeout$))
@@ -137,36 +141,19 @@ export class CommandQueueProxy<
     const enqueueResult = await this.enqueue<TData, TEvent>(params)
 
     if (!enqueueResult.ok) {
-      const errors: ValidationError[] = enqueueResult.error.details ?? []
-      return Err(new EnqueueAndWaitException(errors, 'local'))
+      return Err(enqueueResult.error)
     }
 
     const completionResult = await this.waitForCompletion(enqueueResult.value.commandId, options)
 
-    switch (completionResult.status) {
-      case 'succeeded':
-        return Ok({
-          commandId: enqueueResult.value.commandId,
-          response: completionResult.response as TResponse,
-        })
-      case 'failed':
-        return Err(
-          new EnqueueAndWaitException(
-            completionResult.error.validationErrors ?? [
-              { path: '', message: completionResult.error.message },
-            ],
-            completionResult.error.source,
-          ),
-        )
-      case 'cancelled':
-        return Err(
-          new EnqueueAndWaitException([{ path: '', message: 'Command was cancelled' }], 'local'),
-        )
-      case 'timeout':
-        return Err(
-          new EnqueueAndWaitException([{ path: '', message: 'Command timed out' }], 'local'),
-        )
+    if (!completionResult.ok) {
+      return Err(completionResult.error)
     }
+
+    return Ok({
+      commandId: enqueueResult.value.commandId,
+      response: completionResult.value as TResponse,
+    })
   }
 
   commandEvents$(commandId: string): Observable<CommandEvent> {
@@ -186,12 +173,16 @@ export class CommandQueueProxy<
     ])
   }
 
-  async cancelCommand(commandId: string): Promise<void> {
-    return this.channel.request<void>('commandQueue.cancelCommand', [commandId])
+  async cancelCommand(commandId: string) {
+    return this.channel.request<
+      Result<void, CommandNotFoundException | InvalidCommandStatusException>
+    >('commandQueue.cancelCommand', [commandId])
   }
 
-  async retryCommand(commandId: string): Promise<void> {
-    return this.channel.request<void>('commandQueue.retryCommand', [commandId])
+  async retryCommand(commandId: string) {
+    return this.channel.request<
+      Result<void, CommandNotFoundException | InvalidCommandStatusException>
+    >('commandQueue.retryCommand', [commandId])
   }
 
   async processPendingCommands(): Promise<void> {
@@ -255,7 +246,7 @@ function broadcastToCommandEvent<TLink extends Link, TCommand extends EnqueueCom
         type: data.type as string,
         status: data.status as CommandRecord<TLink, TCommand>['status'],
         previousStatus: data.previousStatus as CommandRecord<TLink, TCommand>['status'] | undefined,
-        error: data.error as CommandError | undefined,
+        error: data.error as IException | undefined,
         response: data.response,
         timestamp: Date.now(),
       }
@@ -274,7 +265,7 @@ function broadcastToCommandEvent<TLink extends Link, TCommand extends EnqueueCom
         commandId: data.commandId as string,
         type: data.type as string,
         status: 'failed',
-        error: data.error as CommandError | undefined,
+        error: data.error as IException | undefined,
         timestamp: Date.now(),
       }
     default:
@@ -284,34 +275,34 @@ function broadcastToCommandEvent<TLink extends Link, TCommand extends EnqueueCom
 
 function toCompletionResult<TLink extends Link, TCommand extends EnqueueCommand>(
   command: CommandRecord<TLink, TCommand>,
-): CommandCompletionResult {
+): Result<unknown, CommandCompletionError> {
   switch (command.status) {
     case 'succeeded':
-      return { status: 'succeeded', response: command.serverResponse }
-    case 'failed':
-      return {
-        status: 'failed',
-        error: command.error ?? { source: 'local', message: 'Unknown error' },
-      }
+      return Ok(command.serverResponse)
+    case 'failed': {
+      const error = command.error
+      if (isCommandFailed(error)) return Err(error)
+      return Err(new CommandFailedException('server', error?.message ?? 'Unknown error'))
+    }
     case 'cancelled':
-      return { status: 'cancelled' }
+      return Err(new CommandCancelledException())
     default:
-      return { status: 'failed', error: { source: 'local', message: 'Invalid command state' } }
+      assert(false, `Unexpected terminal status: ${command.status}`)
   }
 }
 
-function eventToCompletionResult(event: CommandEvent): CommandCompletionResult {
+function eventToCompletionResult(event: CommandEvent): Result<unknown, CommandCompletionError> {
   switch (event.status) {
     case 'succeeded':
-      return { status: 'succeeded', response: event.response }
-    case 'failed':
-      return {
-        status: 'failed',
-        error: event.error ?? { source: 'local', message: 'Unknown error' },
-      }
+      return Ok(event.response)
+    case 'failed': {
+      const error = event.error
+      if (isCommandFailed(error)) return Err(error)
+      return Err(new CommandFailedException('server', error?.message ?? 'Unknown error'))
+    }
     case 'cancelled':
-      return { status: 'cancelled' }
+      return Err(new CommandCancelledException())
     default:
-      return { status: 'failed', error: { source: 'local', message: 'Invalid event state' } }
+      assert(false, `Unexpected terminal status: ${event.status}`)
   }
 }

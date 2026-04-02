@@ -1,31 +1,64 @@
-import { Err, Ok, ServiceLink, ValidationException } from '@meticoeus/ddd-es'
+import { Err, Ok, ServiceLink } from '@meticoeus/ddd-es'
 import { describe, expect, it } from 'vitest'
-import { IAnticipatedEvent } from '../core/command-lifecycle/AnticipatedEventShape.js'
+import type { IAnticipatedEvent } from '../core/command-lifecycle/AnticipatedEventShape.js'
 import type { IQueryManager } from '../core/query-manager/types.js'
-import { EnqueueCommand } from './commands.js'
+import type { EnqueueCommand } from './commands.js'
 import type { CommandHandlerRegistration, HandlerContext } from './domain.js'
-import { createDomainExecutor, createEntityId, domainFailure, domainSuccess } from './domain.js'
+import {
+  createDomainExecutor,
+  createEntityId,
+  domainFailure,
+  domainSuccess,
+  isUnknownCommand,
+} from './domain.js'
+import { isValidationException, ValidationException } from './validation.js'
+
+// ---------------------------------------------------------------------------
+// Test command types
+// ---------------------------------------------------------------------------
+
+type CreateTodo = EnqueueCommand<{ content: string }> & { type: 'CreateTodo' }
+type DeleteTodo = EnqueueCommand & { type: 'DeleteTodo'; path: { id: string } }
+type CreateNamed = EnqueueCommand<{ name: string }> & { type: 'CreateNamed' }
+type UpdateEntity = EnqueueCommand & { type: 'UpdateEntity'; path: { id: string } }
+type ValidateOnly = EnqueueCommand & { type: 'ValidateOnly' }
+type EnrichData = EnqueueCommand<{ original: boolean }> & { type: 'EnrichData' }
+
+type TestCommand = CreateTodo | DeleteTodo | CreateNamed | UpdateEntity | ValidateOnly | EnrichData
+
+type TestRegistration = CommandHandlerRegistration<ServiceLink, TestCommand>
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
 
 const mockQueryManager = {} as unknown as IQueryManager<ServiceLink>
 
 const INITIALIZING: HandlerContext = { phase: 'initializing' }
 
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
 describe('createDomainExecutor', () => {
-  const registrations: CommandHandlerRegistration<ServiceLink>[] = [
+  const registrations: TestRegistration[] = [
     {
       commandType: 'CreateTodo',
-      handler(data, context) {
-        const { content } = data as { content: string }
+      handler(command, context) {
         const id = createEntityId(context)
         return domainSuccess([
-          { type: 'TodoCreated', data: { id, content }, streamId: `Todo-${id}` },
+          {
+            type: 'TodoCreated',
+            data: { id, content: command.data.content },
+            streamId: `Todo-${id}`,
+          },
         ])
       },
     },
     {
       commandType: 'DeleteTodo',
-      handler(_data, context) {
-        const { id } = context.path as { id: string }
+      handler(command, _context) {
+        const { id } = command.path
         return domainSuccess([{ type: 'TodoDeleted', data: { id }, streamId: `Todo-${id}` }])
       },
     },
@@ -51,26 +84,32 @@ describe('createDomainExecutor', () => {
 
   it('passes data and context to handler', async () => {
     let receivedContext: HandlerContext | undefined
-    const executor = createDomainExecutor<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>([
+    const executor = createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>([
       {
-        commandType: 'Test',
-        handler(data, context) {
+        commandType: 'CreateNamed',
+        handler(command, context) {
           receivedContext = context
-          const { name } = data as { name: string }
           const id = createEntityId(context)
           return domainSuccess([
-            { type: 'TestCreated', data: { id, name }, streamId: `Test-${id}` },
+            {
+              type: 'NamedCreated',
+              data: { id, name: command.data.name },
+              streamId: `Named-${id}`,
+            },
           ])
         },
       },
     ])
 
-    const result = await executor.execute({ type: 'Test', data: { name: 'value' } }, INITIALIZING)
+    const result = await executor.execute(
+      { type: 'CreateNamed', data: { name: 'value' } },
+      INITIALIZING,
+    )
 
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.value.anticipatedEvents[0]).toMatchObject({
-        type: 'TestCreated',
+        type: 'NamedCreated',
         data: { name: 'value' },
       })
     }
@@ -79,48 +118,47 @@ describe('createDomainExecutor', () => {
 
   it('passes updating context with entityId to handler', async () => {
     let receivedContext: HandlerContext | undefined
-    const executor = createDomainExecutor([
+    const executor = createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>([
       {
-        commandType: 'Test',
-        handler(_data, context) {
+        commandType: 'UpdateEntity',
+        handler(_command, context) {
           receivedContext = context
           const id = createEntityId(context)
-          return domainSuccess([{ type: 'TestUpdated', data: { id }, streamId: `Test-${id}` }])
+          return domainSuccess([{ type: 'EntityUpdated', data: { id }, streamId: `Entity-${id}` }])
         },
       },
     ])
 
     const updatingContext: HandlerContext = { phase: 'updating', entityId: 'entity-123' }
-    await executor.execute({ type: 'Test', data: {} }, updatingContext)
+    await executor.execute({ type: 'UpdateEntity', data: {} }, updatingContext)
 
     expect(receivedContext).toEqual({ phase: 'updating', entityId: 'entity-123' })
   })
 
-  it('returns validation failure for unregistered command type', async () => {
+  it('returns UnknownCommandException for unregistered command type', async () => {
     const executor = createDomainExecutor(registrations)
 
     const result = await executor.execute({ type: 'UnknownCommand', data: {} }, INITIALIZING)
 
     expect(result.ok).toBe(false)
     if (!result.ok) {
-      expect(result.error.details).toEqual([
-        { path: 'type', message: 'Unknown command type: UnknownCommand' },
-      ])
+      expect(isUnknownCommand(result.error)).toBe(true)
+      expect(result.error.message).toBe('Unknown command type: UnknownCommand')
     }
   })
 
   it('asserts on duplicate command type registration', () => {
-    const duplicates: CommandHandlerRegistration<ServiceLink>[] = [
+    const duplicates: TestRegistration[] = [
       {
         commandType: 'CreateTodo',
-        handler(_data, context) {
+        handler(_command, context) {
           const id = createEntityId(context)
           return domainSuccess([{ type: 'TodoCreated', data: { id }, streamId: `Todo-${id}` }])
         },
       },
       {
         commandType: 'CreateTodo',
-        handler(_data, context) {
+        handler(_command, context) {
           const id = createEntityId(context)
           return domainSuccess([{ type: 'TodoCreated', data: { id }, streamId: `Todo-${id}` }])
         },
@@ -133,125 +171,159 @@ describe('createDomainExecutor', () => {
   })
 
   it('propagates handler validation failures', async () => {
-    const executor = createDomainExecutor([
+    const executor = createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>([
       {
-        commandType: 'Validate',
+        commandType: 'ValidateOnly',
         handler() {
-          return domainFailure([{ path: 'name', message: 'name must not be empty' }])
+          return domainFailure([
+            { path: 'name', code: 'required', message: 'name must not be empty', params: {} },
+          ])
         },
       },
     ])
 
-    const result = await executor.execute({ type: 'Validate', data: {} }, INITIALIZING)
+    const result = await executor.execute({ type: 'ValidateOnly', data: {} }, INITIALIZING)
 
     expect(result.ok).toBe(false)
     if (!result.ok) {
-      expect(result.error.details).toEqual([{ path: 'name', message: 'name must not be empty' }])
+      expect(isValidationException(result.error)).toBe(true)
+      if (!isValidationException(result.error)) return
+      expect(result.error.details).toEqual([
+        { path: 'name', code: 'required', message: 'name must not be empty', params: {} },
+      ])
     }
   })
 
   it('skips validation phases on regeneration', async () => {
     let validateCalled = false
     let validateAsyncCalled = false
-    const executor = createDomainExecutor([
-      {
-        commandType: 'Test',
-        validate() {
-          validateCalled = true
-          return Ok({ validated: true })
+    const executor = createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>(
+      [
+        {
+          commandType: 'UpdateEntity',
+          validate() {
+            validateCalled = true
+            return Ok({ validated: true })
+          },
+          async validateAsync() {
+            validateAsyncCalled = true
+            return Ok({ asyncValidated: true })
+          },
+          handler(_command, context) {
+            const id = createEntityId(context)
+            return domainSuccess([
+              { type: 'EntityUpdated', data: { id }, streamId: `Entity-${id}` },
+            ])
+          },
         },
-        async validateAsync() {
-          validateAsyncCalled = true
-          return Ok({ asyncValidated: true })
-        },
-        handler(_data, context) {
-          const id = createEntityId(context)
-          return domainSuccess([{ type: 'TestUpdated', data: { id }, streamId: `Test-${id}` }])
-        },
-      },
-    ])
+      ],
+      { queryManager: mockQueryManager },
+    )
 
     const updatingContext: HandlerContext = { phase: 'updating', entityId: 'e-1' }
-    await executor.execute({ type: 'Test', data: {} }, updatingContext)
+    await executor.execute({ type: 'UpdateEntity', data: {} }, updatingContext)
 
     expect(validateCalled).toBe(false)
     expect(validateAsyncCalled).toBe(false)
   })
 
   it('runs validateAsync and rejects on failure', async () => {
-    const executor = createDomainExecutor(
+    const executor = createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>(
       [
         {
-          commandType: 'Test',
+          commandType: 'CreateNamed',
           async validateAsync() {
             return Err(
-              new ValidationException(undefined, [
-                { path: 'name', message: 'Name already exists' },
+              new ValidationException([
+                { path: 'name', code: 'duplicate', message: 'Name already exists', params: {} },
               ]),
             )
           },
-          handler(_data, context) {
+          handler(command, context) {
             const id = createEntityId(context)
-            return domainSuccess([{ type: 'TestCreated', data: { id }, streamId: `Test-${id}` }])
+            return domainSuccess([
+              {
+                type: 'NamedCreated',
+                data: { id, name: command.data.name },
+                streamId: `Named-${id}`,
+              },
+            ])
           },
         },
       ],
       { queryManager: mockQueryManager },
     )
 
-    const result = await executor.execute({ type: 'Test', data: {} }, INITIALIZING)
+    const result = await executor.execute(
+      { type: 'CreateNamed', data: { name: 'x' } },
+      INITIALIZING,
+    )
 
     expect(result.ok).toBe(false)
     if (!result.ok) {
-      expect(result.error.details).toEqual([{ path: 'name', message: 'Name already exists' }])
+      expect(isValidationException(result.error)).toBe(true)
+      if (!isValidationException(result.error)) return
+      expect(result.error.details).toEqual([
+        { path: 'name', code: 'duplicate', message: 'Name already exists', params: {} },
+      ])
     }
   })
 
   it('passes transformed data through validateAsync to handler', async () => {
     let handlerData: unknown
-    const executor = createDomainExecutor(
+    const executor = createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>(
       [
         {
-          commandType: 'Test',
-          async validateAsync(data) {
-            return Ok({ ...(data as object), enriched: true })
+          commandType: 'EnrichData',
+          async validateAsync(command) {
+            return Ok({ ...command.data, enriched: true })
           },
-          handler(data, context) {
-            handlerData = data
+          handler(command, context) {
+            handlerData = command.data
             const id = createEntityId(context)
-            return domainSuccess([{ type: 'TestCreated', data: { id }, streamId: `Test-${id}` }])
+            return domainSuccess([
+              {
+                type: 'DataEnriched',
+                data: { id, original: command.data.original },
+                streamId: `Enrich-${id}`,
+              },
+            ])
           },
         },
       ],
       { queryManager: mockQueryManager },
     )
 
-    await executor.execute({ type: 'Test', data: { original: true } }, INITIALIZING)
+    await executor.execute({ type: 'EnrichData', data: { original: true } }, INITIALIZING)
 
     expect(handlerData).toEqual({ original: true, enriched: true })
   })
 
   it('passes command path to validateAsync context', async () => {
     let receivedPath: unknown
-    const executor = createDomainExecutor(
+    const executor = createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>(
       [
         {
-          commandType: 'Test',
-          async validateAsync(data, context) {
-            receivedPath = context.path
-            return Ok(data)
+          commandType: 'UpdateEntity',
+          async validateAsync(command) {
+            receivedPath = command.path
+            return Ok(command.data)
           },
-          handler(_data, context) {
-            const { id } = context.path as { id: string }
-            return domainSuccess([{ type: 'TestUpdated', data: { id }, streamId: `Test-${id}` }])
+          handler(command, _context) {
+            const { id } = command.path
+            return domainSuccess([
+              { type: 'EntityUpdated', data: { id }, streamId: `Entity-${id}` },
+            ])
           },
         },
       ],
       { queryManager: mockQueryManager },
     )
 
-    const context: HandlerContext = { phase: 'initializing', path: { id: 'abc-123' } }
-    await executor.execute({ type: 'Test', data: { name: 'x' }, path: { id: 'abc-123' } }, context)
+    await executor.execute(
+      { type: 'UpdateEntity', data: {}, path: { id: 'abc-123' } },
+      INITIALIZING,
+    )
 
     expect(receivedPath).toEqual({ id: 'abc-123' })
   })

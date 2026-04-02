@@ -57,7 +57,7 @@ export function TodoItem(props: TodoItemProps) {
     if (result.ok) {
       setEditState('viewing')
     } else {
-      props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
+      props.onError(result.error.message)
     }
   }
 
@@ -88,7 +88,7 @@ export function TodoItem(props: TodoItemProps) {
     if (result.ok) {
       setEditState('viewing')
     } else {
-      props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
+      props.onError(result.error.message)
     }
   }
 
@@ -133,7 +133,7 @@ export function TodoItem(props: TodoItemProps) {
     })
     if (!result.ok) {
       setMutation('idle')
-      props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
+      props.onError(result.error.message)
     }
   }
 

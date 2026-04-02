@@ -12,7 +12,14 @@ import { Exception } from '@meticoeus/ddd-es'
 export class DuplicateNotebookNameException extends Exception<ValidationError[]> {
   constructor(name: string) {
     super('DuplicateNotebookNameException', `A notebook with name "${name}" already exists`, 400)
-    this._details = [{ path: 'name', message: 'A notebook with this name already exists' }]
+    this._details = [
+      {
+        path: 'name',
+        code: 'duplicate',
+        message: 'A notebook with this name already exists',
+        params: { name },
+      },
+    ]
   }
 }
 

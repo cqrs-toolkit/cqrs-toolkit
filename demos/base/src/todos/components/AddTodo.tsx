@@ -29,7 +29,7 @@ export function AddTodo(props: AddTodoProps) {
     if (result.ok) {
       setContent('')
     } else {
-      props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
+      props.onError(result.error.message)
     }
     setEditState('editing')
   }

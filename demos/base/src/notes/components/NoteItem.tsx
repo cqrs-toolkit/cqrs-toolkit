@@ -65,7 +65,7 @@ export function NoteItem(props: NoteItemProps) {
       })
       if (!result.ok) {
         setMutation('idle')
-        props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
+        props.onError(result.error.message)
         return
       }
     }
@@ -78,7 +78,7 @@ export function NoteItem(props: NoteItemProps) {
       })
       if (!result.ok) {
         setMutation('idle')
-        props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
+        props.onError(result.error.message)
         return
       }
     }
@@ -137,7 +137,7 @@ export function NoteItem(props: NoteItemProps) {
     })
     if (!result.ok) {
       setMutation('idle')
-      props.onError(result.error.details?.errors[0]?.message ?? 'Command failed')
+      props.onError(result.error.message)
     }
   }
 

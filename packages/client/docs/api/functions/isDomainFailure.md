@@ -6,7 +6,7 @@
 
 # Function: isDomainFailure()
 
-> **isDomainFailure**\<`TEvent`\>(`result`): `result is ErrResult<ValidationException<ValidationError[]>>`
+> **isDomainFailure**\<`TEvent`\>(`result`): `result is ErrResult<DomainExecutionError>`
 
 Type guard for failed domain execution.
 
@@ -24,4 +24,4 @@ Type guard for failed domain execution.
 
 ## Returns
 
-`result is ErrResult<ValidationException<ValidationError[]>>`
+`result is ErrResult<DomainExecutionError>`

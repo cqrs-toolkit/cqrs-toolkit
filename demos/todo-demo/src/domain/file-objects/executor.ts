@@ -2,7 +2,7 @@
  * FileObject command handlers — anticipated event production.
  */
 
-import { createEntityId, domainSuccess, type HandlerContext } from '@cqrs-toolkit/client'
+import { createEntityId, domainSuccess } from '@cqrs-toolkit/client'
 import {
   createFileObjectPayloadSchema,
   deleteFileObjectPayloadSchema,
@@ -15,7 +15,8 @@ export const fileObjectHandlers: AppCommandHandlerRegistration[] = [
     schema: createFileObjectPayloadSchema,
     creates: { eventType: 'FileObjectCreated', idStrategy: 'temporary' },
     parentRef: [{ field: 'noteId', fromCommand: 'CreateNote' }],
-    handler(data: { noteId: string }, context: HandlerContext) {
+    handler(command, context) {
+      const { noteId } = command.data as { noteId: string }
       const id = createEntityId(context)
       const now = new Date().toISOString()
       return domainSuccess([
@@ -23,7 +24,7 @@ export const fileObjectHandlers: AppCommandHandlerRegistration[] = [
           type: 'FileObjectCreated',
           data: {
             id,
-            noteId: data.noteId,
+            noteId,
             name: '',
             contentType: '',
             resource: '',
@@ -38,9 +39,14 @@ export const fileObjectHandlers: AppCommandHandlerRegistration[] = [
   {
     commandType: 'DeleteFileObject',
     schema: deleteFileObjectPayloadSchema,
-    handler(data: { id: string }) {
+    handler(command) {
+      const { id } = command.data as { id: string }
       return domainSuccess([
-        { type: 'FileObjectDeleted', data: { id: data.id }, streamId: `FileObject-${data.id}` },
+        {
+          type: 'FileObjectDeleted',
+          data: { id },
+          streamId: `FileObject-${id}`,
+        },
       ])
     },
   },

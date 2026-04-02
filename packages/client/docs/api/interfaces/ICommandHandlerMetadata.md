@@ -31,7 +31,7 @@ Allows the CommandQueue to access creates config by command type.
 
 ### getRegistration()
 
-> **getRegistration**(`commandType`): [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\> \| `undefined`
+> **getRegistration**(`commandType`): [`CommandHandlerRegistration`](../type-aliases/CommandHandlerRegistration.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\> \| `undefined`
 
 #### Parameters
 
@@ -41,4 +41,4 @@ Allows the CommandQueue to access creates config by command type.
 
 #### Returns
 
-[`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\> \| `undefined`
+[`CommandHandlerRegistration`](../type-aliases/CommandHandlerRegistration.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\> \| `undefined`

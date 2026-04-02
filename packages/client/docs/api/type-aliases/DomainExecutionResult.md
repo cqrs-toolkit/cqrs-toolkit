@@ -6,7 +6,7 @@
 
 # Type Alias: DomainExecutionResult\<TEvent\>
 
-> **DomainExecutionResult**\<`TEvent`\> = `Result`\<[`DomainExecutionSuccess`](../interfaces/DomainExecutionSuccess.md)\<`TEvent`\>, `ValidationException`\<[`ValidationError`](../interfaces/ValidationError.md)[]\>\>
+> **DomainExecutionResult**\<`TEvent`\> = `Result`\<[`DomainExecutionSuccess`](../interfaces/DomainExecutionSuccess.md)\<`TEvent`\>, [`DomainExecutionError`](DomainExecutionError.md)\>
 
 Result of domain command execution.
 

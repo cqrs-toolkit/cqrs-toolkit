@@ -73,7 +73,7 @@ Returned via Result, never thrown.
 
 #### Inherited from
 
-`Exception.code`
+[`OpfsUnavailableException`](OpfsUnavailableException.md).[`code`](OpfsUnavailableException.md#code)
 
 ---
 
@@ -95,7 +95,7 @@ Returned via Result, never thrown.
 
 #### Inherited from
 
-`Exception.message`
+[`OpfsUnavailableException`](OpfsUnavailableException.md).[`message`](OpfsUnavailableException.md#message)
 
 ---
 
@@ -105,7 +105,7 @@ Returned via Result, never thrown.
 
 #### Inherited from
 
-`Exception.name`
+[`OpfsUnavailableException`](OpfsUnavailableException.md).[`name`](OpfsUnavailableException.md#name)
 
 ## Accessors
 
@@ -137,4 +137,4 @@ Returned via Result, never thrown.
 
 #### Inherited from
 
-`Exception.userMessage`
+[`OpfsUnavailableException`](OpfsUnavailableException.md).[`userMessage`](OpfsUnavailableException.md#usermessage)

@@ -189,7 +189,7 @@ export function createCommandsStore<TLink extends Link>(): CommandsStore {
             ...entry.record,
             status: 'failed',
             error: {
-              source: 'server',
+              name: 'CommandFailed',
               message: (data['error'] as string) ?? 'Unknown error',
             },
             updatedAt: event.timestamp,

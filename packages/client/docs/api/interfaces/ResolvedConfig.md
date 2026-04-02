@@ -66,7 +66,7 @@ Cache configuration.
 
 ### commandHandlers
 
-> **commandHandlers**: [`CommandHandlerRegistration`](CommandHandlerRegistration.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>[]
+> **commandHandlers**: [`CommandHandlerRegistration`](../type-aliases/CommandHandlerRegistration.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>[]
 
 ---
 

@@ -90,7 +90,7 @@ Commands this command depends on (must complete first)
 
 ### error?
 
-> `optional` **error**: [`CommandError`](CommandError.md)
+> `optional` **error**: `IException`\<`unknown`\>
 
 Error information if failed
 

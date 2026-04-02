@@ -7,13 +7,15 @@ import { Subject } from 'rxjs'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import type { CommandEvent, CommandRecord, EnqueueCommand } from '../../types/commands.js'
-import type { HandlerContext, IDomainExecutor } from '../../types/domain.js'
+import { CommandFailedException } from '../../types/commands.js'
+import type { IDomainExecutor } from '../../types/domain.js'
 import {
   autoRevision,
   createDomainExecutor,
   domainFailure,
   domainSuccess,
 } from '../../types/domain.js'
+import { isValidationException } from '../../types/validation.js'
 import { generateId } from '../../utils/uuid.js'
 import { deriveScopeKey } from '../cache-manager/CacheKey.js'
 import { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventShape.js'
@@ -24,6 +26,23 @@ import type { ICommandSender } from './types.js'
 import { CommandSendException } from './types.js'
 
 const TODOS_CACHE_KEY = deriveScopeKey({ scopeType: 'todos' })
+
+// ---------------------------------------------------------------------------
+// Typed command unions for handler sections
+// ---------------------------------------------------------------------------
+
+type CreateFolder = EnqueueCommand<{ name: string }> & { type: 'CreateFolder' }
+type CreateNote = EnqueueCommand<{ parentId: string; title: string }> & { type: 'CreateNote' }
+type UpdateNote = EnqueueCommand<{ id: string; title: string }> & { type: 'UpdateNote' }
+type MoveNote = EnqueueCommand<{ id: string; fromFolderId: string; toFolderId: string }> & {
+  type: 'MoveNote'
+}
+type CrossAggregateCommand = CreateFolder | CreateNote | UpdateNote | MoveNote
+
+type CreateItem = EnqueueCommand<{ name: string }> & { type: 'CreateItem' }
+type UpdateItem = EnqueueCommand<{ id: string; title: string }> & { type: 'UpdateItem' }
+type DeleteItem = EnqueueCommand<{ id: string }> & { type: 'DeleteItem' }
+type SameAggregateCommand = CreateItem | UpdateItem | DeleteItem
 
 class TestCommandQueue extends CommandQueue<
   ServiceLink,
@@ -152,7 +171,11 @@ describe('CommandQueue', () => {
 
     it('returns validation errors when domain validation fails', async () => {
       vi.mocked(domainExecutor.execute).mockReturnValue(
-        Promise.resolve(domainFailure([{ path: 'title', message: 'Title is required' }])),
+        Promise.resolve(
+          domainFailure([
+            { path: 'title', code: 'required', message: 'Title is required', params: {} },
+          ]),
+        ),
       )
 
       const result = await commandQueue.enqueue({
@@ -162,9 +185,15 @@ describe('CommandQueue', () => {
 
       expect(result.ok).toBe(false)
       if (!result.ok) {
-        const errors = result.error.details
-        expect(errors).toHaveLength(1)
-        expect(errors?.[0]).toMatchObject({ path: 'title', message: 'Title is required' })
+        expect(isValidationException(result.error)).toBe(true)
+        if (!isValidationException(result.error)) return
+        expect(result.error.details).toHaveLength(1)
+        expect(result.error.details?.[0]).toMatchObject({
+          path: 'title',
+          code: 'required',
+          message: 'Title is required',
+          params: {},
+        })
       }
     })
 
@@ -190,7 +219,11 @@ describe('CommandQueue', () => {
 
     it('skips validation when skipValidation is true', async () => {
       vi.mocked(domainExecutor.execute).mockReturnValue(
-        Promise.resolve(domainFailure([{ path: 'title', message: 'Title is required' }])),
+        Promise.resolve(
+          domainFailure([
+            { path: 'title', code: 'required', message: 'Title is required', params: {} },
+          ]),
+        ),
       )
 
       const result = await commandQueue.enqueue({
@@ -279,9 +312,9 @@ describe('CommandQueue', () => {
 
       const result = await commandQueue.waitForCompletion('cmd-1')
 
-      expect(result.status).toBe('succeeded')
-      if (result.status === 'succeeded') {
-        expect(result.response).toEqual({ id: '123' })
+      expect(result.ok).toBe(true)
+      if (result.ok) {
+        expect(result.value).toEqual({ id: '123' })
       }
     })
 
@@ -297,7 +330,7 @@ describe('CommandQueue', () => {
         blockedBy: [],
         attempts: 1,
 
-        error: { source: 'server', message: 'Bad request' },
+        error: new CommandFailedException('server', 'Bad request'),
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }
@@ -305,8 +338,8 @@ describe('CommandQueue', () => {
 
       const result = await commandQueue.waitForCompletion('cmd-1')
 
-      expect(result.status).toBe('failed')
-      if (result.status === 'failed') {
+      expect(result.ok).toBe(false)
+      if (!result.ok) {
         expect(result.error.message).toBe('Bad request')
       }
     })
@@ -314,9 +347,9 @@ describe('CommandQueue', () => {
     it('returns failed for non-existent command', async () => {
       const result = await commandQueue.waitForCompletion('non-existent')
 
-      expect(result.status).toBe('failed')
-      if (result.status === 'failed') {
-        expect(result.error.message).toBe('Command not found')
+      expect(result.ok).toBe(false)
+      if (!result.ok) {
+        expect(result.error.message).toContain('Command not found')
       }
     })
 
@@ -331,7 +364,10 @@ describe('CommandQueue', () => {
         timeout: 50,
       })
 
-      expect(completionResult.status).toBe('timeout')
+      expect(completionResult.ok).toBe(false)
+      if (!completionResult.ok) {
+        expect(completionResult.error.name).toBe('CommandTimeout')
+      }
     })
 
     it('waits for command to complete', async () => {
@@ -361,14 +397,15 @@ describe('CommandQueue', () => {
         timeout: 1000,
       })
 
-      expect(completionResult.status).toBe('succeeded')
+      expect(completionResult.ok).toBe(true)
     })
   })
 
   describe('enqueueAndWait', () => {
     it('returns validation errors immediately', async () => {
       const domainExecutor: IDomainExecutor = {
-        execute: async () => domainFailure([{ path: 'email', message: 'Invalid email' }]),
+        execute: async () =>
+          domainFailure([{ path: 'email', code: 'invalid', message: 'Invalid email', params: {} }]),
       }
       commandQueue = new TestCommandQueue({
         storage,
@@ -384,8 +421,9 @@ describe('CommandQueue', () => {
 
       expect(result.ok).toBe(false)
       if (!result.ok) {
-        expect(result.error.details?.source).toBe('local')
-        expect(result.error.details?.errors[0]).toMatchObject({ path: 'email' })
+        expect(isValidationException(result.error)).toBe(true)
+        if (!isValidationException(result.error)) return
+        expect(result.error.details?.[0]).toMatchObject({ path: 'email' })
       }
     })
   })
@@ -426,11 +464,15 @@ describe('CommandQueue', () => {
       expect(stored?.status).toBe('cancelled')
     })
 
-    it('throws when command does not exist', async () => {
-      await expect(commandQueue.cancelCommand('non-existent')).rejects.toThrow('Command not found')
+    it('returns error when command does not exist', async () => {
+      const result = await commandQueue.cancelCommand('non-existent')
+      expect(result.ok).toBe(false)
+      if (!result.ok) {
+        expect(result.error.name).toBe('CommandNotFound')
+      }
     })
 
-    it('throws when command is already succeeded', async () => {
+    it('returns error when command is already succeeded', async () => {
       const command: CommandRecord<ServiceLink, EnqueueCommand> = {
         commandId: 'cmd-1',
         cacheKey: TODOS_CACHE_KEY,
@@ -447,7 +489,11 @@ describe('CommandQueue', () => {
       }
       await storage.saveCommand(command)
 
-      await expect(commandQueue.cancelCommand('cmd-1')).rejects.toThrow('Cannot cancel command')
+      const result = await commandQueue.cancelCommand('cmd-1')
+      expect(result.ok).toBe(false)
+      if (!result.ok) {
+        expect(result.error.name).toBe('InvalidCommandStatus')
+      }
     })
 
     it('emits cancelled event', async () => {
@@ -507,7 +553,7 @@ describe('CommandQueue', () => {
         blockedBy: [],
         attempts: 1,
 
-        error: { source: 'server', message: 'Failed' },
+        error: new CommandFailedException('server', 'Failed'),
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }
@@ -527,9 +573,11 @@ describe('CommandQueue', () => {
       })
       if (!result.ok) throw new Error('Expected success')
 
-      await expect(commandQueue.retryCommand(result.value.commandId)).rejects.toThrow(
-        'Can only retry failed commands',
-      )
+      const retryResult = await commandQueue.retryCommand(result.value.commandId)
+      expect(retryResult.ok).toBe(false)
+      if (!retryResult.ok) {
+        expect(retryResult.error.name).toBe('InvalidCommandStatus')
+      }
     })
   })
 
@@ -1222,20 +1270,19 @@ describe('CommandQueue', () => {
     } {
       const executor = createDomainExecutor<
         ServiceLink,
-        EnqueueCommand,
+        CrossAggregateCommand,
         unknown,
         IAnticipatedEvent
       >([
         {
           commandType: 'CreateFolder',
           creates: { eventType: 'FolderCreated', idStrategy: 'temporary' },
-          handler(data, context: HandlerContext) {
-            const { name } = data as { name: string }
+          handler(command, context) {
             const id = context.phase === 'updating' ? context.entityId : generateId()
             return domainSuccess([
               {
                 type: 'FolderCreated',
-                data: { id, name },
+                data: { id, name: command.data.name },
                 streamId: `Folder-${id}`,
               },
             ])
@@ -1245,13 +1292,12 @@ describe('CommandQueue', () => {
           commandType: 'CreateNote',
           creates: { eventType: 'NoteCreated', idStrategy: 'temporary' },
           parentRef: [{ field: 'parentId', fromCommand: 'CreateFolder' }],
-          handler(data, context: HandlerContext) {
-            const { parentId, title } = data as { parentId: string; title: string }
+          handler(command, context) {
             const id = context.phase === 'updating' ? context.entityId : generateId()
             return domainSuccess([
               {
                 type: 'NoteCreated',
-                data: { id, parentId, title },
+                data: { id, parentId: command.data.parentId, title: command.data.title },
                 streamId: `Note-${id}`,
               },
             ])
@@ -1259,13 +1305,12 @@ describe('CommandQueue', () => {
         },
         {
           commandType: 'UpdateNote',
-          handler(data, _context: HandlerContext) {
-            const { id, title } = data as { id: string; title: string }
+          handler(command, _context) {
             return domainSuccess([
               {
                 type: 'NoteTitleUpdated',
-                data: { id, title },
-                streamId: `Note-${id}`,
+                data: { id: command.data.id, title: command.data.title },
+                streamId: `Note-${command.data.id}`,
               },
             ])
           },
@@ -1276,17 +1321,16 @@ describe('CommandQueue', () => {
             { field: 'fromFolderId', fromCommand: 'CreateFolder' },
             { field: 'toFolderId', fromCommand: 'CreateFolder' },
           ],
-          handler(data, _context: HandlerContext) {
-            const { id, fromFolderId, toFolderId } = data as {
-              id: string
-              fromFolderId: string
-              toFolderId: string
-            }
+          handler(command, _context) {
             return domainSuccess([
               {
                 type: 'NoteMoved',
-                data: { id, fromFolderId, toFolderId },
-                streamId: `Note-${id}`,
+                data: {
+                  id: command.data.id,
+                  fromFolderId: command.data.fromFolderId,
+                  toFolderId: command.data.toFolderId,
+                },
+                streamId: `Note-${command.data.id}`,
               },
             ])
           },
@@ -1339,7 +1383,7 @@ describe('CommandQueue', () => {
         cacheKey: TODOS_CACHE_KEY,
       })
       if (!folderResult.ok) throw new Error('Expected success')
-      const folderClientId = (folderResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
+      const folderClientId = folderResult.value.anticipatedEvents[0]!.data.id
 
       // Enqueue child create with dependency on parent
       const noteResult = await queue.enqueue({
@@ -1353,8 +1397,7 @@ describe('CommandQueue', () => {
       if (!noteResult.ok) throw new Error('Expected success')
 
       // Capture the original client ID from the child's anticipated events
-      const originalNoteClientId = (noteResult.value.anticipatedEvents[0] as IAnticipatedEvent).data
-        .id
+      const originalNoteClientId = noteResult.value.anticipatedEvents[0]!.data.id
 
       // Process — folder succeeds, triggers regeneration of note's anticipated events
       queue.resume()
@@ -1857,35 +1900,46 @@ describe('CommandQueue', () => {
     ): CommandQueue<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent> {
       const executor = createDomainExecutor<
         ServiceLink,
-        EnqueueCommand,
+        SameAggregateCommand,
         unknown,
         IAnticipatedEvent
       >([
         {
           commandType: 'CreateItem',
           creates: { eventType: 'ItemCreated', idStrategy: 'temporary' },
-          handler(data, context: HandlerContext) {
-            const { name } = data as { name: string }
+          handler(command, context) {
             const id = context.phase === 'updating' ? context.entityId : generateId()
             return domainSuccess([
-              { type: 'ItemCreated', data: { id, name }, streamId: `Item-${id}` },
+              {
+                type: 'ItemCreated',
+                data: { id, name: command.data.name },
+                streamId: `Item-${id}`,
+              },
             ])
           },
         },
         {
           commandType: 'UpdateItem',
-          handler(data, _context: HandlerContext) {
-            const { id, title } = data as { id: string; title: string }
+          handler(command, _context) {
             return domainSuccess([
-              { type: 'ItemUpdated', data: { id, title }, streamId: `Item-${id}` },
+              {
+                type: 'ItemUpdated',
+                data: { id: command.data.id, title: command.data.title },
+                streamId: `Item-${command.data.id}`,
+              },
             ])
           },
         },
         {
           commandType: 'DeleteItem',
-          handler(data, _context: HandlerContext) {
-            const { id } = data as { id: string }
-            return domainSuccess([{ type: 'ItemDeleted', data: { id }, streamId: `Item-${id}` }])
+          handler(command, _context) {
+            return domainSuccess([
+              {
+                type: 'ItemDeleted',
+                data: { id: command.data.id },
+                streamId: `Item-${command.data.id}`,
+              },
+            ])
           },
         },
       ])

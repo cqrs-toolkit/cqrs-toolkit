@@ -48,7 +48,7 @@ export const CommandDetail: Component<CommandDetailProps> = (props) => {
       <Show when={props.command.error}>
         {(error) => (
           <div class="detail-section">
-            <h4>Error ({error().source})</h4>
+            <h4>Error ({error().name})</h4>
             <pre class="detail-json">{error().message}</pre>
             <Show when={error().details}>
               <pre class="detail-json" style="margin-top: 4px">

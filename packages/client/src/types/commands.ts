@@ -5,14 +5,19 @@
 import {
   type ErrResult,
   Exception,
+  type IException,
   type Link,
   type OkResult,
   type Result,
-  ValidationException,
 } from '@meticoeus/ddd-es'
 import type { CacheKeyIdentity } from '../core/cache-manager/CacheKey.js'
-import type { AutoRevision, CreateCommandConfig, PostProcessPlan } from './domain.js'
-import type { ValidationError } from './validation.js'
+import type {
+  AutoRevision,
+  CreateCommandConfig,
+  DomainExecutionError,
+  PostProcessPlan,
+} from './domain.js'
+import { ValidationError, ValidationException } from './validation.js'
 
 /**
  * Command lifecycle status.
@@ -31,20 +36,104 @@ export type CommandStatus =
 export type CommandErrorSource = 'local' | 'server'
 
 /**
- * Command error - can originate from local validation or server.
+ * The requested command does not exist in storage.
  */
-export interface CommandError {
-  /** Error source */
+export class CommandNotFoundException extends Exception {
+  readonly commandId: string
+
+  constructor(commandId: string) {
+    super('CommandNotFound', `Command not found: ${commandId}`)
+    this.commandId = commandId
+  }
+}
+
+export function isCommandNotFound(e: unknown): e is CommandNotFoundException {
+  return typeof e === 'object' && e !== null && 'name' in e && e.name === 'CommandNotFound'
+}
+
+/**
+ * The command's current status does not allow the requested operation.
+ */
+export class InvalidCommandStatusException extends Exception<{ status: CommandStatus }> {
+  constructor(message: string, status: CommandStatus) {
+    super('InvalidCommandStatus', message)
+    this._details = { status }
+  }
+}
+
+export function isInvalidCommandStatus(e: unknown): e is InvalidCommandStatusException {
+  return typeof e === 'object' && e !== null && 'name' in e && e.name === 'InvalidCommandStatus'
+}
+
+/**
+ * Details carried by a CommandFailedException.
+ */
+export interface CommandFailedDetails {
   source: CommandErrorSource
-  /** Human-readable message */
-  message: string
-  /** Machine-readable code */
-  code?: string
-  /** Field-level validation errors (for form display) */
+  errorCode?: string
   validationErrors?: ValidationError[]
-  /** Raw server error details */
   details?: unknown
 }
+
+/**
+ * A command failed during processing (server rejection, validation, or local error).
+ */
+export class CommandFailedException extends Exception<CommandFailedDetails> {
+  readonly errorCode?: string
+
+  constructor(
+    source: CommandErrorSource,
+    message: string,
+    opts?: Omit<CommandFailedDetails, 'source'>,
+  ) {
+    super('CommandFailed', message)
+    this.errorCode = opts?.errorCode
+    this._details = {
+      source,
+      errorCode: opts?.errorCode,
+      validationErrors: opts?.validationErrors,
+      details: opts?.details,
+    }
+  }
+}
+
+export function isCommandFailed(e: unknown): e is CommandFailedException {
+  return typeof e === 'object' && e !== null && 'name' in e && e.name === 'CommandFailed'
+}
+
+/**
+ * A command was cancelled before completion.
+ */
+export class CommandCancelledException extends Exception {
+  constructor() {
+    super('CommandCancelled', 'Command was cancelled')
+  }
+}
+
+export function isCommandCancelled(e: unknown): e is CommandCancelledException {
+  return typeof e === 'object' && e !== null && 'name' in e && e.name === 'CommandCancelled'
+}
+
+/**
+ * Waiting for command completion timed out.
+ */
+export class CommandTimeoutException extends Exception {
+  constructor() {
+    super('CommandTimeout', 'Command timed out')
+  }
+}
+
+export function isCommandTimeout(e: unknown): e is CommandTimeoutException {
+  return typeof e === 'object' && e !== null && 'name' in e && e.name === 'CommandTimeout'
+}
+
+/**
+ * Union of all command completion failure types.
+ */
+export type CommandCompletionError =
+  | CommandFailedException
+  | CommandCancelledException
+  | CommandTimeoutException
 
 /**
  * Persisted command record.
@@ -77,7 +166,7 @@ export interface CommandRecord<
   /** Timestamp of last send attempt */
   lastAttemptAt?: number
   /** Error information if failed */
-  error?: CommandError
+  error?: IException
   /** Server response on success */
   serverResponse?: TResponse
   /** Post-processing instructions from the domain executor */
@@ -195,51 +284,7 @@ export interface EnqueueSuccess<TEvent> {
 /**
  * Result of enqueue operation.
  */
-export type EnqueueResult<TEvent> = Result<
-  EnqueueSuccess<TEvent>,
-  ValidationException<ValidationError[]>
->
-
-/**
- * Command completion result - succeeded.
- */
-export interface CompletionSucceeded {
-  status: 'succeeded'
-  /** Server response data */
-  response: unknown
-}
-
-/**
- * Command completion result - failed.
- */
-export interface CompletionFailed {
-  status: 'failed'
-  /** Error information */
-  error: CommandError
-}
-
-/**
- * Command completion result - cancelled.
- */
-export interface CompletionCancelled {
-  status: 'cancelled'
-}
-
-/**
- * Command completion result - timeout.
- */
-export interface CompletionTimeout {
-  status: 'timeout'
-}
-
-/**
- * Result of waitForCompletion operation.
- */
-export type CommandCompletionResult =
-  | CompletionSucceeded
-  | CompletionFailed
-  | CompletionCancelled
-  | CompletionTimeout
+export type EnqueueResult<TEvent> = Result<EnqueueSuccess<TEvent>, DomainExecutionError>
 
 /**
  * Successful enqueueAndWait data.
@@ -252,24 +297,16 @@ export interface EnqueueAndWaitSuccess<TResponse> {
 }
 
 /**
- * Exception for enqueueAndWait failures, carrying validation errors and their source.
+ * Error union for enqueueAndWait — enqueue validation or completion failure.
  */
-export class EnqueueAndWaitException extends Exception<{
-  errors: ValidationError[]
-  source: CommandErrorSource
-}> {
-  constructor(errors: ValidationError[], source: CommandErrorSource) {
-    super('EnqueueAndWaitFailed', errors[0]?.message ?? 'Command failed')
-    this._details = { errors, source }
-  }
-}
+export type EnqueueAndWaitError = DomainExecutionError | CommandCompletionError
 
 /**
  * Result of enqueueAndWait operation.
  */
 export type EnqueueAndWaitResult<TResponse> = Result<
   EnqueueAndWaitSuccess<TResponse>,
-  EnqueueAndWaitException
+  EnqueueAndWaitError
 >
 
 /**
@@ -292,7 +329,7 @@ export interface CommandEvent {
   /** Previous status (for status-changed events) */
   previousStatus?: CommandStatus
   /** Error information (for failed events) */
-  error?: CommandError
+  error?: IException
   /** Server response (for completed events) */
   response?: unknown
   /** Event timestamp */
@@ -333,7 +370,7 @@ export function isEnqueueSuccess<TEvent>(
  */
 export function isEnqueueFailure<TEvent>(
   result: EnqueueResult<TEvent>,
-): result is ErrResult<ValidationException<ValidationError[]>> {
+): result is ErrResult<ValidationException> {
   return !result.ok
 }
 
@@ -380,23 +417,11 @@ export type SubmitSuccess<TResponse> =
   | { stage: 'confirmed'; commandId: string; response: TResponse }
 
 /**
- * Result of the network-aware submit operation.
+ * Error union for submit — enqueue validation or completion failure.
  */
-export type SubmitResult<TResponse> = Result<SubmitSuccess<TResponse>, SubmitException>
+export type SubmitError = DomainExecutionError | CommandCompletionError
 
 /**
- * Exception for submit failures.
- *
- * `details.commandId` is set when the command IS in the queue despite the error
- * (server rejection, timeout). The consumer can use it to retry or track.
+ * Result of the network-aware submit operation.
  */
-export class SubmitException extends Exception<{
-  errors: ValidationError[]
-  source: CommandErrorSource
-  commandId?: string
-}> {
-  constructor(errors: ValidationError[], source: CommandErrorSource, commandId?: string) {
-    super('SubmitFailed', errors[0]?.message ?? 'Command failed')
-    this._details = { errors, source, commandId }
-  }
-}
+export type SubmitResult<TResponse> = Result<SubmitSuccess<TResponse>, SubmitError>

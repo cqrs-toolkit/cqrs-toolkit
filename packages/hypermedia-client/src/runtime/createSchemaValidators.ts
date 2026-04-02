@@ -8,8 +8,9 @@ import {
   IAnticipatedEvent,
   SchemaValidator,
   ValidationError,
+  ValidationException,
 } from '@cqrs-toolkit/client'
-import { Err, Link, Ok, ValidationException } from '@meticoeus/ddd-es'
+import { Err, Link, Ok } from '@meticoeus/ddd-es'
 import { Ajv, type ErrorObject } from 'ajv'
 import type { JSONSchema7 } from 'json-schema'
 
@@ -38,8 +39,9 @@ function mapAjvErrors(errors: ErrorObject[] | null | undefined): ValidationError
     path:
       err.instancePath.replace(/^\//, '').replaceAll('/', '.') ||
       String(err.params['missingProperty'] ?? ''),
-    message: err.message ?? 'Validation failed',
     code: err.keyword,
+    message: err.message ?? 'Validation failed',
+    params: err.params as Record<string, unknown>,
   }))
 }
 
@@ -127,7 +129,7 @@ export function createAjvSchemaValidator(registry?: SchemaRegistry): SchemaValid
       }
       const errors = mapAjvErrors(validate.errors)
       console.debug('[schema-validator] Validation failed:', { schemaId: schema.$id, errors, data })
-      return Err(new ValidationException(undefined, errors))
+      return Err(new ValidationException(errors))
     },
   }
 }

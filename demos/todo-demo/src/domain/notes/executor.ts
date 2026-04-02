@@ -2,7 +2,7 @@
  * Note command handlers — anticipated event production from validated data.
  */
 
-import { createEntityId, domainSuccess, type HandlerContext } from '@cqrs-toolkit/client'
+import { createEntityId, domainSuccess } from '@cqrs-toolkit/client'
 import {
   createNotePayloadSchema,
   deleteNotePayloadSchema,
@@ -17,19 +17,18 @@ export const noteHandlers: AppCommandHandlerRegistration[] = [
     schema: createNotePayloadSchema,
     creates: { eventType: 'NoteCreated', idStrategy: 'temporary' },
     parentRef: [{ field: 'notebookId', fromCommand: 'CreateNotebook' }],
-    handler(data: { notebookId: string; title: string; body: string }, context: HandlerContext) {
+    handler(command, context) {
+      const { notebookId, title, body } = command.data as {
+        notebookId: string
+        title: string
+        body: string
+      }
       const id = createEntityId(context)
       const now = new Date().toISOString()
       return domainSuccess([
         {
           type: 'NoteCreated',
-          data: {
-            id,
-            notebookId: data.notebookId,
-            title: data.title,
-            body: data.body,
-            createdAt: now,
-          },
+          data: { id, notebookId, title, body, createdAt: now },
           streamId: `Note-${id}`,
         },
       ])
@@ -38,12 +37,13 @@ export const noteHandlers: AppCommandHandlerRegistration[] = [
   {
     commandType: 'UpdateNoteTitle',
     schema: updateNoteTitlePayloadSchema,
-    handler(data: { id: string; title: string }) {
+    handler(command) {
+      const { id, title } = command.data as { id: string; title: string }
       return domainSuccess([
         {
           type: 'NoteTitleUpdated',
-          data: { id: data.id, title: data.title, updatedAt: new Date().toISOString() },
-          streamId: `Note-${data.id}`,
+          data: { id, title, updatedAt: new Date().toISOString() },
+          streamId: `Note-${id}`,
         },
       ])
     },
@@ -51,12 +51,13 @@ export const noteHandlers: AppCommandHandlerRegistration[] = [
   {
     commandType: 'UpdateNoteBody',
     schema: updateNoteBodyPayloadSchema,
-    handler(data: { id: string; body: string }) {
+    handler(command) {
+      const { id, body } = command.data as { id: string; body: string }
       return domainSuccess([
         {
           type: 'NoteBodyUpdated',
-          data: { id: data.id, body: data.body, updatedAt: new Date().toISOString() },
-          streamId: `Note-${data.id}`,
+          data: { id, body, updatedAt: new Date().toISOString() },
+          streamId: `Note-${id}`,
         },
       ])
     },
@@ -64,9 +65,14 @@ export const noteHandlers: AppCommandHandlerRegistration[] = [
   {
     commandType: 'DeleteNote',
     schema: deleteNotePayloadSchema,
-    handler(data: { id: string }) {
+    handler(command) {
+      const { id } = command.data as { id: string }
       return domainSuccess([
-        { type: 'NoteDeleted', data: { id: data.id }, streamId: `Note-${data.id}` },
+        {
+          type: 'NoteDeleted',
+          data: { id },
+          streamId: `Note-${id}`,
+        },
       ])
     },
   },
