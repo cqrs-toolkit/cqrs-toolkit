@@ -1,0 +1,28 @@
+{
+  "$id": "urn:schema:nb.Note:1.0.0",
+  "properties": {
+    "body": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "latestRevision": {
+      "type": "string"
+    },
+    "notebookId": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "updatedAt": {
+      "type": "string"
+    }
+  },
+  "required": ["id", "notebookId", "title", "body", "createdAt", "updatedAt", "latestRevision"],
+  "type": "object"
+}

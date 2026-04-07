@@ -14,7 +14,7 @@ describe('ConnectivityManager', () => {
 
   beforeEach(() => {
     eventBus = new EventBus()
-    connectivity = new ConnectivityManager({ eventBus })
+    connectivity = new ConnectivityManager(eventBus)
   })
 
   afterEach(() => {

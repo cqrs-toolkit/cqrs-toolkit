@@ -1,0 +1,48 @@
+{
+  "$id": "urn:schema:hal:storage.FileObject:1.0.0",
+  "properties": {
+    "_links": {
+      "$ref": "urn:schema:hal:ResourceLinks:1.0.0"
+    },
+    "contentType": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "latestRevision": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "noteId": {
+      "type": "string"
+    },
+    "notebookId": {
+      "type": "string"
+    },
+    "resource": {
+      "type": "string"
+    },
+    "size": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "id",
+    "noteId",
+    "notebookId",
+    "name",
+    "contentType",
+    "resource",
+    "size",
+    "createdAt",
+    "latestRevision",
+    "_links"
+  ],
+  "type": "object"
+}

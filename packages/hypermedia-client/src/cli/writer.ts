@@ -14,7 +14,7 @@ import type { FetchedSchema } from './schema-fetcher.js'
 
 interface CommandEntry {
   urn: string
-  dispatch: string
+  dispatch?: string
   commandType?: string
   template: string
   mappings: { variable: string; required: boolean }[]

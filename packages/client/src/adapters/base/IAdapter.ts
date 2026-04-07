@@ -1,9 +1,15 @@
 /**
  * Adapter types shared across all execution modes.
  *
- * Uses a discriminated union on `mode` so createCqrsClient can narrow to
- * the correct set of fields at compile time — online-only adapters expose
- * raw components for main-thread wiring, worker adapters expose proxies.
+ * Two structural variants:
+ * - **Online-only** (`mode: 'online-only'`): exposes raw components for
+ *   main-thread wiring (storage, eventBus, sessionManager).
+ * - **Worker** (no `mode`): exposes proxy objects — all orchestration
+ *   happens in a background process (Web Worker, Electron utility, etc.).
+ *
+ * The `kind` field is the discriminant that `createCqrsClient` checks:
+ * `'window'` creates components on the main thread, `'worker'` uses
+ * the adapter's proxy objects from a background process.
  */
 
 import type { Link } from '@meticoeus/ddd-es'
@@ -61,29 +67,30 @@ interface IAdapterBase<TLink extends Link> {
 }
 
 /**
- * Online-only adapter provides raw components for main-thread wiring.
+ * Window adapter — all CQRS components live on the main thread.
  * createCqrsClient uses storage, eventBus, and sessionManager to wire
  * CommandQueue, CacheManager, QueryManager, SyncManager etc.
  */
-export interface IOnlineOnlyAdapter<
+export interface IWindowAdapter<
   TLink extends Link,
   TCommand extends EnqueueCommand,
 > extends IAdapterBase<TLink> {
-  readonly mode: 'online-only'
+  readonly kind: 'window'
   readonly storage: IStorage<TLink, TCommand>
   readonly eventBus: EventBus<TLink>
   readonly sessionManager: SessionManager<TLink, TCommand>
 }
 
 /**
- * Worker adapter provides proxy objects. All orchestration happens in the
- * worker; createCqrsClient just wraps the proxies.
+ * Worker adapter — all CQRS components live in a background process
+ * (Web Worker, Electron utility process, etc.). The main thread gets
+ * proxy objects that forward calls via the message protocol.
  */
 export interface IWorkerAdapter<
   TLink extends Link,
   TCommand extends EnqueueCommand,
 > extends IAdapterBase<TLink> {
-  readonly mode: 'shared-worker' | 'dedicated-worker'
+  readonly kind: 'worker'
   readonly commandQueue: ICommandQueue<TLink, TCommand>
   readonly queryManager: IQueryManager<TLink>
   readonly cacheManager: ICacheManager<TLink>
@@ -105,8 +112,8 @@ export interface IWorkerAdapter<
 
 /**
  * Discriminated union of all adapter types.
- * Discriminant: `mode` field.
+ * Discriminant: `kind` — `'window'` (main-thread) vs `'worker'` (background process).
  */
 export type IAdapter<TLink extends Link, TCommand extends EnqueueCommand> =
-  | IOnlineOnlyAdapter<TLink, TCommand>
+  | IWindowAdapter<TLink, TCommand>
   | IWorkerAdapter<TLink, TCommand>

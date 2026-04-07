@@ -11,6 +11,7 @@
 - [CursorPagination](namespaces/CursorPagination/README.md)
 - [EventCursorPagination](namespaces/EventCursorPagination/README.md)
 - [HAL](namespaces/HAL/README.md)
+- [HydraApiDocumentation](namespaces/HydraApiDocumentation/README.md)
 - [HydraDoc](namespaces/HydraDoc/README.md)
 - [HypermediaTypes](namespaces/HypermediaTypes/README.md)
 

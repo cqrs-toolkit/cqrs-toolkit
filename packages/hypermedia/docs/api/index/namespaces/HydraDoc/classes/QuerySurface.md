@@ -24,6 +24,12 @@
 
 ## Properties
 
+### description?
+
+> `readonly` `optional` **description**: `string`
+
+---
+
 ### formats
 
 > `readonly` **formats**: readonly `string`[]
@@ -36,15 +42,27 @@
 
 ---
 
+### operationId?
+
+> `readonly` `optional` **operationId**: `string`
+
+---
+
 ### profile
 
 > `readonly` **profile**: `string`
 
 ---
 
-### responseSchema?
+### responses?
 
-> `readonly` `optional` **responseSchema**: readonly [`ContentTypeSchema`](../interfaces/ContentTypeSchema.md)[]
+> `readonly` `optional` **responses**: readonly [`ResponseEntry`](../type-aliases/ResponseEntry.md)[]
+
+---
+
+### responseSchemaUrn?
+
+> `readonly` `optional` **responseSchemaUrn**: `string`
 
 ---
 

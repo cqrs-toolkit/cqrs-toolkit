@@ -1,0 +1,12 @@
+{
+  "$id": "urn:schema:nb.UpdateNotebookNameData:1.0.0",
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": ["name"],
+  "type": "object"
+}

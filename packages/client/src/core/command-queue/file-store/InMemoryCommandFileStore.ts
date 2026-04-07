@@ -10,8 +10,10 @@ import type { ICommandFileStore } from './ICommandFileStore.js'
 export class InMemoryCommandFileStore implements ICommandFileStore {
   private readonly files = new Map<string, Blob>()
 
-  async save(commandId: string, fileId: string, data: Blob): Promise<void> {
-    this.files.set(toKey(commandId, fileId), data)
+  async save(commandId: string, fileId: string, data: Blob): Promise<string> {
+    const key = toKey(commandId, fileId)
+    this.files.set(key, data)
+    return key
   }
 
   async read(commandId: string, fileId: string): Promise<Blob | undefined> {

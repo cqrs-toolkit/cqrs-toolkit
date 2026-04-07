@@ -52,7 +52,6 @@
     "#todos/shared": "./src/todos/shared/index.ts"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.build.json",
     "compile": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

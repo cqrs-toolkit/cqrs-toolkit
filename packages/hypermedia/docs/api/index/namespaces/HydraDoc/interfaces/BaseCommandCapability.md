@@ -57,6 +57,14 @@ but clients should warn and migrate to a newer command id/version.
 
 ---
 
+### description?
+
+> `optional` **description**: `string`
+
+Human-readable description of what this command does.
+
+---
+
 ### hydrate()?
 
 > `optional` **hydrate**: (`validated`) => `unknown`
@@ -88,11 +96,19 @@ Example: 'urn:command:chat.RenameRoom:1.0.0'
 
 ---
 
-### responseSchema?
+### responses?
 
-> `optional` **responseSchema**: readonly [`ContentTypeSchema`](ContentTypeSchema.md)[]
+> `optional` **responses**: readonly [`ResponseEntry`](../type-aliases/ResponseEntry.md)[]
 
-Per-content-type response schemas for this command's success response.
+Response documentation for this command. Overrides dispatch surface defaults when provided.
+
+---
+
+### responseSchemaUrn?
+
+> `optional` **responseSchemaUrn**: `string`
+
+URN for the oneOf union schema when 2xx responses have different schemas per contentType.
 
 ---
 

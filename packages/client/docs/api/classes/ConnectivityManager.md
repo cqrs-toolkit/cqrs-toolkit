@@ -6,8 +6,12 @@
 
 # Class: ConnectivityManager\<TLink\>
 
-Connectivity manager.
-Tracks browser online status and API reachability.
+Browser connectivity manager.
+Tracks navigator.onLine status and API reachability via health checks.
+
+## Extends
+
+- `AbstractConnectivityManager`\<`TLink`\>
 
 ## Type Parameters
 
@@ -15,25 +19,101 @@ Tracks browser online status and API reachability.
 
 `TLink` _extends_ `Link`
 
-## Implements
-
-- [`IConnectivity`](../interfaces/IConnectivity.md)
-
 ## Constructors
 
 ### Constructor
 
-> **new ConnectivityManager**\<`TLink`\>(`config`): `ConnectivityManager`\<`TLink`\>
+> **new ConnectivityManager**\<`TLink`\>(`eventBus`, `config?`): `ConnectivityManager`\<`TLink`\>
 
 #### Parameters
 
-##### config
+##### eventBus
 
-[`ConnectivityManagerConfig`](../interfaces/ConnectivityManagerConfig.md)\<`TLink`\>
+[`EventBus`](EventBus.md)\<`TLink`\>
+
+##### config?
+
+`ConnectivityManagerConfig` = `{}`
 
 #### Returns
 
 `ConnectivityManager`\<`TLink`\>
+
+#### Overrides
+
+`AbstractConnectivityManager<TLink>.constructor`
+
+## Properties
+
+### checkInterval
+
+> `protected` `readonly` **checkInterval**: `number`
+
+#### Inherited from
+
+`AbstractConnectivityManager.checkInterval`
+
+---
+
+### checkTimer
+
+> `protected` **checkTimer**: `number` \| `undefined`
+
+#### Inherited from
+
+`AbstractConnectivityManager.checkTimer`
+
+---
+
+### eventBus
+
+> `protected` `readonly` **eventBus**: [`EventBus`](EventBus.md)\<`TLink`\>
+
+#### Inherited from
+
+`AbstractConnectivityManager.eventBus`
+
+---
+
+### healthCheckUrl
+
+> `protected` `readonly` **healthCheckUrl**: `string` \| `undefined`
+
+#### Inherited from
+
+`AbstractConnectivityManager.healthCheckUrl`
+
+---
+
+### state$
+
+> `protected` `readonly` **state$**: `BehaviorSubject`\<[`ConnectivityState`](../interfaces/ConnectivityState.md)\>
+
+#### Inherited from
+
+`AbstractConnectivityManager.state$`
+
+---
+
+### wsConnectionState
+
+> `protected` **wsConnectionState**: [`WsConnectionState`](../type-aliases/WsConnectionState.md) = `'disconnected'`
+
+WebSocket transport state — tracked internally, emitted as debug events.
+
+#### Inherited from
+
+`AbstractConnectivityManager.wsConnectionState`
+
+---
+
+### wsTopicList
+
+> `protected` **wsTopicList**: `string`[] = `[]`
+
+#### Inherited from
+
+`AbstractConnectivityManager.wsTopicList`
 
 ## Accessors
 
@@ -49,11 +129,9 @@ Observable of online status (browser + API reachable).
 
 `Observable`\<`boolean`\>
 
-Observable of online status (browser + API reachable).
+#### Inherited from
 
-#### Implementation of
-
-[`IConnectivity`](../interfaces/IConnectivity.md).[`online$`](../interfaces/IConnectivity.md#online)
+`AbstractConnectivityManager.online$`
 
 ---
 
@@ -69,13 +147,27 @@ Observable of connectivity state changes.
 
 `Observable`\<[`ConnectivityState`](../interfaces/ConnectivityState.md)\>
 
-Observable of connectivity state changes.
+#### Inherited from
 
-#### Implementation of
-
-[`IConnectivity`](../interfaces/IConnectivity.md).[`state`](../interfaces/IConnectivity.md#state)
+`AbstractConnectivityManager.state`
 
 ## Methods
+
+### checkApiConnectivity()
+
+> `protected` **checkApiConnectivity**(): `Promise`\<`void`\>
+
+Check API connectivity via health check endpoint.
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Inherited from
+
+`AbstractConnectivityManager.checkApiConnectivity`
+
+---
 
 ### destroy()
 
@@ -86,6 +178,10 @@ Clean up resources.
 #### Returns
 
 `void`
+
+#### Inherited from
+
+`AbstractConnectivityManager.destroy`
 
 ---
 
@@ -99,9 +195,9 @@ Get the current connectivity state.
 
 [`ConnectivityState`](../interfaces/ConnectivityState.md)
 
-#### Implementation of
+#### Inherited from
 
-[`IConnectivity`](../interfaces/IConnectivity.md).[`getState`](../interfaces/IConnectivity.md#getstate)
+`AbstractConnectivityManager.getState`
 
 ---
 
@@ -115,9 +211,9 @@ Check if we're effectively online.
 
 `boolean`
 
-#### Implementation of
+#### Inherited from
 
-[`IConnectivity`](../interfaces/IConnectivity.md).[`isOnline`](../interfaces/IConnectivity.md#isonline)
+`AbstractConnectivityManager.isOnline`
 
 ---
 
@@ -132,6 +228,10 @@ Called by other components when API calls succeed.
 
 `void`
 
+#### Inherited from
+
+`AbstractConnectivityManager.reportContact`
+
 ---
 
 ### reportFailure()
@@ -144,6 +244,10 @@ Called by other components when API calls fail due to network.
 #### Returns
 
 `void`
+
+#### Inherited from
+
+`AbstractConnectivityManager.reportFailure`
 
 ---
 
@@ -165,6 +269,10 @@ On disconnect, clears subscribed topics.
 
 `void`
 
+#### Inherited from
+
+`AbstractConnectivityManager.reportWsConnection`
+
 ---
 
 ### reportWsSubscribed()
@@ -184,6 +292,10 @@ readonly `string`[]
 
 `void`
 
+#### Inherited from
+
+`AbstractConnectivityManager.reportWsSubscribed`
+
 ---
 
 ### start()
@@ -196,6 +308,10 @@ Start monitoring connectivity.
 
 `void`
 
+#### Overrides
+
+`AbstractConnectivityManager.start`
+
 ---
 
 ### stop()
@@ -207,3 +323,29 @@ Stop monitoring connectivity.
 #### Returns
 
 `void`
+
+#### Overrides
+
+`AbstractConnectivityManager.stop`
+
+---
+
+### updateState()
+
+> `protected` **updateState**(`updates`): `void`
+
+Update state and emit events.
+
+#### Parameters
+
+##### updates
+
+`Partial`\<[`ConnectivityState`](../interfaces/ConnectivityState.md)\>
+
+#### Returns
+
+`void`
+
+#### Inherited from
+
+`AbstractConnectivityManager.updateState`

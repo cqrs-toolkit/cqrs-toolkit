@@ -26,6 +26,8 @@ import { EventBus } from '../core/events/EventBus.js'
 import { QueryManager } from '../core/query-manager/QueryManager.js'
 import { ReadModelStore } from '../core/read-model-store/ReadModelStore.js'
 import { SessionManager } from '../core/session/SessionManager.js'
+import { ConnectivityManager } from '../core/sync-manager/ConnectivityManager.js'
+import { type IConnectivityManager } from '../core/sync-manager/IConnectivityManager.js'
 import { SyncManager } from '../core/sync-manager/SyncManager.js'
 import { WriteQueue } from '../core/write-queue/WriteQueue.js'
 import { InMemoryStorage } from '../storage/InMemoryStorage.js'
@@ -54,6 +56,7 @@ type SyncManagerConstructor = new (
   readModelStore: ReadModelStore<TLink, TCommand>,
   queryManager: QueryManager<TLink, TCommand>,
   writeQueue: WriteQueue<TLink>,
+  connectivity: IConnectivityManager<TLink>,
   networkConfig: NetworkConfig,
   auth: AuthStrategy,
   collections: Collection<TLink>[],
@@ -190,6 +193,7 @@ async function wireComponents(
   })
 
   // 12. SyncManager (registers remaining WriteQueue handlers + session reset)
+  const connectivity = new ConnectivityManager(eventBus)
   const SyncManagerCtor = config.SyncManagerClass ?? SyncManager
   const syncManager = new SyncManagerCtor(
     eventBus,
@@ -201,6 +205,7 @@ async function wireComponents(
     readModelStore,
     queryManager,
     writeQueue,
+    connectivity,
     network,
     auth,
     collections,

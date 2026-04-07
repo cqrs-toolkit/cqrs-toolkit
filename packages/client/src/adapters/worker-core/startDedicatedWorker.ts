@@ -16,14 +16,12 @@
 
 import { type Link, createConsoleLogger, logProvider } from '@meticoeus/ddd-es'
 import type { IAnticipatedEvent } from '../../core/command-lifecycle/AnticipatedEventShape.js'
+import { OpfsCommandFileStore } from '../../core/command-queue/file-store/OpfsCommandFileStore.js'
 import { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
 import type { CqrsConfig } from '../../types/config.js'
 import { resolveConfig } from '../../types/config.js'
 import { EnqueueCommand } from '../../types/index.js'
 import { WorkerOrchestrator } from './WorkerOrchestrator.js'
-
-// Set a default warn-level console logger so logProvider doesn't throw before consumer setup
-logProvider.setLogger(createConsoleLogger({ level: 'warn' }))
 
 /**
  * Bootstrap a Dedicated Worker with CQRS orchestration.
@@ -41,6 +39,19 @@ export function startDedicatedWorker<
   TSchema,
   TEvent extends IAnticipatedEvent,
 >(config: CqrsConfig<TLink, TCommand, TSchema, TEvent>): void {
+  const self = globalThis as unknown as DedicatedWorkerGlobalScope
+
+  // Set a default warn-level console logger so logProvider doesn't throw before consumer setup
+  logProvider.setLogger(createConsoleLogger({ level: 'warn' }))
+
+  // Surface uncaught errors — without this, worker crashes are silent
+  self.addEventListener('error', (event) => {
+    logProvider.log.error({ err: event.error }, '[dedicated-worker] Uncaught exception')
+  })
+  self.addEventListener('unhandledrejection', (event) => {
+    logProvider.log.error({ reason: event.reason }, '[dedicated-worker] Unhandled rejection')
+  })
+
   const resolved = resolveConfig(config)
   const messageHandler = new WorkerMessageHandler()
   const orchestrator = new WorkerOrchestrator<TLink, TCommand, TSchema, TEvent>(
@@ -50,13 +61,11 @@ export function startDedicatedWorker<
 
   // Register Mode B lifecycle methods
   messageHandler.registerMethod('orchestrator.initialize', async () => {
-    await orchestrator.initialize() // No external DB — probes OPFS, creates local
+    await orchestrator.initialize({ fileStore: new OpfsCommandFileStore() })
   })
   messageHandler.registerMethod('orchestrator.close', async () => {
     await orchestrator.close()
   })
-
-  const self = globalThis as unknown as DedicatedWorkerGlobalScope
 
   // Handle messages from the main thread
   self.onmessage = (event: MessageEvent) => {

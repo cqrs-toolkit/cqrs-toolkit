@@ -287,11 +287,24 @@ export class WorkerMessageChannel {
 }
 
 /**
+ * Configuration for {@link WorkerMessageHandler}.
+ */
+export interface WorkerMessageHandlerConfig extends MessageChannelConfig {
+  /**
+   * Custom response target for sending messages back to the main thread.
+   * Defaults to `globalThis.postMessage` (Web Worker context).
+   * For Electron utility processes, pass the MessagePort connected to the renderer.
+   */
+  responseTarget?: MessageTarget
+}
+
+/**
  * Message handler for worker-side communication.
  */
 export class WorkerMessageHandler {
   private readonly workerInstanceId: string
   private readonly config: Required<MessageChannelConfig>
+  private readonly responseTarget: MessageTarget | undefined
 
   private readonly connectedPorts = new Set<MessagePort>()
   private readonly windowLastSeen = new Map<string, number>()
@@ -312,8 +325,9 @@ export class WorkerMessageHandler {
     (args: unknown[], context: RequestContext) => Promise<unknown>
   >()
 
-  constructor(config: MessageChannelConfig = {}) {
+  constructor(config: WorkerMessageHandlerConfig = {}) {
     this.workerInstanceId = generateId()
+    this.responseTarget = config.responseTarget
     this.config = {
       requestTimeout: config.requestTimeout ?? DEFAULT_REQUEST_TIMEOUT,
       serializeMessages: config.serializeMessages ?? true,
@@ -366,7 +380,18 @@ export class WorkerMessageHandler {
    * @param event - Message event
    */
   handleMessageEvent(event: MessageEvent): void {
-    this.handleMessage(event.data, undefined)
+    this.handleData(event.data)
+  }
+
+  /**
+   * Handle a raw message payload (no port context).
+   *
+   * Use this in environments without DOM `MessageEvent` (e.g., Electron utility process).
+   *
+   * @param data - Raw message data
+   */
+  handleData(data: unknown): void {
+    this.handleMessage(data, undefined)
   }
 
   /**
@@ -418,16 +443,20 @@ export class WorkerMessageHandler {
   }
 
   /**
-   * Send response to requester (Dedicated Worker).
+   * Send response to requester (Dedicated Worker or custom response target).
    *
    * @param response - Response message
    */
   sendResponse(response: WorkerMessage): void {
     const data = this.config.serializeMessages ? serialize(response) : response
-    // In dedicated worker context, use global postMessage.
-    // TypeScript compiles this file for browser context where `globalThis` lacks
-    // `postMessage` — the double cast is unavoidable without a separate compilation target.
-    ;(globalThis as unknown as { postMessage: (data: unknown) => void }).postMessage(data)
+    if (this.responseTarget) {
+      this.responseTarget.postMessage(data)
+    } else {
+      // In dedicated worker context, use global postMessage.
+      // TypeScript compiles this file for browser context where `globalThis` lacks
+      // `postMessage` — the double cast is unavoidable without a separate compilation target.
+      ;(globalThis as unknown as { postMessage: (data: unknown) => void }).postMessage(data)
+    }
   }
 
   /**
@@ -515,6 +544,11 @@ export class WorkerMessageHandler {
     const data = this.config.serializeMessages
       ? deserialize<WorkerMessage>(rawData)
       : (rawData as WorkerMessage)
+
+    if (typeof data !== 'object' || data === null) {
+      logProvider.log.warn({ rawData }, 'Received unprocessable message — dropping')
+      return
+    }
 
     // Handle different message types
     if (data.type === 'register') {

@@ -1,0 +1,82 @@
+{
+  "pulledAt": "2026-04-03T00:41:01.470Z",
+  "apidocUrl": "http://localhost:3002/api/meta/apidoc",
+  "schemas": [
+    {
+      "name": "nb.CreateTodo",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/nb.CreateTodo/1.0.0.json",
+      "sha256": "b6168304606c94da7964d0db78117244d44eb1444ee6b247ff01020ad45592ff"
+    },
+    {
+      "name": "nb.UpdateTodoContent",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/nb.UpdateTodoContentData/1.0.0.json",
+      "sha256": "7cf8f0fffc923d3aeccf30098ebe06c745101249634b2e50978ac07c58505186"
+    },
+    {
+      "name": "nb.ChangeTodoStatus",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/nb.ChangeTodoStatusData/1.0.0.json",
+      "sha256": "61f4fb8cb151b017a2f7101a1920a5010a50269fe13e702bbff08f7132892feb"
+    },
+    {
+      "name": "nb.DeleteTodo",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/nb.DeleteTodoData/1.0.0.json",
+      "sha256": "e029e7eb08bd5530ad6822baa6a734bcc6a8494e216fa624faa416f6c8cab701"
+    },
+    {
+      "name": "nb.CreateNote",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/nb.CreateNote/1.0.0.json",
+      "sha256": "e595b0062766564867535f011838e0024f1f29f5781f86388c62550670fcccea"
+    },
+    {
+      "name": "nb.UpdateNoteTitle",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/nb.UpdateNoteTitleData/1.0.0.json",
+      "sha256": "a1443c31b95c39d873420be2fe5bdc4cdc86bc3247819067c5cf92353a3d6bf9"
+    },
+    {
+      "name": "nb.UpdateNoteBody",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/nb.UpdateNoteBodyData/1.0.0.json",
+      "sha256": "a21c0fd833f2033c8b1a8fedde7703ce5155daab69d52a7089caefd85d245105"
+    },
+    {
+      "name": "nb.DeleteNote",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/nb.DeleteNoteData/1.0.0.json",
+      "sha256": "2b5ec11d09838bd26766589fd259919f14b295cde8d864289a7117760fc91285"
+    },
+    {
+      "name": "nb.CreateNotebook",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/nb.CreateNotebook/1.0.0.json",
+      "sha256": "a0bc6b0d26a3221432ec7553c7e68f825f8c6d0e4dc12c0b401ffd61881cd197"
+    },
+    {
+      "name": "nb.UpdateNotebookName",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/nb.UpdateNotebookNameData/1.0.0.json",
+      "sha256": "a5f450cad7bd043e0b99f32b6154d283bc256c6386fa26d0e990dc5bbb5ae9a0"
+    },
+    {
+      "name": "nb.DeleteNotebook",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/nb.DeleteNotebookData/1.0.0.json",
+      "sha256": "c9a72c444bcf703e03855dae552e3ab1cec6e3e308166e3e3bdacab66a3bade6"
+    },
+    {
+      "name": "nb.AddNotebookTag",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/nb.AddNotebookTagData/1.0.0.json",
+      "sha256": "894f67feb0f5d1be54a5ef7fcc9532f4b07a98b90e0562295a2e3b9763e8c9d1"
+    },
+    {
+      "name": "nb.RemoveNotebookTag",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/nb.RemoveNotebookTagData/1.0.0.json",
+      "sha256": "8ad904aa4bf65f7b4e87d5587d58f1e9478813ac54f3c1dd988e4d09c7875aaf"
+    },
+    {
+      "name": "storage.CreateFileObject",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/storage.CreateFileObject/1.0.0.json",
+      "sha256": "78ed15718c0ce499e7dc9a2bee1cfdde962d052fb8bffb6dbe3082a9f59fc96a"
+    },
+    {
+      "name": "storage.DeleteFileObject",
+      "url": "http://localhost:3002/api/meta/schemas/urn/schema/storage.DeleteFileObjectData/1.0.0.json",
+      "sha256": "40b67a6bb97c2f80d12466b16272e07beecaaa423c339eb45850f39e59818090"
+    }
+  ],
+  "commonSchemas": []
+}

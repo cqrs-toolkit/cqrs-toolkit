@@ -25,6 +25,7 @@ import type { SessionManager } from '../session/SessionManager.js'
 import type { WriteQueueException } from '../write-queue/IWriteQueue.js'
 import { SessionResetException } from '../write-queue/IWriteQueue.js'
 import { WriteQueue } from '../write-queue/WriteQueue.js'
+import { ConnectivityManager } from './ConnectivityManager.js'
 import { SyncManager } from './SyncManager.js'
 
 const DUMMY_NETWORK = { baseUrl: 'http://localhost:3000' }
@@ -75,6 +76,7 @@ describe('SyncManager', () => {
     todosCollection: Collection<ServiceLink>
     sessionManager: SessionManager<ServiceLink, EnqueueCommand>
     writeQueue: WriteQueue<ServiceLink>
+    connectivity: ConnectivityManager<ServiceLink>
   }
 
   async function bootstrap(
@@ -139,6 +141,7 @@ describe('SyncManager', () => {
     }
     const sessionManager = createSessionManager()
     const writeQueue = createTestWriteQueue(eventBus)
+    const connectivity = new ConnectivityManager(eventBus)
 
     const syncManager = params?.customSyncManager
       ? undefined
@@ -152,6 +155,7 @@ describe('SyncManager', () => {
           readModelStore,
           queryManager,
           writeQueue,
+          connectivity,
           DUMMY_NETWORK,
           cookieAuthStrategy,
           params?.collections ?? [todosCollection],
@@ -172,6 +176,7 @@ describe('SyncManager', () => {
       sessionManager,
       writeQueue,
       syncManager,
+      connectivity,
     }
   }
 
@@ -338,6 +343,7 @@ describe('SyncManager', () => {
         readModelStore,
         sessionManager,
         writeQueue,
+        connectivity,
       } = await bootstrap({ customSyncManager: true })
 
       const fetchSeedRecords = vi.fn().mockResolvedValue({
@@ -369,6 +375,7 @@ describe('SyncManager', () => {
         readModelStore,
         queryManager,
         writeQueue,
+        connectivity,
         DUMMY_NETWORK,
         cookieAuthStrategy,
         [notesCollection],
@@ -405,6 +412,7 @@ describe('SyncManager', () => {
         readModelStore,
         sessionManager,
         writeQueue,
+        connectivity,
       } = await bootstrap({ customSyncManager: true })
 
       const fetchSeedRecords = vi.fn().mockResolvedValue({
@@ -435,7 +443,7 @@ describe('SyncManager', () => {
         readModelStore,
         queryManager,
         writeQueue,
-
+        connectivity,
         DUMMY_NETWORK,
         cookieAuthStrategy,
         [notesCollection],
@@ -469,6 +477,7 @@ describe('SyncManager', () => {
         readModelStore,
         sessionManager,
         writeQueue,
+        connectivity,
       } = await bootstrap({ customSyncManager: true })
 
       const fetchSeedRecords = vi.fn()
@@ -496,6 +505,7 @@ describe('SyncManager', () => {
         readModelStore,
         queryManager,
         writeQueue,
+        connectivity,
         DUMMY_NETWORK,
         cookieAuthStrategy,
         [todosCollection],
@@ -519,6 +529,7 @@ describe('SyncManager', () => {
         readModelStore,
         sessionManager,
         writeQueue,
+        connectivity,
       } = await bootstrap({ customSyncManager: true })
 
       let resolveReset: (() => void) | undefined
@@ -560,7 +571,7 @@ describe('SyncManager', () => {
         readModelStore,
         queryManager,
         writeQueue,
-
+        connectivity,
         DUMMY_NETWORK,
         cookieAuthStrategy,
         [notesCollection],
@@ -610,6 +621,7 @@ describe('SyncManager', () => {
         readModelStore,
         sessionManager,
         writeQueue,
+        connectivity,
       } = await bootstrap({ customSyncManager: true })
 
       const fetchSeedRecords = vi.fn().mockResolvedValue({
@@ -627,6 +639,7 @@ describe('SyncManager', () => {
         readModelStore,
         queryManager,
         writeQueue,
+        connectivity,
         DUMMY_NETWORK,
         cookieAuthStrategy,
         [createNotesCollection(fetchSeedRecords)],
@@ -657,6 +670,7 @@ describe('SyncManager', () => {
         readModelStore,
         sessionManager,
         writeQueue,
+        connectivity,
       } = await bootstrap({ customSyncManager: true })
 
       const fetchSeedRecords = vi.fn().mockResolvedValue({
@@ -674,6 +688,7 @@ describe('SyncManager', () => {
         readModelStore,
         queryManager,
         writeQueue,
+        connectivity,
         DUMMY_NETWORK,
         cookieAuthStrategy,
         [createNotesCollection(fetchSeedRecords)],
@@ -704,6 +719,7 @@ describe('SyncManager', () => {
         readModelStore,
         sessionManager,
         writeQueue,
+        connectivity,
       } = await bootstrap({ customSyncManager: true })
 
       const fetchSeedRecords = vi.fn().mockResolvedValue({
@@ -721,6 +737,7 @@ describe('SyncManager', () => {
         readModelStore,
         queryManager,
         writeQueue,
+        connectivity,
         DUMMY_NETWORK,
         cookieAuthStrategy,
         [createNotesCollection(fetchSeedRecords)],
@@ -775,6 +792,7 @@ describe('SyncManager', () => {
         readModelStore,
         sessionManager,
         writeQueue,
+        connectivity,
       } = await bootstrap({ customSyncManager: true })
 
       const fetchSeedRecords = vi.fn().mockResolvedValue({
@@ -805,7 +823,7 @@ describe('SyncManager', () => {
         readModelStore,
         queryManager,
         writeQueue,
-
+        connectivity,
         DUMMY_NETWORK,
         cookieAuthStrategy,
         [notesCollection],
@@ -839,6 +857,7 @@ describe('SyncManager', () => {
         readModelStore,
         sessionManager,
         writeQueue,
+        connectivity,
       } = await bootstrap({ customSyncManager: true })
 
       const fetchSeedRecords = vi.fn()
@@ -866,6 +885,7 @@ describe('SyncManager', () => {
         readModelStore,
         queryManager,
         writeQueue,
+        connectivity,
         DUMMY_NETWORK,
         cookieAuthStrategy,
         [todosCollection],
@@ -894,6 +914,7 @@ describe('SyncManager', () => {
         readModelStore,
         sessionManager,
         writeQueue,
+        connectivity,
       } = await bootstrap({ customSyncManager: true })
 
       const notesCollection: Collection<ServiceLink> = {
@@ -922,6 +943,7 @@ describe('SyncManager', () => {
         readModelStore,
         queryManager,
         writeQueue,
+        connectivity,
         DUMMY_NETWORK,
         cookieAuthStrategy,
         [notesCollection],

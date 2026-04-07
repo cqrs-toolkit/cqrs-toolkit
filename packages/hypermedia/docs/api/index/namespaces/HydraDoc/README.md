@@ -22,11 +22,11 @@
 - [BaseCommandCapability](interfaces/BaseCommandCapability.md)
 - [ClassDef](interfaces/ClassDef.md)
 - [CollectionSurface](interfaces/CollectionSurface.md)
-- [ContentTypeSchema](interfaces/ContentTypeSchema.md)
 - [EventsResourceConfig](interfaces/EventsResourceConfig.md)
 - [ExternalEndpoint](interfaces/ExternalEndpoint.md)
 - [ExternalEndpointOperation](interfaces/ExternalEndpointOperation.md)
 - [IriTemplateMapping](interfaces/IriTemplateMapping.md)
+- [OperationDocumentation](interfaces/OperationDocumentation.md)
 - [PlainCommandsDef](interfaces/PlainCommandsDef.md)
 - [PlainCommandSurfaceBase](interfaces/PlainCommandSurfaceBase.md)
 - [PlainCommonCommandCapability](interfaces/PlainCommonCommandCapability.md)
@@ -37,7 +37,11 @@
 - [PlainQuerySurface](interfaces/PlainQuerySurface.md)
 - [PlainRepresentation](interfaces/PlainRepresentation.md)
 - [PlainViewRepresentation](interfaces/PlainViewRepresentation.md)
+- [ResolvedResponseDef](interfaces/ResolvedResponseDef.md)
 - [ResourceSurface](interfaces/ResourceSurface.md)
+- [ResponseDef](interfaces/ResponseDef.md)
+- [StandardCommandSurfaceOpts](interfaces/StandardCommandSurfaceOpts.md)
+- [StandardCreateCommandSurfaceOpts](interfaces/StandardCreateCommandSurfaceOpts.md)
 - [Workflow](interfaces/Workflow.md)
 
 ## Type Aliases
@@ -50,7 +54,12 @@
 - [Hydrator](type-aliases/Hydrator.md)
 - [PlainCommandCapability](type-aliases/PlainCommandCapability.md)
 - [PlainCommandSurface](type-aliases/PlainCommandSurface.md)
+- [ResponseEntry](type-aliases/ResponseEntry.md)
 - [StandardCommandDispatch](type-aliases/StandardCommandDispatch.md)
+
+## Variables
+
+- [NO_BODY](variables/NO_BODY.md)
 
 ## Functions
 

@@ -4,15 +4,9 @@
 
 [@cqrs-toolkit/client](../globals.md) / ConnectivityManagerConfig
 
-# Interface: ConnectivityManagerConfig\<TLink\>
+# Interface: ConnectivityManagerConfig
 
 Connectivity manager configuration.
-
-## Type Parameters
-
-### TLink
-
-`TLink` _extends_ `Link`
 
 ## Properties
 
@@ -21,12 +15,6 @@ Connectivity manager configuration.
 > `optional` **checkInterval**: `number`
 
 Interval to check API connectivity (ms)
-
----
-
-### eventBus
-
-> **eventBus**: [`EventBus`](../classes/EventBus.md)\<`TLink`\>
 
 ---
 

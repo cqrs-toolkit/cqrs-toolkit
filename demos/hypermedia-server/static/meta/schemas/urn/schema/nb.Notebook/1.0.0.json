@@ -1,0 +1,28 @@
+{
+  "$id": "urn:schema:nb.Notebook:1.0.0",
+  "properties": {
+    "createdAt": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "latestRevision": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "tags": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "updatedAt": {
+      "type": "string"
+    }
+  },
+  "required": ["id", "name", "tags", "createdAt", "updatedAt", "latestRevision"],
+  "type": "object"
+}

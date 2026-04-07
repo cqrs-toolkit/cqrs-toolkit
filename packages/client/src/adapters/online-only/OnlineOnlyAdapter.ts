@@ -15,7 +15,7 @@ import type { ResolvedConfig } from '../../types/config.js'
 import type { LibraryEvent } from '../../types/events.js'
 import { EnqueueCommand } from '../../types/index.js'
 import { assert } from '../../utils/assert.js'
-import type { AdapterStatus, IOnlineOnlyAdapter } from '../base/IAdapter.js'
+import type { AdapterStatus, IWindowAdapter } from '../base/IAdapter.js'
 
 /**
  * Online-only adapter for development, testing, and deployments
@@ -26,8 +26,8 @@ export class OnlineOnlyAdapter<
   TCommand extends EnqueueCommand,
   TSchema,
   TEvent extends IAnticipatedEvent,
-> implements IOnlineOnlyAdapter<TLink, TCommand> {
-  readonly mode = 'online-only' as const
+> implements IWindowAdapter<TLink, TCommand> {
+  readonly kind = 'window' as const
   readonly role = 'leader' as const
   readonly eventBus: EventBus<TLink>
 

@@ -19,6 +19,18 @@ You may optionally provide a human-friendly label for debugging/diffs.
 
 ## Properties
 
+### description?
+
+> `optional` **description**: `string`
+
+Human-readable description of this operation.
+
+#### Inherited from
+
+[`PlainCommandSurfaceBase`](PlainCommandSurfaceBase.md).[`description`](PlainCommandSurfaceBase.md#description)
+
+---
+
 ### method
 
 > **method**: `"POST"`
@@ -36,6 +48,42 @@ HTTP method for invoking this command surface.
 > `optional` **name**: `string`
 
 Optional label for humans/logging; not used for resolution.
+
+---
+
+### operationId?
+
+> `optional` **operationId**: `string`
+
+OpenAPI operationId. Required for OpenAPI generation.
+
+#### Inherited from
+
+[`PlainCommandSurfaceBase`](PlainCommandSurfaceBase.md).[`operationId`](PlainCommandSurfaceBase.md#operationid)
+
+---
+
+### responses?
+
+> `optional` **responses**: readonly [`ResponseEntry`](../type-aliases/ResponseEntry.md)[]
+
+Response documentation for this operation.
+
+#### Inherited from
+
+[`PlainCommandSurfaceBase`](PlainCommandSurfaceBase.md).[`responses`](PlainCommandSurfaceBase.md#responses)
+
+---
+
+### responseSchemaUrn?
+
+> `optional` **responseSchemaUrn**: `string`
+
+URN for the oneOf union schema when 2xx responses have different schemas per contentType.
+
+#### Inherited from
+
+[`PlainCommandSurfaceBase`](PlainCommandSurfaceBase.md).[`responseSchemaUrn`](PlainCommandSurfaceBase.md#responseschemaurn)
 
 ---
 

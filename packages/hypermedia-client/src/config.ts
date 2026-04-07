@@ -32,7 +32,7 @@ export type CommandEntry =
     }
 
 /**
- * Configuration for `cqrs-pull` CLI.
+ * Configuration for `cqrs-toolkit client` commands.
  */
 export interface PullConfig {
   /** Base server URL (e.g. 'http://localhost:3002') */
@@ -58,30 +58,4 @@ export interface PullConfig {
   commands: CommandEntry[]
   /** Representation @id fragments (e.g. ['#demo-todo-v1_0_0']) */
   representations: string[]
-}
-
-/**
- * Identity helper for type-safe config files.
- *
- * ```ts
- * // cqrs-hypermedia.config.ts
- * import { defineConfig } from '@cqrs-toolkit/hypermedia-client/config'
- *
- * export default defineConfig({
- *   server: 'http://localhost:3002',
- *   apidocPath: '/api/meta/apidoc',
- *   extractCommand: (schema) => {
- *     const dataRef = schema.properties?.data
- *     if (typeof dataRef === 'object' && dataRef !== null && '$ref' in dataRef) {
- *       return (dataRef as { $ref: string }).$ref
- *     }
- *     return undefined
- *   },
- *   commands: ['urn:command:demo.CreateTodo:1.0.0'],
- *   representations: ['#demo-todo-v1_0_0'],
- * })
- * ```
- */
-export function defineConfig(config: PullConfig): PullConfig {
-  return config
 }

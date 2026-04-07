@@ -46,13 +46,13 @@ This adapter:
 
 ## Properties
 
-### mode
+### kind
 
-> `readonly` **mode**: `"dedicated-worker"`
+> `readonly` **kind**: `"worker"`
 
 #### Implementation of
 
-[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`mode`](../interfaces/IWorkerAdapter.md#mode)
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`kind`](../interfaces/IWorkerAdapter.md#kind)
 
 ---
 

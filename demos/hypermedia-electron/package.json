@@ -1,0 +1,33 @@
+{
+  "name": "@cqrs-toolkit/hypermedia-electron",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hypermedia demo Electron client for @cqrs-toolkit",
+  "license": "MIT",
+  "author": "Ontel, LLC",
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "npm run build:renderer && npm run build:electron",
+    "build:renderer": "vite build",
+    "build:electron": "node scripts/build-electron.js",
+    "start": "npm run build && electron dist/main.js",
+    "server": "npm run server -w @cqrs-toolkit/hypermedia-server"
+  },
+  "dependencies": {
+    "@cqrs-toolkit/client": "*",
+    "@cqrs-toolkit/client-electron": "*",
+    "@cqrs-toolkit/client-solid": "*",
+    "@cqrs-toolkit/hypermedia-base": "*",
+    "@meticoeus/ddd-es": "^0.7.3",
+    "@solidjs/router": "^0.15.4",
+    "better-sqlite3": "^12.8.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.1",
+    "esbuild": "^0.28.0",
+    "solid-js": "^1.9.0",
+    "tailwindcss": "^4.2.1",
+    "vite-plugin-solid": "^2.11.0"
+  }
+}

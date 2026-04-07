@@ -6,7 +6,7 @@ export type {
   AdapterStatus,
   CqrsClientSyncManager,
   IAdapter,
-  IOnlineOnlyAdapter,
+  IWindowAdapter,
   IWorkerAdapter,
 } from './base/IAdapter.js'
 export { OnlineOnlyAdapter } from './online-only/OnlineOnlyAdapter.js'

@@ -100,7 +100,7 @@ export class SharedWorkerAdapter<
   TLink extends Link,
   TCommand extends EnqueueCommand,
 > implements IWorkerAdapter<TLink, TCommand> {
-  readonly mode = 'shared-worker' as const
+  readonly kind = 'worker' as const
 
   private readonly config: SharedWorkerAdapterConfig
   private readonly windowId: string

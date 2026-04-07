@@ -18,7 +18,7 @@ Message handler for worker-side communication.
 
 ##### config?
 
-[`MessageChannelConfig`](../interfaces/MessageChannelConfig.md) = `{}`
+[`WorkerMessageHandlerConfig`](../interfaces/WorkerMessageHandlerConfig.md) = `{}`
 
 #### Returns
 
@@ -119,6 +119,28 @@ Handle a new connection (SharedWorker).
 `MessagePort`
 
 MessagePort from the connect event
+
+#### Returns
+
+`void`
+
+---
+
+### handleData()
+
+> **handleData**(`data`): `void`
+
+Handle a raw message payload (no port context).
+
+Use this in environments without DOM `MessageEvent` (e.g., Electron utility process).
+
+#### Parameters
+
+##### data
+
+`unknown`
+
+Raw message data
 
 #### Returns
 
@@ -244,7 +266,7 @@ Window identifier
 
 > **sendResponse**(`response`): `void`
 
-Send response to requester (Dedicated Worker).
+Send response to requester (Dedicated Worker or custom response target).
 
 #### Parameters
 

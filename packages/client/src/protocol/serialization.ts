@@ -4,13 +4,14 @@
  * Handles special types like BigInt and Date that cannot be directly
  * serialized via structured clone algorithm used by postMessage.
  */
-
 /**
- * Serialization marker for special types.
+ * Serialized representation of a primitive or structural type that requires
+ * custom encoding to survive serialization boundaries (e.g. BigInt, undefined,
+ * Date, Map, Set, ArrayBuffer).
  */
 interface SerializedValue {
   __serialized__: true
-  type: 'bigint' | 'date' | 'undefined' | 'map' | 'set'
+  type: 'arraybuffer' | 'bigint' | 'date' | 'undefined' | 'map' | 'set'
   value: string
 }
 
@@ -45,7 +46,7 @@ function serializeRecursive(value: unknown, seen: WeakSet<object>): unknown {
 
   // Handle undefined
   if (value === undefined) {
-    return { __serialized__: true, type: 'undefined', value: '' } as SerializedValue
+    return { __serialized__: true, type: 'undefined', value: '' }
   }
 
   // Handle primitives
@@ -55,12 +56,39 @@ function serializeRecursive(value: unknown, seen: WeakSet<object>): unknown {
 
   // Handle BigInt
   if (typeof value === 'bigint') {
-    return { __serialized__: true, type: 'bigint', value: value.toString() } as SerializedValue
+    return { __serialized__: true, type: 'bigint', value: value.toString() }
   }
 
   // Handle Date
   if (value instanceof Date) {
-    return { __serialized__: true, type: 'date', value: value.toISOString() } as SerializedValue
+    return { __serialized__: true, type: 'date', value: value.toISOString() }
+  }
+
+  /* ArrayBuffer transfer is broken across Electron's MessagePortMain boundary —
+   * the buffer arrives as null on the receiving side despite being correctly
+   * detached on the sender side. Base64 encoding ensures reliable transport.
+   * Can be revisited if Electron fixes https://github.com/electron/electron/issues/34905
+   * If fixed, we also need to add transferable support to internal postMessage API.
+   */
+  if (value instanceof ArrayBuffer) {
+    const bytes = new Uint8Array(value)
+    let binary = ''
+    for (let i = 0; i < bytes.length; i += 8192) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + 8192))
+    }
+    return { __serialized__: true, type: 'arraybuffer', value: btoa(binary) }
+  }
+
+  if (ArrayBuffer.isView(value)) {
+    // Normalize all TypedArrays to ArrayBuffer and let the above handle it
+    return serializeRecursive(
+      value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength),
+      seen,
+    )
+  }
+
+  if (value instanceof Blob) {
+    return value
   }
 
   // Handle arrays
@@ -144,6 +172,14 @@ function deserializeRecursive(value: unknown): unknown {
   // Handle serialization markers
   if (isSerializedValue(value)) {
     switch (value.type) {
+      case 'arraybuffer': {
+        const binary = atob(value.value)
+        const bytes = new Uint8Array(binary.length)
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i)
+        }
+        return bytes.buffer
+      }
       case 'bigint':
         return BigInt(value.value)
       case 'date':

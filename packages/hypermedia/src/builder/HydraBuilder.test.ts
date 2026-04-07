@@ -243,72 +243,6 @@ describe('buildHydraApiDocumentation', () => {
       expect(result.schemas.has(createPath)).toBe(true)
     })
 
-    it('throws when response schema is missing $id', () => {
-      expect(() =>
-        buildHydraApiDocumentation({
-          classes: [
-            makeClassDef({
-              surfaces: HydraDoc.standardCommandSurfaces({
-                idStem: '#test',
-                collectionHref: '/api/test/entities',
-                idProperty: 'test:entityId',
-              }),
-              commands: [
-                {
-                  id: 'urn:command:test.CreateItem:1.0.0',
-                  stableId: 'test.CreateItem',
-                  version: '1.0.0',
-                  dispatch: 'create',
-                  schema: CREATE_SCHEMA,
-                  responseSchema: [
-                    {
-                      contentType: 'application/json',
-                      schema: { type: 'object' } as JSONSchema7,
-                    },
-                  ],
-                },
-              ],
-            }),
-          ],
-          prefixes: PREFIXES,
-          strictPrefixes: true,
-        }),
-      ).toThrow('missing $id')
-    })
-
-    it('throws on invalid response schema content type', () => {
-      expect(() =>
-        buildHydraApiDocumentation({
-          classes: [
-            makeClassDef({
-              surfaces: HydraDoc.standardCommandSurfaces({
-                idStem: '#test',
-                collectionHref: '/api/test/entities',
-                idProperty: 'test:entityId',
-              }),
-              commands: [
-                {
-                  id: 'urn:command:test.CreateItem:1.0.0',
-                  stableId: 'test.CreateItem',
-                  version: '1.0.0',
-                  dispatch: 'create',
-                  schema: CREATE_SCHEMA,
-                  responseSchema: [
-                    {
-                      contentType: 'not a media type',
-                      schema: PERMIT_RESPONSE_SCHEMA,
-                    },
-                  ],
-                },
-              ],
-            }),
-          ],
-          prefixes: PREFIXES,
-          strictPrefixes: true,
-        }),
-      ).toThrow('invalid content type')
-    })
-
     it('renders svc:responseSchema on representation surfaces', () => {
       const responseSchema: JSONSchema7 = {
         $id: 'urn:schema:test.EntityResponse:1.0.0',
@@ -331,7 +265,7 @@ describe('buildHydraApiDocumentation', () => {
                     template: '/api/test/entities/{id}',
                     mappings: [{ variable: 'id', property: 'test:entityId', required: true }],
                   },
-                  responseSchema: [{ contentType: 'application/json', schema: responseSchema }],
+                  responses: [{ code: 200, schema: responseSchema }],
                 },
                 collection: {
                   profile: 'urn:profile:test.EntityCollection:1.0.0',
@@ -407,7 +341,7 @@ describe('buildHydraApiDocumentation', () => {
                 version: '1.0.0',
                 dispatch: 'create',
                 schema: requestSchema,
-                responseSchema: [{ contentType: 'application/json', schema: responseSchema }],
+                responses: [{ code: 200, schema: responseSchema }],
               },
             ],
           }),
@@ -799,7 +733,7 @@ function buildWithResponseSchema(): BuildResult {
             version: '1.0.0',
             dispatch: 'create',
             schema: CREATE_SCHEMA,
-            responseSchema: [{ contentType: 'application/json', schema: PERMIT_RESPONSE_SCHEMA }],
+            responses: [{ code: 200, schema: PERMIT_RESPONSE_SCHEMA }],
           },
         ],
       }),

@@ -18,7 +18,7 @@ import { AnticipatedEventHandler } from '../../core/command-lifecycle/Anticipate
 import type { IAnticipatedEvent } from '../../core/command-lifecycle/AnticipatedEventShape.js'
 import { createCommandResponseHandler } from '../../core/command-lifecycle/createCommandResponseHandler.js'
 import { CommandQueue } from '../../core/command-queue/CommandQueue.js'
-import { OpfsCommandFileStore } from '../../core/command-queue/file-store/OpfsCommandFileStore.js'
+import type { ICommandFileStore } from '../../core/command-queue/file-store/ICommandFileStore.js'
 import { EventCache } from '../../core/event-cache/EventCache.js'
 import { EventProcessorRegistry } from '../../core/event-processor/EventProcessorRegistry.js'
 import { EventProcessorRunner } from '../../core/event-processor/EventProcessorRunner.js'
@@ -26,6 +26,7 @@ import { EventBus } from '../../core/events/EventBus.js'
 import { QueryManager } from '../../core/query-manager/QueryManager.js'
 import { ReadModelStore } from '../../core/read-model-store/ReadModelStore.js'
 import { SessionManager } from '../../core/session/SessionManager.js'
+import { ConnectivityManager } from '../../core/sync-manager/ConnectivityManager.js'
 import { SyncManager } from '../../core/sync-manager/SyncManager.js'
 import { WriteQueue } from '../../core/write-queue/WriteQueue.js'
 import type { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
@@ -42,6 +43,16 @@ import { registerCommandQueueMethods } from './registerCommandQueueMethods.js'
 import { registerDebugMethods } from './registerDebugMethods.js'
 import { registerQueryManagerMethods } from './registerQueryManagerMethods.js'
 import { registerSyncManagerMethods } from './registerSyncManagerMethods.js'
+
+/**
+ * Options for {@link WorkerOrchestrator.initialize}.
+ */
+export interface WorkerOrchestratorInitOptions {
+  /** Pre-configured ISqliteDb (e.g., RemoteSqliteDb for Mode C, BetterSqliteDb for Electron). */
+  externalDb?: ISqliteDb
+  /** File store for command file uploads. */
+  fileStore: ICommandFileStore
+}
 
 /**
  * Worker orchestrator manages the full lifecycle of CQRS components inside a worker.
@@ -81,10 +92,10 @@ export class WorkerOrchestrator<
   /**
    * Initialize all CQRS components.
    *
-   * @param externalDb - Pre-configured ISqliteDb (Mode C: RemoteSqliteDb managed
-   *   by startSharedWorker). When omitted, probes OPFS and creates a local db (Mode B).
+   * @param options - Initialization options including the file store and optional external DB.
+   *   When `externalDb` is omitted, probes OPFS and creates a local db (Mode B).
    */
-  async initialize(externalDb?: ISqliteDb): Promise<void> {
+  async initialize(options: WorkerOrchestratorInitOptions): Promise<void> {
     const config = this.config
 
     // 1. Run worker setup scripts
@@ -99,9 +110,8 @@ export class WorkerOrchestrator<
     const vfs = config.storage.vfs ?? 'opfs'
     let db: ISqliteDb
 
-    if (externalDb) {
-      // Mode C (SharedWorker): RemoteSqliteDb managed by startSharedWorker
-      db = externalDb
+    if (options.externalDb) {
+      db = options.externalDb
     } else {
       // Mode B (DedicatedWorker): probe OPFS, create local db
       const probeResult = await probeOpfs()
@@ -197,7 +207,7 @@ export class WorkerOrchestrator<
         return { domainExecutor: executor, handlerMetadata: executor }
       })(),
       commandSender: config.commandSender,
-      fileStore: new OpfsCommandFileStore(),
+      fileStore: options.fileStore,
       retryConfig: config.retry,
       retainTerminal: config.retainTerminal,
       onCommandResponse: createCommandResponseHandler<TLink, TCommand, TSchema, TEvent>(
@@ -208,6 +218,10 @@ export class WorkerOrchestrator<
     this.commandQueue = commandQueue
 
     // 13. Create SyncManager — sets the queue's session reset handler internally.
+    const connectivity = new ConnectivityManager<TLink>(eventBus, {
+      healthCheckUrl: `${config.network.baseUrl}/health`,
+    })
+
     const syncManager = new SyncManager<TLink, TCommand, TSchema, TEvent>(
       eventBus,
       sessionManager,
@@ -218,6 +232,7 @@ export class WorkerOrchestrator<
       readModelStore,
       queryManager,
       writeQueue,
+      connectivity,
       config.network,
       config.auth,
       config.collections,

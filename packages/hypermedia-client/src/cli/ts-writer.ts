@@ -97,7 +97,7 @@ function generateCommandsTs(commands: Map<string, ParsedCommand>): string {
 
     const fields = [
       `      urn: '${cmd.urn}'`,
-      `      dispatch: '${cmd.dispatch}'`,
+      ...(cmd.dispatch ? [`      dispatch: '${cmd.dispatch}'`] : []),
       ...(cmd.commandType ? [`      commandType: '${cmd.commandType}'`] : []),
       `      template: '${cmd.template}'`,
       `      mappings: [${mappingsStr}]`,
@@ -133,7 +133,7 @@ function generateCommandsTs(commands: Map<string, ParsedCommand>): string {
 
   return `/**
  * Generated command routing manifest — do not edit.
- * Regenerate with: cqrs-pull generate
+ * Regenerate with: cqrs-toolkit client pull
  */
 
 import type { AutoRevision } from '@cqrs-toolkit/client'
@@ -168,7 +168,7 @@ function generateRepresentationsTs(representations: RepresentationManifest): str
 
   return `/**
  * Generated representation surfaces — do not edit.
- * Regenerate with: cqrs-pull generate
+ * Regenerate with: cqrs-toolkit client pull
  */
 
 import type { RepresentationSurfaces } from '@cqrs-toolkit/hypermedia-client'
@@ -186,7 +186,7 @@ function generateSchemasTs(schemas: SchemasInput): string {
   if (allSchemas.length === 0) {
     return `/**
  * Generated schema imports — do not edit.
- * Regenerate with: cqrs-pull generate
+ * Regenerate with: cqrs-toolkit client pull
  */
 
 import type { SchemaRegistry } from '@cqrs-toolkit/hypermedia-client'
@@ -216,7 +216,7 @@ export const schemas: SchemaRegistry = { commands: {}, common: {} }
 
   return `/**
  * Generated schema imports — do not edit.
- * Regenerate with: cqrs-pull generate
+ * Regenerate with: cqrs-toolkit client pull
  */
 
 import type { SchemaRegistry } from '@cqrs-toolkit/hypermedia-client'

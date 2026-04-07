@@ -22,9 +22,17 @@
       "types": "./dist/src/server/index.d.ts",
       "import": "./dist/src/server/index.js"
     },
+    "./dev-server": {
+      "types": "./dist/src/dev-server/index.d.ts",
+      "import": "./dist/src/dev-server/index.js"
+    },
     "./builder": {
       "types": "./dist/src/builder/index.d.ts",
       "import": "./dist/src/builder/index.js"
+    },
+    "./config": {
+      "types": "./dist/src/cli/config-types.d.ts",
+      "import": "./dist/src/cli/config-types.js"
     }
   },
   "files": [
@@ -39,6 +47,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@hyperjump/json-schema": "^1.17.5",
     "moderndash": "^3.12.0"
   },
   "devDependencies": {
@@ -46,8 +55,8 @@
     "@types/json-schema": "^7.0.15"
   },
   "peerDependencies": {
-    "@meticoeus/ddd-es": ">=0.7.3",
     "@cqrs-toolkit/schema": ">=0.1.0",
+    "@meticoeus/ddd-es": ">=0.7.3",
     "ajv": ">=8.0.0",
     "fastify": ">=5.0.0"
   }

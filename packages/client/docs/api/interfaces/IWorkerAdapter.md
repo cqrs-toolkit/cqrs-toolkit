@@ -6,8 +6,9 @@
 
 # Interface: IWorkerAdapter\<TLink, TCommand\>
 
-Worker adapter provides proxy objects. All orchestration happens in the
-worker; createCqrsClient just wraps the proxies.
+Worker adapter — all CQRS components live in a background process
+(Web Worker, Electron utility process, etc.). The main thread gets
+proxy objects that forward calls via the message protocol.
 
 ## Extends
 
@@ -49,9 +50,9 @@ Observable of library events.
 
 ---
 
-### mode
+### kind
 
-> `readonly` **mode**: `"shared-worker"` \| `"dedicated-worker"`
+> `readonly` **kind**: `"worker"`
 
 ---
 

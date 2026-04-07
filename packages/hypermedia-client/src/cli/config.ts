@@ -1,62 +1,42 @@
 /**
- * CLI config file discovery and loading.
+ * Config validation and resolution for `cqrs-toolkit client` commands.
  */
 
-import { existsSync } from 'node:fs'
-import { join, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { resolve } from 'node:path'
 import type { PullConfig } from '../config.js'
 
-const CONFIG_FILENAMES = [
-  'cqrs-hypermedia.config.ts',
-  'cqrs-hypermedia.config.js',
-  'cqrs-hypermedia.config.mjs',
-]
-
-interface ResolvedConfig extends PullConfig {
+export interface ResolvedPullConfig extends PullConfig {
   /** Resolved absolute path to the output directory */
   resolvedOutputDir: string
 }
 
 /**
- * Load the pull config from the project root.
- * Searches for known config filenames in order.
- * TS configs require a TypeScript-capable loader (e.g. tsx via NODE_OPTIONS).
+ * Validate and resolve a raw PullConfig into a ResolvedPullConfig.
+ * Throws on invalid config.
  */
-export async function loadConfig(projectRoot: string): Promise<ResolvedConfig> {
-  const configPath = findConfigFile(projectRoot)
-  const mod = (await import(pathToFileURL(configPath).href)) as { default: PullConfig }
-  const config = mod.default
-  validateConfig(config, configPath)
+export function resolveConfig(rawConfig: PullConfig, projectRoot: string): ResolvedPullConfig {
+  validateConfig(rawConfig)
   return {
-    ...config,
-    resolvedOutputDir: resolve(projectRoot, config.outputDir ?? '.cqrs'),
+    ...rawConfig,
+    resolvedOutputDir: resolve(projectRoot, rawConfig.outputDir ?? '.cqrs'),
   }
 }
 
-function findConfigFile(projectRoot: string): string {
-  for (const name of CONFIG_FILENAMES) {
-    const candidate = join(projectRoot, name)
-    if (existsSync(candidate)) return candidate
-  }
-  throw new Error(`No config file found. Create one of: ${CONFIG_FILENAMES.join(', ')}`)
-}
-
-function validateConfig(config: unknown, path: string): asserts config is PullConfig {
+function validateConfig(config: unknown): asserts config is PullConfig {
   if (typeof config !== 'object' || config === null) {
-    throw new Error(`Config file ${path} must default-export an object`)
+    throw new Error(`Client config must be an object`)
   }
   const c = config as Record<string, unknown>
   if (typeof c['server'] !== 'string') {
-    throw new Error(`Config 'server' must be a string`)
+    throw new Error(`Config 'client.server' must be a string`)
   }
   if (typeof c['apidocPath'] !== 'string') {
-    throw new Error(`Config 'apidocPath' must be a string`)
+    throw new Error(`Config 'client.apidocPath' must be a string`)
   }
   if (!Array.isArray(c['commands']) || c['commands'].length === 0) {
-    throw new Error(`Config 'commands' must be a non-empty array of URN strings`)
+    throw new Error(`Config 'client.commands' must be a non-empty array of URN strings`)
   }
   if (!Array.isArray(c['representations'])) {
-    throw new Error(`Config 'representations' must be an array of @id fragment strings`)
+    throw new Error(`Config 'client.representations' must be an array of @id fragment strings`)
   }
 }

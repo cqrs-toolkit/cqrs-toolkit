@@ -30,7 +30,7 @@ Sync manager.
 
 ### Constructor
 
-> **new SyncManager**\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>(`eventBus`, `sessionManager`, `commandQueue`, `eventCache`, `cacheManager`, `eventProcessor`, `readModelStore`, `queryManager`, `writeQueue`, `networkConfig`, `auth`, `collections`): `SyncManager`\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
+> **new SyncManager**\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>(`eventBus`, `sessionManager`, `commandQueue`, `eventCache`, `cacheManager`, `eventProcessor`, `readModelStore`, `queryManager`, `writeQueue`, `connectivity`, `networkConfig`, `auth`, `collections`): `SyncManager`\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 #### Parameters
 
@@ -69,6 +69,10 @@ Sync manager.
 ##### writeQueue
 
 `IWriteQueue`\<`TLink`\>
+
+##### connectivity
+
+`IConnectivityManager`\<`TLink`\>
 
 ##### networkConfig
 
@@ -181,13 +185,13 @@ Get sync status for a collection.
 
 ### getConnectivity()
 
-> **getConnectivity**(): [`ConnectivityManager`](ConnectivityManager.md)\<`TLink`\>
+> **getConnectivity**(): `IConnectivityManager`\<`TLink`\>
 
 Get connectivity manager.
 
 #### Returns
 
-[`ConnectivityManager`](ConnectivityManager.md)\<`TLink`\>
+`IConnectivityManager`\<`TLink`\>
 
 ---
 

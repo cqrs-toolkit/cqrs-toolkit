@@ -1,0 +1,33 @@
+{
+  "name": "@cqrs-toolkit/hypermedia-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hypermedia demo server",
+  "license": "MIT",
+  "author": "Ontel, LLC",
+  "type": "module",
+  "scripts": {
+    "server": "tsx src/server.ts",
+    "compile": "tsc -p tsconfig.json --noEmit",
+    "cqrs:server:docs": "cqrs-toolkit server docs"
+  },
+  "dependencies": {
+    "@cqrs-toolkit/demo-base": "*",
+    "@cqrs-toolkit/hypermedia": "*",
+    "@cqrs-toolkit/realtime": "*",
+    "@cqrs-toolkit/schema": "*",
+    "@meticoeus/ddd-es": "^0.7.3",
+    "@scalar/fastify-api-reference": "^1.46.4",
+    "ajv": "^8.0.0"
+  },
+  "devDependencies": {
+    "@cqrs-toolkit/hypermedia-cli": "*",
+    "@fastify/multipart": "^9.4.0",
+    "@fastify/websocket": "^11.2.0",
+    "@types/ws": "^8.18.1",
+    "fastify": "^5.0.0",
+    "form-data": "^4.0.5",
+    "pino-pretty": "^13.0.0",
+    "uuid": "^13.0.0"
+  }
+}

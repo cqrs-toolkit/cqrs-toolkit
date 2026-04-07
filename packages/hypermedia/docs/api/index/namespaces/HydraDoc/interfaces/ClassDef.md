@@ -30,6 +30,14 @@ CQRS command capabilities and surfaces (NOT coupled to read representation versi
 
 ---
 
+### description?
+
+> `optional` **description**: `string`
+
+Human-readable description of this resource class.
+
+---
+
 ### representations
 
 > **representations**: ([`Representation`](../classes/Representation.md)\<[`EventsConfig`](../type-aliases/EventsConfig.md) \| `undefined`\> \| [`ViewRepresentation`](../classes/ViewRepresentation.md))[]

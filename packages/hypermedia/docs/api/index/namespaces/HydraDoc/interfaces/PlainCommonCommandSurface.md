@@ -23,6 +23,18 @@ many commands that share the same HTTP route shape.
 
 ## Properties
 
+### description?
+
+> `optional` **description**: `string`
+
+Human-readable description of this operation.
+
+#### Inherited from
+
+[`PlainCommandSurfaceBase`](PlainCommandSurfaceBase.md).[`description`](PlainCommandSurfaceBase.md#description)
+
+---
+
 ### dispatch
 
 > **dispatch**: [`CommandDispatch`](../type-aliases/CommandDispatch.md)\<`Ext`\>
@@ -49,6 +61,42 @@ HTTP method for invoking this command surface.
 #### Inherited from
 
 [`PlainCommandSurfaceBase`](PlainCommandSurfaceBase.md).[`method`](PlainCommandSurfaceBase.md#method)
+
+---
+
+### operationId?
+
+> `optional` **operationId**: `string`
+
+OpenAPI operationId. Required for OpenAPI generation.
+
+#### Inherited from
+
+[`PlainCommandSurfaceBase`](PlainCommandSurfaceBase.md).[`operationId`](PlainCommandSurfaceBase.md#operationid)
+
+---
+
+### responses?
+
+> `optional` **responses**: readonly [`ResponseEntry`](../type-aliases/ResponseEntry.md)[]
+
+Response documentation for this operation.
+
+#### Inherited from
+
+[`PlainCommandSurfaceBase`](PlainCommandSurfaceBase.md).[`responses`](PlainCommandSurfaceBase.md#responses)
+
+---
+
+### responseSchemaUrn?
+
+> `optional` **responseSchemaUrn**: `string`
+
+URN for the oneOf union schema when 2xx responses have different schemas per contentType.
+
+#### Inherited from
+
+[`PlainCommandSurfaceBase`](PlainCommandSurfaceBase.md).[`responseSchemaUrn`](PlainCommandSurfaceBase.md#responseschemaurn)
 
 ---
 

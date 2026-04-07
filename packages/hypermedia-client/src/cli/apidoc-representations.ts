@@ -2,44 +2,13 @@
  * Parse representation surfaces from a served apidoc.jsonld.
  */
 
+import type { HydraApiDocumentation } from '@cqrs-toolkit/hypermedia'
 import assert from 'node:assert'
 import type {
   RepresentationManifest,
   RepresentationSurfaces,
   SurfaceEndpoint,
 } from '../runtime/types.js'
-
-// ---------------------------------------------------------------------------
-// JSON-LD shape types
-// ---------------------------------------------------------------------------
-
-interface JsonLdSurface {
-  'svc:template': {
-    'hydra:template': string
-  }
-}
-
-interface JsonLdRepresentation {
-  '@id': string
-  'schema:version': string
-  'svc:collection'?: JsonLdSurface
-  'svc:resource'?: JsonLdSurface
-  'svc:itemEvents'?: JsonLdSurface
-  'svc:aggregateEvents'?: JsonLdSurface
-}
-
-interface JsonLdClass {
-  '@id': string
-  'svc:representation'?: JsonLdRepresentation[]
-}
-
-interface JsonLdApidoc {
-  'hydra:supportedClass': JsonLdClass[]
-}
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
 
 export interface RepresentationParseResult {
   /** Parsed representations keyed by class @id */
@@ -53,11 +22,10 @@ export interface RepresentationParseResult {
  * Returns the representations keyed by the parent class @id.
  */
 export function parseRepresentations(
-  apidoc: unknown,
+  apidoc: HydraApiDocumentation.Document,
   requestedIds: string[],
 ): RepresentationParseResult {
-  const doc = apidoc as JsonLdApidoc
-  const classes = doc['hydra:supportedClass']
+  const classes = apidoc['hydra:supportedClass']
   assert(Array.isArray(classes), 'apidoc must have hydra:supportedClass array')
 
   const requested = new Set(requestedIds)
@@ -71,9 +39,7 @@ export function parseRepresentations(
     for (const rep of reps) {
       if (!requested.has(rep['@id'])) continue
       found.add(rep['@id'])
-
-      const surfaces = extractSurfaces(rep, cls['@id'])
-      representations[cls['@id']] = surfaces
+      representations[cls['@id']] = extractSurfaces(rep, cls['@id'])
     }
   }
 
@@ -85,7 +51,10 @@ export function parseRepresentations(
 // Private helpers
 // ---------------------------------------------------------------------------
 
-function extractSurfaces(rep: JsonLdRepresentation, className: string): RepresentationSurfaces {
+function extractSurfaces(
+  rep: HydraApiDocumentation.Representation,
+  className: string,
+): RepresentationSurfaces {
   const collection = rep['svc:collection']
   const resource = rep['svc:resource']
   const itemEvents = rep['svc:itemEvents']
@@ -105,7 +74,7 @@ function extractSurfaces(rep: JsonLdRepresentation, className: string): Represen
   }
 }
 
-function extractEndpoint(surface: JsonLdSurface): SurfaceEndpoint {
+function extractEndpoint(surface: HydraApiDocumentation.QuerySurface): SurfaceEndpoint {
   const template = surface['svc:template']['hydra:template']
   // Derive href by stripping query expansion (everything from '{?' onwards)
   const queryExpansionIndex = template.indexOf('{?')

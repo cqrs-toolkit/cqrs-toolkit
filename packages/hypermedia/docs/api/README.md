@@ -208,15 +208,15 @@ await generateHydraDocumentation({
 
 ## API Reference
 
-Full API documentation is generated from source and available at [docs/api](_media/README.md).
+Full API documentation is generated from source and available at [docs/api](docs/api/README.md).
 
 Key entry points:
 
-- [`HydraDoc`](_media/README-1.md) — Command/query surface definitions
-- [`HAL`](_media/README-2.md) — HAL+JSON rendering
-- [`ProfileNegotiator`](_media/ProfileNegotiator.md) — HTTP profile negotiation
-- [`ProfileHandler`](_media/ProfileHandler.md) — Profile handler with Result integration
-- [`CommandPlanner`](_media/CommandPlanner.md) — Command version negotiation and validation
-- [`EmbedPlanner`](_media/EmbedPlanner.md) — Include token resolution
-- [`Hypermedia`](_media/README-3.md) — Response formatting utilities
-- [`buildHydraApiDocumentation`](_media/buildHydraApiDocumentation.md) — Build-time documentation generator
+- [`HydraDoc`](docs/api/index/namespaces/HydraDoc/README.md) — Command/query surface definitions
+- [`HAL`](docs/api/index/namespaces/HAL/README.md) — HAL+JSON rendering
+- [`ProfileNegotiator`](docs/api/server/classes/ProfileNegotiator.md) — HTTP profile negotiation
+- [`ProfileHandler`](docs/api/server/classes/ProfileHandler.md) — Profile handler with Result integration
+- [`CommandPlanner`](docs/api/server/classes/CommandPlanner.md) — Command version negotiation and validation
+- [`EmbedPlanner`](docs/api/server/classes/EmbedPlanner.md) — Include token resolution
+- [`Hypermedia`](docs/api/server/namespaces/Hypermedia/README.md) — Response formatting utilities
+- [`buildHydraApiDocumentation`](docs/api/builder/functions/buildHydraApiDocumentation.md) — Build-time documentation generator

@@ -8,6 +8,14 @@
 
 ## Properties
 
+### buildResult
+
+> **buildResult**: [`BuildResult`](BuildResult.md)
+
+Hydra build result — pass to generateOpenApiDocumentation
+
+---
+
 ### immutabilityViolations
 
 > **immutabilityViolations**: `string`[]

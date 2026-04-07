@@ -1,0 +1,51 @@
+{
+  "$id": "urn:schema:svc.CommandSuccessResponse:1.0.0",
+  "properties": {
+    "events": {
+      "items": {
+        "properties": {
+          "created": {
+            "type": "string"
+          },
+          "data": {},
+          "id": {
+            "type": "string"
+          },
+          "metadata": {},
+          "position": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "streamId": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "streamId",
+          "id",
+          "revision",
+          "position",
+          "type",
+          "data",
+          "metadata",
+          "created"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "id": {
+      "type": "string"
+    },
+    "nextExpectedRevision": {
+      "type": "string"
+    }
+  },
+  "required": ["id", "nextExpectedRevision", "events"],
+  "type": "object"
+}

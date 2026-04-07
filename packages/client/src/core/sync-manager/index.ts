@@ -7,7 +7,8 @@ export type {
   ConnectivityManagerConfig,
   ConnectivityState,
   IConnectivity,
+  IConnectivityManager,
   WsConnectionState,
-} from './ConnectivityManager.js'
+} from './IConnectivityManager.js'
 export type { CollectionSyncStatus } from './SeedStatusIndex.js'
 export { SyncManager } from './SyncManager.js'

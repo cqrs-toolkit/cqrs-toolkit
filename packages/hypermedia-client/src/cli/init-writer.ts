@@ -1,5 +1,5 @@
 /**
- * Generate and update the cqrs-hypermedia.config.ts file content.
+ * Generate and update the cqrs-toolkit.config.ts file content (client section).
  */
 
 import { Err, Exception, Ok, type Result } from '@meticoeus/ddd-es'
@@ -19,7 +19,8 @@ import { isObjectExpression, isStringLiteral } from './TSESTree.js'
 // ---------------------------------------------------------------------------
 
 const QUOTE = "'"
-const INDENT = '    '
+/** Indentation for array entries inside `defineConfig({ client: { commands: [...] } })` */
+const INDENT = '      '
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -55,29 +56,82 @@ export class ParseValidationException extends Exception<{ mutatedSource: string 
 // ---------------------------------------------------------------------------
 
 /**
- * Generate valid TypeScript for the consumer's config file.
+ * Generate valid TypeScript for the consumer's config file (fresh, no existing file).
  */
 export function generateConfigFileContent(opts: InitWriterOptions): string {
-  const commandLines = opts.commands.map((c) => `${INDENT}${QUOTE}${c.urn}${QUOTE},`).join('\n')
-  const repLines = opts.representations.map((r) => `${INDENT}${QUOTE}${r.id}${QUOTE},`).join('\n')
-
-  return `import { defineConfig } from '@cqrs-toolkit/hypermedia-client/config'
+  return `import { defineConfig } from '@cqrs-toolkit/hypermedia-cli/config'
 
 export default defineConfig({
-  server: '${opts.server}',
-  apidocPath: '${opts.apidocPath}',
-  outputDir: 'src/.cqrs',
-  schemas: 'bundled',
-
-  commands: [
-${commandLines}
-  ],
-
-  representations: [
-${repLines}
-  ],
+  client: ${buildClientObjectContent(opts)},
 })
 `
+}
+
+/**
+ * Override the `client` section in an existing config file, preserving all other
+ * sections (e.g. `server`). If the `client` property doesn't exist, it is inserted.
+ */
+export function overrideClientSection(
+  source: string,
+  opts: InitWriterOptions,
+): Result<string, ParseValidationException> {
+  const ast = parse(source, { range: true, loc: true, tokens: true, comment: false })
+  const tokens = ast.tokens ?? []
+
+  const defineConfigArg = findDefineConfigArg(ast)
+  if (!defineConfigArg) {
+    return Err(
+      new ParseValidationException(
+        'Could not locate defineConfig() call with an object argument',
+        source,
+      ),
+    )
+  }
+
+  const clientContent = buildClientObjectContent(opts)
+  const s = new MagicString(source)
+
+  const clientProp = findProperty(defineConfigArg, 'client')
+  if (clientProp) {
+    s.overwrite(clientProp.value.range[0], clientProp.value.range[1], clientContent)
+  } else {
+    const lastProp = defineConfigArg.properties[defineConfigArg.properties.length - 1]
+    if (lastProp) {
+      const afterLast = findTokenAfter(tokens, lastProp.range[1])
+      const hasComma =
+        afterLast && afterLast.type === AST_TOKEN_TYPES.Punctuator && afterLast.value === ','
+      const insertPos = hasComma ? afterLast.range[1] : lastProp.range[1]
+      if (!hasComma) {
+        s.appendLeft(lastProp.range[1], ',')
+      }
+      s.appendLeft(insertPos, `\n  client: ${clientContent},`)
+    } else {
+      s.appendLeft(defineConfigArg.range[0] + 1, `\n  client: ${clientContent},\n`)
+    }
+  }
+
+  return validateParse(s.toString())
+}
+
+function buildClientObjectContent(opts: InitWriterOptions): string {
+  const NESTED = '      '
+  const commandLines = opts.commands.map((c) => `${NESTED}${QUOTE}${c.urn}${QUOTE},`).join('\n')
+  const repLines = opts.representations.map((r) => `${NESTED}${QUOTE}${r.id}${QUOTE},`).join('\n')
+
+  return `{
+    server: '${opts.server}',
+    apidocPath: '${opts.apidocPath}',
+    outputDir: 'src/.cqrs',
+    schemas: 'bundled',
+
+    commands: [
+${commandLines}
+    ],
+
+    representations: [
+${repLines}
+    ],
+  }`
 }
 
 // ---------------------------------------------------------------------------
@@ -224,7 +278,8 @@ export function updateConfigCommands(
 // AST navigation
 // ---------------------------------------------------------------------------
 
-function findConfigObject(ast: TSESTree.Program): TSESTree.ObjectExpression | undefined {
+/** Find the object argument of the `defineConfig()` call. */
+function findDefineConfigArg(ast: TSESTree.Program): TSESTree.ObjectExpression | undefined {
   let result: TSESTree.ObjectExpression | undefined
   simpleTraverse(ast, {
     enter(node) {
@@ -240,6 +295,20 @@ function findConfigObject(ast: TSESTree.Program): TSESTree.ObjectExpression | un
     },
   })
   return result
+}
+
+/**
+ * Find the `client` object inside the `defineConfig({ client: { ... } })` call.
+ * Returns the inner object expression that contains `commands`, `representations`, etc.
+ */
+function findConfigObject(ast: TSESTree.Program): TSESTree.ObjectExpression | undefined {
+  const arg = findDefineConfigArg(ast)
+  if (!arg) return undefined
+  const clientProp = findProperty(arg, 'client')
+  if (clientProp && clientProp.value.type === AST_NODE_TYPES.ObjectExpression) {
+    return clientProp.value
+  }
+  return undefined
 }
 
 function findProperty(obj: TSESTree.ObjectExpression, name: string): TSESTree.Property | undefined {
@@ -496,7 +565,7 @@ function handleMissingCommandsProperty(
   const commandLines = discoveredCommands
     .map((c) => `${INDENT}${QUOTE}${c.urn}${QUOTE},`)
     .join('\n')
-  const propertyBlock = `\n  commands: [\n${commandLines}\n  ],\n`
+  const propertyBlock = `\n    commands: [\n${commandLines}\n    ],\n`
 
   const s = new MagicString(source)
 
@@ -837,7 +906,7 @@ function handleMissingRepresentationsProperty(
   }
 
   const repLines = latestRepresentations.map((r) => `${INDENT}${QUOTE}${r.id}${QUOTE},`).join('\n')
-  const propertyBlock = `\n  representations: [\n${repLines}\n  ],\n`
+  const propertyBlock = `\n    representations: [\n${repLines}\n    ],\n`
 
   const s = new MagicString(source)
 

@@ -112,27 +112,6 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
       const pp = curiePrefix(m.property)
       if (pp) prefixUse.add(pp)
     }
-
-    if (surf.responseSchema) {
-      const formatSet = new Set(surf.formats)
-      for (const rs of surf.responseSchema) {
-        if (!mtRe.test(rs.contentType)) {
-          throw new Error(
-            `Rep ${repId} ${label} responseSchema has invalid content type: ${rs.contentType}`,
-          )
-        }
-        if (!rs.schema.$id) {
-          throw new Error(
-            `Rep ${repId} ${label} responseSchema entry for '${rs.contentType}' is missing $id`,
-          )
-        }
-        if (!formatSet.has(rs.contentType)) {
-          throw new Error(
-            `Rep ${repId} ${label} responseSchema contentType '${rs.contentType}' is not in formats [${surf.formats.join(', ')}]`,
-          )
-        }
-      }
-    }
   }
 
   type AnyCommandSurface = HydraDoc.CommandSurface<any> | HydraDoc.CustomCommandSurface
@@ -245,21 +224,6 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
           )
         }
 
-        if (c.responseSchema) {
-          for (const rs of c.responseSchema) {
-            if (!mtRe.test(rs.contentType)) {
-              throw new Error(
-                `Class ${cls.class} command ${c.id} responseSchema has invalid content type: ${rs.contentType}`,
-              )
-            }
-            if (!rs.schema.$id) {
-              throw new Error(
-                `Class ${cls.class} command ${c.id} responseSchema entry for '${rs.contentType}' is missing $id`,
-              )
-            }
-          }
-        }
-
         if (c.workflow) {
           if (!c.workflow.type) {
             throw new Error(`Class ${cls.class} command ${c.id} workflow is missing type`)
@@ -332,6 +296,7 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
     'hydra:supportedClass': classes.map((cls) => ({
       '@id': cls.class,
       '@type': 'hydra:Class',
+      ...(cls.description ? { 'schema:description': cls.description } : {}),
       ...(cls.commands ? { 'svc:commands': renderCommands(cls.commands) } : {}),
       'svc:representation': cls.representations.map((rep) => renderRepresentation(rep)),
     })),
@@ -372,26 +337,21 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
   for (const cls of classes) {
     // Command request schemas
     if (cls.commands) {
+      for (const s of cls.commands.surfaces) {
+        collectResponseSchemas(s.responses, true, `Surface ${s.dispatch}`)
+      }
       for (const c of cls.commands.commands) {
         if (c.schema) {
           collectSchema(c.schema, c.isLatest, `Command ${c.id}`)
         }
-        if (c.responseSchema) {
-          for (const rs of c.responseSchema) {
-            collectSchema(rs.schema, c.isLatest, `Command ${c.id} response [${rs.contentType}]`)
-          }
-        }
+        collectResponseSchemas(c.responses, c.isLatest, `Command ${c.id}`)
       }
     }
 
     // Representation response schemas
     for (const rep of cls.representations) {
       for (const surf of [rep.resource, rep.collection]) {
-        if (surf.responseSchema) {
-          for (const rs of surf.responseSchema) {
-            collectSchema(rs.schema, true, `Rep ${rep.id} response [${rs.contentType}]`)
-          }
-        }
+        collectResponseSchemas(surf.responses, true, `Rep ${rep.id}`)
       }
     }
   }
@@ -408,6 +368,22 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
   const content = renderJson(jsonld)
 
   return { jsonld, content, warnings, schemas }
+
+  /** Collect all response schemas with $id into the registry. */
+  function collectResponseSchemas(
+    responses: readonly HydraDoc.ResponseEntry[] | undefined,
+    isLatest: boolean,
+    label: string,
+  ): void {
+    if (!responses) return
+    for (const entry of responses) {
+      if (typeof entry === 'number') continue
+      if (!entry.schema || entry.schema === HydraDoc.NO_BODY) continue
+      if (entry.schema.$id) {
+        collectSchema(entry.schema, isLatest, `${label} response [${entry.code}]`)
+      }
+    }
+  }
 
   function renderRepresentation(
     rep: HydraDoc.Representation<HydraDoc.EventsConfig | undefined> | HydraDoc.ViewRepresentation,
@@ -431,17 +407,19 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
   }
 
   function renderSurface(surf: HydraDoc.QuerySurface): JsonLd {
+    const hydraResponses = deriveHydraResponseSchemas(surf.responses, surf.responseSchemaUrn)
     return {
       '@type': 'svc:Surface',
+      ...(surf.description ? { 'schema:description': surf.description } : {}),
       'svc:formats': surf.formats,
       'svc:profile': { '@id': surf.profile },
       'svc:template': iriTemplateNode(surf.template),
-      ...(surf.responseSchema?.length
+      ...(hydraResponses.length > 0
         ? {
-            'svc:responseSchema': surf.responseSchema.map((rs) => ({
+            'svc:responseSchema': hydraResponses.map((rs) => ({
               '@type': 'svc:ContentTypeSchema',
               'svc:contentType': rs.contentType,
-              'svc:jsonSchema': rs.schema.$id,
+              'svc:jsonSchema': rs.schemaId,
             })),
           }
         : {}),
@@ -457,37 +435,40 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
         'svc:method': s.method,
         'svc:template': iriTemplateNode(s.template),
       })),
-      'svc:supportedCommand': cmds.commands.map((c) => ({
-        '@id': c.id,
-        '@type': 'svc:CommandCapability',
-        'svc:stableId': c.stableId,
-        'schema:version': c.version,
-        ...(c.deprecated ? { 'schema:deprecated': true } : {}),
-        ...(c.dispatch ? { 'svc:dispatch': c.dispatch } : {}),
-        ...(c.commandType ? { 'svc:commandType': c.commandType } : {}),
-        ...(c.schema ? { 'svc:jsonSchema': c.schema.$id } : {}),
-        ...(c.surface
-          ? {
-              // Explicit custom endpoint for this command (no dispatch resolution).
-              'svc:surface': {
-                '@type': 'svc:CommandSurface',
-                ...(c.surface.name ? { 'svc:name': c.surface.name } : {}),
-                'svc:method': c.surface.method,
-                'svc:template': iriTemplateNode(c.surface.template),
-              },
-            }
-          : {}),
-        ...(c.responseSchema?.length
-          ? {
-              'svc:responseSchema': c.responseSchema.map((rs) => ({
-                '@type': 'svc:ContentTypeSchema',
-                'svc:contentType': rs.contentType,
-                'svc:jsonSchema': rs.schema.$id,
-              })),
-            }
-          : {}),
-        ...(c.workflow ? { 'svc:workflow': renderWorkflow(c.workflow) } : {}),
-      })),
+      'svc:supportedCommand': cmds.commands.map((c) => {
+        const hydraResponses = deriveHydraResponseSchemas(c.responses, c.responseSchemaUrn)
+        return {
+          '@id': c.id,
+          '@type': 'svc:CommandCapability',
+          ...(c.description ? { 'schema:description': c.description } : {}),
+          'svc:stableId': c.stableId,
+          'schema:version': c.version,
+          ...(c.deprecated ? { 'schema:deprecated': true } : {}),
+          ...(c.dispatch ? { 'svc:dispatch': c.dispatch } : {}),
+          ...(c.commandType ? { 'svc:commandType': c.commandType } : {}),
+          ...(c.schema ? { 'svc:jsonSchema': c.schema.$id } : {}),
+          ...(c.surface
+            ? {
+                'svc:surface': {
+                  '@type': 'svc:CommandSurface',
+                  ...(c.surface.name ? { 'svc:name': c.surface.name } : {}),
+                  'svc:method': c.surface.method,
+                  'svc:template': iriTemplateNode(c.surface.template),
+                },
+              }
+            : {}),
+          ...(hydraResponses.length > 0
+            ? {
+                'svc:responseSchema': hydraResponses.map((rs) => ({
+                  '@type': 'svc:ContentTypeSchema',
+                  'svc:contentType': rs.contentType,
+                  'svc:jsonSchema': rs.schemaId,
+                })),
+              }
+            : {}),
+          ...(c.workflow ? { 'svc:workflow': renderWorkflow(c.workflow) } : {}),
+        }
+      }),
     }
   }
 }
@@ -515,6 +496,55 @@ function renderWorkflow(w: HydraDoc.Workflow): JsonLd {
   }
 }
 
+const DEFAULT_CONTENT_TYPE = 'application/json'
+
+/**
+ * Derive svc:responseSchema entries from the responses array.
+ * Filters 2xx entries, groups by contentType, deduplicates by $id.
+ * Different $ids for the same contentType → oneOf union under responseSchemaUrn.
+ */
+function deriveHydraResponseSchemas(
+  responses: readonly HydraDoc.ResponseEntry[] | undefined,
+  responseSchemaUrn: string | undefined,
+): { contentType: string; schemaId: string }[] {
+  if (!responses) return []
+
+  // Collect 2xx entries with schemas
+  const byContentType = new Map<string, Set<string>>()
+  for (const entry of responses) {
+    if (typeof entry === 'number') continue
+    if (entry.code < 200 || entry.code >= 300) continue
+    if (!entry.schema || entry.schema === HydraDoc.NO_BODY) continue
+    const schemaId = entry.schema.$id
+    if (!schemaId) continue
+
+    const ct = entry.contentType ?? DEFAULT_CONTENT_TYPE
+    let ids = byContentType.get(ct)
+    if (!ids) {
+      ids = new Set()
+      byContentType.set(ct, ids)
+    }
+    ids.add(schemaId)
+  }
+
+  const result: { contentType: string; schemaId: string }[] = []
+  for (const [ct, ids] of byContentType) {
+    if (ids.size === 1) {
+      const [schemaId] = ids
+      assert(schemaId, 'unreachable: set is non-empty')
+      result.push({ contentType: ct, schemaId })
+    } else {
+      // Multiple different $ids for the same contentType → oneOf union
+      assert(
+        responseSchemaUrn,
+        `Multiple 2xx response schemas for contentType '${ct}' require responseSchemaUrn to publish the oneOf union`,
+      )
+      result.push({ contentType: ct, schemaId: responseSchemaUrn })
+    }
+  }
+  return result
+}
+
 function iriTemplateNode(t: HydraDoc.IriTemplate) {
   return {
     '@id': t.id,
@@ -525,6 +555,7 @@ function iriTemplateNode(t: HydraDoc.IriTemplate) {
       'hydra:variable': m.variable,
       'hydra:property': m.property,
       ...(m.required ? { 'hydra:required': true } : {}),
+      ...(m.description ? { 'schema:description': m.description } : {}),
     })),
   }
 }

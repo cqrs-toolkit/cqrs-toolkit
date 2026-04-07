@@ -14,12 +14,13 @@ const ROOT_DIR = 'cqrs-client'
 const UPLOADS_DIR = 'uploads'
 
 export class OpfsCommandFileStore implements ICommandFileStore {
-  async save(commandId: string, fileId: string, data: Blob): Promise<void> {
+  async save(commandId: string, fileId: string, data: Blob): Promise<string> {
     const commandDir = await getCommandDir(commandId, true)
     const fileHandle = await commandDir.getFileHandle(fileId, { create: true })
     const writable = await fileHandle.createWritable()
     await writable.write(data)
     await writable.close()
+    return `${ROOT_DIR}/${UPLOADS_DIR}/${commandId}/${fileId}`
   }
 
   async read(commandId: string, fileId: string): Promise<Blob | undefined> {

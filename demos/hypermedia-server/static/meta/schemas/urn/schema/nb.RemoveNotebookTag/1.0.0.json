@@ -1,0 +1,18 @@
+{
+  "$id": "urn:schema:nb.RemoveNotebookTag:1.0.0",
+  "additionalProperties": false,
+  "properties": {
+    "data": {
+      "$ref": "urn:schema:nb.RemoveNotebookTagData:1.0.0"
+    },
+    "revision": {
+      "type": "string"
+    },
+    "type": {
+      "const": "removeTag",
+      "type": "string"
+    }
+  },
+  "required": ["type", "data"],
+  "type": "object"
+}

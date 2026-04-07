@@ -128,7 +128,7 @@ export type {
   AdapterStatus,
   DedicatedWorkerAdapterConfig,
   IAdapter,
-  IOnlineOnlyAdapter,
+  IWindowAdapter,
   IWorkerAdapter,
   SharedWorkerAdapterConfig,
 } from './adapters/index.js'

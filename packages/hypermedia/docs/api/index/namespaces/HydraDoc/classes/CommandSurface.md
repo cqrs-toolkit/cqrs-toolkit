@@ -40,6 +40,12 @@ Shared surface selectable by dispatch.
 
 ## Properties
 
+### description?
+
+> `readonly` `optional` **description**: `string`
+
+---
+
 ### dispatch
 
 > `readonly` **dispatch**: [`CommandDispatch`](../type-aliases/CommandDispatch.md)\<`Ext`\>
@@ -53,6 +59,24 @@ Shared surface selectable by dispatch.
 #### Inherited from
 
 `BaseCommandSurface.method`
+
+---
+
+### operationId?
+
+> `readonly` `optional` **operationId**: `string`
+
+---
+
+### responses?
+
+> `readonly` `optional` **responses**: readonly [`ResponseEntry`](../type-aliases/ResponseEntry.md)[]
+
+---
+
+### responseSchemaUrn?
+
+> `readonly` `optional` **responseSchemaUrn**: `string`
 
 ---
 

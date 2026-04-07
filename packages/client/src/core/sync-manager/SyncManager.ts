@@ -34,8 +34,8 @@ import type { SessionManager } from '../session/SessionManager.js'
 import { IWriteQueue, WriteQueueException } from '../write-queue/IWriteQueue.js'
 import type { ApplyRecordsOp, ApplySeedEventsOp } from '../write-queue/operations.js'
 import { ApplyWsEventOp, EvictCacheKeyOp } from '../write-queue/operations.js'
-import { ConnectivityManager } from './ConnectivityManager.js'
 import { GapRepairCoordinator } from './GapRepairCoordinator.js'
+import type { IConnectivityManager } from './IConnectivityManager.js'
 import { InvalidationScheduler } from './InvalidationScheduler.js'
 import type { CollectionSyncStatus } from './SeedStatusIndex.js'
 import { SeedStatusIndex } from './SeedStatusIndex.js'
@@ -50,7 +50,7 @@ export class SyncManager<
   TSchema,
   TEvent extends IAnticipatedEvent,
 > {
-  private readonly connectivity: ConnectivityManager<TLink>
+  private readonly connectivity: IConnectivityManager<TLink>
   private readonly gapRepair: GapRepairCoordinator<TLink, TCommand>
   protected readonly invalidationScheduler: InvalidationScheduler<TLink, TCommand>
 
@@ -84,15 +84,12 @@ export class SyncManager<
     private readonly readModelStore: ReadModelStore<TLink, TCommand>,
     private readonly queryManager: QueryManager<TLink, TCommand>,
     private readonly writeQueue: IWriteQueue<TLink>,
+    connectivity: IConnectivityManager<TLink>,
     private readonly networkConfig: NetworkConfig,
     private readonly auth: AuthStrategy,
     private readonly collections: Collection<TLink>[],
   ) {
-    // Initialize connectivity manager
-    this.connectivity = new ConnectivityManager({
-      eventBus: this.eventBus,
-      healthCheckUrl: `${this.networkConfig.baseUrl}/health`,
-    })
+    this.connectivity = connectivity
 
     // Initialize invalidation scheduler
     this.invalidationScheduler = new InvalidationScheduler(
@@ -294,7 +291,7 @@ export class SyncManager<
   /**
    * Get connectivity manager.
    */
-  public getConnectivity(): ConnectivityManager<TLink> {
+  public getConnectivity(): IConnectivityManager<TLink> {
     return this.connectivity
   }
 

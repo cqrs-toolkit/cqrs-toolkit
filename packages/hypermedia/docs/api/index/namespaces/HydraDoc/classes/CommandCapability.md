@@ -54,6 +54,14 @@ Defaults to false; deprecated commands remain documented for a deprecation windo
 
 ---
 
+### description?
+
+> `readonly` `optional` **description**: `string`
+
+Human-readable description of what this command does.
+
+---
+
 ### dispatch?
 
 > `readonly` `optional` **dispatch**: [`CommandDispatch`](../type-aliases/CommandDispatch.md)\<`Ext`\>
@@ -84,11 +92,17 @@ True if this is the latest (highest semver) version within its stableId group.
 
 ---
 
-### responseSchema?
+### responses?
 
-> `readonly` `optional` **responseSchema**: readonly [`ContentTypeSchema`](../interfaces/ContentTypeSchema.md)[]
+> `readonly` `optional` **responses**: readonly [`ResponseEntry`](../type-aliases/ResponseEntry.md)[]
 
-Per-content-type response schemas for this command's success response.
+Response documentation. Overrides dispatch surface defaults when provided.
+
+---
+
+### responseSchemaUrn?
+
+> `readonly` `optional` **responseSchemaUrn**: `string`
 
 ---
 

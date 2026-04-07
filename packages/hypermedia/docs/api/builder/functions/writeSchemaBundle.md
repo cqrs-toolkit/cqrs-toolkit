@@ -14,7 +14,7 @@ Write a resolved schema bundle to a target directory.
 
 ### bundle
 
-[`ResolvedSchemaBundle`](../interfaces/ResolvedSchemaBundle.md)
+[`ResolvedMetaBundle`](../interfaces/ResolvedMetaBundle.md)
 
 ### outputDir
 

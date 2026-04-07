@@ -1,0 +1,12 @@
+{
+  "$id": "urn:schema:nb.UpdateNoteTitleData:1.0.0",
+  "additionalProperties": false,
+  "properties": {
+    "title": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": ["title"],
+  "type": "object"
+}

@@ -6,7 +6,7 @@
 import type { Link } from '@meticoeus/ddd-es'
 import type { Observable } from 'rxjs'
 import type { CacheKeyIdentity } from '../../core/cache-manager/CacheKey.js'
-import type { IConnectivity } from '../../core/sync-manager/ConnectivityManager.js'
+import type { IConnectivity } from '../../core/sync-manager/IConnectivityManager.js'
 import type { CollectionSyncStatus } from '../../core/sync-manager/SeedStatusIndex.js'
 import type { CqrsClientSyncManager } from '../../createCqrsClient.js'
 import type { WorkerMessageChannel } from '../../protocol/MessageChannel.js'

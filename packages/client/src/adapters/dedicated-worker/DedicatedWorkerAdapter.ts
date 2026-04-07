@@ -66,7 +66,7 @@ export class DedicatedWorkerAdapter<
   TLink extends Link,
   TCommand extends EnqueueCommand,
 > implements IWorkerAdapter<TLink, TCommand> {
-  readonly mode = 'dedicated-worker' as const
+  readonly kind = 'worker' as const
   readonly role = 'leader' as const
 
   private readonly config: DedicatedWorkerAdapterConfig

@@ -18,17 +18,7 @@
 
 ### opts
 
-#### collectionHref
-
-`` `/${string}` ``
-
-#### idProperty
-
-`string`
-
-#### idStem
-
-`string`
+[`StandardCommandSurfaceOpts`](../interfaces/StandardCommandSurfaceOpts.md)
 
 ## Returns
 

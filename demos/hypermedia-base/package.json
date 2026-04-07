@@ -1,0 +1,44 @@
+{
+  "name": "@cqrs-toolkit/hypermedia-base",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared hypermedia client domain code and UI for CQRS toolkit demos",
+  "license": "MIT",
+  "author": "Ontel, LLC",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./bootstrap/cqrs-config": "./src/bootstrap/cqrs-config.ts",
+    "./bootstrap/typed-client": "./src/bootstrap/typed-client.ts",
+    "./pages": "./src/pages/index.ts",
+    "./components/PageShell": "./src/components/PageShell.tsx",
+    "./primitives/createEditNavigator": "./src/primitives/createEditNavigator.ts",
+    "./e2e-helpers": "./src/e2e-helpers.ts",
+    "./e2e-nav": "./src/e2e-nav.ts"
+  },
+  "imports": {
+    "#bootstrap/cqrs-config": "./src/bootstrap/cqrs-config.ts",
+    "#bootstrap/typed-client": "./src/bootstrap/typed-client.ts",
+    "#pages": "./src/pages/index.ts",
+    "#components/PageShell": "./src/components/PageShell.tsx",
+    "#primitives/createEditNavigator": "./src/primitives/createEditNavigator.ts"
+  },
+  "scripts": {
+    "compile": "tsc -p tsconfig.json --noEmit",
+    "cqrs:client:init": "cqrs-toolkit client init --server=http://localhost:3002 --apidoc-path=/api/meta/apidoc",
+    "cqrs:client:pull": "cqrs-toolkit client pull"
+  },
+  "dependencies": {
+    "@cqrs-toolkit/client": "*",
+    "@cqrs-toolkit/client-solid": "*",
+    "@cqrs-toolkit/demo-base": "*",
+    "@cqrs-toolkit/hypermedia-client": "*",
+    "@meticoeus/ddd-es": "^0.7.3",
+    "@solidjs/router": "^0.15.4",
+    "ajv": "^8.0.0"
+  },
+  "devDependencies": {
+    "@cqrs-toolkit/hypermedia-cli": "*",
+    "solid-js": "^1.9.0"
+  }
+}

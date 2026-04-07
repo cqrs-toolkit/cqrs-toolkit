@@ -9,17 +9,50 @@ import {
 } from './utils.js'
 
 export namespace HydraDoc {
+  // ---------------------------------------------------------------------------
+  // Response documentation types
+  // ---------------------------------------------------------------------------
+
+  /** Sentinel for responses with explicitly no body. */
+  export const NO_BODY = Symbol('NO_BODY')
+
+  /** Object form of a response entry. */
+  export interface ResponseDef {
+    code: number
+    /** Defaults to 'application/json' when omitted. */
+    contentType?: string
+    /** Response body schema. Use NO_BODY for explicitly empty responses. */
+    schema?: JSONSchema7 | typeof NO_BODY
+    description?: string
+  }
+
+  /** A bare number is shorthand for { code: N, contentType: 'application/json' }. */
+  export type ResponseEntry = number | ResponseDef
+
+  /** Fully resolved response — schema and contentType required. Used in top-level registries. */
+  export interface ResolvedResponseDef {
+    code: number
+    contentType: string
+    schema: JSONSchema7
+    description?: string
+  }
+
+  // ---------------------------------------------------------------------------
+  // IRI template types
+  // ---------------------------------------------------------------------------
+
   export interface IriTemplateMapping {
     variable: string
     property: string
     required?: boolean
-  }
-
-  export interface ContentTypeSchema {
-    /** Media type (e.g. 'application/json', 'application/hal+json') */
-    contentType: string
-    /** JSON Schema describing the response body for this content type. Must have $id. */
-    schema: JSONSchema7
+    /**
+     * Per-mapping schema override for OpenAPI parameter generation.
+     * Takes precedence over the property registry default in OpenApiDocumentation.
+     * Use for properties whose schema varies by context (e.g. svc:include with per-representation enum values).
+     */
+    schema?: JSONSchema7
+    /** Per-mapping description override. Takes precedence over the dictionary default. */
+    description?: string
   }
 
   export interface ExternalEndpointOperation {
@@ -67,6 +100,29 @@ export namespace HydraDoc {
    */
   export type CommandDispatch<Ext extends string> = StandardCommandDispatch | Ext
 
+  /** OpenAPI operation metadata shared by all surfaces (command and query). */
+  export interface OperationDocumentation {
+    /** OpenAPI operationId. Required for OpenAPI generation. */
+    operationId?: string
+    /** Human-readable description of this operation. */
+    description?: string
+    /** Response documentation for this operation. */
+    responses?: readonly ResponseEntry[]
+    /** URN for the oneOf union schema when 2xx responses have different schemas per contentType. */
+    responseSchemaUrn?: string
+  }
+
+  function getOperationDocumentation<T extends OperationDocumentation>(
+    doc: T,
+  ): OperationDocumentation {
+    return {
+      operationId: doc.operationId,
+      description: doc.description,
+      responses: doc.responses,
+      responseSchemaUrn: doc.responseSchemaUrn,
+    }
+  }
+
   /**
    * Shared shape for any command surface.
    *
@@ -74,7 +130,7 @@ export namespace HydraDoc {
    * - Command surfaces MUST NOT use RFC6570 query expansion in this system.
    * - Path variables (e.g. "{id}") are documented via template mappings.
    */
-  export interface PlainCommandSurfaceBase {
+  export interface PlainCommandSurfaceBase extends OperationDocumentation {
     /** HTTP method for invoking this command surface. */
     method: 'POST'
 
@@ -171,11 +227,16 @@ export namespace HydraDoc {
     /** JSON Schema describing the request body for this command version. */
     schema?: JSONSchema7
 
-    /** Per-content-type response schemas for this command's success response. */
-    responseSchema?: readonly ContentTypeSchema[]
+    /** Response documentation for this command. Overrides dispatch surface defaults when provided. */
+    responses?: readonly ResponseEntry[]
+    /** URN for the oneOf union schema when 2xx responses have different schemas per contentType. */
+    responseSchemaUrn?: string
 
     /** Workflow annotation declaring chained operation semantics. */
     workflow?: Workflow
+
+    /** Human-readable description of what this command does. */
+    description?: string
 
     /** Runtime adapter that transforms old-version data to the current shape. */
     adapt?: (oldData: unknown) => unknown
@@ -242,7 +303,7 @@ export namespace HydraDoc {
     commands: readonly PlainCommandCapability<Ext>[]
   }
 
-  export interface PlainQuerySurface {
+  export interface PlainQuerySurface extends OperationDocumentation {
     /**
      * Media types the server can PRODUCE for this surface.
      * Example: ['application/json','application/hal+json']
@@ -261,8 +322,6 @@ export namespace HydraDoc {
      * - For a resource, include to document all id parameters.
      */
     template: PlainIriTemplate
-    /** Per-content-type response schemas for this surface. */
-    responseSchema?: readonly ContentTypeSchema[]
   }
 
   export interface ResourceSurface extends PlainQuerySurface {
@@ -365,6 +424,8 @@ export namespace HydraDoc {
   export interface ClassDef<Ext extends string = never> {
     /** class IRI, e.g. 'storage:FileObject' */
     class: string
+    /** Human-readable description of this resource class. */
+    description?: string
     /** CQRS command capabilities and surfaces (NOT coupled to read representation versions) */
     commands?: CommandsDef<Ext>
     representations: (Representation<HydraDoc.EventsConfig | undefined> | ViewRepresentation)[]
@@ -408,10 +469,14 @@ export namespace HydraDoc {
     return [standardCreateCommandSurface(opts), standardCommandSurface(opts)]
   }
 
-  export function standardCreateCommandSurface<Ext extends string = never>(opts: {
+  export interface StandardCreateCommandSurfaceOpts extends OperationDocumentation {
     idStem: string
     collectionHref: `/${string}`
-  }): PlainCommonCommandSurface<Ext> {
+  }
+
+  export function standardCreateCommandSurface<Ext extends string = never>(
+    opts: StandardCreateCommandSurfaceOpts,
+  ): PlainCommonCommandSurface<Ext> {
     const { idStem, collectionHref } = opts
     return {
       dispatch: 'create',
@@ -421,14 +486,19 @@ export namespace HydraDoc {
         template: collectionHref,
         mappings: [],
       },
+      ...getOperationDocumentation(opts),
     }
   }
 
-  export function standardCommandSurface<Ext extends string = never>(opts: {
+  export interface StandardCommandSurfaceOpts extends OperationDocumentation {
     idStem: string
     collectionHref: `/${string}`
     idProperty: string
-  }): PlainCommonCommandSurface<Ext> {
+  }
+
+  export function standardCommandSurface<Ext extends string = never>(
+    opts: StandardCommandSurfaceOpts,
+  ): PlainCommonCommandSurface<Ext> {
     const { idStem, collectionHref, idProperty } = opts
     return {
       dispatch: 'command',
@@ -438,6 +508,7 @@ export namespace HydraDoc {
         template: `${collectionHref}/{id}/command`,
         mappings: [{ variable: 'id', property: idProperty, required: true }],
       },
+      ...getOperationDocumentation(opts),
     }
   }
 
@@ -479,21 +550,37 @@ export namespace HydraDoc {
   /** Shared surface selectable by dispatch. */
   export class CommandSurface<Ext extends string> extends BaseCommandSurface {
     readonly dispatch: CommandDispatch<Ext>
+    readonly operationId?: string
+    readonly description?: string
+    readonly responses?: readonly ResponseEntry[]
+    readonly responseSchemaUrn?: string
 
     constructor(plain: PlainCommonCommandSurface<Ext>) {
       super(plain)
       assert(plain.dispatch, 'CommandSurface.dispatch is required')
       this.dispatch = plain.dispatch
+      this.operationId = plain.operationId
+      this.description = plain.description
+      this.responses = plain.responses
+      this.responseSchemaUrn = plain.responseSchemaUrn
     }
   }
 
   /** One-off surface used only by a single command capability (not dispatch-addressable). */
   export class CustomCommandSurface extends BaseCommandSurface {
     readonly name?: string
+    readonly operationId?: string
+    readonly description?: string
+    readonly responses?: readonly ResponseEntry[]
+    readonly responseSchemaUrn?: string
 
     constructor(plain: PlainCustomCommandSurface) {
       super(plain)
       this.name = plain.name
+      this.operationId = plain.operationId
+      this.description = plain.description
+      this.responses = plain.responses
+      this.responseSchemaUrn = plain.responseSchemaUrn
     }
   }
 
@@ -530,11 +617,15 @@ export namespace HydraDoc {
     /** True if this is the latest (highest semver) version within its stableId group. */
     readonly isLatest: boolean
 
-    /** Per-content-type response schemas for this command's success response. */
-    readonly responseSchema?: readonly ContentTypeSchema[]
+    /** Response documentation. Overrides dispatch surface defaults when provided. */
+    readonly responses?: readonly ResponseEntry[]
+    readonly responseSchemaUrn?: string
 
     /** Workflow annotation declaring chained operation semantics. */
     readonly workflow?: Workflow
+
+    /** Human-readable description of what this command does. */
+    readonly description?: string
 
     /** Runtime adapter that transforms old-version data to the current shape. */
     readonly adapt?: Adapter
@@ -551,7 +642,9 @@ export namespace HydraDoc {
       this.deprecated = plain.deprecated ?? false
       this.stableId = plain.stableId
       this.schema = plain.schema
-      this.responseSchema = plain.responseSchema
+      this.description = plain.description
+      this.responses = plain.responses
+      this.responseSchemaUrn = plain.responseSchemaUrn
       this.workflow = plain.workflow
       this.version = plain.version
       this.isLatest = envelope.isLatest
@@ -688,10 +781,22 @@ export namespace HydraDoc {
     readonly profile: string
     readonly template: IriTemplate
     readonly href?: `/${string}`
-    readonly responseSchema?: readonly ContentTypeSchema[]
+    readonly operationId?: string
+    readonly description?: string
+    readonly responses?: readonly ResponseEntry[]
+    readonly responseSchemaUrn?: string
 
     constructor(plain: ResourceSurface | CollectionSurface) {
-      const { formats, profile, template, href, responseSchema } = plain
+      const {
+        formats,
+        profile,
+        template,
+        href,
+        operationId,
+        description,
+        responses,
+        responseSchemaUrn,
+      } = plain
       assert(formats?.length, 'QuerySurface.formats must be non-empty')
       assert(profile, 'QuerySurface.profile is required')
       this.formats = formats
@@ -703,17 +808,10 @@ export namespace HydraDoc {
         template.variableRepresentation,
       )
       this.href = href
-      this.responseSchema = responseSchema
-
-      if (responseSchema) {
-        const formatSet = new Set(formats)
-        for (const rs of responseSchema) {
-          assert(
-            formatSet.has(rs.contentType),
-            `QuerySurface responseSchema contentType '${rs.contentType}' is not in formats [${formats.join(', ')}]`,
-          )
-        }
-      }
+      this.operationId = operationId
+      this.description = description
+      this.responses = responses
+      this.responseSchemaUrn = responseSchemaUrn
     }
 
     /** Non-templated canonical href (override or derived) */

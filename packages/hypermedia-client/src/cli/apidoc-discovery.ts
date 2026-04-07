@@ -5,11 +5,8 @@
  * entire apidoc and returns everything — used by the `init` command.
  */
 
+import type { HydraApiDocumentation } from '@cqrs-toolkit/hypermedia'
 import assert from 'node:assert'
-
-// ---------------------------------------------------------------------------
-// Public types
-// ---------------------------------------------------------------------------
 
 export interface DiscoveredCommand {
   /** Full command URN (e.g. 'urn:command:demo.CreateTodo:1.0.0') */
@@ -34,43 +31,11 @@ export interface DiscoveryResult {
   representations: DiscoveredRepresentation[]
 }
 
-// ---------------------------------------------------------------------------
-// JSON-LD shape types
-// ---------------------------------------------------------------------------
-
-interface JsonLdCommand {
-  '@id': string
-  'svc:stableId': string
-  'schema:version': string
-}
-
-interface JsonLdRepresentation {
-  '@id': string
-  'schema:version': string
-}
-
-interface JsonLdClass {
-  '@id': string
-  'svc:commands'?: {
-    'svc:supportedCommand': JsonLdCommand[]
-  }
-  'svc:representation'?: JsonLdRepresentation[]
-}
-
-interface JsonLdApidoc {
-  'hydra:supportedClass': JsonLdClass[]
-}
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
 /**
  * Walk the entire apidoc and discover all commands and representations.
  */
-export function discoverApidoc(apidoc: unknown): DiscoveryResult {
-  const doc = apidoc as JsonLdApidoc
-  const classes = doc['hydra:supportedClass']
+export function discoverApidoc(apidoc: HydraApiDocumentation.Document): DiscoveryResult {
+  const classes = apidoc['hydra:supportedClass']
   assert(Array.isArray(classes), 'apidoc must have hydra:supportedClass array')
 
   const commands: DiscoveredCommand[] = []

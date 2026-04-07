@@ -41,6 +41,7 @@ export function minimalRepresentation(): HydraDoc.Representation {
     resource: {
       profile: 'urn:profile:test.Entity:1.0.0',
       formats: ['application/json'],
+      operationId: 'getEntity',
       template: {
         id: '#test-entity-resource-v1_0_0',
         template: '/api/test/entities/{id}',
@@ -50,6 +51,7 @@ export function minimalRepresentation(): HydraDoc.Representation {
     collection: {
       profile: 'urn:profile:test.EntityCollection:1.0.0',
       formats: ['application/json'],
+      operationId: 'listEntities',
       href: '/api/test/entities',
       template: {
         id: '#test-entity-collection-v1_0_0',

@@ -18,13 +18,7 @@
 
 ### opts
 
-#### collectionHref
-
-`` `/${string}` ``
-
-#### idStem
-
-`string`
+[`StandardCreateCommandSurfaceOpts`](../interfaces/StandardCreateCommandSurfaceOpts.md)
 
 ## Returns
 

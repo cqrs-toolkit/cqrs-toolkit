@@ -1,0 +1,19 @@
+{
+  "$id": "urn:schema:nb.NoteCollection:1.0.0",
+  "properties": {
+    "entities": {
+      "items": {
+        "$ref": "urn:schema:nb.Note:1.0.0"
+      },
+      "type": "array"
+    },
+    "nextCursor": {
+      "type": ["string", "null"]
+    },
+    "totalItems": {
+      "type": "number"
+    }
+  },
+  "required": ["entities", "nextCursor"],
+  "type": "object"
+}

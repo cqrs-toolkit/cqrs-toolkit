@@ -1,14 +1,22 @@
 /**
  * CLI `init` command — discover commands and representations from the apidoc
- * and write a cqrs-hypermedia.config.ts file.
+ * and write a cqrs-toolkit.config.ts file.
  */
 
+import type { HydraApiDocumentation } from '@cqrs-toolkit/hypermedia'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
-import { discoverApidoc, latestCommands, latestRepresentations } from './apidoc-discovery.js'
+import {
+  discoverApidoc,
+  type DiscoveredCommand,
+  type DiscoveredRepresentation,
+  latestCommands,
+  latestRepresentations,
+} from './apidoc-discovery.js'
 import {
   generateConfigFileContent,
+  overrideClientSection,
   type ParseValidationException,
   updateConfigCommands,
   updateConfigRepresentations,
@@ -18,9 +26,9 @@ import {
 type ConflictResolution = 'abort' | 'update' | 'override'
 
 const CONFIG_FILENAMES = [
-  'cqrs-hypermedia.config.ts',
-  'cqrs-hypermedia.config.js',
-  'cqrs-hypermedia.config.mjs',
+  'cqrs-toolkit.config.ts',
+  'cqrs-toolkit.config.js',
+  'cqrs-toolkit.config.mjs',
 ]
 
 export interface InitOptions {
@@ -46,27 +54,13 @@ export async function init(projectRoot: string, opts: InitOptions): Promise<void
         await runUpdate(existingConfigPath, apidocUrl)
         return
       case 'override':
-        // Fall through to the write-from-scratch path below
-        break
+        await runOverride(existingConfigPath, apidocUrl, opts)
+        return
     }
   }
 
   // Fetch apidoc and write a fresh config file
-  console.log(`Fetching apidoc from ${apidocUrl}`)
-  const res = await fetch(apidocUrl)
-  if (!res.ok) {
-    throw new Error(`Failed to fetch apidoc: ${res.status} ${res.statusText}`)
-  }
-  const apidoc: unknown = await res.json()
-
-  const discovery = discoverApidoc(apidoc)
-  const commands = latestCommands(discovery.commands)
-  const representations = latestRepresentations(discovery.representations)
-
-  console.log(`Discovered ${discovery.commands.length} command(s), ${commands.length} latest`)
-  console.log(
-    `Discovered ${discovery.representations.length} representation(s), ${representations.length} latest`,
-  )
+  const { commands, representations } = await fetchAndDiscover(apidocUrl)
 
   const content = generateConfigFileContent({
     server: opts.server,
@@ -75,10 +69,38 @@ export async function init(projectRoot: string, opts: InitOptions): Promise<void
     representations,
   })
 
-  const configPath = existingConfigPath ?? join(projectRoot, 'cqrs-hypermedia.config.ts')
+  const configPath = existingConfigPath ?? join(projectRoot, 'cqrs-toolkit.config.ts')
   writeFileSync(configPath, content)
   console.log(`\nWrote ${configPath}`)
   console.log("Edit this file to remove commands/representations you don't need.")
+}
+
+// ---------------------------------------------------------------------------
+// Override path — replace only the client section, preserve everything else
+// ---------------------------------------------------------------------------
+
+async function runOverride(
+  configPath: string,
+  apidocUrl: string,
+  opts: InitOptions,
+): Promise<void> {
+  const { commands, representations } = await fetchAndDiscover(apidocUrl)
+
+  const originalSource = readFileSync(configPath, 'utf8')
+  const result = overrideClientSection(originalSource, {
+    server: opts.server,
+    apidocPath: opts.apidocPath,
+    commands,
+    representations,
+  })
+
+  if (!result.ok) {
+    logParseValidationError('client section', result.error)
+    return
+  }
+
+  writeFileSync(configPath, result.value)
+  console.log(`\nOverrode client section in ${configPath}`)
 }
 
 // ---------------------------------------------------------------------------
@@ -86,26 +108,17 @@ export async function init(projectRoot: string, opts: InitOptions): Promise<void
 // ---------------------------------------------------------------------------
 
 async function runUpdate(configPath: string, apidocUrl: string): Promise<void> {
-  console.log(`Fetching apidoc from ${apidocUrl}`)
-  const res = await fetch(apidocUrl)
-  if (!res.ok) {
-    throw new Error(`Failed to fetch apidoc: ${res.status} ${res.statusText}`)
-  }
-  const apidoc: unknown = await res.json()
-
-  const discovery = discoverApidoc(apidoc)
-  const commands = latestCommands(discovery.commands)
-  const reps = latestRepresentations(discovery.representations)
-
-  console.log(`Discovered ${discovery.commands.length} command(s), ${commands.length} latest`)
-  console.log(
-    `Discovered ${discovery.representations.length} representation(s), ${reps.length} latest`,
-  )
+  const {
+    allCommands,
+    commands,
+    allRepresentations,
+    representations: reps,
+  } = await fetchAndDiscover(apidocUrl)
 
   const originalSource = readFileSync(configPath, 'utf8')
 
   // Update commands
-  const cmdResult = updateConfigCommands(originalSource, discovery.commands, commands)
+  const cmdResult = updateConfigCommands(originalSource, allCommands, commands)
   if (!cmdResult.ok) {
     logParseValidationError('commands', cmdResult.error)
     return
@@ -114,7 +127,7 @@ async function runUpdate(configPath: string, apidocUrl: string): Promise<void> {
   const afterCommands = cmdOp.kind === 'updated' ? cmdOp.updatedSource : originalSource
 
   // Update representations
-  const repResult = updateConfigRepresentations(afterCommands, discovery.representations, reps)
+  const repResult = updateConfigRepresentations(afterCommands, allRepresentations, reps)
   if (!repResult.ok) {
     logParseValidationError('representations', repResult.error)
     return
@@ -178,6 +191,42 @@ function logChangeSummary(label: string, op: UpdateOp): void {
     for (const r of op.removed) {
       console.log(`    ${r}`)
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Shared: fetch apidoc + discover commands/representations
+// ---------------------------------------------------------------------------
+
+interface DiscoveryOutput {
+  allCommands: DiscoveredCommand[]
+  commands: DiscoveredCommand[]
+  allRepresentations: DiscoveredRepresentation[]
+  representations: DiscoveredRepresentation[]
+}
+
+async function fetchAndDiscover(apidocUrl: string): Promise<DiscoveryOutput> {
+  console.log(`Fetching apidoc from ${apidocUrl}`)
+  const res = await fetch(apidocUrl)
+  if (!res.ok) {
+    throw new Error(`Failed to fetch apidoc: ${res.status} ${res.statusText}`)
+  }
+  const apidoc: HydraApiDocumentation.Document = await res.json()
+
+  const discovery = discoverApidoc(apidoc)
+  const commands = latestCommands(discovery.commands)
+  const representations = latestRepresentations(discovery.representations)
+
+  console.log(`Discovered ${discovery.commands.length} command(s), ${commands.length} latest`)
+  console.log(
+    `Discovered ${discovery.representations.length} representation(s), ${representations.length} latest`,
+  )
+
+  return {
+    allCommands: discovery.commands,
+    commands,
+    allRepresentations: discovery.representations,
+    representations,
   }
 }
 

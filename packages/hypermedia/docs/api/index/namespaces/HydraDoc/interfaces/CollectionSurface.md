@@ -6,11 +6,25 @@
 
 # Interface: CollectionSurface
 
+OpenAPI operation metadata shared by all surfaces (command and query).
+
 ## Extends
 
 - [`PlainQuerySurface`](PlainQuerySurface.md)
 
 ## Properties
+
+### description?
+
+> `optional` **description**: `string`
+
+Human-readable description of this operation.
+
+#### Inherited from
+
+[`PlainQuerySurface`](PlainQuerySurface.md).[`description`](PlainQuerySurface.md#description)
+
+---
 
 ### formats
 
@@ -38,6 +52,18 @@ Derived if omitted.
 
 ---
 
+### operationId?
+
+> `optional` **operationId**: `string`
+
+OpenAPI operationId. Required for OpenAPI generation.
+
+#### Inherited from
+
+[`PlainQuerySurface`](PlainQuerySurface.md).[`operationId`](PlainQuerySurface.md#operationid)
+
+---
+
 ### profile
 
 > **profile**: `string`
@@ -51,15 +77,27 @@ Example: 'urn:profile:storage.FileObject:1.0.0'
 
 ---
 
-### responseSchema?
+### responses?
 
-> `optional` **responseSchema**: readonly [`ContentTypeSchema`](ContentTypeSchema.md)[]
+> `optional` **responses**: readonly [`ResponseEntry`](../type-aliases/ResponseEntry.md)[]
 
-Per-content-type response schemas for this surface.
+Response documentation for this operation.
 
 #### Inherited from
 
-[`PlainQuerySurface`](PlainQuerySurface.md).[`responseSchema`](PlainQuerySurface.md#responseschema)
+[`PlainQuerySurface`](PlainQuerySurface.md).[`responses`](PlainQuerySurface.md#responses)
+
+---
+
+### responseSchemaUrn?
+
+> `optional` **responseSchemaUrn**: `string`
+
+URN for the oneOf union schema when 2xx responses have different schemas per contentType.
+
+#### Inherited from
+
+[`PlainQuerySurface`](PlainQuerySurface.md).[`responseSchemaUrn`](PlainQuerySurface.md#responseschemaurn)
 
 ---
 

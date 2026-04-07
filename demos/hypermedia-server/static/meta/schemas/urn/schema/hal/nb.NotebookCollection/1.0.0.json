@@ -1,0 +1,25 @@
+{
+  "$id": "urn:schema:hal:nb.NotebookCollection:1.0.0",
+  "properties": {
+    "_embedded": {
+      "properties": {
+        "item": {
+          "items": {
+            "$ref": "urn:schema:hal:nb.Notebook:1.0.0"
+          },
+          "type": "array"
+        }
+      },
+      "required": ["item"],
+      "type": "object"
+    },
+    "_links": {
+      "$ref": "urn:schema:hal:CollectionLinks:1.0.0"
+    },
+    "totalItems": {
+      "type": "number"
+    }
+  },
+  "required": ["_links", "_embedded"],
+  "type": "object"
+}

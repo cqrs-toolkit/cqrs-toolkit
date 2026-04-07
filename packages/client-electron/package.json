@@ -1,0 +1,56 @@
+{
+  "name": "@cqrs-toolkit/client-electron",
+  "version": "0.1.0",
+  "description": "Electron adapter for @cqrs-toolkit/client using better-sqlite3 in a utility process",
+  "keywords": [
+    "cqrs",
+    "event-sourcing",
+    "electron",
+    "offline-first",
+    "better-sqlite3"
+  ],
+  "license": "MIT",
+  "author": "Ontel, LLC",
+  "main": "dist/src/index.js",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    },
+    "./main": {
+      "types": "./dist/src/main.d.ts",
+      "import": "./dist/src/main.js"
+    },
+    "./worker": {
+      "types": "./dist/src/worker.d.ts",
+      "import": "./dist/src/worker.js"
+    },
+    "./preload": {
+      "types": "./dist/src/preload.d.ts",
+      "import": "./dist/src/preload.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.build.json",
+    "compile": "tsc -p tsconfig.json --noEmit",
+    "docs": "typedoc",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@cqrs-toolkit/client": "^0.1.0"
+  },
+  "peerDependencies": {
+    "better-sqlite3": ">=11.0.0",
+    "electron": ">=28.0.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "better-sqlite3": "^12.8.0"
+  }
+}

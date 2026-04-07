@@ -1,0 +1,29 @@
+{
+  "$id": "urn:schema:hal:nb.Todo:1.0.0",
+  "properties": {
+    "_links": {
+      "$ref": "urn:schema:hal:ResourceLinks:1.0.0"
+    },
+    "content": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "latestRevision": {
+      "type": "string"
+    },
+    "status": {
+      "enum": ["pending", "in_progress", "completed"],
+      "type": "string"
+    },
+    "updatedAt": {
+      "type": "string"
+    }
+  },
+  "required": ["id", "content", "status", "createdAt", "updatedAt", "latestRevision", "_links"],
+  "type": "object"
+}

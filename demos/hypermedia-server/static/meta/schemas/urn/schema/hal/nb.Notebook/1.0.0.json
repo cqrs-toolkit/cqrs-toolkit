@@ -1,0 +1,31 @@
+{
+  "$id": "urn:schema:hal:nb.Notebook:1.0.0",
+  "properties": {
+    "_links": {
+      "$ref": "urn:schema:hal:ResourceLinks:1.0.0"
+    },
+    "createdAt": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "latestRevision": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "tags": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "updatedAt": {
+      "type": "string"
+    }
+  },
+  "required": ["id", "name", "tags", "createdAt", "updatedAt", "latestRevision", "_links"],
+  "type": "object"
+}

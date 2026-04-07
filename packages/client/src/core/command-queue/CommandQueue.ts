@@ -280,12 +280,13 @@ export class CommandQueue<
       fileRefs = []
       for (const file of command.files) {
         const fileId = generateId()
-        await this.fileStore.save(commandId, fileId, file)
+        const storagePath = await this.fileStore.save(commandId, fileId, file)
         fileRefs.push({
           id: fileId,
           filename: file.name,
           mimeType: file.type,
           sizeBytes: file.size,
+          storagePath,
         })
       }
     }
@@ -568,6 +569,14 @@ export class CommandQueue<
     }
 
     const result = await this.commandSender.send(sendCommand)
+
+    // Clear hydrated file data — it's transient for the send operation only.
+    // Blobs must not leak into event broadcasts or storage updates.
+    if (sendCommand.fileRefs) {
+      for (const ref of sendCommand.fileRefs) {
+        ref.data = undefined
+      }
+    }
 
     if (result.ok) {
       const response = result.value

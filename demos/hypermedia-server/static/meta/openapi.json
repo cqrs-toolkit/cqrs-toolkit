@@ -1,0 +1,896 @@
+{
+  "info": {
+    "title": "Hypermedia Demo API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/events/file-objects": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Maximum number of items to return",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Return events after this position",
+            "in": "query",
+            "name": "afterPosition",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "tags": ["FileObject"]
+      }
+    },
+    "/api/events/notebooks": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Maximum number of items to return",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Return events after this position",
+            "in": "query",
+            "name": "afterPosition",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "tags": ["Notebook"]
+      }
+    },
+    "/api/events/notes": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Maximum number of items to return",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Return events after this position",
+            "in": "query",
+            "name": "afterPosition",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "tags": ["Note"]
+      }
+    },
+    "/api/events/todos": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Maximum number of items to return",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Return events after this position",
+            "in": "query",
+            "name": "afterPosition",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "tags": ["Todo"]
+      }
+    },
+    "/api/file-objects": {
+      "get": {
+        "operationId": "getFileObjects",
+        "parameters": [
+          {
+            "description": "Opaque pagination cursor returned by a previous response",
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Maximum number of items to return",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Note identifier",
+            "in": "query",
+            "name": "noteId",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/hal+json": {
+                "schema": {
+                  "$ref": "urn:schema:hal:storage.FileObjectCollection:1.0.0"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "urn:schema:storage.FileObjectCollection:1.0.0"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "tags": ["FileObject"]
+      },
+      "post": {
+        "operationId": "getFileUploadPermit",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "urn:schema:storage.CreateFileObject:1.0.0"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "urn:schema:storage.PresignedPermitResponse:1.0.0"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "tags": ["FileObject"]
+      }
+    },
+    "/api/file-objects/{id}": {
+      "get": {
+        "operationId": "getFileObjectById",
+        "parameters": [
+          {
+            "description": "File object identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/hal+json": {
+                "schema": {
+                  "$ref": "urn:schema:hal:storage.FileObject:1.0.0"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "urn:schema:storage.FileObject:1.0.0"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "tags": ["FileObject"]
+      }
+    },
+    "/api/file-objects/{id}/command": {
+      "post": {
+        "operationId": "postFileObjectCommand",
+        "parameters": [
+          {
+            "description": "File object identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "urn:schema:storage.DeleteFileObject:1.0.0"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "urn:schema:svc.CommandSuccessResponse:1.0.0"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "tags": ["FileObject"]
+      }
+    },
+    "/api/file-objects/{id}/events": {
+      "get": {
+        "parameters": [
+          {
+            "description": "File object identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Maximum number of items to return",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Return events after this position",
+            "in": "query",
+            "name": "afterPosition",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "tags": ["FileObject"]
+      }
+    },
+    "/api/notebooks": {
+      "get": {
+        "operationId": "getNotebooks",
+        "parameters": [
+          {
+            "description": "Opaque pagination cursor returned by a previous response",
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Maximum number of items to return",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/hal+json": {
+                "schema": {
+                  "$ref": "urn:schema:hal:nb.NotebookCollection:1.0.0"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "urn:schema:nb.NotebookCollection:1.0.0"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "tags": ["Notebook"]
+      },
+      "post": {
+        "operationId": "createNotebook",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "urn:schema:nb.CreateNotebook:1.0.0"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "urn:schema:svc.CommandSuccessResponse:1.0.0"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "tags": ["Notebook"]
+      }
+    },
+    "/api/notebooks/{id}": {
+      "get": {
+        "operationId": "getNotebookById",
+        "parameters": [
+          {
+            "description": "Notebook identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/hal+json": {
+                "schema": {
+                  "$ref": "urn:schema:hal:nb.Notebook:1.0.0"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "urn:schema:nb.Notebook:1.0.0"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "tags": ["Notebook"]
+      }
+    },
+    "/api/notebooks/{id}/command": {
+      "post": {
+        "operationId": "postNotebookCommand",
+        "parameters": [
+          {
+            "description": "Notebook identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "urn:schema:nb.UpdateNotebookName:1.0.0"
+                  },
+                  {
+                    "$ref": "urn:schema:nb.DeleteNotebook:1.0.0"
+                  },
+                  {
+                    "$ref": "urn:schema:nb.AddNotebookTag:1.0.0"
+                  },
+                  {
+                    "$ref": "urn:schema:nb.RemoveNotebookTag:1.0.0"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "urn:schema:svc.CommandSuccessResponse:1.0.0"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "tags": ["Notebook"]
+      }
+    },
+    "/api/notebooks/{id}/events": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Notebook identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Maximum number of items to return",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Return events after this position",
+            "in": "query",
+            "name": "afterPosition",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "tags": ["Notebook"]
+      }
+    },
+    "/api/notes": {
+      "get": {
+        "operationId": "getNotes",
+        "parameters": [
+          {
+            "description": "Opaque pagination cursor returned by a previous response",
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Maximum number of items to return",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/hal+json": {
+                "schema": {
+                  "$ref": "urn:schema:hal:nb.NoteCollection:1.0.0"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "urn:schema:nb.NoteCollection:1.0.0"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "tags": ["Note"]
+      },
+      "post": {
+        "operationId": "createNote",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "urn:schema:nb.CreateNote:1.0.0"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "urn:schema:svc.CommandSuccessResponse:1.0.0"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "tags": ["Note"]
+      }
+    },
+    "/api/notes/{id}": {
+      "get": {
+        "operationId": "getNoteById",
+        "parameters": [
+          {
+            "description": "Note identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/hal+json": {
+                "schema": {
+                  "$ref": "urn:schema:hal:nb.Note:1.0.0"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "urn:schema:nb.Note:1.0.0"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "tags": ["Note"]
+      }
+    },
+    "/api/notes/{id}/command": {
+      "post": {
+        "operationId": "postNoteCommand",
+        "parameters": [
+          {
+            "description": "Note identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "urn:schema:nb.UpdateNoteTitle:1.0.0"
+                  },
+                  {
+                    "$ref": "urn:schema:nb.UpdateNoteBody:1.0.0"
+                  },
+                  {
+                    "$ref": "urn:schema:nb.DeleteNote:1.0.0"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "urn:schema:svc.CommandSuccessResponse:1.0.0"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "tags": ["Note"]
+      }
+    },
+    "/api/notes/{id}/events": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Note identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Maximum number of items to return",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Return events after this position",
+            "in": "query",
+            "name": "afterPosition",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "tags": ["Note"]
+      }
+    },
+    "/api/todos": {
+      "get": {
+        "operationId": "getTodos",
+        "parameters": [
+          {
+            "description": "Opaque pagination cursor returned by a previous response",
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Maximum number of items to return",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/hal+json": {
+                "schema": {
+                  "$ref": "urn:schema:hal:nb.TodoCollection:1.0.0"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "urn:schema:nb.TodoCollection:1.0.0"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "tags": ["Todo"]
+      },
+      "post": {
+        "operationId": "createTodo",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "urn:schema:nb.CreateTodo:1.0.0"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "urn:schema:svc.CommandSuccessResponse:1.0.0"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "tags": ["Todo"]
+      }
+    },
+    "/api/todos/{id}": {
+      "get": {
+        "operationId": "getTodoById",
+        "parameters": [
+          {
+            "description": "Todo identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/hal+json": {
+                "schema": {
+                  "$ref": "urn:schema:hal:nb.Todo:1.0.0"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "urn:schema:nb.Todo:1.0.0"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "tags": ["Todo"]
+      }
+    },
+    "/api/todos/{id}/command": {
+      "post": {
+        "operationId": "postTodoCommand",
+        "parameters": [
+          {
+            "description": "Todo identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "urn:schema:nb.UpdateTodoContent:1.0.0"
+                  },
+                  {
+                    "$ref": "urn:schema:nb.ChangeTodoStatus:1.0.0"
+                  },
+                  {
+                    "$ref": "urn:schema:nb.DeleteTodo:1.0.0"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "urn:schema:svc.CommandSuccessResponse:1.0.0"
+                }
+              }
+            },
+            "description": "Success"
+          }
+        },
+        "tags": ["Todo"]
+      }
+    },
+    "/api/todos/{id}/events": {
+      "get": {
+        "parameters": [
+          {
+            "description": "Todo identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Maximum number of items to return",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Return events after this position",
+            "in": "query",
+            "name": "afterPosition",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "tags": ["Todo"]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Todo"
+    },
+    {
+      "name": "Note"
+    },
+    {
+      "name": "Notebook"
+    },
+    {
+      "name": "FileObject"
+    }
+  ]
+}

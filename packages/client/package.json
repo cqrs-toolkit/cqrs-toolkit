@@ -17,6 +17,10 @@
       "types": "./dist/src/index.d.ts",
       "import": "./dist/src/index.js"
     },
+    "./internals": {
+      "types": "./dist/src/internals.d.ts",
+      "import": "./dist/src/internals.js"
+    },
     "./utils": {
       "types": "./dist/src/utils/index.d.ts",
       "import": "./dist/src/utils/index.js"

@@ -1,7 +1,7 @@
 CACHE = ./scripts/cache-run.sh
 DOCS = ./scripts/docs-run.sh
-WITH_HM_SERVER = ./demos/hypermedia-demo/scripts/with-server.sh
-.PHONY: build docs clean-cache hm-generate hm-init
+WITH_HM_SERVER = ./demos/hypermedia-server/scripts/with-server.sh
+.PHONY: build docs clean clean-cache hm-server-docs hm-client-init
 
 build-realtime:
 	$(CACHE) packages/realtime -- npm run build -w packages/realtime
@@ -9,12 +9,16 @@ build-schema:
 	$(CACHE) packages/schema -- npm run build -w packages/schema
 build-hypermedia:
 	$(CACHE) packages/hypermedia -- npm run build -w packages/hypermedia
+build-hypermedia-cli:
+	$(CACHE) packages/hypermedia-cli hypermedia-client -- npm run build -w packages/hypermedia-cli
 build-hypermedia-client:
 	$(CACHE) packages/hypermedia-client -- npm run build -w packages/hypermedia-client
 build-client:
 	$(CACHE) packages/client realtime -- npm run build -w packages/client
 build-client-solid:
 	$(CACHE) packages/client-solid client -- npm run build -w packages/client-solid
+build-client-electron:
+	$(CACHE) packages/client-electron client -- npm run build -w packages/client-electron
 build-devtools:
 	$(CACHE) packages/devtools client -- npm run build -w packages/devtools
 COMPILE = CACHE_NS=compile $(CACHE)
@@ -22,9 +26,15 @@ COMPILE = CACHE_NS=compile $(CACHE)
 compile-todo-demo:
 	$(CACHE) demos/todo-demo client client-solid -- npx tsc -p demos/todo-demo/tsconfig.json --noEmit
 	$(CACHE) demos/todo-demo-server client -- npx tsc -p demos/todo-demo/tsconfig.server.json --noEmit
-compile-hypermedia-demo:
-	$(CACHE) demos/hypermedia-demo client client-solid hypermedia -- npx tsc -p demos/hypermedia-demo/tsconfig.json --noEmit
-	$(CACHE) demos/hypermedia-demo-server client hypermedia -- npx tsc -p demos/hypermedia-demo/tsconfig.server.json --noEmit
+compile-hypermedia-base:
+	$(CACHE) demos/hypermedia-base client client-solid hypermedia-client -- npx tsc -p demos/hypermedia-base/tsconfig.json --noEmit
+compile-hypermedia-server:
+	$(CACHE) demos/hypermedia-server client hypermedia hypermedia-cli -- npx tsc -p demos/hypermedia-server/tsconfig.json --noEmit
+compile-hypermedia-web:
+	$(CACHE) demos/hypermedia-web client client-solid hypermedia-base -- npx tsc -p demos/hypermedia-web/tsconfig.json --noEmit
+
+clean:
+	./scripts/clean.sh
 
 clean-cache:
 	rm -rf node_modules/.cache/build-hashes node_modules/.cache/compile-hashes node_modules/.cache/docs-hashes
@@ -37,24 +47,35 @@ docs-hypermedia:
 	$(DOCS) packages/hypermedia -- npm run docs -w packages/hypermedia
 docs-client:
 	$(DOCS) packages/client realtime -- npm run docs -w packages/client
+docs-client-electron:
+	$(DOCS) packages/client-electron client -- npm run docs -w packages/client-electron
 docs-client-solid:
 	$(DOCS) packages/client-solid client -- npm run docs -w packages/client-solid
 docs-hypermedia-client:
 	$(DOCS) packages/hypermedia-client client -- npm run docs -w packages/hypermedia-client
+docs-hypermedia-server-meta:
+	$(CACHE) demos/hypermedia-server hypermedia hypermedia-cli -- npm run cqrs:server:docs -w @cqrs-toolkit/hypermedia-server
 
 docs:
 	@rm -f node_modules/.cache/docs-hashes/docs-staged
-	make -j docs-realtime docs-schema docs-hypermedia docs-client docs-hypermedia-client docs-client-solid
+	make -j docs-realtime docs-schema docs-hypermedia docs-client docs-client-electron docs-client-solid docs-hypermedia-client
 	@./scripts/docs-stage.sh
+	make docs-hypermedia-server-meta
 
 build:
-	make -j build-realtime build-schema build-hypermedia
+	make -j build-realtime build-schema
+	make build-hypermedia
 	make build-client
-	make -j build-client-solid build-hypermedia-client
-	make -j build-devtools compile-todo-demo compile-hypermedia-demo
+	make -j build-client-solid build-client-electron build-hypermedia-client
+	make build-hypermedia-cli
+	make -j build-devtools compile-todo-demo compile-hypermedia-base compile-hypermedia-server
+	make compile-hypermedia-web
 
-hm-generate:
-	$(WITH_HM_SERVER) npm run cqrs-generate -w @cqrs-toolkit/hypermedia-demo
+hm-start-electron:
+	$(WITH_HM_SERVER) npm run start -w @cqrs-toolkit/hypermedia-electron
 
-hm-init:
-	$(WITH_HM_SERVER) npm run cqrs-init -w @cqrs-toolkit/hypermedia-demo
+hm-server-docs:
+	$(WITH_HM_SERVER) npm run cqrs:server:docs -w @cqrs-toolkit/hypermedia-server
+
+hm-client-init:
+	$(WITH_HM_SERVER) npm run cqrs:client:init -w @cqrs-toolkit/hypermedia-base

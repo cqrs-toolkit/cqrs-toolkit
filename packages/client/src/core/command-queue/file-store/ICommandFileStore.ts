@@ -10,8 +10,8 @@
  */
 
 export interface ICommandFileStore {
-  /** Store a file blob for a command. */
-  save(commandId: string, fileId: string, data: Blob): Promise<void>
+  /** Store a file blob for a command. Returns the storage path from root. */
+  save(commandId: string, fileId: string, data: Blob): Promise<string>
 
   /** Read a file blob. Returns undefined if not found. */
   read(commandId: string, fileId: string): Promise<Blob | undefined>

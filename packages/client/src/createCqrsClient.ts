@@ -18,7 +18,7 @@ import type { Observable } from 'rxjs'
 import type {
   AdapterStatus,
   IAdapter,
-  IOnlineOnlyAdapter,
+  IWindowAdapter,
   IWorkerAdapter,
 } from './adapters/base/IAdapter.js'
 import { DedicatedWorkerAdapter } from './adapters/dedicated-worker/DedicatedWorkerAdapter.js'
@@ -42,7 +42,8 @@ import { QueryManager } from './core/query-manager/QueryManager.js'
 import { StableRefQueryManager } from './core/query-manager/StableRefQueryManager.js'
 import type { IQueryManager } from './core/query-manager/types.js'
 import { ReadModelStore } from './core/read-model-store/ReadModelStore.js'
-import type { IConnectivity } from './core/sync-manager/ConnectivityManager.js'
+import { ConnectivityManager } from './core/sync-manager/ConnectivityManager.js'
+import type { IConnectivity } from './core/sync-manager/IConnectivityManager.js'
 import type { CollectionSyncStatus } from './core/sync-manager/SeedStatusIndex.js'
 import { SyncManager } from './core/sync-manager/SyncManager.js'
 import { WriteQueue } from './core/write-queue/WriteQueue.js'
@@ -110,7 +111,7 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand> {
   /** Sync manager for collection sync status and manual triggers. */
   readonly syncManager: CqrsClientSyncManager<TLink>
   /** Resolved execution mode. */
-  readonly mode: ExecutionMode
+  readonly mode: string
 
   private readonly adapter: IAdapter<TLink, TCommand>
   private readonly closeResources: () => Promise<void>
@@ -122,7 +123,7 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand> {
     queryManager: IQueryManager<TLink>,
     syncManager: CqrsClientSyncManager<TLink>,
     closeResources: () => Promise<void>,
-    mode: ExecutionMode,
+    mode: string,
   ) {
     this.adapter = adapter
     this.cacheManager = cacheManager
@@ -345,7 +346,7 @@ export async function createCqrsClient<
   // Two paths based on adapter type
   let client: CqrsClient<TLink, TCommand>
   try {
-    if (adapter.mode === 'online-only') {
+    if (adapter.kind === 'window') {
       client = await createOnlineOnlyClient<TLink, TCommand, TSchema, TEvent>(
         adapter,
         resolved,
@@ -365,7 +366,7 @@ export async function createCqrsClient<
       .__CQRS_TOOLKIT_DEVTOOLS__
     if (hook) {
       let debugStorage: DebugStorageAPI | undefined
-      if (adapter.mode !== 'online-only') {
+      if (adapter.kind === 'worker') {
         const workerAdapter = adapter
         debugStorage = {
           exec: (sql, bind) =>
@@ -379,7 +380,7 @@ export async function createCqrsClient<
         queryManager: client.queryManager,
         cacheManager: client.cacheManager,
         syncManager: client.syncManager,
-        storage: adapter.mode === 'online-only' ? adapter.storage : undefined,
+        storage: adapter.kind === 'window' ? adapter.storage : undefined,
         debugStorage,
         config: resolved,
         role: adapter.role ?? 'leader',
@@ -399,7 +400,7 @@ async function createOnlineOnlyClient<
   TSchema,
   TEvent extends IAnticipatedEvent,
 >(
-  adapter: IOnlineOnlyAdapter<TLink, TCommand>,
+  adapter: IWindowAdapter<TLink, TCommand>,
   resolved: ResolvedConfig<TLink, TCommand, TSchema, TEvent>,
   mode: ExecutionMode,
 ): Promise<CqrsClient<TLink, TCommand>> {
@@ -487,6 +488,10 @@ async function createOnlineOnlyClient<
 
   const stableQueryManager = new StableRefQueryManager<TLink>(queryManager)
 
+  const connectivity = new ConnectivityManager<TLink>(eventBus, {
+    healthCheckUrl: `${resolved.network.baseUrl}/health`,
+  })
+
   const syncManager = new SyncManager<TLink, TCommand, TSchema, TEvent>(
     eventBus,
     adapter.sessionManager,
@@ -497,6 +502,7 @@ async function createOnlineOnlyClient<
     readModelStore,
     queryManager,
     writeQueue,
+    connectivity,
     resolved.network,
     resolved.auth,
     resolved.collections,

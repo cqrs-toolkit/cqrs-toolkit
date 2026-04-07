@@ -34,6 +34,12 @@ One-off surface used only by a single command capability (not dispatch-addressab
 
 ## Properties
 
+### description?
+
+> `readonly` `optional` **description**: `string`
+
+---
+
 ### method
 
 > `readonly` **method**: `"POST"`
@@ -47,6 +53,24 @@ One-off surface used only by a single command capability (not dispatch-addressab
 ### name?
 
 > `readonly` `optional` **name**: `string`
+
+---
+
+### operationId?
+
+> `readonly` `optional` **operationId**: `string`
+
+---
+
+### responses?
+
+> `readonly` `optional` **responses**: readonly [`ResponseEntry`](../type-aliases/ResponseEntry.md)[]
+
+---
+
+### responseSchemaUrn?
+
+> `readonly` `optional` **responseSchemaUrn**: `string`
 
 ---
 

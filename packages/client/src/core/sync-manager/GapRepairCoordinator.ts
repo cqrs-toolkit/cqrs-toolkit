@@ -14,7 +14,7 @@ import type { EventBus } from '../events/EventBus.js'
 import type { ReadModelStore } from '../read-model-store/ReadModelStore.js'
 import type { IWriteQueue } from '../write-queue/IWriteQueue.js'
 import type { ApplyGapRepairOp } from '../write-queue/operations.js'
-import type { ConnectivityManager } from './ConnectivityManager.js'
+import type { IConnectivityManager } from './IConnectivityManager.js'
 import { toParsedEvent } from './SyncManagerUtils.js'
 
 export interface GapRepairCoordinatorConfig<TLink extends Link> {
@@ -41,7 +41,7 @@ export class GapRepairCoordinator<TLink extends Link, TCommand extends EnqueueCo
     private readonly eventProcessor: EventProcessorRunner<TLink, TCommand>,
     private readonly readModelStore: ReadModelStore<TLink, TCommand>,
     private readonly collections: Collection<TLink>[],
-    private readonly connectivity: ConnectivityManager<TLink>,
+    private readonly connectivity: IConnectivityManager<TLink>,
     private readonly writeQueue: IWriteQueue<TLink>,
     config: GapRepairCoordinatorConfig<TLink>,
   ) {

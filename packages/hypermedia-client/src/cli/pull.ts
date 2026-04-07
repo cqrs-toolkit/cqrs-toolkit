@@ -3,16 +3,16 @@
  * download schemas, extract data schemas from envelopes, write generated TypeScript output.
  */
 
+import type { HydraApiDocumentation } from '@cqrs-toolkit/hypermedia'
 import type { JSONSchema7 } from 'json-schema'
 import type { EnvelopeExtractor } from '../config.js'
 import { parseApidoc, type ParsedCommand } from './apidoc-parser.js'
 import { parseRepresentations } from './apidoc-representations.js'
-import { loadConfig } from './config.js'
+import type { ResolvedPullConfig } from './config.js'
 import { fetchSchemas, type FetchedCommonSchema, type FetchedSchema } from './schema-fetcher.js'
 import { writeGeneratedOutput } from './ts-writer.js'
 
-export async function pull(projectRoot: string): Promise<void> {
-  const config = await loadConfig(projectRoot)
+export async function pull(config: ResolvedPullConfig): Promise<void> {
   const apidocUrl = `${config.server}${config.apidocPath}`
 
   // Extract URNs and per-command overrides from CommandEntry[]
@@ -34,7 +34,7 @@ export async function pull(projectRoot: string): Promise<void> {
   if (!res.ok) {
     throw new Error(`Failed to fetch apidoc: ${res.status} ${res.statusText}`)
   }
-  const apidoc: unknown = await res.json()
+  const apidoc: HydraApiDocumentation.Document = await res.json()
 
   // Parse commands
   console.log(`Parsing ${commandUrns.length} command(s)`)

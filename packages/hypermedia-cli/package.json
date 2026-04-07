@@ -1,0 +1,49 @@
+{
+  "name": "@cqrs-toolkit/hypermedia-cli",
+  "version": "0.1.0",
+  "description": "CLI tooling for CQRS Hydra documentation generation and deployment",
+  "keywords": [
+    "cqrs",
+    "hypermedia",
+    "hydra",
+    "cli"
+  ],
+  "license": "MIT",
+  "author": "Ontel, LLC",
+  "type": "module",
+  "bin": {
+    "cqrs-toolkit": "./bin/cqrs-toolkit.js",
+    "cqrs": "./bin/cqrs-toolkit.js"
+  },
+  "imports": {
+    "#load-config": "./src/load-config.js",
+    "#load-config-file": "./src/load-config-file.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    },
+    "./config": {
+      "types": "./dist/src/config.d.ts",
+      "import": "./dist/src/config.js"
+    }
+  },
+  "files": [
+    "bin",
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.build.json",
+    "compile": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@cqrs-toolkit/hypermedia": "*",
+    "@cqrs-toolkit/hypermedia-client": "*"
+  },
+  "optionalDependencies": {
+    "esbuild": "^0.28.0"
+  }
+}

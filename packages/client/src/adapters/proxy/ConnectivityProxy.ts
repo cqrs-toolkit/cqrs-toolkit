@@ -7,7 +7,7 @@ import { BehaviorSubject, Observable, distinctUntilChanged, map } from 'rxjs'
 import type {
   ConnectivityState,
   IConnectivity,
-} from '../../core/sync-manager/ConnectivityManager.js'
+} from '../../core/sync-manager/IConnectivityManager.js'
 import type { WorkerMessageChannel } from '../../protocol/MessageChannel.js'
 import type { EventMessage } from '../../protocol/messages.js'
 

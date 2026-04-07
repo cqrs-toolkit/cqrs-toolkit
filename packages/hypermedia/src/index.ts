@@ -1,4 +1,6 @@
 export { HAL } from './hal.js'
+// TODO: export all
+export type { HydraApiDocumentation } from './HydraApiDocumentation.js'
 export { HydraDoc } from './HydraDoc.js'
 export type {
   AnySpec,

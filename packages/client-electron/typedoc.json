@@ -1,0 +1,8 @@
+{
+  "plugin": ["typedoc-plugin-markdown"],
+  "entryPoints": ["src/index.ts", "src/main.ts", "src/worker.ts", "src/preload.ts"],
+  "tsconfig": "tsconfig.build.json",
+  "out": "docs/api",
+  "cleanOutputDir": true,
+  "disableSources": true
+}

@@ -5,6 +5,7 @@ import type { DiscoveredCommand, DiscoveredRepresentation } from './apidoc-disco
 import {
   type ParseValidationException,
   type UpdateOp,
+  overrideClientSection,
   updateConfigCommands,
   updateConfigRepresentations,
 } from './init-writer.js'
@@ -28,27 +29,31 @@ function cmd(stableId: string, version: string): DiscoveredCommand {
 
 /** Wrap a commands array fixture in a full valid config file. */
 function config(commandsBlock: string): string {
-  return `import { defineConfig } from '@cqrs-toolkit/hypermedia-client/config'
+  return `import { defineConfig } from '@cqrs-toolkit/hypermedia-cli/config'
 
 export default defineConfig({
-  server: 'http://localhost:3002',
-  apidocPath: '/api/meta/apidoc',
+  client: {
+    server: 'http://localhost:3002',
+    apidocPath: '/api/meta/apidoc',
 
-  ${commandsBlock},
+    ${commandsBlock},
 
-  representations: [],
+    representations: [],
+  },
 })
 `
 }
 
 /** Same as config() but without representations (for missing-property tests). */
 function configNoReps(body: string): string {
-  return `import { defineConfig } from '@cqrs-toolkit/hypermedia-client/config'
+  return `import { defineConfig } from '@cqrs-toolkit/hypermedia-cli/config'
 
 export default defineConfig({
-  server: 'http://localhost:3002',
-  apidocPath: '/api/meta/apidoc',
-${body}})
+  client: {
+    server: 'http://localhost:3002',
+    apidocPath: '/api/meta/apidoc',
+${body}  },
+})
 `
 }
 
@@ -378,13 +383,15 @@ describe('updateConfigCommands', () => {
 
   describe('missing commands property', () => {
     it('representations present, commands absent', () => {
-      const source = `import { defineConfig } from '@cqrs-toolkit/hypermedia-client/config'
+      const source = `import { defineConfig } from '@cqrs-toolkit/hypermedia-cli/config'
 
 export default defineConfig({
-  server: 'http://localhost:3002',
-  apidocPath: '/api/meta/apidoc',
+  client: {
+    server: 'http://localhost:3002',
+    apidocPath: '/api/meta/apidoc',
 
-  representations: ['#demo-todo-v1_0_0'],
+    representations: ['#demo-todo-v1_0_0'],
+  },
 })
 `
       const result = updateCommands(source, [cmd('demo.A', '1.0.0'), cmd('demo.B', '1.0.0')])
@@ -524,26 +531,30 @@ function rep(className: string, id: string, version: string): DiscoveredRepresen
 
 /** Wrap a representations array fixture in a full valid config file. */
 function repConfig(representationsBlock: string): string {
-  return `import { defineConfig } from '@cqrs-toolkit/hypermedia-client/config'
+  return `import { defineConfig } from '@cqrs-toolkit/hypermedia-cli/config'
 
 export default defineConfig({
-  server: 'http://localhost:3002',
-  apidocPath: '/api/meta/apidoc',
+  client: {
+    server: 'http://localhost:3002',
+    apidocPath: '/api/meta/apidoc',
 
-  commands: [],
+    commands: [],
 
-  ${representationsBlock},
+    ${representationsBlock},
+  },
 })
 `
 }
 
 function repConfigNoCommands(body: string): string {
-  return `import { defineConfig } from '@cqrs-toolkit/hypermedia-client/config'
+  return `import { defineConfig } from '@cqrs-toolkit/hypermedia-cli/config'
 
 export default defineConfig({
-  server: 'http://localhost:3002',
-  apidocPath: '/api/meta/apidoc',
-${body}})
+  client: {
+    server: 'http://localhost:3002',
+    apidocPath: '/api/meta/apidoc',
+${body}  },
+})
 `
 }
 
@@ -718,15 +729,17 @@ describe('updateConfigRepresentations', () => {
 
   describe('missing property', () => {
     it('inserts representations after commands', () => {
-      const source = `import { defineConfig } from '@cqrs-toolkit/hypermedia-client/config'
+      const source = `import { defineConfig } from '@cqrs-toolkit/hypermedia-cli/config'
 
 export default defineConfig({
-  server: 'http://localhost:3002',
-  apidocPath: '/api/meta/apidoc',
+  client: {
+    server: 'http://localhost:3002',
+    apidocPath: '/api/meta/apidoc',
 
-  commands: [
-    'urn:command:demo.CreateTodo:1.0.0',
-  ],
+    commands: [
+      'urn:command:demo.CreateTodo:1.0.0',
+    ],
+  },
 })
 `
       const result = updateConfigRepresentations(source, ALL_REPS, LATEST_REPS)
@@ -763,5 +776,95 @@ export default defineConfig({
       const result = updateConfigRepresentations(source, ALL_REPS, LATEST_REPS)
       expect(unwrap(result).kind).toBe('bail')
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// overrideClientSection
+// ---------------------------------------------------------------------------
+
+describe('overrideClientSection', () => {
+  const COMMANDS = [cmd('demo.A', '1.0.0'), cmd('demo.B', '1.0.0')]
+  const REPS = [rep('demo:Todo', '#demo-todo-v1_0_0', '1.0.0')]
+  const OPTS: import('./init-writer.js').InitWriterOptions = {
+    server: 'http://localhost:3002',
+    apidocPath: '/api/meta/apidoc',
+    commands: COMMANDS,
+    representations: REPS,
+  }
+
+  it('overrides client section in a file with server section — server preserved', () => {
+    const source = `import { defineConfig } from '@cqrs-toolkit/hypermedia-cli/config'
+
+export default defineConfig({
+  server: {
+    classes: [],
+    prefixes: ['nb'],
+    docs: { outputDir: 'static/meta' },
+    build: { outputDir: 'dist/static/meta' },
+  },
+  client: {
+    server: 'http://old-server',
+    apidocPath: '/old/path',
+    commands: [],
+    representations: [],
+  },
+})
+`
+    const result = overrideClientSection(source, OPTS)
+    assert(result.ok, 'Expected Ok result')
+    expect(result.value).toContain("server: 'http://localhost:3002'")
+    expect(result.value).toContain("apidocPath: '/api/meta/apidoc'")
+    expect(result.value).toContain("'urn:command:demo.A:1.0.0'")
+    expect(result.value).toContain("'urn:command:demo.B:1.0.0'")
+    expect(result.value).toContain("'#demo-todo-v1_0_0'")
+    // Server section preserved
+    expect(result.value).toContain("prefixes: ['nb']")
+    expect(result.value).toContain("docs: { outputDir: 'static/meta' }")
+  })
+
+  it('overrides client section in a client-only file', () => {
+    const source = `import { defineConfig } from '@cqrs-toolkit/hypermedia-cli/config'
+
+export default defineConfig({
+  client: {
+    server: 'http://old-server',
+    apidocPath: '/old/path',
+    commands: ['urn:command:old:1.0.0'],
+    representations: [],
+  },
+})
+`
+    const result = overrideClientSection(source, OPTS)
+    assert(result.ok, 'Expected Ok result')
+    expect(result.value).toContain("'urn:command:demo.A:1.0.0'")
+    expect(result.value).not.toContain('urn:command:old:1.0.0')
+  })
+
+  it('inserts client section when only server exists', () => {
+    const source = `import { defineConfig } from '@cqrs-toolkit/hypermedia-cli/config'
+
+export default defineConfig({
+  server: {
+    classes: [],
+    prefixes: [],
+    docs: { outputDir: 'static/meta' },
+    build: { outputDir: 'dist/static/meta' },
+  },
+})
+`
+    const result = overrideClientSection(source, OPTS)
+    assert(result.ok, 'Expected Ok result')
+    expect(result.value).toContain('client:')
+    expect(result.value).toContain("'urn:command:demo.A:1.0.0'")
+    // Server section preserved
+    expect(result.value).toContain('server:')
+    expect(result.value).toContain('prefixes: []')
+  })
+
+  it('returns error for source without defineConfig', () => {
+    const source = `export default { client: {} }`
+    const result = overrideClientSection(source, OPTS)
+    expect(result.ok).toBe(false)
   })
 })

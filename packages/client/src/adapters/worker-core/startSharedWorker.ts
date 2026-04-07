@@ -26,15 +26,13 @@
 
 import { createConsoleLogger, logProvider, type Link } from '@meticoeus/ddd-es'
 import type { IAnticipatedEvent } from '../../core/command-lifecycle/AnticipatedEventShape.js'
+import { OpfsCommandFileStore } from '../../core/command-queue/file-store/OpfsCommandFileStore.js'
 import { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
 import { deserialize } from '../../protocol/serialization.js'
 import { DEFAULT_CONFIG, resolveConfig, type CqrsConfig } from '../../types/config.js'
 import { EnqueueCommand } from '../../types/index.js'
 import { WorkerOrchestrator } from './WorkerOrchestrator.js'
 import { RemoteSqliteDb } from './sqlite-worker/RemoteSqliteDb.js'
-
-// Set a default warn-level console logger so logProvider doesn't throw before consumer setup
-logProvider.setLogger(createConsoleLogger({ level: 'warn' }))
 
 /**
  * Window TTL for liveness detection (30 seconds).
@@ -110,6 +108,19 @@ export function startSharedWorker<
   TSchema,
   TEvent extends IAnticipatedEvent,
 >(config: CqrsConfig<TLink, TCommand, TSchema, TEvent>): void {
+  const self = globalThis as unknown as SharedWorkerGlobalScope
+
+  // Set a default warn-level console logger so logProvider doesn't throw before consumer setup
+  logProvider.setLogger(createConsoleLogger({ level: 'warn' }))
+
+  // Surface uncaught errors — without this, worker crashes are silent
+  self.addEventListener('error', (event) => {
+    logProvider.log.error({ err: event.error }, '[shared-worker] Uncaught exception')
+  })
+  self.addEventListener('unhandledrejection', (event) => {
+    logProvider.log.error({ reason: event.reason }, '[shared-worker] Unhandled rejection')
+  })
+
   const resolved = resolveConfig(config)
   const messageHandler = new WorkerMessageHandler()
   const orchestrator = new WorkerOrchestrator<TLink, TCommand, TSchema, TEvent>(
@@ -201,7 +212,10 @@ export function startSharedWorker<
       await initializeRemoteDb(remoteDb)
 
       try {
-        await orchestrator.initialize(remoteDb)
+        await orchestrator.initialize({
+          externalDb: remoteDb,
+          fileStore: new OpfsCommandFileStore(),
+        })
         state = 'ready'
 
         // Resolve any pending orchestrator.initialize requests
@@ -252,8 +266,6 @@ export function startSharedWorker<
       }
     }
   }
-
-  const self = globalThis as unknown as SharedWorkerGlobalScope
 
   // Start liveness check for dead windows
   setInterval(async () => {

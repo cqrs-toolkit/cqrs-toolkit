@@ -198,6 +198,8 @@ export interface FileRef {
   mimeType: string
   /** File size in bytes */
   sizeBytes: number
+  /** Path from the storage root (e.g. 'cqrs-client/uploads/{commandId}/{fileId}' for OPFS). */
+  storagePath: string
   /** Optional integrity check (e.g. SHA-256 hex) */
   checksum?: string
   /** File data — undefined at rest, populated by the library before send(). */

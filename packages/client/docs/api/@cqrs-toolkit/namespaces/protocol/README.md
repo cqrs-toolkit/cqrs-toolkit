@@ -27,6 +27,7 @@
 - [RestoreHoldsResponse](interfaces/RestoreHoldsResponse.md)
 - [UnregisterWindowMessage](interfaces/UnregisterWindowMessage.md)
 - [WorkerInstanceMessage](interfaces/WorkerInstanceMessage.md)
+- [WorkerMessageHandlerConfig](interfaces/WorkerMessageHandlerConfig.md)
 
 ## Type Aliases
 

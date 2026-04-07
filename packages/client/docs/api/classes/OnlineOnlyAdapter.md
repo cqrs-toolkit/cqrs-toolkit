@@ -29,7 +29,7 @@ where offline persistence is not required.
 
 ## Implements
 
-- [`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md)\<`TLink`, `TCommand`\>
+- [`IWindowAdapter`](../interfaces/IWindowAdapter.md)\<`TLink`, `TCommand`\>
 
 ## Constructors
 
@@ -55,17 +55,17 @@ where offline persistence is not required.
 
 #### Implementation of
 
-[`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md).[`eventBus`](../interfaces/IOnlineOnlyAdapter.md#eventbus)
+[`IWindowAdapter`](../interfaces/IWindowAdapter.md).[`eventBus`](../interfaces/IWindowAdapter.md#eventbus)
 
 ---
 
-### mode
+### kind
 
-> `readonly` **mode**: `"online-only"`
+> `readonly` **kind**: `"window"`
 
 #### Implementation of
 
-[`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md).[`mode`](../interfaces/IOnlineOnlyAdapter.md#mode)
+[`IWindowAdapter`](../interfaces/IWindowAdapter.md).[`kind`](../interfaces/IWindowAdapter.md#kind)
 
 ---
 
@@ -79,7 +79,7 @@ Role of this client instance.
 
 #### Implementation of
 
-[`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md).[`role`](../interfaces/IOnlineOnlyAdapter.md#role)
+[`IWindowAdapter`](../interfaces/IWindowAdapter.md).[`role`](../interfaces/IWindowAdapter.md#role)
 
 ## Accessors
 
@@ -99,7 +99,7 @@ Observable of library events.
 
 #### Implementation of
 
-[`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md).[`events$`](../interfaces/IOnlineOnlyAdapter.md#events)
+[`IWindowAdapter`](../interfaces/IWindowAdapter.md).[`events$`](../interfaces/IWindowAdapter.md#events)
 
 ---
 
@@ -115,7 +115,7 @@ Observable of library events.
 
 #### Implementation of
 
-[`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md).[`sessionManager`](../interfaces/IOnlineOnlyAdapter.md#sessionmanager)
+[`IWindowAdapter`](../interfaces/IWindowAdapter.md).[`sessionManager`](../interfaces/IWindowAdapter.md#sessionmanager)
 
 ---
 
@@ -135,7 +135,7 @@ Current adapter status.
 
 #### Implementation of
 
-[`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md).[`status`](../interfaces/IOnlineOnlyAdapter.md#status)
+[`IWindowAdapter`](../interfaces/IWindowAdapter.md).[`status`](../interfaces/IWindowAdapter.md#status)
 
 ---
 
@@ -151,7 +151,7 @@ Current adapter status.
 
 #### Implementation of
 
-[`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md).[`storage`](../interfaces/IOnlineOnlyAdapter.md#storage)
+[`IWindowAdapter`](../interfaces/IWindowAdapter.md).[`storage`](../interfaces/IWindowAdapter.md#storage)
 
 ## Methods
 
@@ -167,7 +167,7 @@ Close the adapter and release resources.
 
 #### Implementation of
 
-[`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md).[`close`](../interfaces/IOnlineOnlyAdapter.md#close)
+[`IWindowAdapter`](../interfaces/IWindowAdapter.md).[`close`](../interfaces/IWindowAdapter.md#close)
 
 ---
 
@@ -183,4 +183,4 @@ Initialize the adapter.
 
 #### Implementation of
 
-[`IOnlineOnlyAdapter`](../interfaces/IOnlineOnlyAdapter.md).[`initialize`](../interfaces/IOnlineOnlyAdapter.md#initialize)
+[`IWindowAdapter`](../interfaces/IWindowAdapter.md).[`initialize`](../interfaces/IWindowAdapter.md#initialize)

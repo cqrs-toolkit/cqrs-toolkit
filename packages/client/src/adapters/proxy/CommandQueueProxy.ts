@@ -90,12 +90,13 @@ export class CommandQueueProxy<
       const fileRefs: import('../../types/commands.js').FileRef[] = []
       for (const file of params.command.files) {
         const fileId = generateId()
-        await this.fileStore.save(commandId, fileId, file)
+        const storagePath = await this.fileStore.save(commandId, fileId, file)
         fileRefs.push({
           id: fileId,
           filename: file.name,
           mimeType: file.type,
           sizeBytes: file.size,
+          storagePath,
         })
       }
       params.command.files = undefined

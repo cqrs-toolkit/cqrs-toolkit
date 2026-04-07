@@ -8,6 +8,10 @@
 
 Message channel configuration.
 
+## Extended by
+
+- [`WorkerMessageHandlerConfig`](WorkerMessageHandlerConfig.md)
+
 ## Properties
 
 ### requestTimeout?

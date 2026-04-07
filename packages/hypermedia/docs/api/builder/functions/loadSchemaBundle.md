@@ -6,22 +6,19 @@
 
 # Function: loadSchemaBundle()
 
-> **loadSchemaBundle**(`opts`): [`ResolvedSchemaBundle`](../interfaces/ResolvedSchemaBundle.md)
-
-Load committed schema artifacts from disk and resolve URNs to dereferenceable URLs.
-Reads `apidoc.jsonld` and all `.json` files under `schemas/` from `sourceDir`.
+> **loadSchemaBundle**(`opts`): `ResolvedSchemaBundle`
 
 ## Parameters
 
 ### opts
 
-#### apiEntrypoint
-
-`string`
-
 #### docsEntrypoint
 
 `string`
+
+#### schemaUrnResolver
+
+`SchemaUrnResolver`
 
 #### sourceDir
 
@@ -29,4 +26,4 @@ Reads `apidoc.jsonld` and all `.json` files under `schemas/` from `sourceDir`.
 
 ## Returns
 
-[`ResolvedSchemaBundle`](../interfaces/ResolvedSchemaBundle.md)
+`ResolvedSchemaBundle`

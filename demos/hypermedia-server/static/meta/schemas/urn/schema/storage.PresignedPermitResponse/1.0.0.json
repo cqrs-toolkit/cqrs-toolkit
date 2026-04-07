@@ -1,0 +1,31 @@
+{
+  "$id": "urn:schema:storage.PresignedPermitResponse:1.0.0",
+  "properties": {
+    "data": {
+      "properties": {
+        "uploadForm": {
+          "properties": {
+            "fields": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "url": {
+              "type": "string"
+            }
+          },
+          "required": ["url", "fields"],
+          "type": "object"
+        }
+      },
+      "required": ["uploadForm"],
+      "type": "object"
+    },
+    "id": {
+      "type": "string"
+    }
+  },
+  "required": ["id", "data"],
+  "type": "object"
+}

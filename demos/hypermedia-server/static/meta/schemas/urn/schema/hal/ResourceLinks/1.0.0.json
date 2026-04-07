@@ -1,0 +1,25 @@
+{
+  "$id": "urn:schema:hal:ResourceLinks:1.0.0",
+  "properties": {
+    "collection": {
+      "properties": {
+        "href": {
+          "type": "string"
+        }
+      },
+      "required": ["href"],
+      "type": "object"
+    },
+    "self": {
+      "properties": {
+        "href": {
+          "type": "string"
+        }
+      },
+      "required": ["href"],
+      "type": "object"
+    }
+  },
+  "required": ["self"],
+  "type": "object"
+}

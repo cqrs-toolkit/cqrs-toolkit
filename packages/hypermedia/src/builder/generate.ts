@@ -1,7 +1,13 @@
 import { isEqual } from 'moderndash'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { buildHydraApiDocumentation, type BuildOptions, type SchemaEntry } from './HydraBuilder.js'
+import {
+  buildHydraApiDocumentation,
+  type BuildOptions,
+  type BuildResult,
+  type SchemaEntry,
+} from './HydraBuilder.js'
+import { buildOpenApiDocument, type OpenApiBuildOptions } from './OpenApiBuilder.js'
 
 export interface GenerateConfig extends BuildOptions {
   /** Directory to write output files (apidoc.jsonld, schemas/, etc.) */
@@ -13,6 +19,8 @@ export interface GenerateResult {
   warnings: string[]
   /** Schema immutability violations (non-latest schemas that changed) */
   immutabilityViolations: string[]
+  /** Hydra build result — pass to generateOpenApiDocumentation */
+  buildResult: BuildResult
 }
 
 /**
@@ -21,7 +29,8 @@ export interface GenerateResult {
  */
 export function generateHydraDocumentation(config: GenerateConfig): GenerateResult {
   const { outputDir, ...buildOpts } = config
-  const { content, warnings, schemas } = buildHydraApiDocumentation(buildOpts)
+  const buildResult = buildHydraApiDocumentation(buildOpts)
+  const { content, warnings, schemas } = buildResult
 
   mkdirSync(outputDir, { recursive: true })
   writeFileSync(join(outputDir, 'apidoc.jsonld'), content)
@@ -42,8 +51,32 @@ export function generateHydraDocumentation(config: GenerateConfig): GenerateResu
   // Write schemas (latest overwrites, non-latest only if new or unchanged)
   writeSchemaEntries(outputDir, schemas)
 
-  return { warnings, immutabilityViolations }
+  return { warnings, immutabilityViolations, buildResult }
 }
+
+// ---------------------------------------------------------------------------
+// OpenAPI generation
+// ---------------------------------------------------------------------------
+
+export interface OpenApiBuildResult {
+  /** Raw OpenAPI content with URN references (stable for commits) */
+  content: string
+  /** Non-fatal warnings */
+  warnings: string[]
+}
+
+/**
+ * Build OpenAPI documentation. Returns the raw content with URN references.
+ * Does not write to disk — the caller is responsible for validation and writing.
+ */
+export function buildOpenApi(config: OpenApiBuildOptions): OpenApiBuildResult {
+  const { content, warnings } = buildOpenApiDocument(config)
+  return { content, warnings }
+}
+
+// ---------------------------------------------------------------------------
+// Schema file writing
+// ---------------------------------------------------------------------------
 
 function writeSchemaEntries(outputDir: string, entries: Map<string, SchemaEntry>): void {
   for (const [relativePath, entry] of entries) {
