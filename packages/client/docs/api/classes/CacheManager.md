@@ -26,13 +26,21 @@ Cache manager implementation.
 
 ### Constructor
 
-> **new CacheManager**\<`TLink`, `TCommand`\>(`config`): `CacheManager`\<`TLink`, `TCommand`\>
+> **new CacheManager**\<`TLink`, `TCommand`\>(`storage`, `eventBus`, `config`): `CacheManager`\<`TLink`, `TCommand`\>
 
 #### Parameters
 
+##### storage
+
+[`IStorage`](../interfaces/IStorage.md)\<`TLink`, `TCommand`\>
+
+##### eventBus
+
+[`EventBus`](EventBus.md)\<`TLink`\>
+
 ##### config
 
-[`CacheManagerConfig`](../interfaces/CacheManagerConfig.md)\<`TLink`, `TCommand`\>
+[`CacheManagerConfig`](../interfaces/CacheManagerConfig.md)
 
 #### Returns
 

@@ -72,7 +72,7 @@ export type {
   ICommandSender,
 } from './core/command-queue/index.js'
 export { EventCache, GapBuffer } from './core/event-cache/index.js'
-export type { CacheEventOptions, EventCacheConfig, EventGap } from './core/event-cache/index.js'
+export type { CacheEventOptions, EventGap } from './core/event-cache/index.js'
 export { EventProcessorRegistry, EventProcessorRunner } from './core/event-processor/index.js'
 export type {
   EventProcessor,
@@ -95,7 +95,6 @@ export type {
   ItemMeta,
   ListParams,
   ListQueryResult,
-  QueryManagerConfig,
   QueryOptions,
   QueryResult,
 } from './core/query-manager/index.js'
@@ -103,7 +102,6 @@ export { ReadModelStore } from './core/read-model-store/index.js'
 export type {
   ReadModel,
   ReadModelQueryOptions,
-  ReadModelStoreConfig,
   RevisionMeta,
 } from './core/read-model-store/index.js'
 export { SessionManager } from './core/session/index.js'

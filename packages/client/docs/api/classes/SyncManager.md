@@ -167,15 +167,19 @@ Get all collection statuses.
 
 ### getCollectionStatus()
 
-> **getCollectionStatus**(`collection`): [`CollectionSyncStatus`](../interfaces/CollectionSyncStatus.md) \| `undefined`
+> **getCollectionStatus**(`collection`, `cacheKey`): [`CollectionSyncStatus`](../interfaces/CollectionSyncStatus.md) \| `undefined`
 
-Get sync status for a collection.
+Get sync status for a specific (collection, cacheKey) pair.
 
 #### Parameters
 
 ##### collection
 
 `string`
+
+##### cacheKey
+
+[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
 
 #### Returns
 
@@ -453,24 +457,6 @@ This allows the app to render immediately from cached data while auth resolves.
 Stop the sync manager. Reversible — can call start() again after.
 Terminates subscriptions, aborts in-flight fetches, disconnects WebSocket.
 Connectivity monitoring is paused but not destroyed.
-
-#### Returns
-
-`Promise`\<`void`\>
-
----
-
-### syncCollection()
-
-> **syncCollection**(`collection`): `Promise`\<`void`\>
-
-Force-sync a specific collection from the server.
-
-#### Parameters
-
-##### collection
-
-`string`
 
 #### Returns
 

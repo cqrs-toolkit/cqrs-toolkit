@@ -23,7 +23,7 @@ export function registerSyncManagerMethods<
 ): void {
   // SyncManager methods (CqrsClientSyncManager interface)
   handler.registerMethod('syncManager.getCollectionStatus', async (args) => {
-    return syncManager.getCollectionStatus(args[0] as string)
+    return syncManager.getCollectionStatus(args[0] as string, args[1] as CacheKeyIdentity<TLink>)
   })
 
   handler.registerMethod('syncManager.getAllStatus', async () => {
@@ -32,10 +32,6 @@ export function registerSyncManagerMethods<
 
   handler.registerMethod('syncManager.getSeedStatus', async (args) => {
     return syncManager.getSeedStatus(args[0] as CacheKeyIdentity<TLink>)
-  })
-
-  handler.registerMethod('syncManager.syncCollection', async (args) => {
-    return syncManager.syncCollection(args[0] as string)
   })
 
   handler.registerMethod('syncManager.seed', async (args) => {

@@ -296,10 +296,13 @@ export class SyncManager<
   }
 
   /**
-   * Get sync status for a collection.
+   * Get sync status for a specific (collection, cacheKey) pair.
    */
-  public getCollectionStatus(collection: string): CollectionSyncStatus | undefined {
-    return this.seedStatus.firstForCollection(collection)
+  public getCollectionStatus(
+    collection: string,
+    cacheKey: CacheKeyIdentity<TLink>,
+  ): CollectionSyncStatus | undefined {
+    return this.seedStatus.get(collection, cacheKey.key)
   }
 
   /**
@@ -340,10 +343,6 @@ export class SyncManager<
 
     return 'unseeded'
   }
-
-  /** Force-sync a specific collection from the server. */
-  // TODO: remove this method
-  public async syncCollection(collection: string): Promise<void> {}
 
   /**
    * Seed all collections whose keyTypes match the given cache key identity.

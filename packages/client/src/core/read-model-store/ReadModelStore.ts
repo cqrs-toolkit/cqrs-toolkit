@@ -17,13 +17,6 @@ import type {
 import { EnqueueCommand } from '../../types/index.js'
 
 /**
- * Read model store configuration.
- */
-export interface ReadModelStoreConfig<TLink extends Link, TCommand extends EnqueueCommand> {
-  storage: IStorage<TLink, TCommand>
-}
-
-/**
  * Revision metadata from the event or seed record that produced this update.
  */
 export interface RevisionMeta {
@@ -69,11 +62,7 @@ export interface ReadModelQueryOptions extends IStorageQueryOptions {
  * Read model store implementation.
  */
 export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand> {
-  private readonly storage: IStorage<TLink, TCommand>
-
-  constructor(config: ReadModelStoreConfig<TLink, TCommand>) {
-    this.storage = config.storage
-  }
+  constructor(private readonly storage: IStorage<TLink, TCommand>) {}
 
   /**
    * Get a read model by ID.

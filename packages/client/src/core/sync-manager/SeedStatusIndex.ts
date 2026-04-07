@@ -146,20 +146,4 @@ export class SeedStatusIndex {
       yield* inner.values()
     }
   }
-
-  /**
-   * Return the first status entry for a collection, regardless of cache key.
-   *
-   * Temporary backward-compat helper for `getCollectionStatus(collection)`.
-   * The public API signature predates per-key tracking and returns a single status.
-   * This preserves existing behavior until the consumer API is redesigned.
-   */
-  firstForCollection(collection: string): CollectionSyncStatus | undefined {
-    const inner = this.byCollection.get(collection)
-    if (!inner) return undefined
-    for (const status of inner.values()) {
-      return status
-    }
-    return undefined
-  }
 }

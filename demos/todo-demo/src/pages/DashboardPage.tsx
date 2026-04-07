@@ -3,6 +3,7 @@ import { useClient } from '@cqrs-toolkit/client-solid'
 import { appCreateListQuery } from '@cqrs-toolkit/demo-base/common/components'
 import { NOTEBOOK_SEED_KEY } from '@cqrs-toolkit/demo-base/notebooks/domain'
 import type { Notebook } from '@cqrs-toolkit/demo-base/notebooks/shared'
+import { TODO_SEED_KEY } from '@cqrs-toolkit/demo-base/todos/domain'
 import type { Todo } from '@cqrs-toolkit/demo-base/todos/shared'
 import { ServiceLink } from '@meticoeus/ddd-es'
 import { A } from '@solidjs/router'
@@ -27,7 +28,6 @@ export default function DashboardPage() {
   const [notebooksState, setNotebooksState] = createSignal<PanelState>('loading')
   const [todosSync, setTodosSync] = createSignal<CollectionSyncStatus>()
   const [notebooksSync, setNotebooksSync] = createSignal<CollectionSyncStatus>()
-  const [notesSync, setNotesSync] = createSignal<CollectionSyncStatus>()
 
   function markReady(collection: string): void {
     if (collection === 'todos') setTodosState('ready')
@@ -39,10 +39,13 @@ export default function DashboardPage() {
     if (collection === 'notebooks') setNotebooksState('error')
   }
 
-  function refreshSyncStatus(): void {
-    setTodosSync(client.syncManager.getCollectionStatus('todos'))
-    setNotebooksSync(client.syncManager.getCollectionStatus('notebooks'))
-    setNotesSync(client.syncManager.getCollectionStatus('notes'))
+  async function refreshSyncStatus(): Promise<void> {
+    const [todosStatus, notebooksStatus] = await Promise.all([
+      client.syncManager.getCollectionStatus('todos', TODO_SEED_KEY),
+      client.syncManager.getCollectionStatus('notebooks', NOTEBOOK_SEED_KEY),
+    ])
+    setTodosSync(todosStatus)
+    setNotebooksSync(notebooksStatus)
   }
 
   function recentIncompleteTodos(): Todo[] {
@@ -90,15 +93,14 @@ export default function DashboardPage() {
 
     // Handle the "already synced" case: if the collection was seeded before this
     // component mounted, mark ready immediately.
-    // In proxy (worker) modes, getCollectionStatus returns undefined because it's
-    // a synchronous stub — mark ready since data may already be cached in
-    // the worker. Skip only when seeded is explicitly false (sync registered but
-    // not yet complete).
-    const todosStatus = client.syncManager.getCollectionStatus('todos')
-    const notebooksStatus = client.syncManager.getCollectionStatus('notebooks')
-
-    if (todosStatus?.seeded !== false) setTodosState('ready')
-    if (notebooksStatus?.seeded !== false) setNotebooksState('ready')
+    // Skip only when seeded is explicitly false (sync registered but not yet complete).
+    Promise.all([
+      client.syncManager.getCollectionStatus('todos', TODO_SEED_KEY),
+      client.syncManager.getCollectionStatus('notebooks', NOTEBOOK_SEED_KEY),
+    ]).then(([todosStatus, notebooksStatus]) => {
+      if (todosStatus?.seeded !== false) setTodosState('ready')
+      if (notebooksStatus?.seeded !== false) setNotebooksState('ready')
+    })
 
     onCleanup(() => {
       syncSub.unsubscribe()
@@ -111,8 +113,7 @@ export default function DashboardPage() {
       <div class="text-center mb-8">
         <span class="mode-badge inline-block text-xs px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
           mode: {client.mode} | status: {client.status} | sync: todos=
-          {syncLabel(todosSync())} notebooks={syncLabel(notebooksSync())} notes=
-          {syncLabel(notesSync())}
+          {syncLabel(todosSync())} notebooks={syncLabel(notebooksSync())}
         </span>
       </div>
 

@@ -26,13 +26,21 @@ Query manager.
 
 ### Constructor
 
-> **new QueryManager**\<`TLink`, `TCommand`\>(`config`): `QueryManager`\<`TLink`, `TCommand`\>
+> **new QueryManager**\<`TLink`, `TCommand`\>(`eventBus`, `cacheManager`, `readModelStore`): `QueryManager`\<`TLink`, `TCommand`\>
 
 #### Parameters
 
-##### config
+##### eventBus
 
-[`QueryManagerConfig`](../interfaces/QueryManagerConfig.md)\<`TLink`, `TCommand`\>
+[`EventBus`](EventBus.md)\<`TLink`\>
+
+##### cacheManager
+
+[`CacheManager`](CacheManager.md)\<`TLink`, `TCommand`\>
+
+##### readModelStore
+
+[`ReadModelStore`](ReadModelStore.md)\<`TLink`, `TCommand`\>
 
 #### Returns
 

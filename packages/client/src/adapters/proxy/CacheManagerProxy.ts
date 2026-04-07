@@ -13,11 +13,7 @@ import type { CacheKeyRecord } from '../../storage/IStorage.js'
  * Main-thread proxy for the worker-side CacheManager.
  */
 export class CacheManagerProxy<TLink extends Link> implements ICacheManager<TLink> {
-  private readonly channel: WorkerMessageChannel
-
-  constructor(channel: WorkerMessageChannel) {
-    this.channel = channel
-  }
+  constructor(private readonly channel: WorkerMessageChannel) {}
 
   async acquireKey(
     cacheKey: CacheKeyIdentity<TLink>,

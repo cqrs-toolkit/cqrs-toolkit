@@ -4,16 +4,28 @@
 
 [@cqrs-toolkit/client](../globals.md) / IDomainExecutor
 
-# Interface: IDomainExecutor\<TEvent\>
+# Interface: IDomainExecutor\<TLink, TCommand, TSchema, TEvent\>
 
 Domain executor interface - consumer implements this.
 The library is agnostic to how validation is performed internally.
 
 ## Type Parameters
 
+### TLink
+
+`TLink` _extends_ `Link`
+
+### TCommand
+
+`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md)
+
+### TSchema
+
+`TSchema`
+
 ### TEvent
 
-`TEvent` = `unknown`
+`TEvent` _extends_ [`IAnticipatedEvent`](IAnticipatedEvent.md)
 
 Event type produced by the executor
 
@@ -48,3 +60,19 @@ Execution context (phase and entity ID for regeneration)
 `Promise`\<[`DomainExecutionResult`](../type-aliases/DomainExecutionResult.md)\<`TEvent`\>\>
 
 Success with anticipated events, or failure with validation errors
+
+---
+
+### getRegistration()
+
+> **getRegistration**(`commandType`): [`CommandHandlerRegistration`](../type-aliases/CommandHandlerRegistration.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\> \| `undefined`
+
+#### Parameters
+
+##### commandType
+
+`string`
+
+#### Returns
+
+[`CommandHandlerRegistration`](../type-aliases/CommandHandlerRegistration.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\> \| `undefined`

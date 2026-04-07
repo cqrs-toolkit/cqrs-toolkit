@@ -13,6 +13,7 @@ import { CacheManager } from '../cache-manager/CacheManager.js'
 import { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventShape.js'
 import type { IAnticipatedEventHandler } from '../command-queue/CommandQueue.js'
 import { CommandQueue } from '../command-queue/CommandQueue.js'
+import { InMemoryCommandFileStore } from '../command-queue/file-store/InMemoryCommandFileStore.js'
 import { EventCache } from '../event-cache/EventCache.js'
 import { EventProcessorRegistry } from '../event-processor/EventProcessorRegistry.js'
 import type { ParsedEvent } from '../event-processor/EventProcessorRunner.js'
@@ -85,20 +86,20 @@ describe('SyncManager', () => {
   async function bootstrap(
     params?: BootstrapParams,
   ): Promise<BootstrapResult & { syncManager: TestSyncManager }>
-  async function bootstrap(params?: BootstrapParams & { customSyncManager?: boolean }) {
+  async function bootstrap(
+    params?: BootstrapParams & { customSyncManager?: boolean },
+  ): Promise<BootstrapResult & { syncManager: TestSyncManager | undefined }> {
     const storage = new InMemoryStorage<ServiceLink, EnqueueCommand>()
     await storage.initialize()
     const eventBus = new EventBus<ServiceLink>()
 
-    const cacheManager = new CacheManager<ServiceLink, EnqueueCommand>({
-      storage,
-      eventBus,
+    const cacheManager = new CacheManager<ServiceLink, EnqueueCommand>(storage, eventBus, {
       windowId: 'test',
     })
     await cacheManager.initialize()
 
-    const eventCache = new EventCache<ServiceLink, EnqueueCommand>({ storage, eventBus })
-    const readModelStore = new ReadModelStore<ServiceLink, EnqueueCommand>({ storage })
+    const eventCache = new EventCache<ServiceLink, EnqueueCommand>(storage, eventBus)
+    const readModelStore = new ReadModelStore<ServiceLink, EnqueueCommand>(storage)
 
     const registry = new EventProcessorRegistry()
     for (const p of params?.processors ?? []) {
@@ -119,17 +120,19 @@ describe('SyncManager', () => {
       clearAll: vi.fn().mockResolvedValue(undefined),
     }
 
-    const commandQueue = new CommandQueue<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>({
+    const fileStore = new InMemoryCommandFileStore()
+    const commandQueue = new CommandQueue<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>(
       storage,
       eventBus,
+      fileStore,
       anticipatedEventHandler,
-    })
+    )
 
-    const queryManager = new QueryManager<ServiceLink, EnqueueCommand>({
+    const queryManager = new QueryManager<ServiceLink, EnqueueCommand>(
       eventBus,
       cacheManager,
       readModelStore,
-    })
+    )
 
     const todosCollection: Collection<ServiceLink> = {
       name: 'todos',
@@ -967,7 +970,7 @@ describe('SyncManager', () => {
       await new Promise((r) => setTimeout(r, 50))
 
       // Seed status should be cleaned up
-      const status = syncManager.getCollectionStatus('notes')
+      const status = syncManager.getCollectionStatus('notes', cacheKey)
       expect(status).toBeUndefined()
 
       await syncManager.destroy()

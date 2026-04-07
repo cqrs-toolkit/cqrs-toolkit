@@ -21,9 +21,7 @@ import type { AcquireCacheKeyOptions, ICacheManager } from './types.js'
 /**
  * Cache manager configuration.
  */
-export interface CacheManagerConfig<TLink extends Link, TCommand extends EnqueueCommand> {
-  storage: IStorage<TLink, TCommand>
-  eventBus: EventBus<TLink>
+export interface CacheManagerConfig {
   cacheConfig?: CacheConfig
   /** Unique identifier for this window/tab */
   windowId: string
@@ -39,8 +37,6 @@ export class CacheManager<
   TLink extends Link,
   TCommand extends EnqueueCommand,
 > implements ICacheManager<TLink> {
-  private readonly storage: IStorage<TLink, TCommand>
-  private readonly eventBus: EventBus<TLink>
   private readonly maxCacheKeys: number
   private readonly defaultTtl: number
   private readonly evictionPolicy: 'lru' | 'fifo'
@@ -53,9 +49,11 @@ export class CacheManager<
   /** Registered windows (for capacity guard) */
   private readonly registeredWindows = new Set<string>()
 
-  constructor(config: CacheManagerConfig<TLink, TCommand>) {
-    this.storage = config.storage
-    this.eventBus = config.eventBus
+  constructor(
+    private readonly storage: IStorage<TLink, TCommand>,
+    private readonly eventBus: EventBus<TLink>,
+    config: CacheManagerConfig,
+  ) {
     this.maxCacheKeys = config.cacheConfig?.maxCacheKeys ?? 1000
     this.defaultTtl = config.cacheConfig?.defaultTtl ?? 30 * 60 * 1000 // 30 minutes
     this.evictionPolicy = config.cacheConfig?.evictionPolicy ?? 'lru'

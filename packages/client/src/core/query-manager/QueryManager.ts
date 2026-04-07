@@ -35,15 +35,6 @@ import type {
   QueryResult,
 } from './types.js'
 
-/**
- * Query manager configuration.
- */
-export interface QueryManagerConfig<TLink extends Link, TCommand extends EnqueueCommand> {
-  eventBus: EventBus<TLink>
-  cacheManager: CacheManager<TLink, TCommand>
-  readModelStore: ReadModelStore<TLink, TCommand>
-}
-
 // Re-export types for backwards compatibility
 export type { ListQueryResult, QueryOptions, QueryResult } from './types.js'
 
@@ -54,18 +45,14 @@ export class QueryManager<
   TLink extends Link,
   TCommand extends EnqueueCommand,
 > implements IQueryManager<TLink> {
-  private readonly eventBus: EventBus<TLink>
-  private readonly cacheManager: CacheManager<TLink, TCommand>
-  private readonly readModelStore: ReadModelStore<TLink, TCommand>
-
   private readonly destroy$ = new Subject<void>()
   private readonly activeHolds = new Map<string, number>()
 
-  constructor(config: QueryManagerConfig<TLink, TCommand>) {
-    this.eventBus = config.eventBus
-    this.cacheManager = config.cacheManager
-    this.readModelStore = config.readModelStore
-  }
+  constructor(
+    private readonly eventBus: EventBus<TLink>,
+    private readonly cacheManager: CacheManager<TLink, TCommand>,
+    private readonly readModelStore: ReadModelStore<TLink, TCommand>,
+  ) {}
 
   /**
    * Get a single entity by ID.

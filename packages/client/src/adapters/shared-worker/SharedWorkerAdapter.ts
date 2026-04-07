@@ -277,8 +277,8 @@ export class SharedWorkerAdapter<
       // 9. Create proxy objects
       this._commandQueue = new CommandQueueProxy(
         this.channel,
-        broadcastEvents$,
         new OpfsCommandFileStore(),
+        broadcastEvents$,
       )
       this._queryManager = new QueryManagerProxy<TLink>(this.channel, broadcastEvents$)
       this._cacheManager = new SharedWorkerCacheManagerProxy<TLink>(this.channel)

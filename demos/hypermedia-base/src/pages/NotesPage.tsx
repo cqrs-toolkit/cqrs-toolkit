@@ -7,7 +7,6 @@ import {
 } from '@cqrs-toolkit/demo-base/notebooks/domain'
 import type { Notebook } from '@cqrs-toolkit/demo-base/notebooks/shared'
 import { NoteEditor, NoteTitleList } from '@cqrs-toolkit/demo-base/notes/components'
-import { NOTES_COLLECTION_NAME } from '@cqrs-toolkit/demo-base/notes/domain'
 import type { Note } from '@cqrs-toolkit/demo-base/notes/shared'
 import type { ServiceLink } from '@meticoeus/ddd-es'
 import { A } from '@solidjs/router'
@@ -40,9 +39,20 @@ export default function NotesPage() {
   const [notebooksSync, setNotebooksSync] = createSignal<CollectionSyncStatus>()
   const [notesSync, setNotesSync] = createSignal<CollectionSyncStatus>()
 
-  function refreshSyncStatus(): void {
-    setNotebooksSync(client.syncManager.getCollectionStatus(NOTEBOOKS_COLLECTION_NAME))
-    setNotesSync(client.syncManager.getCollectionStatus(NOTES_COLLECTION_NAME))
+  async function refreshSyncStatus(): Promise<void> {
+    const notebooksStatus = await client.syncManager.getCollectionStatus(
+      NOTEBOOKS_COLLECTION_NAME,
+      NOTEBOOK_SEED_KEY,
+    )
+    setNotebooksSync(notebooksStatus)
+
+    const nbId = selectedNotebookId()
+    if (nbId) {
+      const notesStatus = await client.syncManager.getCollectionStatus('notes', notebookCacheKey())
+      setNotesSync(notesStatus)
+    } else {
+      setNotesSync(undefined)
+    }
   }
 
   function syncLabel(status: CollectionSyncStatus | undefined): string {

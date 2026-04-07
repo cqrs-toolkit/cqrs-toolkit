@@ -3,7 +3,7 @@
  */
 
 import type { ServiceLink } from '@meticoeus/ddd-es'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import { EnqueueCommand } from '../../types/index.js'
 import type { IAnticipatedEventHandler } from '../command-queue/CommandQueue.js'
@@ -13,44 +13,13 @@ import { EventProcessorRegistry } from './EventProcessorRegistry.js'
 import { EventProcessorRunner, type ParsedEvent } from './EventProcessorRunner.js'
 import type { ProcessorContext, ProcessorResult } from './types.js'
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
 const DEFAULT_REVISION = 1n
 const DEFAULT_POSITION = 100n
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function makeParsedEvent(overrides: Partial<ParsedEvent> = {}): ParsedEvent {
-  return {
-    id: 'event-1',
-    type: 'TestEvent',
-    streamId: 'stream-1',
-    persistence: 'Permanent',
-    data: {},
-    revision: DEFAULT_REVISION,
-    position: DEFAULT_POSITION,
-    cacheKey: 'cache-1',
-    ...overrides,
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe('EventProcessorRegistry', () => {
-  let registry: EventProcessorRegistry
-
-  beforeEach(() => {
-    registry = new EventProcessorRegistry()
-  })
-
   describe('register', () => {
     it('registers a processor for a single event type', () => {
+      const registry = new EventProcessorRegistry()
       registry.register({
         eventTypes: 'TodoCreated',
         processor: () => undefined,
@@ -61,6 +30,7 @@ describe('EventProcessorRegistry', () => {
     })
 
     it('registers a processor for multiple event types', () => {
+      const registry = new EventProcessorRegistry()
       registry.register({
         eventTypes: ['TodoCreated', 'TodoUpdated'],
         processor: () => undefined,
@@ -71,6 +41,7 @@ describe('EventProcessorRegistry', () => {
     })
 
     it('allows multiple processors for same event type', () => {
+      const registry = new EventProcessorRegistry()
       registry.register({
         eventTypes: 'TodoCreated',
         processor: () => undefined,
@@ -87,6 +58,7 @@ describe('EventProcessorRegistry', () => {
 
   describe('getProcessors', () => {
     it('returns processors for matching event type', () => {
+      const registry = new EventProcessorRegistry()
       const processor = vi.fn()
       registry.register({
         eventTypes: 'TodoCreated',
@@ -98,6 +70,7 @@ describe('EventProcessorRegistry', () => {
     })
 
     it('filters by persistence type', () => {
+      const registry = new EventProcessorRegistry()
       const permanentProcessor = vi.fn()
       const anticipatedProcessor = vi.fn()
 
@@ -123,6 +96,7 @@ describe('EventProcessorRegistry', () => {
     })
 
     it('returns empty array for unknown event type', () => {
+      const registry = new EventProcessorRegistry()
       const processors = registry.getProcessors('UnknownEvent', 'Permanent')
       expect(processors).toHaveLength(0)
     })
@@ -130,6 +104,7 @@ describe('EventProcessorRegistry', () => {
 
   describe('getEventTypes', () => {
     it('returns all registered event types', () => {
+      const registry = new EventProcessorRegistry()
       registry.register({ eventTypes: 'EventA', processor: () => undefined })
       registry.register({ eventTypes: ['EventB', 'EventC'], processor: () => undefined })
 
@@ -142,6 +117,7 @@ describe('EventProcessorRegistry', () => {
 
   describe('clear', () => {
     it('removes all registrations', () => {
+      const registry = new EventProcessorRegistry()
       registry.register({ eventTypes: 'TodoCreated', processor: () => undefined })
       registry.clear()
 
@@ -151,23 +127,23 @@ describe('EventProcessorRegistry', () => {
 })
 
 describe('EventProcessorRunner', () => {
-  let storage: InMemoryStorage<ServiceLink, EnqueueCommand>
-  let eventBus: EventBus<ServiceLink>
-  let registry: EventProcessorRegistry
-  let readModelStore: ReadModelStore<ServiceLink, EnqueueCommand>
-  let runner: EventProcessorRunner<ServiceLink, EnqueueCommand>
-
-  beforeEach(async () => {
-    storage = new InMemoryStorage()
+  async function bootstrap() {
+    const storage = new InMemoryStorage<ServiceLink, EnqueueCommand>()
     await storage.initialize()
-    eventBus = new EventBus()
-    registry = new EventProcessorRegistry()
-    readModelStore = new ReadModelStore({ storage })
-    runner = new EventProcessorRunner(readModelStore, eventBus, registry)
-  })
+    const eventBus = new EventBus<ServiceLink>()
+    const registry = new EventProcessorRegistry()
+    const readModelStore = new ReadModelStore<ServiceLink, EnqueueCommand>(storage)
+    const runner = new EventProcessorRunner<ServiceLink, EnqueueCommand>(
+      readModelStore,
+      eventBus,
+      registry,
+    )
+    return { storage, eventBus, registry, runner }
+  }
 
   describe('processEvent', () => {
     it('processes event and creates read model', async () => {
+      const { storage, registry, runner } = await bootstrap()
       registry.register({
         eventTypes: 'TodoCreated',
         processor: (event: { id: string; title: string }): ProcessorResult => ({
@@ -195,6 +171,7 @@ describe('EventProcessorRunner', () => {
     })
 
     it('returns empty result when no processors match', async () => {
+      const { runner } = await bootstrap()
       const event = makeParsedEvent({ type: 'UnknownEvent' })
 
       const result = await runner.processEvent(event)
@@ -204,6 +181,7 @@ describe('EventProcessorRunner', () => {
     })
 
     it('handles processor returning undefined', async () => {
+      const { registry, runner } = await bootstrap()
       registry.register({
         eventTypes: 'TodoCreated',
         processor: () => undefined,
@@ -222,6 +200,7 @@ describe('EventProcessorRunner', () => {
     })
 
     it('handles processor returning multiple results', async () => {
+      const { registry, runner } = await bootstrap()
       registry.register({
         eventTypes: 'BatchCreated',
         processor: (event: { items: { id: string; name: string }[] }): ProcessorResult[] =>
@@ -251,6 +230,7 @@ describe('EventProcessorRunner', () => {
     })
 
     it('handles merge updates', async () => {
+      const { storage, registry, runner } = await bootstrap()
       // Create initial record
       await storage.saveReadModel({
         id: 'todo-1',
@@ -289,6 +269,7 @@ describe('EventProcessorRunner', () => {
     })
 
     it('handles delete updates', async () => {
+      const { storage, registry, runner } = await bootstrap()
       // Create initial record
       await storage.saveReadModel({
         id: 'todo-1',
@@ -326,6 +307,7 @@ describe('EventProcessorRunner', () => {
     })
 
     it('provides context with getCurrentState', async () => {
+      const { storage, registry, runner } = await bootstrap()
       // Create initial record
       await storage.saveReadModel({
         id: 'todo-1',
@@ -374,6 +356,7 @@ describe('EventProcessorRunner', () => {
     })
 
     it('context includes streamId, eventId, position, and revision', async () => {
+      const { registry, runner } = await bootstrap()
       let capturedContext: ProcessorContext | undefined
 
       registry.register({
@@ -401,6 +384,7 @@ describe('EventProcessorRunner', () => {
     })
 
     it('supports async processor using getCurrentState', async () => {
+      const { storage, registry, runner } = await bootstrap()
       // Seed existing state
       await storage.saveReadModel({
         id: 'counter-1',
@@ -442,6 +426,7 @@ describe('EventProcessorRunner', () => {
     })
 
     it('processor returning { invalidate: true } sets invalidated flag', async () => {
+      const { registry, runner } = await bootstrap()
       registry.register({
         eventTypes: 'ComplexEvent',
         processor: () => ({ invalidate: true as const }),
@@ -456,6 +441,7 @@ describe('EventProcessorRunner', () => {
     })
 
     it('async processor returning { invalidate: true } sets invalidated flag', async () => {
+      const { registry, runner } = await bootstrap()
       registry.register({
         eventTypes: 'ComplexEvent',
         async processor(_event, context) {
@@ -476,6 +462,7 @@ describe('EventProcessorRunner', () => {
     })
 
     it('emits readmodel:updated event', async () => {
+      const { registry, eventBus, runner } = await bootstrap()
       registry.register({
         eventTypes: 'TodoCreated',
         processor: (event: { id: string }): ProcessorResult => ({
@@ -504,6 +491,7 @@ describe('EventProcessorRunner', () => {
     })
 
     it('marks anticipated events as local changes', async () => {
+      const { storage, registry, runner } = await bootstrap()
       registry.register({
         eventTypes: 'TodoCreated',
         processor: (event: { id: string; title: string }): ProcessorResult => ({
@@ -530,6 +518,7 @@ describe('EventProcessorRunner', () => {
     })
 
     it('set + server update preserves existing local overlay', async () => {
+      const { storage, registry, runner } = await bootstrap()
       // Simulate: anticipated event created an optimistic record
       await storage.saveReadModel({
         id: 'todo-1',
@@ -573,6 +562,7 @@ describe('EventProcessorRunner', () => {
     })
 
     it('merge + server update preserves local overlay', async () => {
+      const { storage, registry, runner } = await bootstrap()
       // Anticipated event created an optimistic overlay on title
       await storage.saveReadModel({
         id: 'todo-1',
@@ -619,6 +609,7 @@ describe('EventProcessorRunner', () => {
     })
 
     it('does not emit readmodel:updated when data is unchanged', async () => {
+      const { storage, registry, eventBus, runner } = await bootstrap()
       // Create a record with known data and matching revision so processing is a true no-op
       await storage.saveReadModel({
         id: 'todo-1',
@@ -660,6 +651,7 @@ describe('EventProcessorRunner', () => {
 
   describe('processEvents', () => {
     it('processes multiple events in order', async () => {
+      const { registry, runner } = await bootstrap()
       const processedOrder: string[] = []
 
       registry.register({
@@ -693,6 +685,7 @@ describe('EventProcessorRunner', () => {
     })
 
     it('aggregates invalidated across batch (OR semantics)', async () => {
+      const { registry, runner } = await bootstrap()
       registry.register({
         eventTypes: 'NormalEvent',
         processor: (event: { id: string }): ProcessorResult => ({
@@ -750,7 +743,7 @@ describe('EventProcessorRunner', () => {
       }
     }
 
-    function registerCreateProcessor(): void {
+    function registerCreateProcessor(registry: EventProcessorRegistry): void {
       registry.register({
         eventTypes: 'TodoCreated',
         processor: (event: { id: string; title: string }): ProcessorResult => ({
@@ -762,7 +755,7 @@ describe('EventProcessorRunner', () => {
       })
     }
 
-    function registerUpdateProcessor(): void {
+    function registerUpdateProcessor(registry: EventProcessorRegistry): void {
       registry.register({
         eventTypes: 'TodoTitleUpdated',
         processor: (event: { id: string; title: string }): ProcessorResult => ({
@@ -775,9 +768,10 @@ describe('EventProcessorRunner', () => {
     }
 
     it('skips reconciliation for anticipated events', async () => {
+      const { registry, runner } = await bootstrap()
       const handler = createAnticipatedEventHandler()
       runner.setAnticipatedEventHandler(handler)
-      registerCreateProcessor()
+      registerCreateProcessor(registry)
 
       const event = makeParsedEvent({
         type: 'TodoCreated',
@@ -792,9 +786,10 @@ describe('EventProcessorRunner', () => {
     })
 
     it('skips reconciliation when no commandId', async () => {
+      const { registry, runner } = await bootstrap()
       const handler = createAnticipatedEventHandler()
       runner.setAnticipatedEventHandler(handler)
-      registerCreateProcessor()
+      registerCreateProcessor(registry)
 
       const event = makeParsedEvent({
         type: 'TodoCreated',
@@ -808,10 +803,11 @@ describe('EventProcessorRunner', () => {
     })
 
     it('skips reconciliation when no tracked entries', async () => {
+      const { registry, runner } = await bootstrap()
       const handler = createAnticipatedEventHandler()
       handler.getTrackedEntries.mockReturnValue(undefined)
       runner.setAnticipatedEventHandler(handler)
-      registerCreateProcessor()
+      registerCreateProcessor(registry)
 
       const event = makeParsedEvent({
         type: 'TodoCreated',
@@ -826,10 +822,11 @@ describe('EventProcessorRunner', () => {
     })
 
     it('skips reconciliation when tracked ID matches server ID', async () => {
+      const { registry, runner } = await bootstrap()
       const handler = createAnticipatedEventHandler()
       handler.getTrackedEntries.mockReturnValue([`todos:${SERVER_ID}`])
       runner.setAnticipatedEventHandler(handler)
-      registerCreateProcessor()
+      registerCreateProcessor(registry)
 
       const event = makeParsedEvent({
         type: 'TodoCreated',
@@ -845,11 +842,12 @@ describe('EventProcessorRunner', () => {
     })
 
     it('deletes old entry and creates server entry when IDs differ', async () => {
+      const { storage, registry, runner } = await bootstrap()
       const handler = createAnticipatedEventHandler()
       handler.getTrackedEntries.mockReturnValue([`todos:${CLIENT_ID}`])
       handler.getAnticipatedEventsForStream.mockResolvedValue([])
       runner.setAnticipatedEventHandler(handler)
-      registerCreateProcessor()
+      registerCreateProcessor(registry)
 
       // Seed old entry under client ID
       await storage.saveReadModel({
@@ -889,6 +887,7 @@ describe('EventProcessorRunner', () => {
     })
 
     it('re-applies overlay events with patched entity ID', async () => {
+      const { storage, registry, runner } = await bootstrap()
       const handler = createAnticipatedEventHandler()
       handler.getTrackedEntries.mockReturnValue([`todos:${CLIENT_ID}`])
 
@@ -905,8 +904,8 @@ describe('EventProcessorRunner', () => {
       handler.getAnticipatedEventsForStream.mockResolvedValue([overlayEvent])
       runner.setAnticipatedEventHandler(handler)
 
-      registerCreateProcessor()
-      registerUpdateProcessor()
+      registerCreateProcessor(registry)
+      registerUpdateProcessor(registry)
 
       const event = makeParsedEvent({
         type: 'TodoCreated',
@@ -932,11 +931,12 @@ describe('EventProcessorRunner', () => {
     })
 
     it('emits single readmodel:updated with both deleted and created IDs', async () => {
+      const { storage, registry, eventBus, runner } = await bootstrap()
       const handler = createAnticipatedEventHandler()
       handler.getTrackedEntries.mockReturnValue([`todos:${CLIENT_ID}`])
       handler.getAnticipatedEventsForStream.mockResolvedValue([])
       runner.setAnticipatedEventHandler(handler)
-      registerCreateProcessor()
+      registerCreateProcessor(registry)
 
       // Seed old entry
       await storage.saveReadModel({
@@ -973,3 +973,17 @@ describe('EventProcessorRunner', () => {
     })
   })
 })
+
+function makeParsedEvent(overrides: Partial<ParsedEvent> = {}): ParsedEvent {
+  return {
+    id: 'event-1',
+    type: 'TestEvent',
+    streamId: 'stream-1',
+    persistence: 'Permanent',
+    data: {},
+    revision: DEFAULT_REVISION,
+    position: DEFAULT_POSITION,
+    cacheKey: 'cache-1',
+    ...overrides,
+  }
+}

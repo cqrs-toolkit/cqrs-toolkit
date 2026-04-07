@@ -39,17 +39,14 @@ export interface SessionManagerConfig<TLink extends Link, TCommand extends Enque
  * Coordinates user identity with persisted session data.
  */
 export class SessionManager<TLink extends Link, TCommand extends EnqueueCommand> {
-  private readonly storage: IStorage<TLink, TCommand>
-  private readonly eventBus: EventBus<TLink>
-
   private sessionState: SessionState = { status: 'uninitialized' }
   private authState: AuthState = { status: 'unauthenticated' }
   private networkPaused = true
 
-  constructor(config: SessionManagerConfig<TLink, TCommand>) {
-    this.storage = config.storage
-    this.eventBus = config.eventBus
-  }
+  constructor(
+    private readonly storage: IStorage<TLink, TCommand>,
+    private readonly eventBus: EventBus<TLink>,
+  ) {}
 
   /**
    * Get the current session state.

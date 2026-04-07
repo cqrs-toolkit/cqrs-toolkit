@@ -27,21 +27,21 @@ Connectivity manager for network status observation.
 
 ### getAllStatus()
 
-> **getAllStatus**(): [`CollectionSyncStatus`](CollectionSyncStatus.md)[]
+> **getAllStatus**(): `Promise`\<[`CollectionSyncStatus`](CollectionSyncStatus.md)[]\>
 
 Get sync status for all collections.
 
 #### Returns
 
-[`CollectionSyncStatus`](CollectionSyncStatus.md)[]
+`Promise`\<[`CollectionSyncStatus`](CollectionSyncStatus.md)[]\>
 
 ---
 
 ### getCollectionStatus()
 
-> **getCollectionStatus**(`collection`): [`CollectionSyncStatus`](CollectionSyncStatus.md) \| `undefined`
+> **getCollectionStatus**(`collection`, `cacheKey`): `Promise`\<[`CollectionSyncStatus`](CollectionSyncStatus.md) \| `undefined`\>
 
-Get sync status for a specific collection.
+Get sync status for a specific (collection, cacheKey) pair.
 
 #### Parameters
 
@@ -49,9 +49,13 @@ Get sync status for a specific collection.
 
 `string`
 
+##### cacheKey
+
+[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
 #### Returns
 
-[`CollectionSyncStatus`](CollectionSyncStatus.md) \| `undefined`
+`Promise`\<[`CollectionSyncStatus`](CollectionSyncStatus.md) \| `undefined`\>
 
 ---
 
@@ -116,24 +120,6 @@ Signal that the user has been authenticated.
 > **setUnauthenticated**(): `Promise`\<`void`\>
 
 Signal that the user has logged out.
-
-#### Returns
-
-`Promise`\<`void`\>
-
----
-
-### syncCollection()
-
-> **syncCollection**(`collection`): `Promise`\<`void`\>
-
-Force-sync a specific collection from the server.
-
-#### Parameters
-
-##### collection
-
-`string`
 
 #### Returns
 

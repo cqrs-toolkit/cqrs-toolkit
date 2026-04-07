@@ -78,12 +78,13 @@ interface WindowWithDevtools<
  * Start/stop are managed internally by the client lifecycle.
  */
 export interface CqrsClientSyncManager<TLink extends Link> {
-  /** Get sync status for a specific collection. */
-  getCollectionStatus(collection: string): CollectionSyncStatus | undefined
+  /** Get sync status for a specific (collection, cacheKey) pair. */
+  getCollectionStatus(
+    collection: string,
+    cacheKey: CacheKeyIdentity<TLink>,
+  ): Promise<CollectionSyncStatus | undefined>
   /** Get sync status for all collections. */
-  getAllStatus(): CollectionSyncStatus[]
-  /** Force-sync a specific collection from the server. */
-  syncCollection(collection: string): Promise<void>
+  getAllStatus(): Promise<CollectionSyncStatus[]>
   /** Get the aggregate seed status for a cache key identity. */
   getSeedStatus(cacheKey: CacheKeyIdentity<TLink>): Promise<'seeded' | 'seeding' | 'unseeded'>
   /** Seed all collections whose keyTypes match the given cache key identity. */
@@ -413,22 +414,15 @@ async function createOnlineOnlyClient<
   }
 
   // Create core components
-  const cacheManager = new CacheManager<TLink, TCommand>({
-    storage,
-    eventBus,
+  const cacheManager = new CacheManager<TLink, TCommand>(storage, eventBus, {
     cacheConfig: resolved.cache,
     windowId: crypto.randomUUID(),
   })
   await cacheManager.initialize()
 
-  const eventCache = new EventCache<TLink, TCommand>({
-    storage,
-    eventBus,
-  })
+  const eventCache = new EventCache<TLink, TCommand>(storage, eventBus)
 
-  const readModelStore = new ReadModelStore({
-    storage,
-  })
+  const readModelStore = new ReadModelStore(storage)
 
   const eventProcessorRunner = new EventProcessorRunner<TLink, TCommand>(
     readModelStore,
@@ -455,36 +449,36 @@ async function createOnlineOnlyClient<
   // Breaks the circular dependency: handler needs runner, runner needs handler.
   eventProcessorRunner.setAnticipatedEventHandler(anticipatedEventHandler)
 
-  const queryManager = new QueryManager<TLink, TCommand>({
-    eventBus,
-    cacheManager,
-    readModelStore,
-  })
+  const queryManager = new QueryManager<TLink, TCommand>(eventBus, cacheManager, readModelStore)
 
-  const commandQueue = new CommandQueue<TLink, TCommand, TSchema, TEvent>({
+  const fileStore = new InMemoryCommandFileStore()
+
+  const commandQueue = new CommandQueue<TLink, TCommand, TSchema, TEvent>(
     storage,
     eventBus,
+    fileStore,
     anticipatedEventHandler,
-    ...(() => {
-      if (resolved.commandHandlers.length === 0) return {}
-      const executor = createDomainExecutor<TLink, TCommand, TSchema, TEvent>(
-        resolved.commandHandlers,
-        {
-          schemaValidator: resolved.schemaValidator,
-          queryManager,
-        },
-      )
-      return { domainExecutor: executor, handlerMetadata: executor }
-    })(),
-    commandSender: resolved.commandSender,
-    fileStore: new InMemoryCommandFileStore(),
-    retryConfig: resolved.retry,
-    retainTerminal: resolved.retainTerminal,
-    onCommandResponse: createCommandResponseHandler<TLink, TCommand, TSchema, TEvent>(
-      () => syncManagerRef,
-      resolved.collections,
-    ),
-  })
+    {
+      ...(() => {
+        if (resolved.commandHandlers.length === 0) return {}
+        const executor = createDomainExecutor<TLink, TCommand, TSchema, TEvent>(
+          resolved.commandHandlers,
+          {
+            schemaValidator: resolved.schemaValidator,
+            queryManager,
+          },
+        )
+        return { domainExecutor: executor, handlerMetadata: executor }
+      })(),
+      commandSender: resolved.commandSender,
+      retryConfig: resolved.retry,
+      retainTerminal: resolved.retainTerminal,
+      onCommandResponse: createCommandResponseHandler<TLink, TCommand, TSchema, TEvent>(
+        () => syncManagerRef,
+        resolved.collections,
+      ),
+    },
+  )
 
   const stableQueryManager = new StableRefQueryManager<TLink>(queryManager)
 
@@ -511,10 +505,10 @@ async function createOnlineOnlyClient<
 
   // Build sync manager facade
   const syncManagerFacade: CqrsClientSyncManager<TLink> = {
-    getCollectionStatus: (collection) => syncManager.getCollectionStatus(collection),
-    getAllStatus: () => syncManager.getAllStatus(),
+    getCollectionStatus: (collection, cacheKey) =>
+      Promise.resolve(syncManager.getCollectionStatus(collection, cacheKey)),
+    getAllStatus: () => Promise.resolve(syncManager.getAllStatus()),
     getSeedStatus: (cacheKey) => Promise.resolve(syncManager.getSeedStatus(cacheKey)),
-    syncCollection: (collection) => syncManager.syncCollection(collection),
     seed: (cacheKey) => syncManager.seed(cacheKey),
     setAuthenticated: (params) => syncManager.setAuthenticated(params),
     setUnauthenticated: () => syncManager.setUnauthenticated(),

@@ -188,8 +188,8 @@ export class DedicatedWorkerAdapter<
       // Create proxy objects
       this._commandQueue = new CommandQueueProxy(
         this.channel,
-        broadcastEvents$,
         new OpfsCommandFileStore(),
+        broadcastEvents$,
       )
       this._queryManager = new QueryManagerProxy<TLink>(this.channel, broadcastEvents$)
       this._cacheManager = new CacheManagerProxy<TLink>(this.channel)

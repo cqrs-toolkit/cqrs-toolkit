@@ -43,7 +43,6 @@ import type { RetryConfig } from '../../types/config.js'
 import type {
   DomainExecutionResult,
   HandlerContext,
-  ICommandHandlerMetadata,
   IDomainExecutor,
   ParentRefConfig,
 } from '../../types/domain.js'
@@ -102,12 +101,7 @@ export interface CommandQueueConfig<
   TSchema,
   TEvent extends IAnticipatedEvent,
 > {
-  storage: IStorage<TLink, TCommand>
-  eventBus: EventBus<TLink>
-  anticipatedEventHandler: IAnticipatedEventHandler
-  domainExecutor?: IDomainExecutor
-  /** Metadata lookup for command handler registrations (creates config). */
-  handlerMetadata?: ICommandHandlerMetadata<TLink, TCommand, TSchema, TEvent>
+  domainExecutor?: IDomainExecutor<TLink, TCommand, TSchema, TEvent>
   commandSender?: ICommandSender<TLink, TCommand>
   retryConfig?: RetryConfig
   defaultService?: string
@@ -116,8 +110,6 @@ export interface CommandQueueConfig<
   retainTerminal?: boolean
   /** TTL for command ID mappings in milliseconds. Default: 5 minutes. */
   commandIdMappingTtl?: number
-  /** File store for commands with file attachments. */
-  fileStore?: ICommandFileStore
 }
 
 /**
@@ -160,11 +152,7 @@ export class CommandQueue<
   TSchema,
   TEvent extends IAnticipatedEvent,
 > implements ICommandQueue<TLink, TCommand> {
-  private readonly storage: IStorage<TLink, TCommand>
-  private readonly eventBus: EventBus<TLink>
-  private readonly anticipatedEventHandler: IAnticipatedEventHandler
-  private readonly domainExecutor?: IDomainExecutor
-  private readonly handlerMetadata?: ICommandHandlerMetadata<TLink, TCommand, TSchema, TEvent>
+  private readonly domainExecutor?: IDomainExecutor<TLink, TCommand, TSchema, TEvent>
   private readonly commandSender?: ICommandSender<TLink, TCommand>
   private readonly retryConfig: RetryConfig
   private readonly defaultService: string
@@ -174,7 +162,6 @@ export class CommandQueue<
   ) => Promise<void>
   private readonly retainTerminal: boolean
   private readonly commandIdMappingTtl: number
-  private readonly fileStore?: ICommandFileStore
 
   protected readonly commandEvents = new Subject<CommandEvent>()
   private readonly destroy$ = new Subject<void>()
@@ -194,19 +181,21 @@ export class CommandQueue<
 
   readonly events$: Observable<CommandEvent>
 
-  constructor(config: CommandQueueConfig<TLink, TCommand, TSchema, TEvent>) {
-    this.storage = config.storage
-    this.eventBus = config.eventBus
-    this.anticipatedEventHandler = config.anticipatedEventHandler
+  constructor(
+    private readonly storage: IStorage<TLink, TCommand>,
+    private readonly eventBus: EventBus<TLink>,
+    /** File store for commands with file attachments. */
+    private readonly fileStore: ICommandFileStore,
+    private readonly anticipatedEventHandler: IAnticipatedEventHandler,
+    config: CommandQueueConfig<TLink, TCommand, TSchema, TEvent> = {},
+  ) {
     this.domainExecutor = config.domainExecutor
-    this.handlerMetadata = config.handlerMetadata
     this.commandSender = config.commandSender
     this.retryConfig = config.retryConfig ?? {}
     this.defaultService = config.defaultService ?? 'default'
     this.onCommandResponse = config.onCommandResponse
     this.retainTerminal = config.retainTerminal ?? false
     this.commandIdMappingTtl = config.commandIdMappingTtl ?? DEFAULT_COMMAND_ID_MAPPING_TTL
-    this.fileStore = config.fileStore
 
     this.events$ = this.commandEvents.asObservable().pipe(share(), takeUntil(this.destroy$))
   }
@@ -219,7 +208,7 @@ export class CommandQueue<
     const now = Date.now()
 
     // Look up handler registration metadata (creates, revisionField)
-    const registration = this.handlerMetadata?.getRegistration(command.type)
+    const registration = this.domainExecutor?.getRegistration(command.type)
 
     // Patch stale client IDs from the ID mapping cache (race condition fix).
     // This corrects payloads where the UI component still had a client-generated ID
@@ -276,7 +265,7 @@ export class CommandQueue<
     // In worker modes, the proxy writes files to OPFS and passes pre-built fileRefs.
     // In online-only mode, files arrive directly and are stored here.
     let fileRefs: CommandRecord<TLink, TCommand>['fileRefs'] = params.fileRefs
-    if (!fileRefs && command.files && command.files.length > 0 && this.fileStore) {
+    if (!fileRefs && command.files && command.files.length > 0) {
       fileRefs = []
       for (const file of command.files) {
         const fileId = generateId()
@@ -562,7 +551,7 @@ export class CommandQueue<
     const sendCommand = this.resolveAutoRevisionForSend(updatedCommand)
 
     // Hydrate file data from file store before sending
-    if (sendCommand.fileRefs && this.fileStore) {
+    if (sendCommand.fileRefs) {
       for (const ref of sendCommand.fileRefs) {
         ref.data = await this.fileStore.read(sendCommand.commandId, ref.id)
       }
@@ -706,7 +695,7 @@ export class CommandQueue<
     for (const command of allCommands) {
       if (typeof command.data !== 'object' || command.data === null) continue
 
-      const registration = this.handlerMetadata?.getRegistration(command.type)
+      const registration = this.domainExecutor?.getRegistration(command.type)
       const data = { ...(command.data as Record<string, unknown>) }
       let changed = false
 
@@ -1157,7 +1146,7 @@ export class CommandQueue<
           'Failed to clean up anticipated events',
         )
       }
-      if (this.fileStore && command.fileRefs) {
+      if (command.fileRefs) {
         try {
           await this.fileStore.deleteForCommand(command.commandId)
         } catch (err) {
@@ -1249,9 +1238,7 @@ export class CommandQueue<
   async clearAll(): Promise<void> {
     await this.reset()
     await this.anticipatedEventHandler.clearAll()
-    if (this.fileStore) {
-      await this.fileStore.clear()
-    }
+    await this.fileStore.clear()
     await this.storage.deleteAllCommands()
     await this.storage.deleteAllCommandIdMappings()
     this.aggregateChains.clear()

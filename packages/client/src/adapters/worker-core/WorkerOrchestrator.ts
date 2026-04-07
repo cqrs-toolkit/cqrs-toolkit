@@ -136,7 +136,7 @@ export class WorkerOrchestrator<
     })
 
     // 4. Create SessionManager
-    const sessionManager = new SessionManager({ storage, eventBus })
+    const sessionManager = new SessionManager(storage, eventBus)
     await sessionManager.initialize()
     this.sessionManager = sessionManager
 
@@ -148,9 +148,7 @@ export class WorkerOrchestrator<
 
     // 6. Create CacheManager
     const windowId = crypto.randomUUID()
-    const cacheManager = new CacheManager<TLink, TCommand>({
-      storage,
-      eventBus,
+    const cacheManager = new CacheManager<TLink, TCommand>(storage, eventBus, {
       cacheConfig: config.cache,
       windowId,
     })
@@ -158,11 +156,11 @@ export class WorkerOrchestrator<
     this.cacheManager = cacheManager
 
     // 7. Create EventCache
-    const eventCache = new EventCache({ storage, eventBus })
+    const eventCache = new EventCache(storage, eventBus)
     this.eventCache = eventCache
 
     // 8. Create ReadModelStore
-    const readModelStore = new ReadModelStore({ storage })
+    const readModelStore = new ReadModelStore(storage)
     this.readModelStore = readModelStore
 
     // 9. Create EventProcessorRunner
@@ -184,37 +182,35 @@ export class WorkerOrchestrator<
     )
     eventProcessorRunner.setAnticipatedEventHandler(anticipatedEventHandler)
 
-    const queryManager = new QueryManager<TLink, TCommand>({
-      eventBus,
-      cacheManager,
-      readModelStore,
-    })
+    const queryManager = new QueryManager<TLink, TCommand>(eventBus, cacheManager, readModelStore)
     this.queryManager = queryManager
 
-    const commandQueue = new CommandQueue<TLink, TCommand, TSchema, TEvent>({
+    const commandQueue = new CommandQueue<TLink, TCommand, TSchema, TEvent>(
       storage,
       eventBus,
+      options.fileStore,
       anticipatedEventHandler,
-      ...(() => {
-        if (config.commandHandlers.length === 0) return {}
-        const executor = createDomainExecutor<TLink, TCommand, TSchema, TEvent>(
-          config.commandHandlers,
-          {
-            schemaValidator: config.schemaValidator,
-            queryManager,
-          },
-        )
-        return { domainExecutor: executor, handlerMetadata: executor }
-      })(),
-      commandSender: config.commandSender,
-      fileStore: options.fileStore,
-      retryConfig: config.retry,
-      retainTerminal: config.retainTerminal,
-      onCommandResponse: createCommandResponseHandler<TLink, TCommand, TSchema, TEvent>(
-        () => syncManagerRef,
-        config.collections,
-      ),
-    })
+      {
+        ...(() => {
+          if (config.commandHandlers.length === 0) return {}
+          const executor = createDomainExecutor<TLink, TCommand, TSchema, TEvent>(
+            config.commandHandlers,
+            {
+              schemaValidator: config.schemaValidator,
+              queryManager,
+            },
+          )
+          return { domainExecutor: executor, handlerMetadata: executor }
+        })(),
+        commandSender: config.commandSender,
+        retryConfig: config.retry,
+        retainTerminal: config.retainTerminal,
+        onCommandResponse: createCommandResponseHandler<TLink, TCommand, TSchema, TEvent>(
+          () => syncManagerRef,
+          config.collections,
+        ),
+      },
+    )
     this.commandQueue = commandQueue
 
     // 13. Create SyncManager — sets the queue's session reset handler internally.

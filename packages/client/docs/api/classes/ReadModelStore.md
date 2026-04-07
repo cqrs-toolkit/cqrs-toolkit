@@ -22,13 +22,13 @@ Read model store implementation.
 
 ### Constructor
 
-> **new ReadModelStore**\<`TLink`, `TCommand`\>(`config`): `ReadModelStore`\<`TLink`, `TCommand`\>
+> **new ReadModelStore**\<`TLink`, `TCommand`\>(`storage`): `ReadModelStore`\<`TLink`, `TCommand`\>
 
 #### Parameters
 
-##### config
+##### storage
 
-[`ReadModelStoreConfig`](../interfaces/ReadModelStoreConfig.md)\<`TLink`, `TCommand`\>
+[`IStorage`](../interfaces/IStorage.md)\<`TLink`, `TCommand`\>
 
 #### Returns
 

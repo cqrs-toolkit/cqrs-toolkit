@@ -67,10 +67,7 @@ export class OnlineOnlyAdapter<
       this._storage = new InMemoryStorage()
       await this._storage.initialize()
 
-      this._sessionManager = new SessionManager({
-        storage: this._storage,
-        eventBus: this.eventBus,
-      })
+      this._sessionManager = new SessionManager(this._storage, this.eventBus)
       await this._sessionManager.initialize()
 
       this._status = 'ready'

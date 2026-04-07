@@ -44,8 +44,8 @@ describe('AnticipatedEventHandler', () => {
     const storage = new InMemoryStorage<ServiceLink, EnqueueCommand>()
     await storage.initialize()
     const eventBus = new EventBus<ServiceLink>()
-    const eventCache = new EventCache<ServiceLink, EnqueueCommand>({ storage, eventBus })
-    const readModelStore = new ReadModelStore<ServiceLink, EnqueueCommand>({ storage })
+    const eventCache = new EventCache<ServiceLink, EnqueueCommand>(storage, eventBus)
+    const readModelStore = new ReadModelStore<ServiceLink, EnqueueCommand>(storage)
 
     const registry = new EventProcessorRegistry()
     registry.register(todoProcessor())

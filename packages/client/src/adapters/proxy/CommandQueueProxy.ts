@@ -54,21 +54,16 @@ export class CommandQueueProxy<
   TLink extends Link,
   TCommand extends EnqueueCommand,
 > implements ICommandQueue<TLink, TCommand> {
-  private readonly channel: WorkerMessageChannel
-  private readonly fileStore?: ICommandFileStore
   private readonly destroy$ = new Subject<void>()
   private readonly commandEvents = new Subject<CommandEvent>()
 
   readonly events$: Observable<CommandEvent>
 
   constructor(
-    channel: WorkerMessageChannel,
+    private readonly channel: WorkerMessageChannel,
+    private readonly fileStore: ICommandFileStore,
     broadcastEvents$: Observable<EventMessage>,
-    fileStore?: ICommandFileStore,
   ) {
-    this.channel = channel
-    this.fileStore = fileStore
-
     // Reconstruct command events from broadcasts
     broadcastEvents$.pipe(takeUntil(this.destroy$)).subscribe((event) => {
       const commandEvent = broadcastToCommandEvent(event)

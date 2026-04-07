@@ -3,7 +3,7 @@
  */
 
 import type { ServiceLink } from '@meticoeus/ddd-es'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { deriveScopeKey } from '../core/cache-manager/CacheKey.js'
 import { createTestCacheKey } from '../testing/factories/cacheKey.js'
 import { CommandRecord, EnqueueCommand } from '../types/commands.js'
@@ -11,20 +11,20 @@ import { InMemoryStorage } from './InMemoryStorage.js'
 import type { CachedEventRecord, ReadModelRecord, SessionRecord } from './IStorage.js'
 
 describe('InMemoryStorage', () => {
-  let storage: InMemoryStorage<ServiceLink, EnqueueCommand>
-
-  beforeEach(async () => {
-    storage = new InMemoryStorage()
+  async function bootstrap() {
+    const storage = new InMemoryStorage<ServiceLink, EnqueueCommand>()
     await storage.initialize()
-  })
+    return { storage }
+  }
 
   describe('lifecycle', () => {
     it('initializes successfully', async () => {
-      const newStorage = new InMemoryStorage()
-      await expect(newStorage.initialize()).resolves.toBeUndefined()
+      const storage = new InMemoryStorage()
+      await expect(storage.initialize()).resolves.toBeUndefined()
     })
 
     it('clears all data', async () => {
+      const { storage } = await bootstrap()
       const session: SessionRecord = { id: 1, userId: 'user-1', createdAt: 1000, lastSeenAt: 1000 }
       await storage.saveSession(session)
 
@@ -36,6 +36,7 @@ describe('InMemoryStorage', () => {
 
   describe('session operations', () => {
     it('saves and retrieves session', async () => {
+      const { storage } = await bootstrap()
       const session: SessionRecord = { id: 1, userId: 'user-1', createdAt: 1000, lastSeenAt: 1000 }
       await storage.saveSession(session)
 
@@ -44,10 +45,12 @@ describe('InMemoryStorage', () => {
     })
 
     it('returns undefined when no session exists', async () => {
+      const { storage } = await bootstrap()
       expect(await storage.getSession()).toBeUndefined()
     })
 
     it('deletes session and all associated data', async () => {
+      const { storage } = await bootstrap()
       const session: SessionRecord = { id: 1, userId: 'user-1', createdAt: 1000, lastSeenAt: 1000 }
       await storage.saveSession(session)
 
@@ -61,6 +64,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('updates lastSeenAt on touch', async () => {
+      const { storage } = await bootstrap()
       const session: SessionRecord = { id: 1, userId: 'user-1', createdAt: 1000, lastSeenAt: 1000 }
       await storage.saveSession(session)
 
@@ -77,6 +81,7 @@ describe('InMemoryStorage', () => {
     const baseCacheKey = createTestCacheKey({ key: 'cache-1' })
 
     it('saves and retrieves cache key', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCacheKey(baseCacheKey)
 
       const retrieved = await storage.getCacheKey('cache-1')
@@ -84,10 +89,12 @@ describe('InMemoryStorage', () => {
     })
 
     it('returns undefined for non-existent cache key', async () => {
+      const { storage } = await bootstrap()
       expect(await storage.getCacheKey('non-existent')).toBeUndefined()
     })
 
     it('lists all cache keys', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCacheKey(baseCacheKey)
       await storage.saveCacheKey({ ...baseCacheKey, key: 'cache-2' })
 
@@ -96,6 +103,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('increments hold count', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCacheKey(baseCacheKey)
       await storage.holdCacheKey('cache-1')
 
@@ -104,6 +112,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('decrements hold count', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCacheKey({ ...baseCacheKey, holdCount: 2 })
       await storage.releaseCacheKey('cache-1')
 
@@ -112,6 +121,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('does not decrement hold count below 0', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCacheKey(baseCacheKey)
       await storage.releaseCacheKey('cache-1')
 
@@ -120,6 +130,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('touches cache key', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCacheKey(baseCacheKey)
       await new Promise((r) => setTimeout(r, 10))
       await storage.touchCacheKey('cache-1')
@@ -129,6 +140,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('deletes cache key and associated data', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCacheKey(baseCacheKey)
 
       const event: CachedEventRecord = {
@@ -153,6 +165,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('gets evictable cache keys in LRU order', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCacheKey({ ...baseCacheKey, key: 'cache-1', lastAccessedAt: 3000 })
       await storage.saveCacheKey({ ...baseCacheKey, key: 'cache-2', lastAccessedAt: 1000 })
       await storage.saveCacheKey({ ...baseCacheKey, key: 'cache-3', lastAccessedAt: 2000 })
@@ -163,6 +176,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('excludes held cache keys from eviction', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCacheKey({ ...baseCacheKey, key: 'cache-1', holdCount: 1 })
       await storage.saveCacheKey({ ...baseCacheKey, key: 'cache-2' })
 
@@ -172,6 +186,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('excludes frozen cache keys from eviction', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCacheKey({ ...baseCacheKey, key: 'cache-1', frozen: true })
       await storage.saveCacheKey({ ...baseCacheKey, key: 'cache-2' })
 
@@ -199,6 +214,7 @@ describe('InMemoryStorage', () => {
     }
 
     it('saves and retrieves command', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCommand(baseCommand)
 
       const retrieved = await storage.getCommand('cmd-1')
@@ -206,10 +222,12 @@ describe('InMemoryStorage', () => {
     })
 
     it('returns undefined for non-existent command', async () => {
+      const { storage } = await bootstrap()
       expect(await storage.getCommand('non-existent')).toBeUndefined()
     })
 
     it('updates command', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCommand(baseCommand)
       await storage.updateCommand('cmd-1', { status: 'sending', attempts: 1 })
 
@@ -219,6 +237,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('filters commands by status', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCommand(baseCommand)
       await storage.saveCommand({ ...baseCommand, commandId: 'cmd-2', status: 'sending' })
       await storage.saveCommand({ ...baseCommand, commandId: 'cmd-3', status: 'pending' })
@@ -229,6 +248,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('filters commands by multiple statuses', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCommand(baseCommand)
       await storage.saveCommand({ ...baseCommand, commandId: 'cmd-2', status: 'sending' })
       await storage.saveCommand({ ...baseCommand, commandId: 'cmd-3', status: 'succeeded' })
@@ -238,6 +258,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('gets commands blocked by a specific command', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCommand(baseCommand)
       await storage.saveCommand({ ...baseCommand, commandId: 'cmd-2', blockedBy: ['cmd-1'] })
       await storage.saveCommand({
@@ -251,6 +272,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('deletes command and associated anticipated events', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCommand(baseCommand)
 
       const event: CachedEventRecord = {
@@ -275,6 +297,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('applies filter with limit and offset', async () => {
+      const { storage } = await bootstrap()
       for (let i = 1; i <= 5; i++) {
         await storage.saveCommand({ ...baseCommand, commandId: `cmd-${i}`, createdAt: i * 1000 })
       }
@@ -301,6 +324,7 @@ describe('InMemoryStorage', () => {
     }
 
     it('saves and retrieves cached event', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCachedEvent(baseEvent)
 
       const retrieved = await storage.getCachedEvent('event-1')
@@ -308,6 +332,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('saves multiple events in batch', async () => {
+      const { storage } = await bootstrap()
       const events = [baseEvent, { ...baseEvent, id: 'event-2' }]
       await storage.saveCachedEvents(events)
 
@@ -316,6 +341,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('gets events by cache key', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCachedEvent(baseEvent)
       await storage.saveCachedEvent({ ...baseEvent, id: 'event-2', cacheKeys: ['cache-2'] })
 
@@ -325,6 +351,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('gets events by stream sorted by position', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCachedEvent({ ...baseEvent, id: 'event-1', position: '200' })
       await storage.saveCachedEvent({ ...baseEvent, id: 'event-2', position: '100' })
       await storage.saveCachedEvent({ ...baseEvent, id: 'event-3', position: '150' })
@@ -334,6 +361,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('gets anticipated events by command', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCachedEvent(baseEvent)
       await storage.saveCachedEvent({
         ...baseEvent,
@@ -348,6 +376,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('deletes anticipated events by command', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCachedEvent({
         ...baseEvent,
         persistence: 'Anticipated',
@@ -366,6 +395,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('stores event with multiple cache keys', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCachedEvent({ ...baseEvent, cacheKeys: ['key-a', 'key-b'] })
 
       const byA = await storage.getCachedEventsByCacheKey('key-a')
@@ -376,6 +406,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('adds cache key associations to existing event', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCachedEvent(baseEvent) // cacheKeys: ['cache-1']
       await storage.addCacheKeysToEvent('event-1', ['cache-2', 'cache-3'])
 
@@ -386,6 +417,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('removeCacheKeyFromEvents keeps event if other keys remain', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCachedEvent({ ...baseEvent, cacheKeys: ['key-a', 'key-b'] })
 
       const deleted = await storage.removeCacheKeyFromEvents('key-a')
@@ -396,6 +428,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('removeCacheKeyFromEvents deletes event when no keys remain', async () => {
+      const { storage } = await bootstrap()
       await storage.saveCachedEvent({ ...baseEvent, cacheKeys: ['key-a'] })
 
       const deleted = await storage.removeCacheKeyFromEvents('key-a')
@@ -420,6 +453,7 @@ describe('InMemoryStorage', () => {
     }
 
     it('saves and retrieves read model', async () => {
+      const { storage } = await bootstrap()
       await storage.saveReadModel(baseReadModel)
 
       const retrieved = await storage.getReadModel('todos', 'entity-1')
@@ -427,10 +461,12 @@ describe('InMemoryStorage', () => {
     })
 
     it('returns undefined for non-existent read model', async () => {
+      const { storage } = await bootstrap()
       expect(await storage.getReadModel('todos', 'non-existent')).toBeUndefined()
     })
 
     it('saves multiple read models in batch', async () => {
+      const { storage } = await bootstrap()
       const models = [baseReadModel, { ...baseReadModel, id: 'entity-2' }]
       await storage.saveReadModels(models)
 
@@ -439,6 +475,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('gets read models by collection', async () => {
+      const { storage } = await bootstrap()
       await storage.saveReadModel(baseReadModel)
       await storage.saveReadModel({ ...baseReadModel, id: 'entity-2' })
       await storage.saveReadModel({ ...baseReadModel, id: 'entity-3', collection: 'users' })
@@ -448,6 +485,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('gets read models by cache key', async () => {
+      const { storage } = await bootstrap()
       await storage.saveReadModel(baseReadModel)
       await storage.saveReadModel({ ...baseReadModel, id: 'entity-2', cacheKeys: ['cache-2'] })
 
@@ -456,6 +494,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('applies pagination to collection query', async () => {
+      const { storage } = await bootstrap()
       for (let i = 1; i <= 5; i++) {
         await storage.saveReadModel({ ...baseReadModel, id: `entity-${i}` })
       }
@@ -465,6 +504,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('deletes read model', async () => {
+      const { storage } = await bootstrap()
       await storage.saveReadModel(baseReadModel)
       await storage.deleteReadModel('todos', 'entity-1')
 
@@ -472,6 +512,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('removes cache key from read models and deletes orphans', async () => {
+      const { storage } = await bootstrap()
       await storage.saveReadModel(baseReadModel)
       await storage.saveReadModel({ ...baseReadModel, id: 'entity-2', cacheKeys: ['cache-2'] })
 
@@ -482,6 +523,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('keeps read model when other cache keys remain', async () => {
+      const { storage } = await bootstrap()
       await storage.saveReadModel({
         ...baseReadModel,
         cacheKeys: ['cache-1', 'cache-2'],
@@ -495,6 +537,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('adds cache key associations to existing read model', async () => {
+      const { storage } = await bootstrap()
       await storage.saveReadModel(baseReadModel)
       await storage.addCacheKeysToReadModel('todos', 'entity-1', ['cache-2', 'cache-3'])
 
@@ -505,6 +548,7 @@ describe('InMemoryStorage', () => {
     })
 
     it('deletes read models by collection', async () => {
+      const { storage } = await bootstrap()
       await storage.saveReadModel(baseReadModel)
       await storage.saveReadModel({ ...baseReadModel, id: 'entity-2', collection: 'users' })
 

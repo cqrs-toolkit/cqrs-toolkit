@@ -35,13 +35,31 @@ Provides form-friendly async patterns for command handling.
 
 ### Constructor
 
-> **new CommandQueue**\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>(`config`): `CommandQueue`\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
+> **new CommandQueue**\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>(`storage`, `eventBus`, `fileStore`, `anticipatedEventHandler`, `config?`): `CommandQueue`\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 #### Parameters
 
-##### config
+##### storage
 
-[`CommandQueueConfig`](../interfaces/CommandQueueConfig.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
+[`IStorage`](../interfaces/IStorage.md)\<`TLink`, `TCommand`\>
+
+##### eventBus
+
+[`EventBus`](EventBus.md)\<`TLink`\>
+
+##### fileStore
+
+`ICommandFileStore`
+
+File store for commands with file attachments.
+
+##### anticipatedEventHandler
+
+`IAnticipatedEventHandler`
+
+##### config?
+
+[`CommandQueueConfig`](../interfaces/CommandQueueConfig.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\> = `{}`
 
 #### Returns
 

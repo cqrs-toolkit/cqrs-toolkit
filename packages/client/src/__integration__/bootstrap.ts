@@ -124,7 +124,7 @@ async function wireComponents(
   const eventBus = new EventBus<TLink>()
 
   // 3. SessionManager
-  const sessionManager = new SessionManager<TLink, TCommand>({ storage, eventBus })
+  const sessionManager = new SessionManager<TLink, TCommand>(storage, eventBus)
   await sessionManager.initialize()
 
   // 4. Event processor registry
@@ -134,16 +134,14 @@ async function wireComponents(
   }
 
   // 5. CacheManager
-  const cacheManager = new CacheManager<TLink, TCommand>({
-    storage,
-    eventBus,
+  const cacheManager = new CacheManager<TLink, TCommand>(storage, eventBus, {
     windowId: 'integration-test',
   })
   await cacheManager.initialize()
 
   // 6. EventCache + ReadModelStore
-  const eventCache = new EventCache<TLink, TCommand>({ storage, eventBus })
-  const readModelStore = new ReadModelStore<TLink, TCommand>({ storage })
+  const eventCache = new EventCache<TLink, TCommand>(storage, eventBus)
+  const readModelStore = new ReadModelStore<TLink, TCommand>(storage)
 
   // 7. EventProcessorRunner
   const eventProcessorRunner = new EventProcessorRunner<TLink, TCommand>(
@@ -166,31 +164,31 @@ async function wireComponents(
   eventProcessorRunner.setAnticipatedEventHandler(anticipatedEventHandler)
 
   // 10. QueryManager
-  const queryManager = new QueryManager<TLink, TCommand>({
-    eventBus,
-    cacheManager,
-    readModelStore,
-  })
+  const queryManager = new QueryManager<TLink, TCommand>(eventBus, cacheManager, readModelStore)
 
   // 11. CommandQueue (with optional DomainExecutor)
   let syncManagerRef: SyncManager<TLink, TCommand, TSchema, TEvent>
 
-  const commandQueue = new CommandQueue<TLink, TCommand, TSchema, TEvent>({
+  const fileStore = new InMemoryCommandFileStore()
+
+  const commandQueue = new CommandQueue<TLink, TCommand, TSchema, TEvent>(
     storage,
     eventBus,
+    fileStore,
     anticipatedEventHandler,
-    ...(() => {
-      if (commandHandlers.length === 0) return {}
-      const executor = createDomainExecutor<TLink, TCommand, TSchema, TEvent>(commandHandlers)
-      return { domainExecutor: executor, handlerMetadata: executor }
-    })(),
-    commandSender: config.commandSender,
-    fileStore: new InMemoryCommandFileStore(),
-    onCommandResponse: createCommandResponseHandler<TLink, TCommand, TSchema, TEvent>(
-      () => syncManagerRef,
-      collections,
-    ),
-  })
+    {
+      ...(() => {
+        if (commandHandlers.length === 0) return {}
+        const executor = createDomainExecutor<TLink, TCommand, TSchema, TEvent>(commandHandlers)
+        return { domainExecutor: executor, handlerMetadata: executor }
+      })(),
+      commandSender: config.commandSender,
+      onCommandResponse: createCommandResponseHandler<TLink, TCommand, TSchema, TEvent>(
+        () => syncManagerRef,
+        collections,
+      ),
+    },
+  )
 
   // 12. SyncManager (registers remaining WriteQueue handlers + session reset)
   const connectivity = new ConnectivityManager(eventBus)

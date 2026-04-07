@@ -36,14 +36,12 @@ import type { EventMessage } from '../../protocol/messages.js'
  * Main-thread proxy for the worker-side QueryManager.
  */
 export class QueryManagerProxy<TLink extends Link> implements IQueryManager<TLink> {
-  private readonly channel: WorkerMessageChannel
-  private readonly broadcastEvents$: Observable<EventMessage>
   private readonly destroy$ = new Subject<void>()
 
-  constructor(channel: WorkerMessageChannel, broadcastEvents$: Observable<EventMessage>) {
-    this.channel = channel
-    this.broadcastEvents$ = broadcastEvents$
-  }
+  constructor(
+    private readonly channel: WorkerMessageChannel,
+    private readonly broadcastEvents$: Observable<EventMessage>,
+  ) {}
 
   async getById<T>(params: GetByIdParams<TLink>): Promise<QueryResult<TLink, T>> {
     return this.channel.request<QueryResult<TLink, T>>('queryManager.getById', [params])

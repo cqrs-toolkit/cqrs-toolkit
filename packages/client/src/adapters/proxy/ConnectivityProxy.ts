@@ -16,11 +16,12 @@ import type { EventMessage } from '../../protocol/messages.js'
  * Tracks connectivity state from broadcast events.
  */
 export class ConnectivityProxy implements IConnectivity {
-  private readonly channel: WorkerMessageChannel
   private readonly state$: BehaviorSubject<ConnectivityState>
 
-  constructor(channel: WorkerMessageChannel, events$: Observable<EventMessage>) {
-    this.channel = channel
+  constructor(
+    private readonly channel: WorkerMessageChannel,
+    events$: Observable<EventMessage>,
+  ) {
     this.state$ = new BehaviorSubject<ConnectivityState>({
       network: 'unknown',
       serverReachable: 'unknown',

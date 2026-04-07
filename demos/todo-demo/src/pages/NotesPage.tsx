@@ -41,9 +41,20 @@ export default function NotesPage() {
   const [notebooksSync, setNotebooksSync] = createSignal<CollectionSyncStatus>()
   const [notesSync, setNotesSync] = createSignal<CollectionSyncStatus>()
 
-  function refreshSyncStatus(): void {
-    setNotebooksSync(client.syncManager.getCollectionStatus('notebooks'))
-    setNotesSync(client.syncManager.getCollectionStatus('notes'))
+  async function refreshSyncStatus(): Promise<void> {
+    const notebooksStatus = await client.syncManager.getCollectionStatus(
+      'notebooks',
+      NOTEBOOK_SEED_KEY,
+    )
+    setNotebooksSync(notebooksStatus)
+
+    const nbId = selectedNotebookId()
+    if (nbId) {
+      const notesStatus = await client.syncManager.getCollectionStatus('notes', notebookCacheKey())
+      setNotesSync(notesStatus)
+    } else {
+      setNotesSync(undefined)
+    }
   }
 
   function syncLabel(status: CollectionSyncStatus | undefined): string {

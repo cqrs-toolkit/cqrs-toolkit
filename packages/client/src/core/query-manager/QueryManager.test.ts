@@ -33,9 +33,9 @@ describe('QueryManager', () => {
     storage = new InMemoryStorage()
     await storage.initialize()
     eventBus = new EventBus()
-    cacheManager = new CacheManager({ storage, eventBus, windowId: 'test-window' })
-    readModelStore = new ReadModelStore({ storage })
-    queryManager = new QueryManager({ eventBus, cacheManager, readModelStore })
+    cacheManager = new CacheManager(storage, eventBus, { windowId: 'test-window' })
+    readModelStore = new ReadModelStore(storage)
+    queryManager = new QueryManager(eventBus, cacheManager, readModelStore)
 
     // Add some test data — cacheKey must match what QueryManager derives for 'todos'
     const todosCacheKey = deriveScopeKey({ scopeType: 'todos' }).key

@@ -4,24 +4,26 @@
 
 import { Err, Ok, type AggregateEventData, type Result, type ServiceLink } from '@meticoeus/ddd-es'
 import { Subject } from 'rxjs'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import type { CommandEvent, CommandRecord, EnqueueCommand } from '../../types/commands.js'
 import { CommandFailedException } from '../../types/commands.js'
-import type { IDomainExecutor } from '../../types/domain.js'
 import {
   autoRevision,
   createDomainExecutor,
   domainFailure,
   domainSuccess,
+  IDomainExecutor,
 } from '../../types/domain.js'
 import { isValidationException } from '../../types/validation.js'
 import { generateId } from '../../utils/uuid.js'
 import { deriveScopeKey } from '../cache-manager/CacheKey.js'
 import { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventShape.js'
 import { EventBus } from '../events/EventBus.js'
-import type { IAnticipatedEventHandler } from './CommandQueue.js'
+import type { CommandQueueConfig, IAnticipatedEventHandler } from './CommandQueue.js'
 import { CommandQueue } from './CommandQueue.js'
+import type { ICommandFileStore } from './file-store/ICommandFileStore.js'
+import { InMemoryCommandFileStore } from './file-store/InMemoryCommandFileStore.js'
 import type { ICommandSender } from './types.js'
 import { CommandSendException } from './types.js'
 
@@ -56,20 +58,38 @@ class TestCommandQueue extends CommandQueue<
 }
 
 describe('CommandQueue', () => {
-  let storage: InMemoryStorage<ServiceLink, EnqueueCommand>
-  let eventBus: EventBus<ServiceLink>
-  let anticipatedEventHandler: IAnticipatedEventHandler & {
-    cache: ReturnType<typeof vi.fn>
-    cleanup: ReturnType<typeof vi.fn>
-    clearAll: ReturnType<typeof vi.fn>
-  }
-  let commandQueue: TestCommandQueue
+  interface BootstrapParams extends CommandQueueConfig<
+    ServiceLink,
+    EnqueueCommand,
+    unknown,
+    IAnticipatedEvent
+  > {}
 
-  beforeEach(async () => {
-    storage = new InMemoryStorage()
+  interface BootstrapResult {
+    storage: InMemoryStorage<ServiceLink, EnqueueCommand>
+    eventBus: EventBus<ServiceLink>
+    anticipatedEventHandler: IAnticipatedEventHandler & {
+      cache: ReturnType<typeof vi.fn>
+      cleanup: ReturnType<typeof vi.fn>
+      clearAll: ReturnType<typeof vi.fn>
+    }
+    fileStore: ICommandFileStore
+  }
+
+  async function bootstrap(
+    params: BootstrapParams & { customCommandQueue: true },
+  ): Promise<BootstrapResult & { commandQueue: undefined }>
+  async function bootstrap(
+    params?: BootstrapParams,
+  ): Promise<BootstrapResult & { commandQueue: TestCommandQueue }>
+  async function bootstrap(
+    params?: BootstrapParams & { customCommandQueue?: boolean },
+  ): Promise<BootstrapResult & { commandQueue: TestCommandQueue | undefined }> {
+    const { customCommandQueue, ...config } = params ?? {}
+    const storage = new InMemoryStorage<ServiceLink, EnqueueCommand>()
     await storage.initialize()
-    eventBus = new EventBus()
-    anticipatedEventHandler = {
+    const eventBus = new EventBus<ServiceLink>()
+    const anticipatedEventHandler: BootstrapResult['anticipatedEventHandler'] = {
       cache: vi.fn().mockResolvedValue(undefined),
       cleanup: vi.fn().mockResolvedValue(undefined),
       regenerate: vi.fn().mockResolvedValue(undefined),
@@ -77,11 +97,23 @@ describe('CommandQueue', () => {
       getAnticipatedEventsForStream: vi.fn().mockResolvedValue([]),
       clearAll: vi.fn().mockResolvedValue(undefined),
     }
-    commandQueue = new TestCommandQueue({ storage, eventBus, anticipatedEventHandler })
-  })
+    const fileStore = new InMemoryCommandFileStore()
+    const commandQueue = params?.customCommandQueue
+      ? undefined
+      : new TestCommandQueue(storage, eventBus, fileStore, anticipatedEventHandler, config)
+
+    return {
+      storage,
+      eventBus,
+      anticipatedEventHandler,
+      fileStore,
+      commandQueue,
+    }
+  }
 
   describe('enqueue', () => {
     it('enqueues a command and returns success', async () => {
+      const { commandQueue } = await bootstrap()
       const result = await commandQueue.enqueue({
         command: { type: 'CreateTodo', data: { title: 'Test todo' } },
         cacheKey: TODOS_CACHE_KEY,
@@ -95,6 +127,7 @@ describe('CommandQueue', () => {
     })
 
     it('uses provided commandId', async () => {
+      const { commandQueue } = await bootstrap()
       const result = await commandQueue.enqueue({
         command: { type: 'CreateTodo', data: {} },
         commandId: 'custom-id-123',
@@ -108,6 +141,7 @@ describe('CommandQueue', () => {
     })
 
     it('saves command to storage', async () => {
+      const { commandQueue, storage } = await bootstrap()
       const result = await commandQueue.enqueue({
         command: { type: 'CreateTodo', data: { title: 'Test' }, service: 'todo-service' },
         cacheKey: TODOS_CACHE_KEY,
@@ -125,6 +159,7 @@ describe('CommandQueue', () => {
     })
 
     it('emits enqueued event', async () => {
+      const { commandQueue } = await bootstrap()
       const events: unknown[] = []
       commandQueue.events$.subscribe((e) => events.push(e))
 
@@ -142,6 +177,7 @@ describe('CommandQueue', () => {
     })
 
     it('emits to library event bus', async () => {
+      const { commandQueue, eventBus } = await bootstrap()
       const events: unknown[] = []
       eventBus.on('command:enqueued').subscribe((e) => events.push(e))
 
@@ -155,21 +191,17 @@ describe('CommandQueue', () => {
   })
 
   describe('enqueue with domain validation', () => {
-    let domainExecutor: IDomainExecutor
-
-    beforeEach(() => {
-      domainExecutor = {
-        execute: vi.fn(),
-      }
-      commandQueue = new TestCommandQueue({
-        storage,
-        eventBus,
-        anticipatedEventHandler,
-        domainExecutor,
-      })
-    })
-
     it('returns validation errors when domain validation fails', async () => {
+      const domainExecutor: IDomainExecutor<
+        ServiceLink,
+        EnqueueCommand,
+        unknown,
+        IAnticipatedEvent
+      > = {
+        execute: vi.fn(),
+        getRegistration: vi.fn(),
+      }
+      const { commandQueue } = await bootstrap({ domainExecutor })
       vi.mocked(domainExecutor.execute).mockReturnValue(
         Promise.resolve(
           domainFailure([
@@ -198,9 +230,24 @@ describe('CommandQueue', () => {
     })
 
     it('returns anticipated events on successful validation', async () => {
-      vi.mocked(domainExecutor.execute).mockReturnValue(
-        Promise.resolve(domainSuccess([{ type: 'TodoCreated', data: { id: '1', title: 'Test' } }])),
-      )
+      const domainExecutor: IDomainExecutor<
+        ServiceLink,
+        EnqueueCommand,
+        unknown,
+        IAnticipatedEvent<'TodoCreated', { id: string; title: string }>
+      > = {
+        execute: vi.fn(),
+        getRegistration: vi.fn(),
+      }
+      const { commandQueue } = await bootstrap({ domainExecutor })
+      const events: IAnticipatedEvent<'TodoCreated', { id: string; title: string }>[] = [
+        {
+          streamId: 'todo-1',
+          type: 'TodoCreated',
+          data: { id: '1', title: 'Test' },
+        },
+      ]
+      vi.mocked(domainExecutor.execute).mockReturnValue(Promise.resolve(domainSuccess(events)))
 
       const result = await commandQueue.enqueue({
         command: { type: 'CreateTodo', data: { title: 'Test' } },
@@ -218,6 +265,16 @@ describe('CommandQueue', () => {
     })
 
     it('skips validation when skipValidation is true', async () => {
+      const domainExecutor: IDomainExecutor<
+        ServiceLink,
+        EnqueueCommand,
+        unknown,
+        IAnticipatedEvent
+      > = {
+        execute: vi.fn(),
+        getRegistration: vi.fn(),
+      }
+      const { commandQueue } = await bootstrap({ domainExecutor })
       vi.mocked(domainExecutor.execute).mockReturnValue(
         Promise.resolve(
           domainFailure([
@@ -239,6 +296,7 @@ describe('CommandQueue', () => {
 
   describe('enqueue with dependencies', () => {
     it('marks command as blocked when it has unresolved dependencies', async () => {
+      const { commandQueue, storage } = await bootstrap()
       // First command
       const first = await commandQueue.enqueue({
         command: { type: 'First', data: {} },
@@ -260,6 +318,7 @@ describe('CommandQueue', () => {
     })
 
     it('marks command as pending when all dependencies are resolved', async () => {
+      const { commandQueue, storage } = await bootstrap()
       // Create and complete first command
       const first: CommandRecord<ServiceLink, EnqueueCommand> = {
         commandId: 'cmd-1',
@@ -293,6 +352,7 @@ describe('CommandQueue', () => {
 
   describe('waitForCompletion', () => {
     it('returns immediately if command is already succeeded', async () => {
+      const { commandQueue, storage } = await bootstrap()
       const command: CommandRecord<ServiceLink, EnqueueCommand> = {
         commandId: 'cmd-1',
         cacheKey: TODOS_CACHE_KEY,
@@ -319,6 +379,7 @@ describe('CommandQueue', () => {
     })
 
     it('returns immediately if command is already failed', async () => {
+      const { commandQueue, storage } = await bootstrap()
       const command: CommandRecord<ServiceLink, EnqueueCommand> = {
         commandId: 'cmd-1',
         cacheKey: TODOS_CACHE_KEY,
@@ -345,6 +406,7 @@ describe('CommandQueue', () => {
     })
 
     it('returns failed for non-existent command', async () => {
+      const { commandQueue } = await bootstrap()
       const result = await commandQueue.waitForCompletion('non-existent')
 
       expect(result.ok).toBe(false)
@@ -354,6 +416,7 @@ describe('CommandQueue', () => {
     })
 
     it('times out if command does not complete', async () => {
+      const { commandQueue, storage } = await bootstrap()
       const result = await commandQueue.enqueue({
         command: { type: 'Test', data: {} },
         cacheKey: TODOS_CACHE_KEY,
@@ -371,6 +434,7 @@ describe('CommandQueue', () => {
     })
 
     it('waits for command to complete', async () => {
+      const { commandQueue, storage } = await bootstrap()
       const result = await commandQueue.enqueue({
         command: { type: 'Test', data: {} },
         cacheKey: TODOS_CACHE_KEY,
@@ -403,16 +467,17 @@ describe('CommandQueue', () => {
 
   describe('enqueueAndWait', () => {
     it('returns validation errors immediately', async () => {
-      const domainExecutor: IDomainExecutor = {
+      const domainExecutor: IDomainExecutor<
+        ServiceLink,
+        EnqueueCommand,
+        unknown,
+        IAnticipatedEvent
+      > = {
         execute: async () =>
           domainFailure([{ path: 'email', code: 'invalid', message: 'Invalid email', params: {} }]),
+        getRegistration: vi.fn(),
       }
-      commandQueue = new TestCommandQueue({
-        storage,
-        eventBus,
-        anticipatedEventHandler,
-        domainExecutor,
-      })
+      const { commandQueue } = await bootstrap({ domainExecutor })
 
       const result = await commandQueue.enqueueAndWait({
         command: { type: 'CreateUser', data: { email: 'invalid' } },
@@ -430,6 +495,7 @@ describe('CommandQueue', () => {
 
   describe('commandEvents$', () => {
     it('filters events to specific command', async () => {
+      const { commandQueue } = await bootstrap()
       const events: unknown[] = []
       const result1 = await commandQueue.enqueue({
         command: { type: 'First', data: {} },
@@ -452,6 +518,7 @@ describe('CommandQueue', () => {
 
   describe('cancelCommand', () => {
     it('cancels a pending command', async () => {
+      const { commandQueue, storage } = await bootstrap()
       const result = await commandQueue.enqueue({
         command: { type: 'Test', data: {} },
         cacheKey: TODOS_CACHE_KEY,
@@ -465,6 +532,7 @@ describe('CommandQueue', () => {
     })
 
     it('returns error when command does not exist', async () => {
+      const { commandQueue } = await bootstrap()
       const result = await commandQueue.cancelCommand('non-existent')
       expect(result.ok).toBe(false)
       if (!result.ok) {
@@ -473,6 +541,7 @@ describe('CommandQueue', () => {
     })
 
     it('returns error when command is already succeeded', async () => {
+      const { commandQueue, storage } = await bootstrap()
       const command: CommandRecord<ServiceLink, EnqueueCommand> = {
         commandId: 'cmd-1',
         cacheKey: TODOS_CACHE_KEY,
@@ -497,6 +566,7 @@ describe('CommandQueue', () => {
     })
 
     it('emits cancelled event', async () => {
+      const { commandQueue } = await bootstrap()
       const result = await commandQueue.enqueue({
         command: { type: 'Test', data: {} },
         cacheKey: TODOS_CACHE_KEY,
@@ -517,6 +587,7 @@ describe('CommandQueue', () => {
     })
 
     it('emits command:status-changed to library event bus', async () => {
+      const { commandQueue, eventBus } = await bootstrap()
       const result = await commandQueue.enqueue({
         command: { type: 'Test', data: {} },
         cacheKey: TODOS_CACHE_KEY,
@@ -542,6 +613,7 @@ describe('CommandQueue', () => {
 
   describe('retryCommand', () => {
     it('retries a failed command', async () => {
+      const { commandQueue, storage } = await bootstrap()
       const command: CommandRecord<ServiceLink, EnqueueCommand> = {
         commandId: 'cmd-1',
         cacheKey: TODOS_CACHE_KEY,
@@ -567,6 +639,7 @@ describe('CommandQueue', () => {
     })
 
     it('throws when command is not failed', async () => {
+      const { commandQueue } = await bootstrap()
       const result = await commandQueue.enqueue({
         command: { type: 'Test', data: {} },
         cacheKey: TODOS_CACHE_KEY,
@@ -582,22 +655,20 @@ describe('CommandQueue', () => {
   })
 
   describe('command processing', () => {
-    let commandSender: ICommandSender<ServiceLink, EnqueueCommand>
-
-    beforeEach(() => {
-      commandSender = {
+    function buildTestConfig() {
+      const commandSender: ICommandSender<ServiceLink, EnqueueCommand> = {
         send: vi.fn().mockResolvedValue(Ok({ id: '123' })),
       }
-      commandQueue = new TestCommandQueue({
-        storage,
-        eventBus,
-        anticipatedEventHandler,
+      return {
         commandSender,
         retryConfig: { maxAttempts: 3, initialDelay: 10 },
-      })
-    })
+      } satisfies BootstrapParams
+    }
 
     it('processes pending commands when resumed', async () => {
+      const config = buildTestConfig()
+      const { commandSender } = config
+      const { commandQueue, storage } = await bootstrap(config)
       const result = await commandQueue.enqueue({
         command: { type: 'Test', data: {} },
         cacheKey: TODOS_CACHE_KEY,
@@ -615,6 +686,9 @@ describe('CommandQueue', () => {
     })
 
     it('does not process commands when paused', async () => {
+      const config = buildTestConfig()
+      const { commandSender } = config
+      const { commandQueue, storage } = await bootstrap(config)
       const result = await commandQueue.enqueue({
         command: { type: 'Test', data: {} },
         cacheKey: TODOS_CACHE_KEY,
@@ -628,6 +702,9 @@ describe('CommandQueue', () => {
     })
 
     it('retries failed commands up to maxAttempts', async () => {
+      const config = buildTestConfig()
+      const { commandSender } = config
+      const { commandQueue, storage } = await bootstrap(config)
       vi.mocked(commandSender.send)
         .mockResolvedValueOnce(Err(new CommandSendException('Network error', 'NETWORK', true)))
         .mockResolvedValueOnce(Err(new CommandSendException('Network error', 'NETWORK', true)))
@@ -651,6 +728,9 @@ describe('CommandQueue', () => {
     })
 
     it('marks command as failed after max retries', async () => {
+      const config = buildTestConfig()
+      const { commandSender } = config
+      const { commandQueue, storage } = await bootstrap(config)
       vi.mocked(commandSender.send).mockResolvedValue(
         Err(new CommandSendException('Network error', 'NETWORK', true)),
       )
@@ -673,6 +753,9 @@ describe('CommandQueue', () => {
     })
 
     it('does not retry non-retryable errors', async () => {
+      const config = buildTestConfig()
+      const { commandSender } = config
+      const { commandQueue, storage } = await bootstrap(config)
       vi.mocked(commandSender.send).mockResolvedValue(
         Err(new CommandSendException('Validation error', 'VALIDATION', false)),
       )
@@ -693,6 +776,9 @@ describe('CommandQueue', () => {
     })
 
     it('unblocks dependent commands on success', async () => {
+      const config = buildTestConfig()
+      const { commandSender } = config
+      const { commandQueue, storage } = await bootstrap(config)
       const first = await commandQueue.enqueue({
         command: { type: 'First', data: {} },
         cacheKey: TODOS_CACHE_KEY,
@@ -722,6 +808,9 @@ describe('CommandQueue', () => {
     })
 
     it('processes commands enqueued during an active processing pass', async () => {
+      const config = buildTestConfig()
+      const { commandSender } = config
+      const { commandQueue, storage } = await bootstrap(config)
       // First send blocks; subsequent sends resolve immediately
       let resolveSend: ((value: Result<unknown, CommandSendException>) => void) | undefined
       vi.mocked(commandSender.send)
@@ -761,6 +850,9 @@ describe('CommandQueue', () => {
     })
 
     it('does not process a command cancelled during an earlier send', async () => {
+      const config = buildTestConfig()
+      const { commandSender } = config
+      const { commandQueue, storage } = await bootstrap(config)
       // First send blocks via deferred promise; second should never be called
       let resolveSend: ((value: Result<unknown, CommandSendException>) => void) | undefined
       vi.mocked(commandSender.send)
@@ -801,12 +893,12 @@ describe('CommandQueue', () => {
     })
 
     it('clears retry timers on destroy', async () => {
-      // Use a long retry delay so the timer is still pending when we destroy
-      commandQueue = new TestCommandQueue({
-        storage,
-        eventBus,
-        anticipatedEventHandler,
+      const commandSender: ICommandSender<ServiceLink, EnqueueCommand> = {
+        send: vi.fn().mockResolvedValue(Ok({ id: '123' })),
+      }
+      const { commandQueue, storage } = await bootstrap({
         commandSender,
+        // Use a long retry delay so the timer is still pending when we destroy
         retryConfig: { maxAttempts: 3, initialDelay: 500 },
       })
 
@@ -837,6 +929,9 @@ describe('CommandQueue', () => {
     })
 
     it('awaits in-flight command processing on destroy', async () => {
+      const config = buildTestConfig()
+      const { commandSender } = config
+      const { commandQueue, storage } = await bootstrap(config)
       let resolveSend: ((value: Result<unknown, CommandSendException>) => void) | undefined
       vi.mocked(commandSender.send).mockImplementation(
         () => new Promise((resolve) => (resolveSend = resolve)),
@@ -872,6 +967,9 @@ describe('CommandQueue', () => {
     })
 
     it('cancels dependent commands on failure', async () => {
+      const config = buildTestConfig()
+      const { commandSender } = config
+      const { commandQueue, storage } = await bootstrap(config)
       vi.mocked(commandSender.send).mockResolvedValue(
         Err(new CommandSendException('Error', 'ERROR', false)),
       )
@@ -901,6 +999,7 @@ describe('CommandQueue', () => {
 
   describe('listCommands', () => {
     it('returns all commands', async () => {
+      const { commandQueue } = await bootstrap()
       await commandQueue.enqueue({
         command: { type: 'First', data: {} },
         cacheKey: TODOS_CACHE_KEY,
@@ -916,6 +1015,7 @@ describe('CommandQueue', () => {
     })
 
     it('filters by status', async () => {
+      const { commandQueue } = await bootstrap()
       await commandQueue.enqueue({
         command: { type: 'First', data: {} },
         cacheKey: TODOS_CACHE_KEY,
@@ -936,31 +1036,20 @@ describe('CommandQueue', () => {
     })
   })
 
-  describe('retainTerminal', () => {
-    it('stores retainTerminal config flag', () => {
-      const queue = new TestCommandQueue({
-        storage,
-        eventBus,
-        anticipatedEventHandler,
-        retainTerminal: true,
-      })
-      // The flag is stored but has no behavioral effect yet.
-      // Verify construction succeeds without error.
-      expect(queue).toBeDefined()
-    })
-  })
-
   describe('pause/resume', () => {
-    it('starts paused', () => {
+    it('starts paused', async () => {
+      const { commandQueue } = await bootstrap()
       expect(commandQueue.isPaused()).toBe(true)
     })
 
-    it('can be resumed', () => {
+    it('can be resumed', async () => {
+      const { commandQueue } = await bootstrap()
       commandQueue.resume()
       expect(commandQueue.isPaused()).toBe(false)
     })
 
-    it('can be paused', () => {
+    it('can be paused', async () => {
+      const { commandQueue } = await bootstrap()
       commandQueue.resume()
       commandQueue.pause()
       expect(commandQueue.isPaused()).toBe(true)
@@ -968,21 +1057,17 @@ describe('CommandQueue', () => {
   })
 
   describe('anticipated event caching', () => {
-    let domainExecutor: IDomainExecutor
-
-    beforeEach(() => {
-      domainExecutor = {
-        execute: vi.fn(),
-      }
-      commandQueue = new TestCommandQueue({
-        storage,
-        eventBus,
-        anticipatedEventHandler,
-        domainExecutor,
-      })
-    })
-
     it('calls cache() with correct commandId and events when domain executor succeeds', async () => {
+      const domainExecutor: IDomainExecutor<
+        ServiceLink,
+        EnqueueCommand,
+        unknown,
+        IAnticipatedEvent
+      > = {
+        execute: vi.fn(),
+        getRegistration: vi.fn(),
+      }
+      const { anticipatedEventHandler, commandQueue } = await bootstrap({ domainExecutor })
       const events = [{ type: 'TodoCreated', data: { id: '1', title: 'Test' }, streamId: 'todo-1' }]
       vi.mocked(domainExecutor.execute).mockReturnValue(Promise.resolve(domainSuccess(events)))
 
@@ -1003,7 +1088,7 @@ describe('CommandQueue', () => {
     })
 
     it('does not call cache() when domain executor is not configured', async () => {
-      commandQueue = new TestCommandQueue({ storage, eventBus, anticipatedEventHandler })
+      const { anticipatedEventHandler, commandQueue } = await bootstrap()
 
       await commandQueue.enqueue({
         command: { type: 'CreateTodo', data: {} },
@@ -1014,6 +1099,16 @@ describe('CommandQueue', () => {
     })
 
     it('does not call cache() when anticipated events array is empty', async () => {
+      const domainExecutor: IDomainExecutor<
+        ServiceLink,
+        EnqueueCommand,
+        unknown,
+        IAnticipatedEvent
+      > = {
+        execute: vi.fn(),
+        getRegistration: vi.fn(),
+      }
+      const { anticipatedEventHandler, commandQueue } = await bootstrap({ domainExecutor })
       vi.mocked(domainExecutor.execute).mockReturnValue(Promise.resolve(domainSuccess([])))
 
       await commandQueue.enqueue({
@@ -1025,6 +1120,16 @@ describe('CommandQueue', () => {
     })
 
     it('enqueue succeeds even if cache() throws', async () => {
+      const domainExecutor: IDomainExecutor<
+        ServiceLink,
+        EnqueueCommand,
+        unknown,
+        IAnticipatedEvent
+      > = {
+        execute: vi.fn(),
+        getRegistration: vi.fn(),
+      }
+      const { anticipatedEventHandler, commandQueue } = await bootstrap({ domainExecutor })
       const events = [{ type: 'TodoCreated', data: { id: '1', title: 'Test' }, streamId: 'todo-1' }]
       vi.mocked(domainExecutor.execute).mockReturnValue(Promise.resolve(domainSuccess(events)))
       anticipatedEventHandler.cache.mockRejectedValue(new Error('Cache failure'))
@@ -1042,22 +1147,14 @@ describe('CommandQueue', () => {
   })
 
   describe('anticipated event cleanup', () => {
-    let commandSender: ICommandSender<ServiceLink, EnqueueCommand>
-
-    beforeEach(() => {
-      commandSender = {
+    it('calls cleanup() when command succeeds', async () => {
+      const commandSender: ICommandSender<ServiceLink, EnqueueCommand> = {
         send: vi.fn().mockResolvedValue(Ok({ id: '123' })),
       }
-      commandQueue = new TestCommandQueue({
-        storage,
-        eventBus,
-        anticipatedEventHandler,
+      const { anticipatedEventHandler, commandQueue } = await bootstrap({
         commandSender,
         retryConfig: { maxAttempts: 2, initialDelay: 10 },
       })
-    })
-
-    it('calls cleanup() when command succeeds', async () => {
       const result = await commandQueue.enqueue({
         command: { type: 'Test', data: {} },
         cacheKey: TODOS_CACHE_KEY,
@@ -1074,6 +1171,13 @@ describe('CommandQueue', () => {
     })
 
     it('calls cleanup() when command fails permanently', async () => {
+      const commandSender: ICommandSender<ServiceLink, EnqueueCommand> = {
+        send: vi.fn().mockResolvedValue(Ok({ id: '123' })),
+      }
+      const { anticipatedEventHandler, commandQueue } = await bootstrap({
+        commandSender,
+        retryConfig: { maxAttempts: 2, initialDelay: 10 },
+      })
       vi.mocked(commandSender.send).mockResolvedValue(
         Err(new CommandSendException('Validation error', 'VALIDATION', false)),
       )
@@ -1091,6 +1195,13 @@ describe('CommandQueue', () => {
     })
 
     it('calls cleanup() when command is cancelled', async () => {
+      const commandSender: ICommandSender<ServiceLink, EnqueueCommand> = {
+        send: vi.fn().mockResolvedValue(Ok({ id: '123' })),
+      }
+      const { anticipatedEventHandler, commandQueue } = await bootstrap({
+        commandSender,
+        retryConfig: { maxAttempts: 2, initialDelay: 10 },
+      })
       const result = await commandQueue.enqueue({
         command: { type: 'Test', data: {} },
         cacheKey: TODOS_CACHE_KEY,
@@ -1106,6 +1217,13 @@ describe('CommandQueue', () => {
     })
 
     it('calls cleanup() for cascaded cancellations', async () => {
+      const commandSender: ICommandSender<ServiceLink, EnqueueCommand> = {
+        send: vi.fn().mockResolvedValue(Ok({ id: '123' })),
+      }
+      const { anticipatedEventHandler, commandQueue } = await bootstrap({
+        commandSender,
+        retryConfig: { maxAttempts: 2, initialDelay: 10 },
+      })
       vi.mocked(commandSender.send).mockResolvedValue(
         Err(new CommandSendException('Error', 'ERROR', false)),
       )
@@ -1134,6 +1252,13 @@ describe('CommandQueue', () => {
     })
 
     it('does not call cleanup() on retry (stays pending)', async () => {
+      const commandSender: ICommandSender<ServiceLink, EnqueueCommand> = {
+        send: vi.fn().mockResolvedValue(Ok({ id: '123' })),
+      }
+      const { anticipatedEventHandler, commandQueue, storage } = await bootstrap({
+        commandSender,
+        retryConfig: { maxAttempts: 2, initialDelay: 10 },
+      })
       vi.mocked(commandSender.send)
         .mockResolvedValueOnce(Err(new CommandSendException('Network error', 'NETWORK', true)))
         .mockResolvedValueOnce(Ok({ id: '123' }))
@@ -1161,6 +1286,7 @@ describe('CommandQueue', () => {
 
   describe('reset', () => {
     it('pauses the queue', async () => {
+      const { commandQueue } = await bootstrap()
       commandQueue.resume()
       expect(commandQueue.isPaused()).toBe(false)
 
@@ -1172,10 +1298,7 @@ describe('CommandQueue', () => {
       const commandSender: ICommandSender<ServiceLink, EnqueueCommand> = {
         send: vi.fn().mockResolvedValue(Err(new CommandSendException('Error', 'NETWORK', true))),
       }
-      commandQueue = new TestCommandQueue({
-        storage,
-        eventBus,
-        anticipatedEventHandler,
+      const { anticipatedEventHandler, commandQueue } = await bootstrap({
         commandSender,
         retryConfig: { maxAttempts: 3, initialDelay: 500 },
       })
@@ -1207,10 +1330,7 @@ describe('CommandQueue', () => {
       const commandSender: ICommandSender<ServiceLink, EnqueueCommand> = {
         send: vi.fn().mockImplementation(() => new Promise((resolve) => (resolveSend = resolve))),
       }
-      commandQueue = new TestCommandQueue({
-        storage,
-        eventBus,
-        anticipatedEventHandler,
+      const { commandQueue } = await bootstrap({
         commandSender,
       })
 
@@ -1234,7 +1354,7 @@ describe('CommandQueue', () => {
       expect(resetResolved).toBe(false)
 
       // Complete the send
-      resolveSend!(Ok({ id: '123' }))
+      resolveSend?.(Ok({ id: '123' }))
 
       await resetPromise
       expect(resetResolved).toBe(true)
@@ -1243,6 +1363,7 @@ describe('CommandQueue', () => {
 
   describe('clearAll', () => {
     it('pauses the queue, clears anticipated tracking, and deletes all commands', async () => {
+      const { anticipatedEventHandler, commandQueue } = await bootstrap()
       commandQueue.resume()
       await commandQueue.enqueue({
         command: { type: 'First', data: {} },
@@ -1263,12 +1384,9 @@ describe('CommandQueue', () => {
     })
   })
 
-  describe('cross-aggregate parent-child reconciliation', () => {
-    function setupCrossAggregateQueue(senderResponses: Map<string, unknown>): {
-      queue: TestCommandQueue
-      sender: ICommandSender<ServiceLink, EnqueueCommand>
-    } {
-      const executor = createDomainExecutor<
+  describe('cross-aggregate parent-child reconciliation', async () => {
+    function setupCrossAggregateQueue(senderResponses: Map<string, unknown>): BootstrapParams {
+      const domainExecutor = createDomainExecutor<
         ServiceLink,
         CrossAggregateCommand,
         unknown,
@@ -1337,7 +1455,7 @@ describe('CommandQueue', () => {
         },
       ])
 
-      const sender: ICommandSender<ServiceLink, EnqueueCommand> = {
+      const commandSender: ICommandSender<ServiceLink, EnqueueCommand> = {
         async send(command: CommandRecord<ServiceLink, EnqueueCommand>) {
           const response = senderResponses.get(command.type)
           if (typeof response === 'function') return Ok(response(command))
@@ -1346,16 +1464,7 @@ describe('CommandQueue', () => {
         },
       }
 
-      const queue = new TestCommandQueue({
-        storage,
-        eventBus,
-        anticipatedEventHandler,
-        domainExecutor: executor,
-        handlerMetadata: executor,
-        commandSender: sender,
-      })
-
-      return { queue, sender }
+      return { domainExecutor, commandSender }
     }
 
     it('regenerating child create after parent succeeds preserves the original client ID', async () => {
@@ -1375,10 +1484,12 @@ describe('CommandQueue', () => {
         ],
       })
 
-      const { queue } = setupCrossAggregateQueue(senderResponses)
+      const { anticipatedEventHandler, commandQueue } = await bootstrap(
+        setupCrossAggregateQueue(senderResponses),
+      )
 
       // Enqueue parent create
-      const folderResult = await queue.enqueue({
+      const folderResult = await commandQueue.enqueue({
         command: { type: 'CreateFolder', data: { name: 'F' } },
         cacheKey: TODOS_CACHE_KEY,
       })
@@ -1386,7 +1497,7 @@ describe('CommandQueue', () => {
       const folderClientId = folderResult.value.anticipatedEvents[0]!.data.id
 
       // Enqueue child create with dependency on parent
-      const noteResult = await queue.enqueue({
+      const noteResult = await commandQueue.enqueue({
         command: {
           type: 'CreateNote',
           data: { parentId: folderClientId, title: 'N' },
@@ -1400,7 +1511,7 @@ describe('CommandQueue', () => {
       const originalNoteClientId = noteResult.value.anticipatedEvents[0]!.data.id
 
       // Process — folder succeeds, triggers regeneration of note's anticipated events
-      queue.resume()
+      commandQueue.resume()
       await new Promise((resolve) => setTimeout(resolve, 50))
 
       // Find the regenerate call for the note command
@@ -1441,10 +1552,10 @@ describe('CommandQueue', () => {
         ],
       })
 
-      const { queue } = setupCrossAggregateQueue(senderResponses)
+      const { commandQueue, storage } = await bootstrap(setupCrossAggregateQueue(senderResponses))
 
       // Enqueue parent create
-      const folderResult = await queue.enqueue({
+      const folderResult = await commandQueue.enqueue({
         command: { type: 'CreateFolder', data: { name: 'My Folder' } },
         cacheKey: TODOS_CACHE_KEY,
       })
@@ -1454,7 +1565,7 @@ describe('CommandQueue', () => {
       const folderClientId = (folderResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
       // Enqueue child create with explicit dependency and parent's client ID
-      const noteResult = await queue.enqueue({
+      const noteResult = await commandQueue.enqueue({
         command: {
           type: 'CreateNote',
           data: { parentId: folderClientId, title: 'My Note' },
@@ -1469,7 +1580,7 @@ describe('CommandQueue', () => {
       expect(noteCmd?.status).toBe('blocked')
 
       // Process the queue — folder command succeeds
-      queue.resume()
+      commandQueue.resume()
       await new Promise((resolve) => setTimeout(resolve, 50))
 
       // Verify folder succeeded
@@ -1501,16 +1612,18 @@ describe('CommandQueue', () => {
         ],
       })
 
-      const { queue } = setupCrossAggregateQueue(senderResponses)
+      const { anticipatedEventHandler, commandQueue, storage } = await bootstrap(
+        setupCrossAggregateQueue(senderResponses),
+      )
 
-      const folderResult = await queue.enqueue({
+      const folderResult = await commandQueue.enqueue({
         command: { type: 'CreateFolder', data: { name: 'F' } },
         cacheKey: TODOS_CACHE_KEY,
       })
       if (!folderResult.ok) throw new Error('Expected success')
       const folderClientId = (folderResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
-      const noteResult = await queue.enqueue({
+      const noteResult = await commandQueue.enqueue({
         command: {
           type: 'CreateNote',
           data: { parentId: folderClientId, title: 'N' },
@@ -1521,7 +1634,7 @@ describe('CommandQueue', () => {
       if (!noteResult.ok) throw new Error('Expected success')
       const noteClientId = (noteResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
-      queue.resume()
+      commandQueue.resume()
       await new Promise((resolve) => setTimeout(resolve, 50))
 
       // Note command was rewritten — parentId changed, but its own anticipated
@@ -1571,10 +1684,10 @@ describe('CommandQueue', () => {
         ],
       })
 
-      const { queue } = setupCrossAggregateQueue(senderResponses)
+      const { commandQueue, storage } = await bootstrap(setupCrossAggregateQueue(senderResponses))
 
       // A: CreateFolder
-      const folderResult = await queue.enqueue({
+      const folderResult = await commandQueue.enqueue({
         command: { type: 'CreateFolder', data: { name: 'F' } },
         cacheKey: TODOS_CACHE_KEY,
       })
@@ -1582,7 +1695,7 @@ describe('CommandQueue', () => {
       const folderClientId = (folderResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
       // B: CreateNote depends on A
-      const noteResult = await queue.enqueue({
+      const noteResult = await commandQueue.enqueue({
         command: {
           type: 'CreateNote',
           data: { parentId: folderClientId, title: 'N' },
@@ -1594,7 +1707,7 @@ describe('CommandQueue', () => {
       const noteClientId = (noteResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
       // C: UpdateNote depends on B
-      const updateResult = await queue.enqueue({
+      const updateResult = await commandQueue.enqueue({
         command: {
           type: 'UpdateNote',
           data: { id: noteClientId, title: 'Updated' },
@@ -1606,11 +1719,11 @@ describe('CommandQueue', () => {
       if (!updateResult.ok) throw new Error('Expected success')
 
       // Process entire chain — each command triggers reprocessing after success
-      queue.resume()
+      commandQueue.resume()
       // Allow enough cycles for A→B→C to complete sequentially
       for (let i = 0; i < 5; i++) {
         await new Promise((resolve) => setTimeout(resolve, 50))
-        await queue.processPendingCommands()
+        await commandQueue.processPendingCommands()
       }
 
       // A succeeded
@@ -1644,17 +1757,17 @@ describe('CommandQueue', () => {
         ],
       })
 
-      const { queue } = setupCrossAggregateQueue(senderResponses)
+      const { commandQueue, storage } = await bootstrap(setupCrossAggregateQueue(senderResponses))
 
       // Create folder and let it succeed
-      const folderResult = await queue.enqueue({
+      const folderResult = await commandQueue.enqueue({
         command: { type: 'CreateFolder', data: { name: 'F' } },
         cacheKey: TODOS_CACHE_KEY,
       })
       if (!folderResult.ok) throw new Error('Expected success')
       const folderClientId = (folderResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
-      queue.resume()
+      commandQueue.resume()
       await new Promise((resolve) => setTimeout(resolve, 50))
 
       // Folder is now succeeded — mapping cache should have the mapping
@@ -1662,7 +1775,7 @@ describe('CommandQueue', () => {
       expect(mapping).toBeDefined()
 
       // Now enqueue a note with the STALE client ID (simulating UI race condition)
-      const noteResult = await queue.enqueue({
+      const noteResult = await commandQueue.enqueue({
         command: { type: 'CreateNote', data: { parentId: folderClientId, title: 'Late Note' } },
         cacheKey: TODOS_CACHE_KEY,
       })
@@ -1691,21 +1804,21 @@ describe('CommandQueue', () => {
         ],
       })
 
-      const { queue } = setupCrossAggregateQueue(senderResponses)
+      const { commandQueue, storage } = await bootstrap(setupCrossAggregateQueue(senderResponses))
 
       // Create and succeed
-      const folderResult = await queue.enqueue({
+      const folderResult = await commandQueue.enqueue({
         command: { type: 'CreateFolder', data: { name: 'F' } },
         cacheKey: TODOS_CACHE_KEY,
       })
       if (!folderResult.ok) throw new Error('Expected success')
 
-      queue.resume()
+      commandQueue.resume()
       await new Promise((resolve) => setTimeout(resolve, 50))
 
       // Enqueue an UpdateNote with the CORRECT server ID but undefined revision fallback
       // (simulating the race where UI has server ID but stale revision)
-      const updateResult = await queue.enqueue({
+      const updateResult = await commandQueue.enqueue({
         command: {
           type: 'UpdateNote',
           data: { id: 'folder-server-1', title: 'Updated' },
@@ -1738,10 +1851,10 @@ describe('CommandQueue', () => {
         ],
       })
 
-      const { queue } = setupCrossAggregateQueue(senderResponses)
+      const { commandQueue, storage } = await bootstrap(setupCrossAggregateQueue(senderResponses))
 
       // A: CreateFolder
-      const folderResult = await queue.enqueue({
+      const folderResult = await commandQueue.enqueue({
         command: { type: 'CreateFolder', data: { name: 'F' } },
         cacheKey: TODOS_CACHE_KEY,
       })
@@ -1749,7 +1862,7 @@ describe('CommandQueue', () => {
       const folderClientId = (folderResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
       // B: CreateNote depends on folder
-      const noteResult = await queue.enqueue({
+      const noteResult = await commandQueue.enqueue({
         command: {
           type: 'CreateNote',
           data: { parentId: folderClientId, title: 'N' },
@@ -1761,7 +1874,7 @@ describe('CommandQueue', () => {
       const noteClientId = (noteResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
       // C: MoveNote depends on note, references folder's client ID in fromFolderId
-      const moveResult = await queue.enqueue({
+      const moveResult = await commandQueue.enqueue({
         command: {
           type: 'MoveNote',
           data: {
@@ -1781,7 +1894,7 @@ describe('CommandQueue', () => {
       expect(moveCmd?.status).toBe('blocked')
 
       // Process — folder succeeds
-      queue.resume()
+      commandQueue.resume()
       await new Promise((resolve) => setTimeout(resolve, 50))
 
       // B is unblocked (pending), C is still blocked behind B
@@ -1825,10 +1938,10 @@ describe('CommandQueue', () => {
         }
       })
 
-      const { queue } = setupCrossAggregateQueue(senderResponses)
+      const { commandQueue, storage } = await bootstrap(setupCrossAggregateQueue(senderResponses))
 
       // Create source folder (folder1)
-      const folder1Result = await queue.enqueue({
+      const folder1Result = await commandQueue.enqueue({
         command: { type: 'CreateFolder', data: { name: 'Source' } },
         cacheKey: TODOS_CACHE_KEY,
       })
@@ -1837,7 +1950,7 @@ describe('CommandQueue', () => {
         .id
 
       // Create target folder (folder2)
-      const folder2Result = await queue.enqueue({
+      const folder2Result = await commandQueue.enqueue({
         command: { type: 'CreateFolder', data: { name: 'Target' } },
         cacheKey: TODOS_CACHE_KEY,
       })
@@ -1846,7 +1959,7 @@ describe('CommandQueue', () => {
         .id
 
       // MoveNote depends on BOTH folders — fromFolderId and toFolderId each reference a different folder
-      const moveResult = await queue.enqueue({
+      const moveResult = await commandQueue.enqueue({
         command: {
           type: 'MoveNote',
           data: {
@@ -1867,10 +1980,10 @@ describe('CommandQueue', () => {
       expect(moveCmd?.blockedBy).toHaveLength(2)
 
       // Process the queue — both folders succeed
-      queue.resume()
+      commandQueue.resume()
       for (let i = 0; i < 5; i++) {
         await new Promise((resolve) => setTimeout(resolve, 50))
-        await queue.processPendingCommands()
+        await commandQueue.processPendingCommands()
       }
 
       // Both folders succeeded
@@ -1895,10 +2008,8 @@ describe('CommandQueue', () => {
   })
 
   describe('same-aggregate auto-chaining', () => {
-    function setupItemQueue(
-      senderResponses: Map<string, unknown>,
-    ): CommandQueue<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent> {
-      const executor = createDomainExecutor<
+    function setupSameAggregateQueue(senderResponses: Map<string, unknown>): BootstrapParams {
+      const domainExecutor = createDomainExecutor<
         ServiceLink,
         SameAggregateCommand,
         unknown,
@@ -1944,7 +2055,7 @@ describe('CommandQueue', () => {
         },
       ])
 
-      const sender: ICommandSender<ServiceLink, EnqueueCommand> = {
+      const commandSender: ICommandSender<ServiceLink, EnqueueCommand> = {
         async send(command: CommandRecord<ServiceLink, EnqueueCommand>) {
           const response = senderResponses.get(command.type)
           if (typeof response === 'function') return Ok(response(command))
@@ -1953,27 +2064,20 @@ describe('CommandQueue', () => {
         },
       }
 
-      return new TestCommandQueue({
-        storage,
-        eventBus,
-        anticipatedEventHandler,
-        domainExecutor: executor,
-        handlerMetadata: executor,
-        commandSender: sender,
-      })
+      return { domainExecutor, commandSender }
     }
 
     it('mutate auto-blocked behind create on same aggregate', async () => {
-      const queue = setupItemQueue(new Map())
+      const { commandQueue, storage } = await bootstrap(setupSameAggregateQueue(new Map()))
 
-      const createResult = await queue.enqueue({
+      const createResult = await commandQueue.enqueue({
         command: { type: 'CreateItem', data: { name: 'Test' } },
         cacheKey: TODOS_CACHE_KEY,
       })
       if (!createResult.ok) throw new Error('Expected success')
       const clientId = (createResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
-      const updateResult = await queue.enqueue({
+      const updateResult = await commandQueue.enqueue({
         command: {
           type: 'UpdateItem',
           data: { id: clientId, title: 'New Title' },
@@ -2004,16 +2108,16 @@ describe('CommandQueue', () => {
           },
         ],
       })
-      const queue = setupItemQueue(responses)
+      const { commandQueue, storage } = await bootstrap(setupSameAggregateQueue(responses))
 
-      const createResult = await queue.enqueue({
+      const createResult = await commandQueue.enqueue({
         command: { type: 'CreateItem', data: { name: 'Test' } },
         cacheKey: TODOS_CACHE_KEY,
       })
       if (!createResult.ok) throw new Error('Expected success')
       const clientId = (createResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
-      await queue.enqueue({
+      await commandQueue.enqueue({
         command: {
           type: 'UpdateItem',
           data: { id: clientId, title: 'New' },
@@ -2022,7 +2126,7 @@ describe('CommandQueue', () => {
         cacheKey: TODOS_CACHE_KEY,
       })
 
-      queue.resume()
+      commandQueue.resume()
       await new Promise((resolve) => setTimeout(resolve, 50))
 
       // Find the update command (by type since we don't know its ID easily)
@@ -2035,9 +2139,9 @@ describe('CommandQueue', () => {
     })
 
     it('second mutate auto-blocked behind first on same aggregate', async () => {
-      const queue = setupItemQueue(new Map())
+      const { commandQueue, storage } = await bootstrap(setupSameAggregateQueue(new Map()))
 
-      const update1 = await queue.enqueue({
+      const update1 = await commandQueue.enqueue({
         command: {
           type: 'UpdateItem',
           data: { id: 'existing-1', title: 'First' },
@@ -2047,7 +2151,7 @@ describe('CommandQueue', () => {
       })
       if (!update1.ok) throw new Error('Expected success')
 
-      const delete1 = await queue.enqueue({
+      const delete1 = await commandQueue.enqueue({
         command: { type: 'DeleteItem', data: { id: 'existing-1' }, revision: autoRevision('1') },
         cacheKey: TODOS_CACHE_KEY,
       })
@@ -2065,9 +2169,9 @@ describe('CommandQueue', () => {
         nextExpectedRevision: '2',
         events: [],
       })
-      const queue = setupItemQueue(responses)
+      const { commandQueue, storage } = await bootstrap(setupSameAggregateQueue(responses))
 
-      const update1 = await queue.enqueue({
+      const update1 = await commandQueue.enqueue({
         command: {
           type: 'UpdateItem',
           data: { id: 'existing-1', title: 'First' },
@@ -2077,13 +2181,13 @@ describe('CommandQueue', () => {
       })
       if (!update1.ok) throw new Error('Expected success')
 
-      const delete1 = await queue.enqueue({
+      const delete1 = await commandQueue.enqueue({
         command: { type: 'DeleteItem', data: { id: 'existing-1' }, revision: autoRevision('1') },
         cacheKey: TODOS_CACHE_KEY,
       })
       if (!delete1.ok) throw new Error('Expected success')
 
-      queue.resume()
+      commandQueue.resume()
       await new Promise((resolve) => setTimeout(resolve, 50))
 
       const deleteCmd = await storage.getCommand(delete1.value.commandId)
@@ -2117,16 +2221,16 @@ describe('CommandQueue', () => {
         nextExpectedRevision: '3',
         events: [],
       })
-      const queue = setupItemQueue(responses)
+      const { commandQueue, storage } = await bootstrap(setupSameAggregateQueue(responses))
 
-      const createResult = await queue.enqueue({
+      const createResult = await commandQueue.enqueue({
         command: { type: 'CreateItem', data: { name: 'X' } },
         cacheKey: TODOS_CACHE_KEY,
       })
       if (!createResult.ok) throw new Error('Expected success')
       const clientId = (createResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
-      await queue.enqueue({
+      await commandQueue.enqueue({
         command: {
           type: 'UpdateItem',
           data: { id: clientId, title: 'Updated' },
@@ -2135,15 +2239,15 @@ describe('CommandQueue', () => {
         cacheKey: TODOS_CACHE_KEY,
       })
 
-      await queue.enqueue({
+      await commandQueue.enqueue({
         command: { type: 'DeleteItem', data: { id: clientId }, revision: autoRevision() },
         cacheKey: TODOS_CACHE_KEY,
       })
 
-      queue.resume()
+      commandQueue.resume()
       for (let i = 0; i < 5; i++) {
         await new Promise((resolve) => setTimeout(resolve, 50))
-        await queue.processPendingCommands()
+        await commandQueue.processPendingCommands()
       }
 
       const allCmds = await storage.getCommands()
@@ -2171,9 +2275,9 @@ describe('CommandQueue', () => {
         sentCommand = cmd
         return { id: 'existing-1', nextExpectedRevision: '6', events: [] }
       })
-      const queue = setupItemQueue(responses)
+      const { commandQueue } = await bootstrap(setupSameAggregateQueue(responses))
 
-      await queue.enqueue({
+      await commandQueue.enqueue({
         command: {
           type: 'UpdateItem',
           data: { id: 'existing-1', title: 'Solo' },
@@ -2182,7 +2286,7 @@ describe('CommandQueue', () => {
         cacheKey: TODOS_CACHE_KEY,
       })
 
-      queue.resume()
+      commandQueue.resume()
       await new Promise((resolve) => setTimeout(resolve, 50))
 
       // The revision sent to server should be the fallback '5'
@@ -2205,21 +2309,21 @@ describe('CommandQueue', () => {
           },
         ],
       })
-      const queue = setupItemQueue(responses)
+      const { commandQueue, storage } = await bootstrap(setupSameAggregateQueue(responses))
 
       // Create and succeed
-      const createResult = await queue.enqueue({
+      const createResult = await commandQueue.enqueue({
         command: { type: 'CreateItem', data: { name: 'X' } },
         cacheKey: TODOS_CACHE_KEY,
       })
       if (!createResult.ok) throw new Error('Expected success')
       const clientId = (createResult.value.anticipatedEvents[0] as IAnticipatedEvent).data.id
 
-      queue.resume()
+      commandQueue.resume()
       await new Promise((resolve) => setTimeout(resolve, 50))
 
       // Enqueue with stale client ID (race condition)
-      const updateResult = await queue.enqueue({
+      const updateResult = await commandQueue.enqueue({
         command: {
           type: 'UpdateItem',
           data: { id: clientId, title: 'Late' },
@@ -2251,19 +2355,19 @@ describe('CommandQueue', () => {
           },
         ],
       })
-      const queue = setupItemQueue(responses)
+      const { commandQueue, storage } = await bootstrap(setupSameAggregateQueue(responses))
 
-      const createResult = await queue.enqueue({
+      const createResult = await commandQueue.enqueue({
         command: { type: 'CreateItem', data: { name: 'X' } },
         cacheKey: TODOS_CACHE_KEY,
       })
       if (!createResult.ok) throw new Error('Expected success')
 
-      queue.resume()
+      commandQueue.resume()
       await new Promise((resolve) => setTimeout(resolve, 50))
 
       // Enqueue with correct server ID but undefined revision (race condition)
-      const updateResult = await queue.enqueue({
+      const updateResult = await commandQueue.enqueue({
         command: {
           type: 'UpdateItem',
           data: { id: 'server-1', title: 'Race' },

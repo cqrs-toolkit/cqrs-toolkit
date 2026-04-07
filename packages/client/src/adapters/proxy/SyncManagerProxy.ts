@@ -17,11 +17,12 @@ import { ConnectivityProxy } from './ConnectivityProxy.js'
  * Main-thread proxy for the worker-side SyncManager.
  */
 export class SyncManagerProxy<TLink extends Link> implements CqrsClientSyncManager<TLink> {
-  private readonly channel: WorkerMessageChannel
   private readonly connectivityProxy: ConnectivityProxy
 
-  constructor(channel: WorkerMessageChannel, broadcastEvents$: Observable<EventMessage>) {
-    this.channel = channel
+  constructor(
+    private readonly channel: WorkerMessageChannel,
+    broadcastEvents$: Observable<EventMessage>,
+  ) {
     this.connectivityProxy = new ConnectivityProxy(channel, broadcastEvents$)
   }
 
@@ -29,15 +30,18 @@ export class SyncManagerProxy<TLink extends Link> implements CqrsClientSyncManag
     return this.connectivityProxy
   }
 
-  getCollectionStatus(collection: string): CollectionSyncStatus | undefined {
-    // Synchronous — returns undefined until an RPC fetch populates it.
-    // For reactive consumers, watch sync:* broadcast events.
-    return undefined
+  async getCollectionStatus(
+    collection: string,
+    cacheKey: CacheKeyIdentity<TLink>,
+  ): Promise<CollectionSyncStatus | undefined> {
+    return this.channel.request<CollectionSyncStatus | undefined>(
+      'syncManager.getCollectionStatus',
+      [collection, cacheKey],
+    )
   }
 
-  getAllStatus(): CollectionSyncStatus[] {
-    // Synchronous — returns empty until an RPC fetch populates it.
-    return []
+  async getAllStatus(): Promise<CollectionSyncStatus[]> {
+    return this.channel.request<CollectionSyncStatus[]>('syncManager.getAllStatus')
   }
 
   async getSeedStatus(
@@ -46,10 +50,6 @@ export class SyncManagerProxy<TLink extends Link> implements CqrsClientSyncManag
     return this.channel.request<'seeded' | 'seeding' | 'unseeded'>('syncManager.getSeedStatus', [
       cacheKey,
     ])
-  }
-
-  async syncCollection(collection: string): Promise<void> {
-    return this.channel.request<void>('syncManager.syncCollection', [collection])
   }
 
   async seed(cacheKey: CacheKeyIdentity<TLink>): Promise<void> {

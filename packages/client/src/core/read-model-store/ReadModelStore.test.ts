@@ -3,7 +3,7 @@
  */
 
 import type { ServiceLink } from '@meticoeus/ddd-es'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import { EnqueueCommand } from '../../types/index.js'
 import { EventBus } from '../events/EventBus.js'
@@ -16,24 +16,23 @@ interface Todo {
 }
 
 describe('ReadModelStore', () => {
-  let storage: InMemoryStorage<ServiceLink, EnqueueCommand>
-  let eventBus: EventBus<ServiceLink>
-  let store: ReadModelStore<ServiceLink, EnqueueCommand>
-
-  beforeEach(async () => {
-    storage = new InMemoryStorage()
+  async function bootstrap() {
+    const storage = new InMemoryStorage<ServiceLink, EnqueueCommand>()
     await storage.initialize()
-    eventBus = new EventBus()
-    store = new ReadModelStore({ storage })
-  })
+    const eventBus = new EventBus<ServiceLink>()
+    const store = new ReadModelStore<ServiceLink, EnqueueCommand>(storage)
+    return { eventBus, storage, store }
+  }
 
   describe('getById', () => {
     it('returns undefined for non-existent record', async () => {
+      const { store } = await bootstrap()
       const result = await store.getById<Todo>('todos', 'non-existent')
       expect(result).toBeUndefined()
     })
 
     it('returns read model with data', async () => {
+      const { storage, store } = await bootstrap()
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
@@ -58,6 +57,7 @@ describe('ReadModelStore', () => {
     })
 
     it('returns effective data when local changes exist', async () => {
+      const { storage, store } = await bootstrap()
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
@@ -81,6 +81,7 @@ describe('ReadModelStore', () => {
 
   describe('getByIds', () => {
     it('returns map of found records', async () => {
+      const { storage, store } = await bootstrap()
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
@@ -116,7 +117,7 @@ describe('ReadModelStore', () => {
   })
 
   describe('list', () => {
-    beforeEach(async () => {
+    async function populate(storage: InMemoryStorage<ServiceLink, EnqueueCommand>) {
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
@@ -153,21 +154,27 @@ describe('ReadModelStore', () => {
         position: null,
         _clientMetadata: null,
       })
-    })
+    }
 
     it('returns all records in collection', async () => {
+      const { storage, store } = await bootstrap()
+      await populate(storage)
       const todos = await store.list<Todo>('todos')
 
       expect(todos).toHaveLength(2)
     })
 
     it('filters by cache key', async () => {
+      const { storage, store } = await bootstrap()
+      await populate(storage)
       const models = await store.list<Todo>('todos', { cacheKey: 'cache-1' })
 
       expect(models).toHaveLength(2)
     })
 
     it('filters by local changes only', async () => {
+      const { storage, store } = await bootstrap()
+      await populate(storage)
       const models = await store.list<Todo>('todos', { localChangesOnly: true })
 
       expect(models).toHaveLength(1)
@@ -175,12 +182,16 @@ describe('ReadModelStore', () => {
     })
 
     it('applies pagination', async () => {
+      const { storage, store } = await bootstrap()
+      await populate(storage)
       const models = await store.list<Todo>('todos', { limit: 1, offset: 1 })
 
       expect(models).toHaveLength(1)
     })
 
     it('applies pagination when cacheKey is provided', async () => {
+      const { storage, store } = await bootstrap()
+      await populate(storage)
       // Add a third record with the same cacheKey
       await storage.saveReadModel({
         id: 'todo-3',
@@ -207,6 +218,7 @@ describe('ReadModelStore', () => {
 
   describe('setServerData', () => {
     it('sets server data as baseline', async () => {
+      const { storage, store } = await bootstrap()
       await store.setServerData<Todo>(
         'todos',
         'todo-1',
@@ -223,6 +235,7 @@ describe('ReadModelStore', () => {
     })
 
     it('preserves local property deletions when updating server baseline', async () => {
+      const { storage, store } = await bootstrap()
       // Create record where description has been locally deleted
       await storage.saveReadModel({
         id: 'todo-1',
@@ -256,6 +269,7 @@ describe('ReadModelStore', () => {
     })
 
     it('preserves local changes when updating server baseline', async () => {
+      const { storage, store } = await bootstrap()
       // Create initial with local changes
       await storage.saveReadModel({
         id: 'todo-1',
@@ -292,6 +306,7 @@ describe('ReadModelStore', () => {
 
   describe('applyLocalChanges', () => {
     it('applies local changes to existing record', async () => {
+      const { storage, store } = await bootstrap()
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
@@ -315,6 +330,7 @@ describe('ReadModelStore', () => {
     })
 
     it('creates new record if none exists', async () => {
+      const { storage, store } = await bootstrap()
       await store.applyLocalChanges<Partial<Todo>>(
         'todos',
         'todo-new',
@@ -331,6 +347,7 @@ describe('ReadModelStore', () => {
 
   describe('clearLocalChanges', () => {
     it('reverts to server baseline', async () => {
+      const { storage, store } = await bootstrap()
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
@@ -352,6 +369,7 @@ describe('ReadModelStore', () => {
     })
 
     it('deletes record if no server baseline', async () => {
+      const { storage, store } = await bootstrap()
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
@@ -372,6 +390,7 @@ describe('ReadModelStore', () => {
     })
 
     it('does nothing if no local changes', async () => {
+      const { storage, store } = await bootstrap()
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
@@ -394,6 +413,7 @@ describe('ReadModelStore', () => {
 
   describe('exists', () => {
     it('returns true for existing record', async () => {
+      const { storage, store } = await bootstrap()
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
@@ -411,12 +431,14 @@ describe('ReadModelStore', () => {
     })
 
     it('returns false for non-existing record', async () => {
+      const { store } = await bootstrap()
       expect(await store.exists('todos', 'todo-1')).toBe(false)
     })
   })
 
   describe('count', () => {
     it('returns correct count', async () => {
+      const { storage, store } = await bootstrap()
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
@@ -449,6 +471,7 @@ describe('ReadModelStore', () => {
 
   describe('setLocalData', () => {
     it('sets effective data as optimistic with no server baseline', async () => {
+      const { storage, store } = await bootstrap()
       const modified = await store.setLocalData(
         'todos',
         'todo-1',
@@ -468,6 +491,7 @@ describe('ReadModelStore', () => {
     })
 
     it('preserves existing server baseline', async () => {
+      const { storage, store } = await bootstrap()
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
@@ -503,6 +527,7 @@ describe('ReadModelStore', () => {
     })
 
     it('returns false on identical data', async () => {
+      const { storage, store } = await bootstrap()
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
@@ -529,6 +554,7 @@ describe('ReadModelStore', () => {
 
   describe('mergeServerData', () => {
     it('merges partial data into server baseline', async () => {
+      const { storage, store } = await bootstrap()
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
@@ -560,6 +586,7 @@ describe('ReadModelStore', () => {
     })
 
     it('preserves local overlay via three-way merge', async () => {
+      const { storage, store } = await bootstrap()
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
@@ -591,6 +618,7 @@ describe('ReadModelStore', () => {
     })
 
     it('merges into non-existent record', async () => {
+      const { storage, store } = await bootstrap()
       const modified = await store.mergeServerData(
         'todos',
         'todo-1',
@@ -608,6 +636,7 @@ describe('ReadModelStore', () => {
 
   describe('modified return values', () => {
     it('setServerData returns false on no-op', async () => {
+      const { storage, store } = await bootstrap()
       const data: Todo = { id: 'todo-1', title: 'Test', done: false }
       await store.setServerData('todos', 'todo-1', data, 'cache-1')
 
@@ -616,6 +645,7 @@ describe('ReadModelStore', () => {
     })
 
     it('setServerData returns true when data changes', async () => {
+      const { storage, store } = await bootstrap()
       await store.setServerData<Todo>(
         'todos',
         'todo-1',
@@ -633,6 +663,7 @@ describe('ReadModelStore', () => {
     })
 
     it('applyLocalChanges returns false on no-op', async () => {
+      const { storage, store } = await bootstrap()
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
@@ -656,11 +687,13 @@ describe('ReadModelStore', () => {
     })
 
     it('delete returns false when record does not exist', async () => {
+      const { store } = await bootstrap()
       const modified = await store.delete('todos', 'non-existent')
       expect(modified).toBe(false)
     })
 
     it('delete returns true when record existed', async () => {
+      const { storage, store } = await bootstrap()
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
@@ -680,6 +713,7 @@ describe('ReadModelStore', () => {
     })
 
     it('mergeServerData returns false on no-op', async () => {
+      const { storage, store } = await bootstrap()
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',
@@ -700,6 +734,7 @@ describe('ReadModelStore', () => {
 
   describe('delete', () => {
     it('deletes a record', async () => {
+      const { storage, store } = await bootstrap()
       await storage.saveReadModel({
         id: 'todo-1',
         collection: 'todos',

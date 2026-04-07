@@ -201,7 +201,12 @@ export interface ExecutorCommand {
  *
  * @template TEvent - Event type produced by the executor
  */
-export interface IDomainExecutor<TEvent = unknown> {
+export interface IDomainExecutor<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+> {
   /**
    * Execute a command through the validation pipeline and produce anticipated events.
    *
@@ -214,6 +219,9 @@ export interface IDomainExecutor<TEvent = unknown> {
    * @returns Success with anticipated events, or failure with validation errors
    */
   execute(command: ExecutorCommand, context: HandlerContext): Promise<DomainExecutionResult<TEvent>>
+  getRegistration(
+    commandType: string,
+  ): CommandHandlerRegistration<TLink, TCommand, TSchema, TEvent> | undefined
 }
 
 /**
@@ -384,7 +392,7 @@ export function createDomainExecutor<
 >(
   registrations: CommandHandlerRegistration<TLink, TCommand, TSchema, TEvent>[],
   options?: CreateDomainExecutorOptions<TLink, TSchema>,
-): IDomainExecutor<TEvent> & ICommandHandlerMetadata<TLink, TCommand, TSchema, TEvent> {
+): IDomainExecutor<TLink, TCommand, TSchema, TEvent> {
   const registrationMap = new Map<
     string,
     CommandHandlerRegistration<TLink, TCommand, TSchema, TEvent>

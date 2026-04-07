@@ -138,7 +138,7 @@ async function bootstrapWorker<
     })
 
     // 3. Session manager
-    const sessionMgr = new SessionManager<TLink, TCommand>({ storage, eventBus })
+    const sessionMgr = new SessionManager<TLink, TCommand>(storage, eventBus)
     await sessionMgr.initialize()
 
     // 4. Event processors
@@ -149,19 +149,17 @@ async function bootstrapWorker<
 
     // 5. Cache manager
     const windowId = crypto.randomUUID()
-    const cacheManager = new CacheManager<TLink, TCommand>({
-      storage,
-      eventBus,
+    const cacheManager = new CacheManager<TLink, TCommand>(storage, eventBus, {
       cacheConfig: config.cache,
       windowId,
     })
     await cacheManager.initialize()
 
     // 6. Event cache
-    const eventCache = new EventCache<TLink, TCommand>({ storage, eventBus })
+    const eventCache = new EventCache<TLink, TCommand>(storage, eventBus)
 
     // 7. Read model store
-    const readModelStore = new ReadModelStore<TLink, TCommand>({ storage })
+    const readModelStore = new ReadModelStore<TLink, TCommand>(storage)
 
     // 8. Event processor runner
     const eventProcessorRunner = new EventProcessorRunner<TLink, TCommand>(
@@ -184,40 +182,38 @@ async function bootstrapWorker<
     eventProcessorRunner.setAnticipatedEventHandler(anticipatedEventHandler)
 
     // 11. Query manager
-    const queryManager = new QueryManager<TLink, TCommand>({
-      eventBus,
-      cacheManager,
-      readModelStore,
-    })
+    const queryManager = new QueryManager<TLink, TCommand>(eventBus, cacheManager, readModelStore)
 
     // 12. Command queue
     let syncManagerRef: SyncManager<TLink, TCommand, TSchema, TEvent>
     const fileStore = new FsCommandFileStore(init.filesPath)
 
-    const commandQueue = new CommandQueue<TLink, TCommand, TSchema, TEvent>({
+    const commandQueue = new CommandQueue<TLink, TCommand, TSchema, TEvent>(
       storage,
       eventBus,
-      anticipatedEventHandler,
-      ...(() => {
-        if (config.commandHandlers.length === 0) return {}
-        const executor = createDomainExecutor<TLink, TCommand, TSchema, TEvent>(
-          config.commandHandlers,
-          {
-            schemaValidator: config.schemaValidator,
-            queryManager,
-          },
-        )
-        return { domainExecutor: executor, handlerMetadata: executor }
-      })(),
-      commandSender: config.commandSender,
       fileStore,
-      retryConfig: config.retry,
-      retainTerminal: config.retainTerminal,
-      onCommandResponse: createCommandResponseHandler<TLink, TCommand, TSchema, TEvent>(
-        () => syncManagerRef,
-        config.collections,
-      ),
-    })
+      anticipatedEventHandler,
+      {
+        ...(() => {
+          if (config.commandHandlers.length === 0) return {}
+          const executor = createDomainExecutor<TLink, TCommand, TSchema, TEvent>(
+            config.commandHandlers,
+            {
+              schemaValidator: config.schemaValidator,
+              queryManager,
+            },
+          )
+          return { domainExecutor: executor, handlerMetadata: executor }
+        })(),
+        commandSender: config.commandSender,
+        retryConfig: config.retry,
+        retainTerminal: config.retainTerminal,
+        onCommandResponse: createCommandResponseHandler<TLink, TCommand, TSchema, TEvent>(
+          () => syncManagerRef,
+          config.collections,
+        ),
+      },
+    )
 
     // 13. Connectivity manager (Node.js — assumes network online, health-check based)
     const connectivity = new NodeConnectivityManager<TLink>(eventBus, {

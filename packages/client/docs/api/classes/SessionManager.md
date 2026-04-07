@@ -23,13 +23,17 @@ Coordinates user identity with persisted session data.
 
 ### Constructor
 
-> **new SessionManager**\<`TLink`, `TCommand`\>(`config`): `SessionManager`\<`TLink`, `TCommand`\>
+> **new SessionManager**\<`TLink`, `TCommand`\>(`storage`, `eventBus`): `SessionManager`\<`TLink`, `TCommand`\>
 
 #### Parameters
 
-##### config
+##### storage
 
-[`SessionManagerConfig`](../interfaces/SessionManagerConfig.md)\<`TLink`, `TCommand`\>
+[`IStorage`](../interfaces/IStorage.md)\<`TLink`, `TCommand`\>
+
+##### eventBus
+
+[`EventBus`](EventBus.md)\<`TLink`\>
 
 #### Returns
 

@@ -22,13 +22,17 @@ Event cache implementation.
 
 ### Constructor
 
-> **new EventCache**\<`TLink`, `TCommand`\>(`config`): `EventCache`\<`TLink`, `TCommand`\>
+> **new EventCache**\<`TLink`, `TCommand`\>(`storage`, `eventBus`): `EventCache`\<`TLink`, `TCommand`\>
 
 #### Parameters
 
-##### config
+##### storage
 
-[`EventCacheConfig`](../interfaces/EventCacheConfig.md)\<`TLink`, `TCommand`\>
+[`IStorage`](../interfaces/IStorage.md)\<`TLink`, `TCommand`\>
+
+##### eventBus
+
+[`EventBus`](EventBus.md)\<`TLink`\>
 
 #### Returns
 

@@ -20,14 +20,6 @@ import type { EventBus } from '../events/EventBus.js'
 import { GapBuffer, type EventGap } from './GapDetector.js'
 
 /**
- * Event cache configuration.
- */
-export interface EventCacheConfig<TLink extends Link, TCommand extends EnqueueCommand> {
-  storage: IStorage<TLink, TCommand>
-  eventBus: EventBus<TLink>
-}
-
-/**
  * Options for caching an event.
  */
 export interface CacheEventOptions {
@@ -41,8 +33,6 @@ export interface CacheEventOptions {
  * Event cache implementation.
  */
 export class EventCache<TLink extends Link, TCommand extends EnqueueCommand> {
-  private readonly storage: IStorage<TLink, TCommand>
-  private readonly eventBus: EventBus<TLink>
   private readonly gapBuffer: GapBuffer<IPersistedEvent>
 
   /** Index from cache key to the set of streamIds cached under that key. */
@@ -54,9 +44,10 @@ export class EventCache<TLink extends Link, TCommand extends EnqueueCommand> {
   /** Periodic cleanup timer for processed events. */
   private cleanupTimer: ReturnType<typeof setInterval> | undefined
 
-  constructor(config: EventCacheConfig<TLink, TCommand>) {
-    this.storage = config.storage
-    this.eventBus = config.eventBus
+  constructor(
+    private readonly storage: IStorage<TLink, TCommand>,
+    private readonly eventBus: EventBus<TLink>,
+  ) {
     this.gapBuffer = new GapBuffer<IPersistedEvent>()
   }
 

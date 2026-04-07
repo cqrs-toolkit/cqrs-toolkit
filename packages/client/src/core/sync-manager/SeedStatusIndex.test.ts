@@ -206,27 +206,4 @@ describe('SeedStatusIndex', () => {
       expect(Array.from(index.values())).toHaveLength(0)
     })
   })
-
-  describe('firstForCollection', () => {
-    it('returns the first entry for a collection', () => {
-      const index = new SeedStatusIndex()
-      const status = makeStatus('notes', 'key-1')
-      index.set('notes', 'key-1', status)
-
-      expect(index.firstForCollection('notes')).toBe(status)
-    })
-
-    it('returns undefined for unknown collections', () => {
-      const index = new SeedStatusIndex()
-      expect(index.firstForCollection('notes')).toBeUndefined()
-    })
-
-    it('returns undefined when collection inner map is empty', () => {
-      const index = new SeedStatusIndex()
-      index.set('notes', 'key-1', makeStatus('notes', 'key-1'))
-      index.delete('notes', 'key-1')
-
-      expect(index.firstForCollection('notes')).toBeUndefined()
-    })
-  })
 })

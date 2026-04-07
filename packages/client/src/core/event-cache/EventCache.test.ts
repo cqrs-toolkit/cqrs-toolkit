@@ -3,7 +3,7 @@
  */
 
 import type { IPersistedEvent, ServiceLink } from '@meticoeus/ddd-es'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import { EnqueueCommand } from '../../types/index.js'
 import { EventBus } from '../events/EventBus.js'
@@ -25,19 +25,17 @@ function createPersistedEvent(overrides: Partial<IPersistedEvent> = {}): IPersis
 }
 
 describe('EventCache', () => {
-  let storage: InMemoryStorage<ServiceLink, EnqueueCommand>
-  let eventBus: EventBus<ServiceLink>
-  let eventCache: EventCache<ServiceLink, EnqueueCommand>
-
-  beforeEach(async () => {
-    storage = new InMemoryStorage()
+  async function bootstrap() {
+    const storage = new InMemoryStorage<ServiceLink, EnqueueCommand>()
     await storage.initialize()
-    eventBus = new EventBus()
-    eventCache = new EventCache({ storage, eventBus })
-  })
+    const eventBus = new EventBus<ServiceLink>()
+    const eventCache = new EventCache<ServiceLink, EnqueueCommand>(storage, eventBus)
+    return { storage, eventBus, eventCache }
+  }
 
   describe('cacheServerEvent', () => {
     it('caches a permanent event', async () => {
+      const { eventCache } = await bootstrap()
       const event = createPersistedEvent({
         id: 'event-1',
         type: 'TodoCreated',
@@ -60,6 +58,7 @@ describe('EventCache', () => {
     })
 
     it('does not report false gaps when revisions are consecutive but positions are not', async () => {
+      const { eventCache } = await bootstrap()
       const event1 = createPersistedEvent({
         id: 'event-1',
         type: 'NoteCreated',
@@ -84,6 +83,7 @@ describe('EventCache', () => {
     })
 
     it('rejects duplicate events', async () => {
+      const { eventCache } = await bootstrap()
       const event = createPersistedEvent({
         id: 'event-1',
         type: 'TodoCreated',
@@ -100,6 +100,7 @@ describe('EventCache', () => {
 
   describe('cacheServerEvents', () => {
     it('caches multiple events', async () => {
+      const { eventCache } = await bootstrap()
       const events: IPersistedEvent[] = [
         createPersistedEvent({
           id: 'event-1',
@@ -127,6 +128,7 @@ describe('EventCache', () => {
     })
 
     it('skips duplicates in batch', async () => {
+      const { eventCache } = await bootstrap()
       const event = createPersistedEvent({
         id: 'event-1',
         type: 'TodoCreated',
@@ -147,6 +149,7 @@ describe('EventCache', () => {
 
   describe('cacheAnticipatedEvent', () => {
     it('caches an anticipated event with generated ID', async () => {
+      const { eventCache } = await bootstrap()
       const eventData = {
         type: 'TodoCreated',
         streamId: 'todo-1',
@@ -172,6 +175,7 @@ describe('EventCache', () => {
 
   describe('cacheAnticipatedEvents', () => {
     it('caches multiple anticipated events', async () => {
+      const { eventCache } = await bootstrap()
       const events = [
         {
           type: 'TodoCreated',
@@ -200,6 +204,7 @@ describe('EventCache', () => {
 
   describe('getEventsByCacheKey', () => {
     it('returns events for a cache key', async () => {
+      const { eventCache } = await bootstrap()
       const event1 = createPersistedEvent({
         id: 'event-1',
         type: 'Event1',
@@ -224,6 +229,7 @@ describe('EventCache', () => {
 
   describe('getEventsByStream', () => {
     it('returns events sorted by position', async () => {
+      const { eventCache } = await bootstrap()
       const events: IPersistedEvent[] = [
         createPersistedEvent({
           id: 'event-3',
@@ -253,6 +259,7 @@ describe('EventCache', () => {
 
   describe('getAnticipatedEventsByCommand', () => {
     it('returns anticipated events for a command', async () => {
+      const { eventCache } = await bootstrap()
       await eventCache.cacheAnticipatedEvent(
         { type: 'Event1', streamId: 'stream-1', data: {}, commandId: 'cmd-1' },
         { cacheKeys: ['cache-1'], commandId: 'cmd-1' },
@@ -270,6 +277,7 @@ describe('EventCache', () => {
 
   describe('deleteAnticipatedEvents', () => {
     it('deletes anticipated events for a command', async () => {
+      const { eventCache } = await bootstrap()
       const id = await eventCache.cacheAnticipatedEvent(
         { type: 'Event1', streamId: 'stream-1', data: {}, commandId: 'cmd-1' },
         { cacheKeys: ['cache-1'], commandId: 'cmd-1' },
@@ -283,6 +291,7 @@ describe('EventCache', () => {
 
   describe('clearByCacheKey', () => {
     it('clears gap buffer entries for all streams under a cache key', async () => {
+      const { eventCache } = await bootstrap()
       const event1 = createPersistedEvent({
         id: 'event-1',
         streamId: 'stream-1',
@@ -308,11 +317,13 @@ describe('EventCache', () => {
     })
 
     it('returns empty array for unknown cache key', async () => {
+      const { eventCache } = await bootstrap()
       const cleared = await eventCache.clearByCacheKey('unknown')
       expect(cleared).toHaveLength(0)
     })
 
     it('does not affect streams under other cache keys', async () => {
+      const { eventCache } = await bootstrap()
       const event1 = createPersistedEvent({
         id: 'event-1',
         streamId: 'stream-1',
@@ -338,6 +349,7 @@ describe('EventCache', () => {
 
   describe('cacheResponseEvent', () => {
     it('caches a response event to storage for WS dedup', async () => {
+      const { eventCache } = await bootstrap()
       await eventCache.cacheResponseEvent({
         id: 'resp-1',
         type: 'TodoCreated',
@@ -359,6 +371,7 @@ describe('EventCache', () => {
     })
 
     it('subsequent WS event with same ID is rejected as duplicate', async () => {
+      const { eventCache } = await bootstrap()
       await eventCache.cacheResponseEvent({
         id: 'resp-1',
         type: 'TodoCreated',
@@ -386,6 +399,7 @@ describe('EventCache', () => {
 
   describe('clearGapBuffer (full clear)', () => {
     it('clears cacheKeyStreams index along with gap buffer', async () => {
+      const { eventCache } = await bootstrap()
       const event = createPersistedEvent({
         id: 'event-1',
         streamId: 'stream-1',
@@ -406,6 +420,7 @@ describe('EventCache', () => {
 
   describe('destroy', () => {
     it('clears all in-memory state', async () => {
+      const { eventCache } = await bootstrap()
       const event = createPersistedEvent({
         id: 'event-1',
         streamId: 'stream-1',
@@ -492,14 +507,9 @@ describe('GapDetector', () => {
 })
 
 describe('GapBuffer', () => {
-  let buffer: GapBuffer
-
-  beforeEach(() => {
-    buffer = new GapBuffer()
-  })
-
   describe('add', () => {
     it('adds events to buffer', () => {
+      const buffer = new GapBuffer()
       buffer.add('stream-1', BigInt(1), { data: 1 })
       buffer.add('stream-1', BigInt(2), { data: 2 })
 
@@ -508,6 +518,7 @@ describe('GapBuffer', () => {
     })
 
     it('returns true when gap is detected', () => {
+      const buffer = new GapBuffer()
       buffer.add('stream-1', BigInt(1), { data: 1 })
       const hasGap = buffer.add('stream-1', BigInt(5), { data: 5 })
 
@@ -515,6 +526,7 @@ describe('GapBuffer', () => {
     })
 
     it('returns false when no gap', () => {
+      const buffer = new GapBuffer()
       buffer.add('stream-1', BigInt(1), { data: 1 })
       const hasGap = buffer.add('stream-1', BigInt(2), { data: 2 })
 
@@ -524,6 +536,7 @@ describe('GapBuffer', () => {
 
   describe('getEvents', () => {
     it('returns events sorted by position', () => {
+      const buffer = new GapBuffer()
       buffer.add('stream-1', BigInt(3), { data: 3 })
       buffer.add('stream-1', BigInt(1), { data: 1 })
       buffer.add('stream-1', BigInt(2), { data: 2 })
@@ -533,6 +546,7 @@ describe('GapBuffer', () => {
     })
 
     it('returns empty array for unknown stream', () => {
+      const buffer = new GapBuffer()
       const events = buffer.getEvents('unknown')
       expect(events).toHaveLength(0)
     })
@@ -540,6 +554,7 @@ describe('GapBuffer', () => {
 
   describe('clearUpTo', () => {
     it('clears events up to position', () => {
+      const buffer = new GapBuffer()
       buffer.add('stream-1', BigInt(1), { data: 1 })
       buffer.add('stream-1', BigInt(2), { data: 2 })
       buffer.add('stream-1', BigInt(3), { data: 3 })
@@ -554,6 +569,7 @@ describe('GapBuffer', () => {
 
   describe('getGaps', () => {
     it('returns gaps for all streams', () => {
+      const buffer = new GapBuffer()
       buffer.add('stream-1', BigInt(1), { data: 1 })
       buffer.add('stream-1', BigInt(5), { data: 5 })
 
@@ -570,6 +586,7 @@ describe('GapBuffer', () => {
 
   describe('setKnownPosition', () => {
     it('uses known position for gap detection', () => {
+      const buffer = new GapBuffer()
       buffer.setKnownPosition('stream-1', BigInt(5))
       const hasGap = buffer.add('stream-1', BigInt(10), { data: 10 })
 

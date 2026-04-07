@@ -3,7 +3,7 @@
  */
 
 import type { ServiceLink } from '@meticoeus/ddd-es'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import type { SessionRecord } from '../../storage/IStorage.js'
 import { EnqueueCommand } from '../../types/index.js'
@@ -11,29 +11,29 @@ import { EventBus } from '../events/EventBus.js'
 import { SessionManager } from './SessionManager.js'
 
 describe('SessionManager', () => {
-  let storage: InMemoryStorage<ServiceLink, EnqueueCommand>
-  let eventBus: EventBus<ServiceLink>
-  let sessionManager: SessionManager<ServiceLink, EnqueueCommand>
-
-  beforeEach(async () => {
-    storage = new InMemoryStorage()
+  async function bootstrap() {
+    const storage = new InMemoryStorage<ServiceLink, EnqueueCommand>()
     await storage.initialize()
-    eventBus = new EventBus()
-    sessionManager = new SessionManager({ storage, eventBus })
-  })
+    const eventBus = new EventBus<ServiceLink>()
+    const sessionManager = new SessionManager<ServiceLink, EnqueueCommand>(storage, eventBus)
+    return { eventBus, sessionManager, storage }
+  }
 
   describe('initialization', () => {
-    it('starts with uninitialized state', () => {
+    it('starts with uninitialized state', async () => {
+      const { sessionManager } = await bootstrap()
       expect(sessionManager.getSessionState()).toEqual({ status: 'uninitialized' })
     })
 
     it('initializes with no-session when storage is empty', async () => {
+      const { sessionManager } = await bootstrap()
       await sessionManager.initialize()
 
       expect(sessionManager.getSessionState()).toEqual({ status: 'no-session' })
     })
 
     it('initializes with cached session when storage has session', async () => {
+      const { sessionManager, storage } = await bootstrap()
       const session: SessionRecord = {
         id: 1,
         userId: 'user-1',
@@ -51,6 +51,7 @@ describe('SessionManager', () => {
     })
 
     it('network is paused after initialization', async () => {
+      const { sessionManager } = await bootstrap()
       await sessionManager.initialize()
 
       expect(sessionManager.isNetworkPaused()).toBe(true)
@@ -59,6 +60,7 @@ describe('SessionManager', () => {
 
   describe('authentication signaling', () => {
     it('creates new session when no prior session exists', async () => {
+      const { sessionManager } = await bootstrap()
       await sessionManager.initialize()
 
       const result = await sessionManager.signalAuthenticated('user-1')
@@ -70,6 +72,7 @@ describe('SessionManager', () => {
     })
 
     it('resumes session when userId matches cached session', async () => {
+      const { sessionManager, storage } = await bootstrap()
       const session: SessionRecord = {
         id: 1,
         userId: 'user-1',
@@ -86,6 +89,7 @@ describe('SessionManager', () => {
     })
 
     it('wipes data and creates new session when userId differs', async () => {
+      const { sessionManager, storage } = await bootstrap()
       const session: SessionRecord = {
         id: 1,
         userId: 'user-1',
@@ -102,6 +106,7 @@ describe('SessionManager', () => {
     })
 
     it('emits session:changed event on new session', async () => {
+      const { eventBus, sessionManager } = await bootstrap()
       await sessionManager.initialize()
       const events: unknown[] = []
       eventBus.on('session:changed').subscribe((e) => events.push(e))
@@ -115,6 +120,7 @@ describe('SessionManager', () => {
     })
 
     it('emits session:changed event on resumed session', async () => {
+      const { eventBus, sessionManager, storage } = await bootstrap()
       const session: SessionRecord = {
         id: 1,
         userId: 'user-1',
@@ -135,6 +141,7 @@ describe('SessionManager', () => {
     })
 
     it('emits session:destroyed before creating new session on user change', async () => {
+      const { eventBus, sessionManager, storage } = await bootstrap()
       const session: SessionRecord = {
         id: 1,
         userId: 'user-1',
@@ -152,6 +159,7 @@ describe('SessionManager', () => {
     })
 
     it('wipes data and creates new session when userId differs from active session', async () => {
+      const { eventBus, sessionManager, storage } = await bootstrap()
       await sessionManager.initialize()
       await sessionManager.signalAuthenticated('user-1')
 
@@ -174,6 +182,7 @@ describe('SessionManager', () => {
     })
 
     it('resumes session when same userId is signaled while active', async () => {
+      const { sessionManager } = await bootstrap()
       await sessionManager.initialize()
       await sessionManager.signalAuthenticated('user-1')
 
@@ -185,6 +194,7 @@ describe('SessionManager', () => {
     })
 
     it('updates auth state on authentication', async () => {
+      const { sessionManager } = await bootstrap()
       await sessionManager.initialize()
 
       expect(sessionManager.getAuthState()).toEqual({ status: 'unauthenticated' })
@@ -197,6 +207,7 @@ describe('SessionManager', () => {
 
   describe('logout', () => {
     it('clears session and pauses network', async () => {
+      const { sessionManager } = await bootstrap()
       await sessionManager.initialize()
       await sessionManager.signalAuthenticated('user-1')
 
@@ -208,6 +219,7 @@ describe('SessionManager', () => {
     })
 
     it('emits session:destroyed event', async () => {
+      const { eventBus, sessionManager } = await bootstrap()
       await sessionManager.initialize()
       await sessionManager.signalAuthenticated('user-1')
       const events: unknown[] = []
@@ -222,6 +234,7 @@ describe('SessionManager', () => {
     })
 
     it('clears storage', async () => {
+      const { sessionManager, storage } = await bootstrap()
       await sessionManager.initialize()
       await sessionManager.signalAuthenticated('user-1')
 
@@ -233,6 +246,7 @@ describe('SessionManager', () => {
 
   describe('touch session', () => {
     it('updates lastSeenAt for active session', async () => {
+      const { sessionManager } = await bootstrap()
       await sessionManager.initialize()
       await sessionManager.signalAuthenticated('user-1')
 
@@ -249,6 +263,7 @@ describe('SessionManager', () => {
     })
 
     it('does nothing for non-active session', async () => {
+      const { sessionManager } = await bootstrap()
       await sessionManager.initialize()
 
       // Should not throw
@@ -260,12 +275,14 @@ describe('SessionManager', () => {
 
   describe('getUserId', () => {
     it('returns undefined when no session', async () => {
+      const { sessionManager } = await bootstrap()
       await sessionManager.initialize()
 
       expect(sessionManager.getUserId()).toBeUndefined()
     })
 
     it('returns userId for cached session', async () => {
+      const { sessionManager, storage } = await bootstrap()
       const session: SessionRecord = {
         id: 1,
         userId: 'user-1',
@@ -279,6 +296,7 @@ describe('SessionManager', () => {
     })
 
     it('returns userId for active session', async () => {
+      const { sessionManager } = await bootstrap()
       await sessionManager.initialize()
       await sessionManager.signalAuthenticated('user-1')
 
