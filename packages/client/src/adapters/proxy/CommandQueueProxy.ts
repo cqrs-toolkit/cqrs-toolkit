@@ -7,6 +7,7 @@
  * to avoid long-running RPC timeouts.
  */
 
+import { assert, generateId } from '#utils'
 import { Err, type IException, type Link, Ok, type Result } from '@meticoeus/ddd-es'
 import {
   Observable,
@@ -42,8 +43,6 @@ import {
   isCommandFailed,
   isTerminalStatus,
 } from '../../types/commands.js'
-import { assert } from '../../utils/assert.js'
-import { generateId } from '../../utils/uuid.js'
 
 const DEFAULT_WAIT_TIMEOUT = 30000
 

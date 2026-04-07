@@ -8,6 +8,7 @@
  * - Trigger command processing
  */
 
+import { noop } from '#utils'
 import { parseServerMessage, serializeClientMessage } from '@cqrs-toolkit/realtime'
 import { Link, Ok, Result, logProvider } from '@meticoeus/ddd-es'
 import { Subject, Subscription, filter, firstValueFrom, takeUntil } from 'rxjs'
@@ -19,7 +20,6 @@ import type {
 } from '../../types/config.js'
 import { hydrateSerializedEvent, normalizeEventPersistence } from '../../types/events.js'
 import { EnqueueCommand } from '../../types/index.js'
-import { noop } from '../../utils/index.js'
 import type { AuthStrategy } from '../auth.js'
 import { type CacheKeyIdentity, matchesCacheKey } from '../cache-manager/CacheKey.js'
 import type { CacheManager } from '../cache-manager/CacheManager.js'

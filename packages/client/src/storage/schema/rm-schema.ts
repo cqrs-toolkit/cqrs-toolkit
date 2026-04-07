@@ -2,8 +2,8 @@
  * Per-collection read model schema: validation, DDL generation, and helpers.
  */
 
+import { assert } from '#utils'
 import type { LibraryStep, MigrationStep, SchemaMigration } from '../../types/config.js'
-import { assert } from '../../utils/assert.js'
 import { REQUIRED_LIBRARY_STEPS } from './client-schema.js'
 
 const COLLECTION_NAME_RE = /^[a-z][a-z0-9_]*$/

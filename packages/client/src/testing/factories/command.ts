@@ -2,10 +2,10 @@
  * Command test factories.
  */
 
+import { generateId } from '#utils'
 import { Link } from '@meticoeus/ddd-es'
 import { deriveScopeKey } from '../../core/cache-manager/index.js'
 import { CommandRecord, CommandStatus, EnqueueCommand } from '../../types/commands.js'
-import { generateId } from '../../utils/uuid.js'
 
 /**
  * Create a test command record.

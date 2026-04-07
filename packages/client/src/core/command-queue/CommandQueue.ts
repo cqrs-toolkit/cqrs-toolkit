@@ -3,6 +3,7 @@
  * Handles command persistence, validation, retry, and status tracking.
  */
 
+import { assert, calculateBackoffDelay, generateId, shouldRetry } from '#utils'
 import { Err, type Link, logProvider, Ok, type Result } from '@meticoeus/ddd-es'
 import {
   filter,
@@ -47,9 +48,6 @@ import type {
   ParentRefConfig,
 } from '../../types/domain.js'
 import { autoRevision, isAutoRevision } from '../../types/domain.js'
-import { assert } from '../../utils/assert.js'
-import { calculateBackoffDelay, shouldRetry } from '../../utils/retry.js'
-import { generateId } from '../../utils/uuid.js'
 import type { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventShape.js'
 import type { ParsedEvent } from '../event-processor/EventProcessorRunner.js'
 import type { EventBus } from '../events/EventBus.js'

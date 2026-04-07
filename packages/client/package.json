@@ -26,6 +26,9 @@
       "import": "./dist/src/utils/index.js"
     }
   },
+  "imports": {
+    "#utils": "./src/utils/index.js"
+  },
   "files": [
     "dist",
     "LICENSE",

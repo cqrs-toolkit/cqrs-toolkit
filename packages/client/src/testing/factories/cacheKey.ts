@@ -2,8 +2,8 @@
  * Cache key test factories.
  */
 
+import { deriveCacheKey } from '#utils'
 import type { CacheKeyRecord } from '../../storage/IStorage.js'
-import { deriveCacheKey } from '../../utils/uuid.js'
 
 /**
  * Create a test cache key record with sensible defaults.

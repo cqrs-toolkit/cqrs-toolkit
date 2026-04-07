@@ -1,3 +1,4 @@
+import { noop } from '#utils'
 import type { IPersistedEvent, Link } from '@meticoeus/ddd-es'
 import { logProvider } from '@meticoeus/ddd-es'
 import {
@@ -7,7 +8,6 @@ import {
   isCollectionWithFetchStreamEvents,
 } from '../../types/config.js'
 import { EnqueueCommand } from '../../types/index.js'
-import { noop } from '../../utils/index.js'
 import type { EventCache } from '../event-cache/EventCache.js'
 import type { EventProcessorRunner } from '../event-processor/index.js'
 import type { EventBus } from '../events/EventBus.js'

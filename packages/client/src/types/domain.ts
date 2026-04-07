@@ -3,6 +3,7 @@
  * The domain layer is consumer-provided, not library-provided.
  */
 
+import { assert, generateId } from '#utils'
 import {
   Err,
   type ErrResult,
@@ -14,8 +15,6 @@ import {
 } from '@meticoeus/ddd-es'
 import type { IAnticipatedEvent } from '../core/command-lifecycle/AnticipatedEventShape.js'
 import type { IQueryManager } from '../core/query-manager/types.js'
-import { assert } from '../utils/assert.js'
-import { generateId } from '../utils/uuid.js'
 import { EnqueueCommand } from './commands.js'
 import { ValidationError, ValidationException } from './validation.js'
 

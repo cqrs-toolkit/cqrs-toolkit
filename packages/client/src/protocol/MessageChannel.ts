@@ -5,9 +5,9 @@
  * over Worker postMessage API.
  */
 
+import { generateId } from '#utils'
 import { logProvider } from '@meticoeus/ddd-es'
 import { Observable, Subject, filter, firstValueFrom, take, timeout } from 'rxjs'
-import { generateId } from '../utils/uuid.js'
 
 /**
  * Error thrown when an RPC request to the worker fails.

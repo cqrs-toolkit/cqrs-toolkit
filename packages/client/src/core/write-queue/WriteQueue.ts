@@ -7,8 +7,8 @@
  * Internal state machine: idle → processing → idle, or * → resetting → idle, or * → destroyed.
  */
 
+import { assert } from '#utils'
 import { Err, Ok, logProvider, type Link, type Result } from '@meticoeus/ddd-es'
-import { assert } from '../../utils/assert.js'
 import type { EventBus } from '../events/EventBus.js'
 import {
   IWriteQueue,

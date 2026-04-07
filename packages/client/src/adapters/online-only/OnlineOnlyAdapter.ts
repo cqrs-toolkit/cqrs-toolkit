@@ -4,6 +4,7 @@
  * No worker orchestration or cross-tab coordination.
  */
 
+import { assert } from '#utils'
 import type { Link } from '@meticoeus/ddd-es'
 import type { Observable } from 'rxjs'
 import type { IAnticipatedEvent } from '../../core/command-lifecycle/AnticipatedEventShape.js'
@@ -14,7 +15,6 @@ import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import type { ResolvedConfig } from '../../types/config.js'
 import type { LibraryEvent } from '../../types/events.js'
 import { EnqueueCommand } from '../../types/index.js'
-import { assert } from '../../utils/assert.js'
 import type { AdapterStatus, IWindowAdapter } from '../base/IAdapter.js'
 
 /**

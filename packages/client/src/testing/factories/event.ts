@@ -2,8 +2,8 @@
  * Event test factories.
  */
 
+import { deriveCacheKey, generateId } from '#utils'
 import type { CachedEventRecord } from '../../storage/IStorage.js'
-import { deriveCacheKey, generateId } from '../../utils/uuid.js'
 
 /**
  * Create a test cached event record.

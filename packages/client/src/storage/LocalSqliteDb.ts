@@ -6,7 +6,7 @@
  * satisfy the `ISqliteDb` interface.
  */
 
-import { assert } from '../utils/assert.js'
+import { assert } from '#utils'
 import type { ISqliteDb, SqliteBatchStatement } from './ISqliteDb.js'
 
 /**

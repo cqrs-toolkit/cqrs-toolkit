@@ -15,6 +15,7 @@
  * queue keeps running, in-flight operations don't restart.
  */
 
+import { assert, generateId } from '#utils'
 import { type Link, logProvider } from '@meticoeus/ddd-es'
 import { Observable, Subject, Subscription, interval, map, share, takeUntil } from 'rxjs'
 import type { ICacheManager } from '../../core/cache-manager/types.js'
@@ -27,8 +28,6 @@ import type { EventMessage } from '../../protocol/messages.js'
 import { serialize } from '../../protocol/serialization.js'
 import type { LibraryEvent } from '../../types/events.js'
 import { EnqueueCommand } from '../../types/index.js'
-import { assert } from '../../utils/assert.js'
-import { generateId } from '../../utils/uuid.js'
 import type { AdapterStatus, IWorkerAdapter } from '../base/IAdapter.js'
 import { CacheManagerProxy } from '../proxy/CacheManagerProxy.js'
 import { CommandQueueProxy } from '../proxy/CommandQueueProxy.js'

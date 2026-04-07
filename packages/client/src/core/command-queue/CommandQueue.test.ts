@@ -2,6 +2,7 @@
  * Unit tests for CommandQueue.
  */
 
+import { generateId } from '#utils'
 import { Err, Ok, type AggregateEventData, type Result, type ServiceLink } from '@meticoeus/ddd-es'
 import { Subject } from 'rxjs'
 import { describe, expect, it, vi } from 'vitest'
@@ -16,7 +17,6 @@ import {
   IDomainExecutor,
 } from '../../types/domain.js'
 import { isValidationException } from '../../types/validation.js'
-import { generateId } from '../../utils/uuid.js'
 import { deriveScopeKey } from '../cache-manager/CacheKey.js'
 import { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventShape.js'
 import { EventBus } from '../events/EventBus.js'

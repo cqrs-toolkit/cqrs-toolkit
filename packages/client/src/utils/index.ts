@@ -13,4 +13,5 @@ export {
   shouldRetry,
   sleep,
 } from './retry.js'
+export { stableStringify } from './stableJson.js'
 export { CACHE_KEY_NAMESPACE, deriveCacheKey, deriveId, generateId } from './uuid.js'

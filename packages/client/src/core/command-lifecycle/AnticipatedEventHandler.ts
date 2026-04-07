@@ -1,7 +1,7 @@
+import { noop } from '#utils'
 import { type Link, logProvider, type Result } from '@meticoeus/ddd-es'
 import { EnqueueCommand, TerminalCommandStatus } from '../../types/commands.js'
 import type { Collection } from '../../types/config.js'
-import { noop } from '../../utils/index.js'
 import type { IAnticipatedEventHandler } from '../command-queue/CommandQueue.js'
 import type { EventCache } from '../event-cache/EventCache.js'
 import type { EventProcessorRunner, ParsedEvent } from '../event-processor/EventProcessorRunner.js'

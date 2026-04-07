@@ -10,6 +10,7 @@
  * Web Locks auto-release on page unload — no beforeunload handler needed.
  */
 
+import { assert } from '#utils'
 import type { Link } from '@meticoeus/ddd-es'
 import { Observable, Subject, map, share, takeUntil } from 'rxjs'
 import type { ICacheManager } from '../../core/cache-manager/types.js'
@@ -21,7 +22,6 @@ import { RpcError, WorkerMessageChannel } from '../../protocol/MessageChannel.js
 import type { EventMessage } from '../../protocol/messages.js'
 import type { LibraryEvent } from '../../types/events.js'
 import { EnqueueCommand } from '../../types/index.js'
-import { assert } from '../../utils/assert.js'
 import type { AdapterStatus, IWorkerAdapter } from '../base/IAdapter.js'
 import { CacheManagerProxy } from '../proxy/CacheManagerProxy.js'
 import { CommandQueueProxy } from '../proxy/CommandQueueProxy.js'

@@ -8,10 +8,10 @@
  * - **Mode B** (SharedWorker): `RemoteSqliteDb` proxying to a child worker
  */
 
+import { assert } from '#utils'
 import { Link } from '@meticoeus/ddd-es'
 import { CommandFilter, CommandRecord, CommandStatus, EnqueueCommand } from '../types/commands.js'
 import type { SchemaMigration } from '../types/config.js'
-import { assert } from '../utils/assert.js'
 import type { ISqliteDb, SqliteBatchStatement } from './ISqliteDb.js'
 import type {
   CacheKeyRecord,

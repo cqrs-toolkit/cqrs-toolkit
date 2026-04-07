@@ -8,13 +8,13 @@
  * - Support event replacement when server confirms
  */
 
+import { generateId } from '#utils'
 import { IPersistedEvent, Link, logProvider } from '@meticoeus/ddd-es'
 import { Subject } from 'rxjs'
 import type { CachedEventRecord, IStorage } from '../../storage/IStorage.js'
 import type { AnticipatedEvent } from '../../types/events.js'
 import { normalizeEventPersistence } from '../../types/events.js'
 import { EnqueueCommand } from '../../types/index.js'
-import { generateId } from '../../utils/uuid.js'
 import type { ParsedEvent } from '../event-processor/EventProcessorRunner.js'
 import type { EventBus } from '../events/EventBus.js'
 import { GapBuffer, type EventGap } from './GapDetector.js'
