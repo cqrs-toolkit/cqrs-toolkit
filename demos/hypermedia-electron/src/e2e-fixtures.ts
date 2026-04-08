@@ -13,6 +13,8 @@ import {
   type Page,
   type TestInfo,
 } from '@playwright/test'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -20,6 +22,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const DIST_DIR = join(__dirname, '..', 'dist')
 
 interface ElectronFixtures {
+  userDataDir: string
+  launchApp: () => Promise<ElectronApplication>
   electronApp: ElectronApplication
   page: Page
 }
@@ -27,12 +31,27 @@ interface ElectronFixtures {
 export const SERVER = 'http://localhost:3002'
 
 export const test = base.extend<ElectronFixtures>({
-  electronApp: async ({}, use) => {
-    const app = await electron.launch({
-      args: [join(DIST_DIR, 'main.js')],
+  userDataDir: async ({}, use) => {
+    const dir = mkdtempSync(join(tmpdir(), 'e2e-electron-'))
+    await use(dir)
+    rmSync(dir, { recursive: true, force: true })
+  },
+  launchApp: async ({ userDataDir }, use) => {
+    const apps: ElectronApplication[] = []
+    await use(async () => {
+      const app = await electron.launch({
+        args: ['--user-data-dir=' + userDataDir, join(DIST_DIR, 'main.js')],
+      })
+      apps.push(app)
+      return app
     })
+    for (const app of apps) {
+      await app.close().catch(() => {})
+    }
+  },
+  electronApp: async ({ launchApp }, use) => {
+    const app = await launchApp()
     await use(app)
-    await app.close()
   },
   page: async ({ electronApp, request }, use) => {
     const page = await electronApp.firstWindow()
