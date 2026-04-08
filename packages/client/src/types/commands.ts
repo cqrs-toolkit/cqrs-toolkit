@@ -17,6 +17,7 @@ import type {
   DomainExecutionError,
   PostProcessPlan,
 } from './domain.js'
+import type { EntityRef } from './entities.js'
 import { ValidationError, ValidationException } from './validation.js'
 
 /**
@@ -177,6 +178,8 @@ export interface CommandRecord<
   revision?: string | AutoRevision
   /** File attachments — metadata at rest, hydrated with Blob data before send(). */
   fileRefs?: FileRef[]
+  /** EntityRef metadata extracted from command data at enqueue time. Maps JSONPath expressions to their EntityRef values. */
+  entityRefData?: Record<string, EntityRef>
   /** Creation timestamp */
   createdAt: number
   /** Last update timestamp */
@@ -281,6 +284,8 @@ export interface EnqueueSuccess<TEvent> {
   commandId: string
   /** Anticipated events produced */
   anticipatedEvents: TEvent[]
+  /** EntityRef for the created entity, if this was a create command. */
+  entityRef?: EntityRef
 }
 
 /**
@@ -415,8 +420,8 @@ export interface SubmitParams<
  * - `'confirmed'` — server acknowledged the command.
  */
 export type SubmitSuccess<TResponse> =
-  | { stage: 'enqueued'; commandId: string }
-  | { stage: 'confirmed'; commandId: string; response: TResponse }
+  | { stage: 'enqueued'; commandId: string; entityRef?: EntityRef }
+  | { stage: 'confirmed'; commandId: string; response: TResponse; entityRef?: EntityRef }
 
 /**
  * Error union for submit — enqueue validation or completion failure.

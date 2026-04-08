@@ -61,6 +61,14 @@ export type WriteQueueEvictionHandlerMap<TLink extends Link> = {
   >
 }
 
+/**
+ * Options for enqueue operations.
+ */
+export interface EnqueueOptions {
+  /** Priority level. Higher values are processed first. Default: 0. */
+  priority?: number
+}
+
 // ---------------------------------------------------------------------------
 // Queue state
 // ---------------------------------------------------------------------------
@@ -125,7 +133,10 @@ export interface IWriteQueue<TLink extends Link> {
    *
    * Rejects the promise only for infrastructure errors (handler threw).
    */
-  enqueue(op: WriteQueueOp<TLink>): Promise<Result<void, WriteQueueException>>
+  enqueue(
+    op: WriteQueueOp<TLink>,
+    options?: EnqueueOptions,
+  ): Promise<Result<void, WriteQueueException>>
 
   /**
    * Set the session reset callback. Must be called before resetSession is used.

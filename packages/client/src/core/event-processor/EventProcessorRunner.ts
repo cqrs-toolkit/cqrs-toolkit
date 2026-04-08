@@ -4,9 +4,13 @@
  */
 
 import { Link, logProvider } from '@meticoeus/ddd-es'
+import type { CreateCommandConfig } from '../../types/domain.js'
+import type { EntityRef } from '../../types/entities.js'
+import { createEntityRef } from '../../types/entities.js'
 import type { EventPersistence } from '../../types/events.js'
 import { EnqueueCommand } from '../../types/index.js'
 import type { IAnticipatedEventHandler } from '../command-queue/CommandQueue.js'
+import { setAtPath } from '../entity-ref/ref-path.js'
 import type { EventBus } from '../events/EventBus.js'
 import type { ReadModelStore, RevisionMeta } from '../read-model-store/ReadModelStore.js'
 import { EventProcessorRegistry } from './EventProcessorRegistry.js'
@@ -20,6 +24,16 @@ import type {
 /**
  * Parsed event for processing.
  */
+/**
+ * EntityRef injection metadata for anticipated events.
+ * Present only when the originating command has creates config or entityRefData.
+ */
+export interface EntityRefInjection {
+  commandId: string
+  creates?: CreateCommandConfig
+  entityRefData?: Record<string, EntityRef>
+}
+
 export interface ParsedEvent {
   id: string
   type: string
@@ -30,6 +44,8 @@ export interface ParsedEvent {
   revision?: bigint
   position?: bigint
   cacheKey: string
+  /** EntityRef injection metadata for anticipated creates. Present only for anticipated events. */
+  entityRefInjection?: EntityRefInjection
 }
 
 /**
@@ -118,7 +134,12 @@ export class EventProcessorRunner<TLink extends Link, TCommand extends EnqueueCo
     }
 
     for (const result of allResults) {
-      const modified = await this.applyResult(result, event.cacheKey, revisionMeta)
+      const modified = await this.applyResult(
+        result,
+        event.cacheKey,
+        revisionMeta,
+        event.entityRefInjection,
+      )
       updatedIds.push(`${result.collection}:${result.id}`)
 
       if (modified) {
@@ -359,17 +380,25 @@ export class EventProcessorRunner<TLink extends Link, TCommand extends EnqueueCo
   /**
    * Apply a processor result to the read model store.
    * Returns true if the data was actually modified.
+   *
+   * For anticipated events with EntityRef injection metadata, wraps ID fields
+   * in EntityRef objects before writing to the read model store.
    */
   private async applyResult(
     result: ProcessorResult,
     cacheKey: string,
     revisionMeta?: RevisionMeta,
+    injection?: EntityRefInjection,
   ): Promise<boolean> {
     const { collection, id, update, isServerUpdate } = result
 
     if (update.type === 'delete') {
       return this.readModelStore.delete(collection, id)
     }
+
+    // Inject EntityRef into data for anticipated (non-server) updates
+    const injectedData =
+      injection && !isServerUpdate ? injectEntityRefs(update.data, injection) : update.data
 
     if (update.type === 'set') {
       if (isServerUpdate) {
@@ -381,7 +410,7 @@ export class EventProcessorRunner<TLink extends Link, TCommand extends EnqueueCo
           revisionMeta,
         )
       }
-      return this.readModelStore.setLocalData(collection, id, update.data, cacheKey)
+      return this.readModelStore.setLocalData(collection, id, injectedData, cacheKey)
     }
 
     if (update.type === 'merge') {
@@ -394,7 +423,7 @@ export class EventProcessorRunner<TLink extends Link, TCommand extends EnqueueCo
           revisionMeta,
         )
       }
-      return this.readModelStore.applyLocalChanges(collection, id, update.data, cacheKey)
+      return this.readModelStore.applyLocalChanges(collection, id, injectedData, cacheKey)
     }
 
     return false
@@ -411,6 +440,38 @@ function isInvalidateSignal(value: unknown): value is InvalidateSignal {
     'invalidate' in value &&
     value.invalidate === true
   )
+}
+
+/**
+ * Inject EntityRef objects into read model data for anticipated events.
+ *
+ * - If the command has `creates` config, wraps `data.id` in an EntityRef.
+ * - For each entry in `entityRefData`, sets the EntityRef value at the
+ *   corresponding path in the data.
+ */
+// EntityRef injection replaces string ID fields with EntityRef objects in the read model
+// data. The output is structurally the same object with some field types widened from
+// string to EntityRef — the type system can't express this transformation, so the cast
+// at the return site is necessary.
+function injectEntityRefs<T extends object>(data: T, injection: EntityRefInjection): T {
+  let result: Record<string, unknown> = Object.fromEntries(Object.entries(data))
+
+  // Wrap the entity's own ID for create commands
+  if (injection.creates && typeof result.id === 'string') {
+    result = {
+      ...result,
+      id: createEntityRef(result.id, injection.commandId, injection.creates.idStrategy),
+    }
+  }
+
+  // Inject parent ref fields from entityRefData
+  if (injection.entityRefData) {
+    for (const [path, ref] of Object.entries(injection.entityRefData)) {
+      result = setAtPath(result, path, ref) as Record<string, unknown>
+    }
+  }
+
+  return result as T
 }
 
 /**

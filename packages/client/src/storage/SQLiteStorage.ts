@@ -327,8 +327,8 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
       `INSERT OR REPLACE INTO commands
        (command_id, cache_key, service, type, data, status, depends_on, blocked_by, attempts,
         last_attempt_at, error, server_response, post_process, creates, revision,
-        path, file_refs, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        path, file_refs, entity_ref_data, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         command.commandId,
         JSON.stringify(command.cacheKey),
@@ -347,6 +347,7 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
         command.revision !== undefined ? JSON.stringify(command.revision) : null,
         command.path !== undefined ? JSON.stringify(command.path) : null,
         command.fileRefs ? JSON.stringify(command.fileRefs) : null,
+        command.entityRefData ? JSON.stringify(command.entityRefData) : null,
         command.createdAt,
         command.updatedAt,
       ],
@@ -1051,6 +1052,7 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
       revision: row.revision ? JSON.parse(row.revision) : undefined,
       path: row.path ? JSON.parse(row.path) : undefined,
       fileRefs: row.file_refs ? JSON.parse(row.file_refs) : undefined,
+      entityRefData: row.entity_ref_data ? JSON.parse(row.entity_ref_data) : undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }
@@ -1154,6 +1156,7 @@ interface CommandRow {
   revision: string | null
   path: string | null
   file_refs: string | null
+  entity_ref_data: string | null
   created_at: number
   updated_at: number
 }

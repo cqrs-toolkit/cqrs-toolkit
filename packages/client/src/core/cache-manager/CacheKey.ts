@@ -11,6 +11,8 @@ import { stableStringify } from '#utils'
 import type { Link } from '@meticoeus/ddd-es'
 import { v5 as uuidv5 } from 'uuid'
 import type { CacheKeyRecord } from '../../storage/IStorage.js'
+import type { EntityId } from '../../types/entities.js'
+import { entityIdToString } from '../../types/entities.js'
 
 /**
  * Namespace UUID for cache key derivation.
@@ -132,6 +134,21 @@ export function deriveEntityKey<TLink extends Link>(
     link,
     parentKey,
   }
+}
+
+/**
+ * Derive an entity cache key from a link template and an EntityId value.
+ *
+ * Resolves the EntityId to a plain string (extracting entityId from EntityRef
+ * if needed), then delegates to {@link deriveEntityKey}.
+ */
+export function deriveEntityKeyFromRef<TLink extends Link>(
+  linkTemplate: Omit<TLink, 'id'>,
+  id: EntityId,
+  parentKey?: string,
+): EntityCacheKey<TLink> {
+  const link = { ...linkTemplate, id: entityIdToString(id) } as TLink
+  return deriveEntityKey(link, parentKey)
 }
 
 /**

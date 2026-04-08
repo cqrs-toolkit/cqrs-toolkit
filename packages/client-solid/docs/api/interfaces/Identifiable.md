@@ -6,10 +6,12 @@
 
 # Interface: Identifiable
 
-Constraint for queryable items — must have a string `id` property.
+Constraint for queryable items — must have an `id` property.
+The id is `EntityId` (string | EntityRef): plain string for server-confirmed
+entities, EntityRef for locally-created entities with pending IDs.
 
 ## Properties
 
 ### id
 
-> `readonly` **id**: `string`
+> `readonly` **id**: `EntityId`

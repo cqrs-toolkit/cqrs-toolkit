@@ -6,8 +6,6 @@
 
 # Interface: ParsedEvent
 
-Parsed event for processing.
-
 ## Properties
 
 ### cacheKey
@@ -25,6 +23,14 @@ Parsed event for processing.
 ### data
 
 > **data**: `unknown`
+
+---
+
+### entityRefInjection?
+
+> `optional` **entityRefInjection**: `EntityRefInjection`
+
+EntityRef injection metadata for anticipated creates. Present only for anticipated events.
 
 ---
 

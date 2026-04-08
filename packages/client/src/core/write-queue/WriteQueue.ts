@@ -11,6 +11,7 @@ import { assert } from '#utils'
 import { Err, Ok, logProvider, type Link, type Result } from '@meticoeus/ddd-es'
 import type { EventBus } from '../events/EventBus.js'
 import {
+  EnqueueOptions,
   IWriteQueue,
   SessionResetCallback,
   SessionResetException,
@@ -29,6 +30,7 @@ import { QueueState } from './WriteQueueState.js'
 interface PendingEntry<TLink extends Link> {
   opId: string
   op: WriteQueueOp<TLink>
+  priority: number
   enqueuedAt: number
   resolve: (value: Result<void, WriteQueueException>) => void
   reject: (err: Error) => void
@@ -87,7 +89,10 @@ export class WriteQueue<TLink extends Link> implements IWriteQueue<TLink> {
     this.evictionHandlers[type] = handler as WriteQueueEvictionHandlerMap<TLink>[K]
   }
 
-  enqueue(op: WriteQueueOp<TLink>): Promise<Result<void, WriteQueueException>> {
+  enqueue(
+    op: WriteQueueOp<TLink>,
+    options?: EnqueueOptions,
+  ): Promise<Result<void, WriteQueueException>> {
     switch (this.state.status) {
       case 'destroyed':
         return Promise.resolve(Err(new WriteQueueDestroyedException()))
@@ -96,11 +101,29 @@ export class WriteQueue<TLink extends Link> implements IWriteQueue<TLink> {
       case 'idle':
       case 'processing': {
         const opId = String(++this.opIdCounter)
+        const priority = options?.priority ?? 0
         return new Promise((resolve, reject) => {
-          this.pending.push({ opId, op, enqueuedAt: Date.now(), resolve, reject })
+          const entry: PendingEntry<TLink> = {
+            opId,
+            op,
+            priority,
+            enqueuedAt: Date.now(),
+            resolve,
+            reject,
+          }
+
+          // Insert in priority order (higher priority first, FIFO within same priority)
+          const insertIndex = this.pending.findIndex((e) => e.priority < priority)
+          if (insertIndex === -1) {
+            this.pending.push(entry)
+          } else {
+            this.pending.splice(insertIndex, 0, entry)
+          }
+
           this.eventBus.emitDebug('writequeue:op-enqueued', {
             opId,
             opType: op.type,
+            priority,
             op: op as unknown,
           })
           this.scheduleProcessing()

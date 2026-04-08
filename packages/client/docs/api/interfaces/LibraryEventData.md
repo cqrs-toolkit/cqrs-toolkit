@@ -556,6 +556,10 @@ Library event data types.
 
 > **opType**: `string`
 
+#### priority
+
+> **priority**: `number`
+
 ---
 
 ### writequeue:op-error

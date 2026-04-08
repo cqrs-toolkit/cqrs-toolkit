@@ -330,6 +330,10 @@ export type CommandHandlerRegistration<
       creates?: CreateCommandConfig
       /** Cross-aggregate parent references. Each entry maps a data field to the command that produces the ID. */
       parentRef?: ParentRefConfig[]
+      /** JSONPath expressions (RFC 9535 subset) for EntityRef values in nested or array structures.
+       *  Default extraction scans top-level fields. Declare paths here for deeper structures.
+       *  Uses [*] for array wildcard. Example: ['$.forms[*].id', '$.metadata.orgId'] */
+      entityRefPaths?: string[]
     }
   : never
 

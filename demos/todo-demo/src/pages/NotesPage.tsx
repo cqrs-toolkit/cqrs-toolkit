@@ -1,10 +1,11 @@
 import {
-  type CollectionSyncStatus,
-  deriveEntityKey,
   deriveScopeKey,
+  entityIdToString,
+  type CollectionSyncStatus,
+  type EntityId,
   type LibraryEvent,
 } from '@cqrs-toolkit/client'
-import { useClient } from '@cqrs-toolkit/client-solid'
+import { createEntityCacheKey, useClient } from '@cqrs-toolkit/client-solid'
 import { appCreateListQuery } from '@cqrs-toolkit/demo-base/common/components'
 import { NotebookList } from '@cqrs-toolkit/demo-base/notebooks/components'
 import { NOTEBOOK_SEED_KEY } from '@cqrs-toolkit/demo-base/notebooks/domain'
@@ -14,27 +15,31 @@ import type { Note } from '@cqrs-toolkit/demo-base/notes/shared'
 import { ServiceLink } from '@meticoeus/ddd-es'
 import { A } from '@solidjs/router'
 import { filter } from 'rxjs'
-import { createEffect, createSignal, onCleanup, onMount, Show } from 'solid-js'
+import { createEffect, createMemo, createSignal, onCleanup, onMount, Show } from 'solid-js'
 
 export default function NotesPage() {
   const client = useClient<ServiceLink>()
 
-  const [selectedNotebookId, setSelectedNotebookId] = createSignal<string>()
+  const [selectedNotebookId, setSelectedNotebookId] = createSignal<EntityId>()
   const [selectedNoteId, setSelectedNoteId] = createSignal<string>()
+
+  const notebookCacheKey = createEntityCacheKey<ServiceLink>(
+    { service: 'nb', type: 'Notebook' },
+    () => selectedNotebookId(),
+  )
+  const noteEditorCtx = createMemo(() => {
+    const noteId = selectedNoteId()
+    const cacheKey = notebookCacheKey()
+    if (!noteId || !cacheKey) return undefined
+    return { noteId, notebookId: cacheKey.link.id, cacheKey }
+  })
 
   const notebooksQuery = appCreateListQuery<Notebook>(
     client.queryManager,
     'notebooks',
     deriveScopeKey({ scopeType: 'notebooks' }),
   )
-  const notesQuery = appCreateListQuery<Note>(client.queryManager, 'notes', () =>
-    selectedNotebookId()
-      ? deriveEntityKey({ service: 'nb', type: 'Notebook', id: selectedNotebookId()! })
-      : undefined,
-  )
-  function notebookCacheKey() {
-    return deriveEntityKey({ service: 'nb', type: 'Notebook', id: selectedNotebookId()! })
-  }
+  const notesQuery = appCreateListQuery<Note>(client.queryManager, 'notes', notebookCacheKey)
 
   const [editingTitle, setEditingTitle] = createSignal<string>()
   const [error, setError] = createSignal<string>()
@@ -48,9 +53,9 @@ export default function NotesPage() {
     )
     setNotebooksSync(notebooksStatus)
 
-    const nbId = selectedNotebookId()
-    if (nbId) {
-      const notesStatus = await client.syncManager.getCollectionStatus('notes', notebookCacheKey())
+    const nbCacheKey = notebookCacheKey()
+    if (nbCacheKey) {
+      const notesStatus = await client.syncManager.getCollectionStatus('notes', nbCacheKey)
       setNotesSync(notesStatus)
     } else {
       setNotesSync(undefined)
@@ -87,7 +92,7 @@ export default function NotesPage() {
     })
   })
 
-  function handleSelectNotebook(id: string) {
+  function handleSelectNotebook(id: EntityId) {
     setSelectedNotebookId(id)
     setSelectedNoteId(undefined)
     setEditingTitle(undefined)
@@ -101,8 +106,10 @@ export default function NotesPage() {
 
   // Track notebook selection through ID reconciliation
   createEffect(() => {
+    const currentId = selectedNotebookId()
+    if (typeof currentId === 'undefined') return
     for (const { clientId, serverId } of notebooksQuery.reconciled) {
-      if (selectedNotebookId() === clientId) {
+      if (entityIdToString(currentId) === clientId) {
         setSelectedNotebookId(serverId)
       }
     }
@@ -141,7 +148,7 @@ export default function NotesPage() {
         <div class="w-56 flex-shrink-0 overflow-hidden">
           <NotebookList
             notebooks={notebooksQuery.items}
-            selectedId={selectedNotebookId()}
+            selectedId={notebookCacheKey()?.link.id}
             onSelect={handleSelectNotebook}
             onSubmitCreate={(p) =>
               client.submit({
@@ -176,7 +183,7 @@ export default function NotesPage() {
         {/* Middle: note titles */}
         <div class="w-56 flex-shrink-0 overflow-hidden">
           <Show
-            when={selectedNotebookId()}
+            when={notebookCacheKey()}
             fallback={
               <div class="flex items-center justify-center h-full text-neutral-400 text-sm">
                 Select a notebook
@@ -196,21 +203,21 @@ export default function NotesPage() {
         {/* Right: editor */}
         <div class="flex-1 min-w-0 overflow-hidden">
           <Show
-            when={selectedNoteId()}
+            when={noteEditorCtx()}
             fallback={
               <div class="flex items-center justify-center h-full text-neutral-400 text-sm">
-                {selectedNotebookId() ? 'Select or create a note' : ''}
+                {notebookCacheKey() ? 'Select or create a note' : ''}
               </div>
             }
           >
-            {(noteId) => (
+            {(ctx) => (
               <NoteEditor
-                noteId={noteId()}
-                notebookId={selectedNotebookId()!}
+                noteId={ctx().noteId}
+                notebookId={ctx().notebookId}
                 onSubmitCreate={(p) =>
                   client.submit({
                     command: { type: 'CreateNote', data: p },
-                    cacheKey: notebookCacheKey(),
+                    cacheKey: ctx().cacheKey,
                   })
                 }
                 onSubmitUpdateTitle={(p) =>
@@ -220,7 +227,7 @@ export default function NotesPage() {
                       data: { id: p.id, title: p.title },
                       revision: p.revision,
                     },
-                    cacheKey: notebookCacheKey(),
+                    cacheKey: ctx().cacheKey,
                   })
                 }
                 onSubmitUpdateBody={(p) =>
@@ -230,7 +237,7 @@ export default function NotesPage() {
                       data: { id: p.id, body: p.body },
                       revision: p.revision,
                     },
-                    cacheKey: notebookCacheKey(),
+                    cacheKey: ctx().cacheKey,
                   })
                 }
                 onSubmitDelete={(p) =>
@@ -240,7 +247,7 @@ export default function NotesPage() {
                       data: { id: p.id },
                       revision: p.revision,
                     },
-                    cacheKey: notebookCacheKey(),
+                    cacheKey: ctx().cacheKey,
                   })
                 }
                 onSubmitUploadFile={(p) =>
@@ -250,7 +257,7 @@ export default function NotesPage() {
                       data: { noteId: p.noteId },
                       files: [p.file],
                     },
-                    cacheKey: notebookCacheKey(),
+                    cacheKey: ctx().cacheKey,
                   })
                 }
                 onSubmitDeleteFile={(p) =>
@@ -260,7 +267,7 @@ export default function NotesPage() {
                       data: { id: p.id },
                       revision: p.revision,
                     },
-                    cacheKey: notebookCacheKey(),
+                    cacheKey: ctx().cacheKey,
                   })
                 }
                 onError={setError}

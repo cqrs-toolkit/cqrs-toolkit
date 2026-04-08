@@ -8,6 +8,7 @@ import type {
   IQueryManager,
   ListParams,
 } from '@cqrs-toolkit/client'
+import { entityIdToString } from '@cqrs-toolkit/client'
 import type { Link } from '@meticoeus/ddd-es'
 import { createComputed, onCleanup } from 'solid-js'
 import { createStore, reconcile } from 'solid-js/store'
@@ -123,19 +124,26 @@ export function createListQuery<TLink extends Link, T extends Identifiable>(
           }
         }
 
-        // Pre-mutate existing store items whose id matches a reconciled clientId.
-        // This makes reconcile() see the same item with the new id — preserving
+        // Pre-mutate existing store items whose _id matches a reconciled clientId.
+        // This makes reconcile() see the same item with the new _id — preserving
         // the Solid store object reference and <For> DOM node identity.
         if (idRemaps.size > 0) {
           for (const [i, item] of store.items.entries()) {
-            const newId = idRemaps.get(item.id)
+            const itemId = entityIdToString(item.id)
+            const newId = idRemaps.get(itemId)
             if (typeof newId === 'string') {
-              setStore('items', i, { ...item, id: newId } as T)
+              setStore('items', i, { ...item, id: newId, _id: newId } as T & { _id: string })
             }
           }
         }
 
-        setStore('items', reconcile(result.data, { key: 'id', merge: true }))
+        // Inject _id (always a plain string) for reconcile keying.
+        // EntityRef ids are objects and break reconcile's strict equality check.
+        const itemsWithKey = result.data.map((item) => ({
+          ...item,
+          _id: entityIdToString(item.id),
+        }))
+        setStore('items', reconcile(itemsWithKey, { key: '_id', merge: true }))
         setStore('total', result.total)
         setStore('hasLocalChanges', result.hasLocalChanges)
 

@@ -2,6 +2,11 @@
  * Type exports for the CQRS Client library.
  */
 
+// Entities
+export type { EntityId, EntityRef } from './entities.js'
+
+export { createEntityRef, entityIdToString, isEntityRef } from './entities.js'
+
 // Events
 export type {
   AnticipatedEvent,

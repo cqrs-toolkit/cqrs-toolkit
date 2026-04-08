@@ -2,14 +2,16 @@
  * Shared types for SolidJS reactive query primitives.
  */
 
-import type { CacheKeyIdentity } from '@cqrs-toolkit/client'
+import type { CacheKeyIdentity, EntityId } from '@cqrs-toolkit/client'
 import type { Link } from '@meticoeus/ddd-es'
 
 /**
- * Constraint for queryable items — must have a string `id` property.
+ * Constraint for queryable items — must have an `id` property.
+ * The id is `EntityId` (string | EntityRef): plain string for server-confirmed
+ * entities, EntityRef for locally-created entities with pending IDs.
  */
 export interface Identifiable {
-  readonly id: string
+  readonly id: EntityId
 }
 
 /**
@@ -33,7 +35,7 @@ export interface ListQueryParams<TLink extends Link> {
  */
 export interface ItemQueryParams<TLink extends Link> {
   collection: string
-  id: string | (() => string)
+  id: EntityId | (() => EntityId)
   cacheKey: CacheKeyIdentity<TLink> | (() => CacheKeyIdentity<TLink> | undefined)
 }
 

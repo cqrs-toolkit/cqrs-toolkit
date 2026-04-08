@@ -42,13 +42,21 @@ import {
 } from '../../types/commands.js'
 import type { RetryConfig } from '../../types/config.js'
 import type {
+  CreateCommandConfig,
   DomainExecutionResult,
   HandlerContext,
   IDomainExecutor,
   ParentRefConfig,
 } from '../../types/domain.js'
 import { autoRevision, isAutoRevision } from '../../types/domain.js'
+import type { EntityRef } from '../../types/entities.js'
+import { createEntityRef } from '../../types/entities.js'
 import type { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventShape.js'
+import {
+  extractTopLevelEntityRefs,
+  resolveRefPaths,
+  stripEntityRefs,
+} from '../entity-ref/ref-path.js'
 import type { ParsedEvent } from '../event-processor/EventProcessorRunner.js'
 import type { EventBus } from '../events/EventBus.js'
 import { WriteQueueException } from '../write-queue/IWriteQueue.js'
@@ -77,11 +85,21 @@ export interface IAnticipatedEventHandler {
     clientId?: string
     /** Cache key string for associating anticipated events with the correct data scope. */
     cacheKey: string
+    /** Creates config from the command handler registration. Used for EntityRef injection. */
+    creates?: CreateCommandConfig
+    /** EntityRef data extracted from command data. Used for EntityRef injection into read model parent ref fields. */
+    entityRefData?: Record<string, EntityRef>
   }): Promise<Result<void, WriteQueueException>>
   /** Clean up anticipated events when command reaches terminal state. Clears local changes for tracked entries. */
   cleanup(commandId: string, terminalStatus: TerminalCommandStatus): Promise<void>
   /** Replace anticipated events for a command (used when data is rewritten after a dependency succeeds). */
-  regenerate(commandId: string, newEvents: unknown[], cacheKey: string): Promise<void>
+  regenerate(
+    commandId: string,
+    newEvents: unknown[],
+    cacheKey: string,
+    creates?: CreateCommandConfig,
+    entityRefData?: Record<string, EntityRef>,
+  ): Promise<void>
   /** Get tracked read model entries for a command (e.g., ["todos:client-abc"]). */
   getTrackedEntries(commandId: string): string[] | undefined
   /** Get anticipated events for a stream, excluding a specific command's events. For re-applying overlays during reconciliation. */
@@ -213,6 +231,17 @@ export class CommandQueue<
     // because the server's response hadn't propagated to the reactive layer yet.
     const patchedCommand = await this.patchFromIdMappingCache(command, registration)
 
+    // Extract EntityRef values from command data. Default: scan top-level fields.
+    // If the registration declares entityRefPaths, also resolve those patterns.
+    const entityRefData = extractEntityRefsFromCommand(
+      patchedCommand.data,
+      registration?.entityRefPaths,
+    )
+    const hasEntityRefs = Object.keys(entityRefData).length > 0
+    const strippedCommand = hasEntityRefs
+      ? { ...patchedCommand, data: stripEntityRefs(patchedCommand.data, entityRefData) }
+      : patchedCommand
+
     // Run domain validation if executor is available and not skipped
     let anticipatedEvents: TEvent[] = []
     let postProcess: CommandRecord<TLink, TCommand>['postProcess']
@@ -224,7 +253,7 @@ export class CommandQueue<
       // entire client factory.
       const initialContext: HandlerContext = { phase: 'initializing' }
       const result = (await this.domainExecutor.execute(
-        patchedCommand,
+        strippedCommand,
         initialContext,
       )) as DomainExecutionResult<TEvent>
 
@@ -240,12 +269,21 @@ export class CommandQueue<
     const explicitDeps = command.dependsOn ?? []
     const autoDeps = this.detectAggregateDependencies(
       commandId,
-      patchedCommand.type,
-      patchedCommand.data,
+      strippedCommand.type,
+      strippedCommand.data,
       anticipatedEvents,
       registration,
     )
-    const allDeps = [...new Set([...explicitDeps, ...autoDeps])]
+
+    // Auto-derive dependencies from EntityRef commandIds
+    const refCommandIds: string[] = []
+    for (const ref of Object.values(entityRefData)) {
+      if (!refCommandIds.includes(ref.commandId)) {
+        refCommandIds.push(ref.commandId)
+      }
+    }
+
+    const allDeps = [...new Set([...explicitDeps, ...autoDeps, ...refCommandIds])]
 
     // Calculate blockedBy from all dependencies (only non-terminal commands)
     const blockedBy: string[] = []
@@ -284,7 +322,7 @@ export class CommandQueue<
       cacheKey,
       service: command.service ?? this.defaultService,
       type: command.type,
-      data: patchedCommand.data,
+      data: strippedCommand.data,
       path: command.path,
       status: initialStatus,
       dependsOn: allDeps,
@@ -292,8 +330,9 @@ export class CommandQueue<
       attempts: 0,
       postProcess,
       creates: registration?.creates,
-      revision: patchedCommand.revision,
+      revision: strippedCommand.revision,
       fileRefs,
+      entityRefData: hasEntityRefs ? entityRefData : undefined,
       createdAt: now,
       updatedAt: now,
     }
@@ -316,6 +355,8 @@ export class CommandQueue<
           events: anticipatedEvents,
           clientId,
           cacheKey: cacheKey.key, // string for EventCache and ReadModelStore
+          creates: registration?.creates,
+          entityRefData: hasEntityRefs ? entityRefData : undefined,
         })
       } catch (err) {
         logProvider.log.error(
@@ -347,7 +388,19 @@ export class CommandQueue<
       })
     }
 
-    return Ok({ commandId, anticipatedEvents })
+    // Build EntityRef for create commands so the consumer has the created entity reference
+    let entityRef: EntityRef | undefined
+    if (registration?.creates) {
+      const createdEntityId = this.extractAggregateIdFromEvents(
+        anticipatedEvents,
+        registration.creates.eventType,
+      )
+      if (typeof createdEntityId === 'string') {
+        entityRef = createEntityRef(createdEntityId, commandId, registration.creates.idStrategy)
+      }
+    }
+
+    return Ok({ commandId, anticipatedEvents, entityRef })
   }
 
   async waitForCompletion(
@@ -721,8 +774,26 @@ export class CommandQueue<
         }
       }
 
+      // Remove resolved EntityRef entries from entityRefData.
+      // When a parent command completes and its ID is rewritten, the corresponding
+      // entityRefData entry is no longer pending — remove it so regenerated
+      // anticipated events don't re-inject an EntityRef for the resolved field.
+      let updatedEntityRefData = command.entityRefData
+      if (updatedEntityRefData && changed) {
+        const pruned: Record<string, EntityRef> = {}
+        for (const [path, ref] of Object.entries(updatedEntityRefData)) {
+          if (!(ref.entityId in idMap)) {
+            pruned[path] = ref
+          }
+        }
+        updatedEntityRefData = Object.keys(pruned).length > 0 ? pruned : undefined
+      }
+
       if (changed) {
-        await this.storage.updateCommand(command.commandId, { data })
+        await this.storage.updateCommand(command.commandId, {
+          data,
+          entityRefData: updatedEntityRefData,
+        })
 
         // Regenerate anticipated events with the correct server ID
         if (this.domainExecutor) {
@@ -737,6 +808,8 @@ export class CommandQueue<
                 command.commandId,
                 result.value.anticipatedEvents as unknown[],
                 command.cacheKey.key,
+                command.creates,
+                updatedEntityRefData,
               )
             } catch (err) {
               logProvider.log.error(
@@ -861,6 +934,8 @@ export class CommandQueue<
             command.commandId,
             result.value.anticipatedEvents as unknown[],
             command.cacheKey.key,
+            command.creates,
+            command.entityRefData,
           )
         } catch (err) {
           logProvider.log.error(
@@ -1323,4 +1398,26 @@ export class CommandQueue<
       await this.processingPromise
     }
   }
+}
+
+/**
+ * Extract EntityRef values from command data.
+ *
+ * Always scans top-level fields. If entityRefPaths are declared on the
+ * handler registration, also resolves those patterns against the data.
+ *
+ * Returns a Record<string, EntityRef> where keys are JSONPath expressions.
+ */
+function extractEntityRefsFromCommand(
+  data: unknown,
+  entityRefPaths?: string[],
+): Record<string, EntityRef> {
+  const topLevel = extractTopLevelEntityRefs(data)
+
+  if (!entityRefPaths || entityRefPaths.length === 0) {
+    return topLevel
+  }
+
+  const declared = resolveRefPaths(data, entityRefPaths)
+  return { ...topLevel, ...declared }
 }

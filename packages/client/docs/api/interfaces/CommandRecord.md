@@ -88,6 +88,14 @@ Commands this command depends on (must complete first)
 
 ---
 
+### entityRefData?
+
+> `optional` **entityRefData**: `Record`\<`string`, [`EntityRef`](EntityRef.md)\>
+
+EntityRef metadata extracted from command data at enqueue time. Maps JSONPath expressions to their EntityRef values.
+
+---
+
 ### error?
 
 > `optional` **error**: `IException`\<`unknown`\>

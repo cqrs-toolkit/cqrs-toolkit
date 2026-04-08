@@ -29,3 +29,11 @@ Anticipated events produced
 > **commandId**: `string`
 
 Assigned command ID
+
+---
+
+### entityRef?
+
+> `optional` **entityRef**: [`EntityRef`](EntityRef.md)
+
+EntityRef for the created entity, if this was a create command.

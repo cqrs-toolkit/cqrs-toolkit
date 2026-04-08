@@ -1,5 +1,7 @@
 import type { IPersistedEvent, Link } from '@meticoeus/ddd-es'
 import type { SeedRecord } from '../../types/config.js'
+import type { CreateCommandConfig } from '../../types/domain.js'
+import type { EntityRef } from '../../types/entities.js'
 import type { CacheKeyIdentity } from '../cache-manager/index.js'
 import type { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventShape.js'
 
@@ -57,6 +59,10 @@ export interface ApplyAnticipatedOp {
    * Passed through to the anticipated event handler for _clientMetadata tracking.
    */
   clientId?: string
+  /** Creates config from the command handler registration. Used for EntityRef injection. */
+  creates?: CreateCommandConfig
+  /** EntityRef data extracted from command data. Used for EntityRef injection into read model parent ref fields. */
+  entityRefData?: Record<string, EntityRef>
 }
 
 /**

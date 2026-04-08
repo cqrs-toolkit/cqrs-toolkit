@@ -3,6 +3,7 @@
  */
 
 import type { IQueryManager } from '@cqrs-toolkit/client'
+import { entityIdToString, isEntityRef } from '@cqrs-toolkit/client'
 import type { Link } from '@meticoeus/ddd-es'
 import { createComputed, onCleanup } from 'solid-js'
 import { createStore, reconcile } from 'solid-js/store'
@@ -50,9 +51,14 @@ export function createItemQuery<TLink extends Link, T extends Identifiable>(
 
   const [store, setStore] = createStore<ItemQueryStore<T>>(initialState)
 
-  // Normalize id to an accessor
+  // Normalize id to a string accessor — EntityRef values are resolved to their entityId string.
+  // typeof cannot discriminate EntityRef (object) from function, so use isEntityRef + typeof string
+  // to narrow the union before falling through to the function case.
+  const paramId = params.id
   const idAccessor: () => string =
-    typeof params.id === 'function' ? params.id : () => params.id as string
+    typeof paramId === 'string' || isEntityRef(paramId)
+      ? () => entityIdToString(paramId)
+      : () => entityIdToString(paramId())
 
   let currentSession: Session | undefined
   // Tracks the effective ID across sessions. Updated when reconciliation changes

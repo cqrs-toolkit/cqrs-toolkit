@@ -33,4 +33,4 @@ Parameters for `createItemQuery`.
 
 ### id
 
-> **id**: `string` \| () => `string`
+> **id**: `EntityId` \| () => `EntityId`

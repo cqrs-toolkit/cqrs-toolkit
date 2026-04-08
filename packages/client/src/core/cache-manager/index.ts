@@ -5,6 +5,7 @@
 export {
   CACHE_KEY_NAMESPACE,
   deriveEntityKey,
+  deriveEntityKeyFromRef,
   deriveScopeKey,
   hydrateCacheKeyIdentity,
   identityToRecord,

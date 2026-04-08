@@ -540,6 +540,134 @@ describe('WriteQueue', () => {
       await resetPromise
     })
   })
+  describe('priority', () => {
+    const wsEvent: ApplyWsEventOp<ServiceLink> = {
+      type: 'apply-ws-event',
+      event: DUMMY_EVENT,
+      cacheKeys: [TODO_CACHE_KEY],
+    }
+
+    const evictOp: EvictCacheKeyOp = {
+      type: 'evict-cache-key',
+      cacheKey: 'key-1',
+    }
+
+    it('default priority (0) preserves FIFO order', async () => {
+      const order: string[] = []
+      const queue = createQueue({
+        handler: async (op) => {
+          order.push(op.type)
+        },
+      })
+
+      await Promise.all([queue.enqueue(wsEvent), queue.enqueue(evictOp), queue.enqueue(wsEvent)])
+
+      expect(order).toEqual(['apply-ws-event', 'evict-cache-key', 'apply-ws-event'])
+    })
+
+    it('higher priority operations process before lower priority', async () => {
+      const { handler, calls } = controllableHandler()
+      const queue = createQueue({ handler })
+      const order: number[] = []
+
+      // Enqueue first op to start processing (blocks the queue)
+      queue.enqueue(wsEvent)
+      await tick()
+
+      // While first op is in-flight, enqueue low then high priority
+      const lowPromise = queue.enqueue(wsEvent, { priority: 0 })
+      const highPromise = queue.enqueue(evictOp, { priority: 10 })
+
+      // Resolve the in-flight op
+      calls[0]!.resolve()
+      await tick()
+
+      // High priority should process next (second call), then low priority (third call)
+      calls[1]!.resolve()
+      await tick()
+      calls[2]!.resolve()
+
+      await Promise.all([lowPromise, highPromise])
+
+      expect(calls[1]!.op.type).toBe('evict-cache-key')
+      expect(calls[2]!.op.type).toBe('apply-ws-event')
+    })
+
+    it('same priority preserves FIFO order', async () => {
+      const { handler, calls } = controllableHandler()
+      const queue = createQueue({ handler })
+
+      // Block the queue with first op
+      queue.enqueue(wsEvent)
+      await tick()
+
+      // Enqueue three ops at same priority
+      queue.enqueue(wsEvent, { priority: 5 })
+      queue.enqueue(evictOp, { priority: 5 })
+      queue.enqueue(wsEvent, { priority: 5 })
+
+      // Resolve all in sequence
+      calls[0]!.resolve()
+      await tick()
+      calls[1]!.resolve()
+      await tick()
+      calls[2]!.resolve()
+      await tick()
+      calls[3]!.resolve()
+      await tick()
+
+      expect(calls[1]!.op.type).toBe('apply-ws-event')
+      expect(calls[2]!.op.type).toBe('evict-cache-key')
+      expect(calls[3]!.op.type).toBe('apply-ws-event')
+    })
+
+    it('session reset discards all pending regardless of priority', async () => {
+      const { handler, calls } = controllableHandler()
+      const evictionHandler = vi.fn()
+      const queue = createQueue({ handler, evictionHandler })
+
+      // Block the queue
+      queue.enqueue(wsEvent)
+      await tick()
+
+      // Enqueue ops at different priorities
+      const p1 = queue.enqueue(wsEvent, { priority: 0 })
+      const p2 = queue.enqueue(evictOp, { priority: 10 })
+
+      // Reset session
+      const resetPromise = queue.resetSession('test')
+      calls[0]!.resolve()
+      await resetPromise
+
+      const r1 = await p1
+      const r2 = await p2
+      expect(r1.ok).toBe(false)
+      expect(r2.ok).toBe(false)
+      expect(evictionHandler).toHaveBeenCalledTimes(2)
+    })
+
+    it('destroy discards all pending regardless of priority', async () => {
+      const { handler, calls } = controllableHandler()
+      const evictionHandler = vi.fn()
+      const queue = createQueue({ handler, evictionHandler })
+
+      // Block the queue
+      queue.enqueue(wsEvent)
+      await tick()
+
+      // Enqueue at different priorities
+      const p1 = queue.enqueue(wsEvent, { priority: 0 })
+      const p2 = queue.enqueue(evictOp, { priority: 10 })
+
+      queue.destroy()
+
+      const r1 = await p1
+      const r2 = await p2
+      expect(r1.ok).toBe(false)
+      expect(r2.ok).toBe(false)
+      expect(evictionHandler).toHaveBeenCalledTimes(2)
+    })
+  })
 })
 
 function registerAll(

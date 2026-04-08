@@ -50,6 +50,7 @@ export {
   CACHE_KEY_NAMESPACE as CACHE_KEY_NS,
   CacheManager,
   deriveEntityKey,
+  deriveEntityKeyFromRef,
   deriveScopeKey,
   hydrateCacheKeyIdentity,
   matchesCacheKey,

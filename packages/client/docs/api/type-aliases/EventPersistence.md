@@ -7,5 +7,3 @@
 # Type Alias: EventPersistence
 
 > **EventPersistence** = `"Permanent"` \| `"Stateful"` \| `"Anticipated"`
-
-Type exports for the CQRS Client library.

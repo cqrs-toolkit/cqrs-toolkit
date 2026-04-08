@@ -20,6 +20,8 @@ SolidJS reactive primitives for @cqrs-toolkit/client.
 ## Functions
 
 - [CqrsProvider](functions/CqrsProvider.md)
+- [createEntityCacheKey](functions/createEntityCacheKey.md)
 - [createItemQuery](functions/createItemQuery.md)
 - [createListQuery](functions/createListQuery.md)
+- [createScopeCacheKey](functions/createScopeCacheKey.md)
 - [useClient](functions/useClient.md)

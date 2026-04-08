@@ -59,6 +59,7 @@ CREATE TABLE commands (
   revision TEXT,
   path TEXT,
   file_refs TEXT,
+  entity_ref_data TEXT,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 )`

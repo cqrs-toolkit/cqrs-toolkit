@@ -58,6 +58,7 @@ import type {
 import { resolveConfig } from './types/config.js'
 import type { CqrsDevToolsHook, DebugStorageAPI } from './types/debug.js'
 import { createDomainExecutor } from './types/domain.js'
+import type { EntityRef } from './types/entities.js'
 import type { LibraryEvent } from './types/events.js'
 import { assert } from './utils/assert.js'
 
@@ -194,9 +195,10 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand> {
     }
 
     const resolvedCommandId = enqueueResult.value.commandId
+    const entityRef = enqueueResult.value.entityRef
 
     // Steps 4-6: Check connectivity, wait or return
-    return this.submitWaitOrReturn(resolvedCommandId, timeout)
+    return this.submitWaitOrReturn(resolvedCommandId, timeout, entityRef)
   }
 
   /**
@@ -205,13 +207,14 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand> {
   private async submitWaitOrReturn<TResponse>(
     commandId: string,
     timeout?: number,
+    entityRef?: EntityRef,
   ): Promise<SubmitResult<TResponse>> {
     // Step 4: Check connectivity
     const online = this.syncManager.connectivity.isOnline()
 
     // Step 5: If offline, return enqueued immediately
     if (!online) {
-      return Ok({ stage: 'enqueued', commandId } satisfies SubmitSuccess<TResponse>)
+      return Ok({ stage: 'enqueued', commandId, entityRef } satisfies SubmitSuccess<TResponse>)
     }
 
     // Step 6: Online — wait for completion
@@ -222,6 +225,7 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand> {
         stage: 'confirmed',
         commandId,
         response: completion.value as TResponse,
+        entityRef,
       } satisfies SubmitSuccess<TResponse>)
     }
 
@@ -229,7 +233,7 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand> {
     if (isCommandTimeout(completion.error)) {
       const stillOnline = this.syncManager.connectivity.isOnline()
       if (!stillOnline) {
-        return Ok({ stage: 'enqueued', commandId } satisfies SubmitSuccess<TResponse>)
+        return Ok({ stage: 'enqueued', commandId, entityRef } satisfies SubmitSuccess<TResponse>)
       }
     }
 

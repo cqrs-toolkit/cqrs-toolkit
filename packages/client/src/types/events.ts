@@ -157,7 +157,7 @@ export interface LibraryEventData<TLink extends Link> {
     data: unknown
   }
   'command:response': { commandId: string; correlationId: string; response: unknown }
-  'writequeue:op-enqueued': { opId: string; opType: string; op: unknown }
+  'writequeue:op-enqueued': { opId: string; opType: string; priority: number; op: unknown }
   'writequeue:op-started': { opId: string; opType: string }
   'writequeue:op-completed': { opId: string; opType: string; durationMs: number }
   'writequeue:op-error': { opId: string; opType: string; error: string }

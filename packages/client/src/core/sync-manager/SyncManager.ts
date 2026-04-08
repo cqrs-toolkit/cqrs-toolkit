@@ -436,6 +436,12 @@ export class SyncManager<
       this.sessionDestroyHandledInline = true
       try {
         await this.writeQueue.resetSession('user-changed')
+        // signalAuthenticated must run inside the flag scope: it calls
+        // wipeAndCreateSession which emits session:destroyed synchronously.
+        // If the flag were already cleared, the destroyedSub subscription
+        // would fire a redundant writeQueue.resetSession that races with
+        // the new session's startSync — wiping seed statuses mid-seed.
+        return await this.sessionManager.signalAuthenticated(params.userId)
       } finally {
         this.sessionDestroyHandledInline = false
       }
@@ -455,6 +461,10 @@ export class SyncManager<
       this.sessionDestroyHandledInline = true
       try {
         await this.writeQueue.resetSession('explicit')
+        // Same as setAuthenticated: signalLoggedOut emits session:destroyed,
+        // which must be suppressed to prevent a redundant reset.
+        await this.sessionManager.signalLoggedOut()
+        return
       } finally {
         this.sessionDestroyHandledInline = false
       }

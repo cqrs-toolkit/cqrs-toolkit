@@ -2,6 +2,8 @@ import { noop } from '#utils'
 import { type Link, logProvider, type Result } from '@meticoeus/ddd-es'
 import { EnqueueCommand, TerminalCommandStatus } from '../../types/commands.js'
 import type { Collection } from '../../types/config.js'
+import type { CreateCommandConfig } from '../../types/domain.js'
+import type { EntityRef } from '../../types/entities.js'
 import type { IAnticipatedEventHandler } from '../command-queue/CommandQueue.js'
 import type { EventCache } from '../event-cache/EventCache.js'
 import type { EventProcessorRunner, ParsedEvent } from '../event-processor/EventProcessorRunner.js'
@@ -43,6 +45,8 @@ export class AnticipatedEventHandler<
     events: TEvent[]
     clientId?: string
     cacheKey: string
+    creates?: CreateCommandConfig
+    entityRefData?: Record<string, EntityRef>
   }): Promise<Result<void, WriteQueueException>> {
     return this.writeQueue.enqueue({
       type: 'apply-anticipated',
@@ -50,6 +54,8 @@ export class AnticipatedEventHandler<
       events: params.events,
       cacheKey: params.cacheKey,
       clientId: params.clientId,
+      creates: params.creates,
+      entityRefData: params.entityRefData,
     })
   }
 
@@ -82,6 +88,10 @@ export class AnticipatedEventHandler<
         data: raw.data,
         commandId,
         cacheKey,
+        entityRefInjection:
+          op.creates || op.entityRefData
+            ? { commandId, creates: op.creates, entityRefData: op.entityRefData }
+            : undefined,
       }
 
       const result = await this.eventProcessorRunner.processEvent(parsed)
@@ -144,6 +154,8 @@ export class AnticipatedEventHandler<
     commandId: string,
     newEvents: TEvent[],
     cacheKey: string,
+    creates?: CreateCommandConfig,
+    entityRefData?: Record<string, EntityRef>,
   ): Promise<void> {
     await this.eventCache.deleteAnticipatedEvents(commandId)
     const tracked = this.anticipatedUpdates.get(commandId)
@@ -157,7 +169,7 @@ export class AnticipatedEventHandler<
         await this.readModelStore.clearLocalChanges(collection, id)
       }
     }
-    await this.cache({ commandId, events: newEvents, cacheKey })
+    await this.cache({ commandId, events: newEvents, cacheKey, creates, entityRefData })
   }
 
   getTrackedEntries(commandId: string): string[] | undefined {
