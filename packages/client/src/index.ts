@@ -49,21 +49,23 @@ export type {
 export {
   CACHE_KEY_NAMESPACE as CACHE_KEY_NS,
   CacheManager,
-  deriveEntityKey,
-  deriveEntityKeyFromRef,
   deriveScopeKey,
   hydrateCacheKeyIdentity,
   matchesCacheKey,
+  templateToIdentity,
 } from './core/cache-manager/index.js'
 export type {
   AcquireCacheKeyOptions,
   CacheKeyIdentity,
   CacheKeyMatcher,
+  CacheKeyTemplate,
   CacheManagerConfig,
   EntityCacheKey,
+  EntityCacheKeyTemplate,
   EntityKeyMatcher,
   ICacheManager,
   ScopeCacheKey,
+  ScopeCacheKeyTemplate,
   ScopeKeyMatcher,
 } from './core/cache-manager/index.js'
 export { CommandQueue, CommandSendException } from './core/command-queue/index.js'

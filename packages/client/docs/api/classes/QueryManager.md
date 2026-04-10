@@ -20,7 +20,7 @@ Query manager.
 
 ## Implements
 
-- [`IQueryManager`](../interfaces/IQueryManager.md)\<`TLink`\>
+- `IQueryManagerInternal`\<`TLink`\>
 
 ## Constructors
 
@@ -36,7 +36,7 @@ Query manager.
 
 ##### cacheManager
 
-[`CacheManager`](CacheManager.md)\<`TLink`, `TCommand`\>
+`ICacheManagerInternal`\<`TLink`\>
 
 ##### readModelStore
 
@@ -70,7 +70,7 @@ Count
 
 #### Implementation of
 
-[`IQueryManager`](../interfaces/IQueryManager.md).[`count`](../interfaces/IQueryManager.md#count)
+`IQueryManagerInternal.count`
 
 ---
 
@@ -86,7 +86,7 @@ Destroy the query manager.
 
 #### Implementation of
 
-[`IQueryManager`](../interfaces/IQueryManager.md).[`destroy`](../interfaces/IQueryManager.md#destroy)
+`IQueryManagerInternal.destroy`
 
 ---
 
@@ -118,7 +118,7 @@ Whether the entity exists
 
 #### Implementation of
 
-[`IQueryManager`](../interfaces/IQueryManager.md).[`exists`](../interfaces/IQueryManager.md#exists)
+`IQueryManagerInternal.exists`
 
 ---
 
@@ -148,7 +148,7 @@ Query result
 
 #### Implementation of
 
-[`IQueryManager`](../interfaces/IQueryManager.md).[`getById`](../interfaces/IQueryManager.md#getbyid)
+`IQueryManagerInternal.getById`
 
 ---
 
@@ -178,25 +178,21 @@ Map of ID to query result
 
 #### Implementation of
 
-[`IQueryManager`](../interfaces/IQueryManager.md).[`getByIds`](../interfaces/IQueryManager.md#getbyids)
+`IQueryManagerInternal.getByIds`
 
 ---
 
 ### hold()
 
-> **hold**(`cacheKey`): `Promise`\<`void`\>
+> **hold**(`_cacheKey`): `Promise`\<`void`\>
 
 Place a hold on a cache key.
-While held, the data cannot be evicted.
-Only calls cacheManager.hold() on the 0→1 transition.
 
 #### Parameters
 
-##### cacheKey
+##### \_cacheKey
 
 `string`
-
-Cache key to hold
 
 #### Returns
 
@@ -204,7 +200,34 @@ Cache key to hold
 
 #### Implementation of
 
-[`IQueryManager`](../interfaces/IQueryManager.md).[`hold`](../interfaces/IQueryManager.md#hold)
+`IQueryManagerInternal.hold`
+
+---
+
+### holdForWindow()
+
+> **holdForWindow**(`cacheKey`, `windowId`): `void`
+
+Place a hold on a cache key for a specific window.
+Ref-counted — only calls cacheManager.holdForWindow() on the 0→1 transition.
+
+#### Parameters
+
+##### cacheKey
+
+`string`
+
+##### windowId
+
+`string`
+
+#### Returns
+
+`void`
+
+#### Implementation of
+
+`IQueryManagerInternal.holdForWindow`
 
 ---
 
@@ -234,7 +257,7 @@ List query result
 
 #### Implementation of
 
-[`IQueryManager`](../interfaces/IQueryManager.md).[`list`](../interfaces/IQueryManager.md#list)
+`IQueryManagerInternal.list`
 
 ---
 
@@ -249,22 +272,23 @@ CacheManager state is already being wiped separately.
 
 `void`
 
+#### Implementation of
+
+`IQueryManagerInternal.onSessionDestroyed`
+
 ---
 
 ### release()
 
-> **release**(`cacheKey`): `Promise`\<`void`\>
+> **release**(`_cacheKey`): `Promise`\<`void`\>
 
 Release a hold on a cache key.
-Only calls cacheManager.release() on the 1→0 transition.
 
 #### Parameters
 
-##### cacheKey
+##### \_cacheKey
 
 `string`
-
-Cache key to release
 
 #### Returns
 
@@ -272,7 +296,7 @@ Cache key to release
 
 #### Implementation of
 
-[`IQueryManager`](../interfaces/IQueryManager.md).[`release`](../interfaces/IQueryManager.md#release)
+`IQueryManagerInternal.release`
 
 ---
 
@@ -281,7 +305,6 @@ Cache key to release
 > **releaseAll**(): `Promise`\<`void`\>
 
 Release all active holds.
-One cacheManager.release() per key regardless of local count.
 
 #### Returns
 
@@ -289,7 +312,29 @@ One cacheManager.release() per key regardless of local count.
 
 #### Implementation of
 
-[`IQueryManager`](../interfaces/IQueryManager.md).[`releaseAll`](../interfaces/IQueryManager.md#releaseall)
+`IQueryManagerInternal.releaseAll`
+
+---
+
+### releaseAllForWindow()
+
+> **releaseAllForWindow**(`windowId`): `void`
+
+Release all holds for a specific window.
+
+#### Parameters
+
+##### windowId
+
+`string`
+
+#### Returns
+
+`void`
+
+#### Implementation of
+
+`IQueryManagerInternal.releaseAllForWindow`
 
 ---
 
@@ -310,6 +355,37 @@ since the cache key has already been evicted from storage.
 #### Returns
 
 `void`
+
+#### Implementation of
+
+`IQueryManagerInternal.releaseForCacheKey`
+
+---
+
+### releaseForWindow()
+
+> **releaseForWindow**(`cacheKey`, `windowId`): `void`
+
+Release a hold on a cache key for a specific window.
+Ref-counted — only calls cacheManager.releaseForWindow() on the 1→0 transition.
+
+#### Parameters
+
+##### cacheKey
+
+`string`
+
+##### windowId
+
+`string`
+
+#### Returns
+
+`void`
+
+#### Implementation of
+
+`IQueryManagerInternal.releaseForWindow`
 
 ---
 
@@ -332,7 +408,7 @@ Extends its lifetime in the cache.
 
 #### Implementation of
 
-[`IQueryManager`](../interfaces/IQueryManager.md).[`touch`](../interfaces/IQueryManager.md#touch)
+`IQueryManagerInternal.touch`
 
 ---
 
@@ -362,7 +438,7 @@ Observable of the entity data
 
 #### Implementation of
 
-[`IQueryManager`](../interfaces/IQueryManager.md).[`watchById`](../interfaces/IQueryManager.md#watchbyid)
+`IQueryManagerInternal.watchById`
 
 ---
 
@@ -389,4 +465,4 @@ Observable of update notifications
 
 #### Implementation of
 
-[`IQueryManager`](../interfaces/IQueryManager.md).[`watchCollection`](../interfaces/IQueryManager.md#watchcollection)
+`IQueryManagerInternal.watchCollection`

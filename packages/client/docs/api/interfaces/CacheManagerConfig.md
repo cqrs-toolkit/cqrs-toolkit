@@ -13,11 +13,3 @@ Cache manager configuration.
 ### cacheConfig?
 
 > `optional` **cacheConfig**: [`CacheConfig`](CacheConfig.md)
-
----
-
-### windowId
-
-> **windowId**: `string`
-
-Unique identifier for this window/tab

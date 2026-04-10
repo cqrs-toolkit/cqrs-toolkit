@@ -8,11 +8,12 @@ import {
   ValidationException,
   type AsyncValidationContext,
 } from '@cqrs-toolkit/client'
+import type { Notebook } from '@cqrs-toolkit/demo-base/notebooks/domain'
 import {
   NOTEBOOK_SEED_KEY,
+  NotebookAggregate,
   NOTEBOOKS_COLLECTION_NAME,
 } from '@cqrs-toolkit/demo-base/notebooks/domain'
-import type { Notebook } from '@cqrs-toolkit/demo-base/notebooks/shared'
 import { Err, Ok, ServiceLink, type Result } from '@meticoeus/ddd-es'
 import type { AppCommandHandlerRegistration } from '../utils/executors.js'
 
@@ -47,13 +48,13 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
   {
     commandType: 'nb.CreateNotebook',
     creates: { eventType: 'NotebookCreated', idStrategy: 'temporary' },
-    async validateAsync(command, context) {
+    async validateAsync(command, _state, context) {
       const { name } = command.data as { name: string }
       const check = await checkNameUniqueness(name, undefined, context)
       if (!check.ok) return check
       return Ok(command.data)
     },
-    handler(command, context) {
+    handler(command, _state, context) {
       const { name } = command.data as { name: string }
       const id = createEntityId(context)
       const now = new Date().toISOString()
@@ -61,27 +62,30 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
         {
           type: 'NotebookCreated',
           data: { id, name, createdAt: now },
-          streamId: `Notebook-${id}`,
+          streamId: NotebookAggregate.getStreamId(id),
         },
       ])
     },
   },
   {
     commandType: 'nb.UpdateNotebookName',
-    async validateAsync(command, context) {
+    async validateAsync(command, _state, context) {
       const { name } = command.data as { name: string }
-      const check = await checkNameUniqueness(name, command.path.id, context)
+      // TODO(command-types): Figure out how we can fix this
+      const { id } = command.path as { id: string }
+      const check = await checkNameUniqueness(name, id, context)
       if (!check.ok) return check
       return Ok(command.data)
     },
     handler(command) {
       const { name } = command.data as { name: string }
-      const { id } = command.path
+      // TODO(command-types): Figure out how we can fix this
+      const { id } = command.path as { id: string }
       return domainSuccess([
         {
           type: 'nb.NotebookNameUpdated',
           data: { id, name, updatedAt: new Date().toISOString() },
-          streamId: `Notebook-${id}`,
+          streamId: NotebookAggregate.getStreamId(id),
         },
       ])
     },
@@ -89,20 +93,24 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
   {
     commandType: 'nb.DeleteNotebook',
     handler(command) {
-      const { id } = command.path
-      return domainSuccess([{ type: 'NotebookDeleted', data: { id }, streamId: `Notebook-${id}` }])
+      // TODO(command-types): Figure out how we can fix this
+      const { id } = command.path as { id: string }
+      return domainSuccess([
+        { type: 'NotebookDeleted', data: { id }, streamId: NotebookAggregate.getStreamId(id) },
+      ])
     },
   },
   {
     commandType: 'nb.AddNotebookTag',
     handler(command) {
       const { tag } = command.data as { tag: string }
-      const { id } = command.path
+      // TODO(command-types): Figure out how we can fix this
+      const { id } = command.path as { id: string }
       return domainSuccess([
         {
           type: 'NotebookTagAdded',
           data: { id, tag },
-          streamId: `Notebook-${id}`,
+          streamId: NotebookAggregate.getStreamId(id),
         },
       ])
     },
@@ -111,12 +119,13 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
     commandType: 'nb.RemoveNotebookTag',
     handler(command) {
       const { tag } = command.data as { tag: string }
-      const { id } = command.path
+      // TODO(command-types): Figure out how we can fix this
+      const { id } = command.path as { id: string }
       return domainSuccess([
         {
           type: 'NotebookTagRemoved',
           data: { id, tag },
-          streamId: `Notebook-${id}`,
+          streamId: NotebookAggregate.getStreamId(id),
         },
       ])
     },

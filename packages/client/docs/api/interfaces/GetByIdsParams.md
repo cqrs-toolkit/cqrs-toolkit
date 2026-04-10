@@ -61,3 +61,17 @@ Place a hold on the cache key while query is active
 > **ids**: `string`[]
 
 Entity IDs
+
+---
+
+### windowId?
+
+> `optional` **windowId**: `string`
+
+**`Internal`**
+
+Window ID for hold tracking. Injected by the facade/proxy.
+
+#### Inherited from
+
+[`QueryOptions`](QueryOptions.md).[`windowId`](QueryOptions.md#windowid)

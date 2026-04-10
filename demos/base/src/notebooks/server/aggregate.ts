@@ -2,16 +2,16 @@
  * Notebook aggregate — server-side event sourcing with AggregateRoot.
  */
 
+import { AggregateRoot, type EventMetadata, type IEvent, createEvent } from '@meticoeus/ddd-es'
+import assert from 'node:assert'
 import type {
-  Notebook,
   NotebookCreatedEvent,
   NotebookDeletedEvent,
   NotebookNameUpdatedEvent,
   NotebookTagAddedEvent,
   NotebookTagRemovedEvent,
-} from '@cqrs-toolkit/demo-base/notebooks/shared'
-import { AggregateRoot, type EventMetadata, type IEvent, createEvent } from '@meticoeus/ddd-es'
-import assert from 'node:assert'
+} from '../shared/index.js'
+import type { Notebook } from './types.js'
 
 export type NotebookServerEvent =
   | IEvent<'NotebookCreated', NotebookCreatedEvent['data'], EventMetadata>
@@ -31,7 +31,7 @@ export class NotebookAggregate extends AggregateRoot<NotebookServerEvent> {
   }
 
   static getStreamName(id: string): string {
-    return `Notebook-${id}`
+    return `nb.Notebook-${id}`
   }
 
   create(data: { name: string }, id: string, metadata: EventMetadata): void {

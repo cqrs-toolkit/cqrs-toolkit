@@ -1,12 +1,12 @@
 import { type CollectionSyncStatus, deriveScopeKey, type LibraryEvent } from '@cqrs-toolkit/client'
 import { appCreateListQuery } from '@cqrs-toolkit/demo-base/common/components'
+import type { Notebook } from '@cqrs-toolkit/demo-base/notebooks/domain'
 import {
   NOTEBOOK_SEED_KEY,
   NOTEBOOKS_COLLECTION_NAME,
 } from '@cqrs-toolkit/demo-base/notebooks/domain'
-import type { Notebook } from '@cqrs-toolkit/demo-base/notebooks/shared'
+import type { Todo } from '@cqrs-toolkit/demo-base/todos/domain'
 import { TODO_SEED_KEY, TODOS_COLLECTION_NAME } from '@cqrs-toolkit/demo-base/todos/domain'
-import type { Todo } from '@cqrs-toolkit/demo-base/todos/shared'
 import { ServiceLink } from '@meticoeus/ddd-es'
 import { A } from '@solidjs/router'
 import { filter } from 'rxjs'

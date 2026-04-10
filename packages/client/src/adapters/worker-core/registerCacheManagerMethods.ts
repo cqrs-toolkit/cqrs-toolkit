@@ -3,7 +3,7 @@
  */
 
 import type { Link } from '@meticoeus/ddd-es'
-import type { CacheKeyIdentity } from '../../core/cache-manager/CacheKey.js'
+import type { CacheKeyIdentity, CacheKeyTemplate } from '../../core/cache-manager/CacheKey.js'
 import type { CacheManager } from '../../core/cache-manager/CacheManager.js'
 import type { AcquireCacheKeyOptions } from '../../core/cache-manager/types.js'
 import type { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
@@ -37,12 +37,12 @@ export function registerCacheManagerMethods<TLink extends Link, TCommand extends
     return cacheManager.touch(args[0] as CacheKeyIdentity<TLink>)
   })
 
-  handler.registerMethod('cacheManager.hold', async (args) => {
-    return cacheManager.hold(args[0] as string)
+  handler.registerMethod('cacheManager.holdForWindow', async (args) => {
+    return cacheManager.holdForWindow(args[0] as string, args[1] as string)
   })
 
-  handler.registerMethod('cacheManager.release', async (args) => {
-    return cacheManager.release(args[0] as string)
+  handler.registerMethod('cacheManager.releaseForWindow', async (args) => {
+    return cacheManager.releaseForWindow(args[0] as string, args[1] as string)
   })
 
   handler.registerMethod('cacheManager.freeze', async (args) => {
@@ -75,5 +75,11 @@ export function registerCacheManagerMethods<TLink extends Link, TCommand extends
 
   handler.registerMethod('cacheManager.filterExistingCacheKeys', async (args) => {
     return cacheManager.filterExistingCacheKeys(args[0] as string[])
+  })
+
+  handler.registerMethod('cacheManager.registerCacheKey', async (args) => {
+    const template = args[0] as CacheKeyTemplate<TLink>
+    const options = args[1] as AcquireCacheKeyOptions | undefined
+    return cacheManager.registerCacheKey(template, options)
   })
 }

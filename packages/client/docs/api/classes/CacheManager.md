@@ -20,13 +20,13 @@ Cache manager implementation.
 
 ## Implements
 
-- [`ICacheManager`](../interfaces/ICacheManager.md)\<`TLink`\>
+- `ICacheManagerInternal`\<`TLink`\>
 
 ## Constructors
 
 ### Constructor
 
-> **new CacheManager**\<`TLink`, `TCommand`\>(`storage`, `eventBus`, `config`): `CacheManager`\<`TLink`, `TCommand`\>
+> **new CacheManager**\<`TLink`, `TCommand`\>(`storage`, `eventBus`, `config?`): `CacheManager`\<`TLink`, `TCommand`\>
 
 #### Parameters
 
@@ -38,9 +38,9 @@ Cache manager implementation.
 
 [`EventBus`](EventBus.md)\<`TLink`\>
 
-##### config
+##### config?
 
-[`CacheManagerConfig`](../interfaces/CacheManagerConfig.md)
+[`CacheManagerConfig`](../interfaces/CacheManagerConfig.md) = `{}`
 
 #### Returns
 
@@ -71,7 +71,7 @@ Convenience wrapper around [acquireKey](#acquirekey) for callers that only need 
 
 #### Implementation of
 
-[`ICacheManager`](../interfaces/ICacheManager.md).[`acquire`](../interfaces/ICacheManager.md#acquire)
+`ICacheManagerInternal.acquire`
 
 ---
 
@@ -79,8 +79,12 @@ Convenience wrapper around [acquireKey](#acquirekey) for callers that only need 
 
 > **acquireKey**(`cacheKey`, `options?`): `Promise`\<[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>\>
 
-Acquire a cache key identity. Creates the cache key in storage if it doesn't exist.
-Returns the full identity object with the derived UUID key and all source data.
+Acquire a cache key identity. Creates or updates in the in-memory registry.
+Returns the full identity object with the UUID key and all source data.
+
+For keys created via `registerCacheKey`, the registry already has the entry —
+this just touches lastAccessedAt and applies hold. For UUID v5 keys (e.g., from
+`deriveScopeKey`), the registry entry is created here.
 
 #### Parameters
 
@@ -98,7 +102,7 @@ Returns the full identity object with the derived UUID key and all source data.
 
 #### Implementation of
 
-[`ICacheManager`](../interfaces/ICacheManager.md).[`acquireKey`](../interfaces/ICacheManager.md#acquirekey)
+`ICacheManagerInternal.acquireKey`
 
 ---
 
@@ -140,7 +144,7 @@ Whether eviction succeeded
 
 #### Implementation of
 
-[`ICacheManager`](../interfaces/ICacheManager.md).[`evict`](../interfaces/ICacheManager.md#evict)
+`ICacheManagerInternal.evict`
 
 ---
 
@@ -158,7 +162,7 @@ Number of cache keys evicted
 
 #### Implementation of
 
-[`ICacheManager`](../interfaces/ICacheManager.md).[`evictAll`](../interfaces/ICacheManager.md#evictall)
+`ICacheManagerInternal.evictAll`
 
 ---
 
@@ -176,7 +180,7 @@ Number of cache keys evicted
 
 #### Implementation of
 
-[`ICacheManager`](../interfaces/ICacheManager.md).[`evictExpired`](../interfaces/ICacheManager.md#evictexpired)
+`ICacheManagerInternal.evictExpired`
 
 ---
 
@@ -202,7 +206,7 @@ Whether the cache key exists
 
 #### Implementation of
 
-[`ICacheManager`](../interfaces/ICacheManager.md).[`exists`](../interfaces/ICacheManager.md#exists)
+`ICacheManagerInternal.exists`
 
 ---
 
@@ -228,7 +232,7 @@ The subset of keys that exist
 
 #### Implementation of
 
-[`ICacheManager`](../interfaces/ICacheManager.md).[`filterExistingCacheKeys`](../interfaces/ICacheManager.md#filterexistingcachekeys)
+`ICacheManagerInternal.filterExistingCacheKeys`
 
 ---
 
@@ -252,7 +256,7 @@ Cache key UUID
 
 #### Implementation of
 
-[`ICacheManager`](../interfaces/ICacheManager.md).[`freeze`](../interfaces/ICacheManager.md#freeze)
+`ICacheManagerInternal.freeze`
 
 ---
 
@@ -278,7 +282,7 @@ Cache key record or undefined
 
 #### Implementation of
 
-[`ICacheManager`](../interfaces/ICacheManager.md).[`get`](../interfaces/ICacheManager.md#get)
+`ICacheManagerInternal.get`
 
 ---
 
@@ -296,21 +300,20 @@ Total cache key count
 
 #### Implementation of
 
-[`ICacheManager`](../interfaces/ICacheManager.md).[`getCount`](../interfaces/ICacheManager.md#getcount)
+`ICacheManagerInternal.getCount`
 
 ---
 
 ### hold()
 
-> **hold**(`key`): `Promise`\<`void`\>
+> **hold**(`_key`): `Promise`\<`void`\>
 
-Place a hold on a cache key for this window.
-While held by any window, the cache key cannot be evicted.
-Idempotent: calling hold twice for the same window is a no-op.
+Place a hold on a cache key.
+While held, the cache key cannot be evicted.
 
 #### Parameters
 
-##### key
+##### \_key
 
 `string`
 
@@ -320,7 +323,35 @@ Idempotent: calling hold twice for the same window is a no-op.
 
 #### Implementation of
 
-[`ICacheManager`](../interfaces/ICacheManager.md).[`hold`](../interfaces/ICacheManager.md#hold)
+`ICacheManagerInternal.hold`
+
+---
+
+### holdForWindow()
+
+> **holdForWindow**(`key`, `windowId`): `void`
+
+Place a hold on a cache key for a specific window.
+While held by any window, the cache key cannot be evicted.
+Idempotent: calling hold twice for the same window is a no-op.
+
+#### Parameters
+
+##### key
+
+`string`
+
+##### windowId
+
+`string`
+
+#### Returns
+
+`void`
+
+#### Implementation of
+
+`ICacheManagerInternal.holdForWindow`
 
 ---
 
@@ -329,11 +360,16 @@ Idempotent: calling hold twice for the same window is a no-op.
 > **initialize**(): `Promise`\<`void`\>
 
 Initialize the cache manager.
-Resets all persisted hold counts, evicts ephemeral keys, and registers this window.
+Loads persisted cache keys into the in-memory registry,
+resets hold counts, evicts ephemeral keys, and registers this window.
 
 #### Returns
 
 `Promise`\<`void`\>
+
+#### Implementation of
+
+`ICacheManagerInternal.initialize`
 
 ---
 
@@ -359,7 +395,7 @@ Whether the cache key is frozen
 
 #### Implementation of
 
-[`ICacheManager`](../interfaces/ICacheManager.md).[`isFrozen`](../interfaces/ICacheManager.md#isfrozen)
+`ICacheManagerInternal.isFrozen`
 
 ---
 
@@ -372,6 +408,66 @@ Handle session destroyed — clears all cache state.
 #### Returns
 
 `Promise`\<`void`\>
+
+#### Implementation of
+
+`ICacheManagerInternal.onSessionDestroyed`
+
+---
+
+### registerCacheKey()
+
+> **registerCacheKey**(`template`, `options?`): `Promise`\<[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>\>
+
+Register a cache key from a template. Assigns a stable opaque UUID.
+Auto-wires pending ID reconciliation from EntityRef values in the template.
+
+Async wrapper around registerCacheKeySync — schedules a dirty flush after.
+
+#### Parameters
+
+##### template
+
+[`CacheKeyTemplate`](../type-aliases/CacheKeyTemplate.md)\<`TLink`\>
+
+##### options?
+
+[`AcquireCacheKeyOptions`](../interfaces/AcquireCacheKeyOptions.md)
+
+#### Returns
+
+`Promise`\<[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>\>
+
+#### Implementation of
+
+`ICacheManagerInternal.registerCacheKey`
+
+---
+
+### registerCacheKeySync()
+
+> **registerCacheKeySync**(`template`, `options?`): [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
+Synchronous registration. Called by internal callers in the same thread.
+Does not touch storage — the dirty flush handles persistence.
+
+#### Parameters
+
+##### template
+
+[`CacheKeyTemplate`](../type-aliases/CacheKeyTemplate.md)\<`TLink`\>
+
+##### options?
+
+[`AcquireCacheKeyOptions`](../interfaces/AcquireCacheKeyOptions.md)
+
+#### Returns
+
+[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
+#### Implementation of
+
+`ICacheManagerInternal.registerCacheKeySync`
 
 ---
 
@@ -392,19 +488,21 @@ Returns false and emits event if at capacity.
 
 `boolean`
 
+#### Implementation of
+
+`ICacheManagerInternal.registerWindow`
+
 ---
 
 ### release()
 
-> **release**(`key`): `Promise`\<`void`\>
+> **release**(`_key`): `Promise`\<`void`\>
 
-Release a hold on a cache key for this window.
-If this was the last window holding the key, the persisted holdCount drops to 0.
-Ephemeral keys are auto-evicted when the last hold is released.
+Release a hold on a cache key.
 
 #### Parameters
 
-##### key
+##### \_key
 
 `string`
 
@@ -414,7 +512,7 @@ Ephemeral keys are auto-evicted when the last hold is released.
 
 #### Implementation of
 
-[`ICacheManager`](../interfaces/ICacheManager.md).[`release`](../interfaces/ICacheManager.md#release)
+`ICacheManagerInternal.release`
 
 ---
 
@@ -434,6 +532,132 @@ Used for tab-death cleanup.
 #### Returns
 
 `Promise`\<`void`\>
+
+---
+
+### releaseForWindow()
+
+> **releaseForWindow**(`key`, `windowId`): `void`
+
+Release a hold on a cache key for a specific window.
+If this was the last window holding the key, the persisted holdCount drops to 0.
+Ephemeral keys are auto-evicted when the last hold is released.
+
+#### Parameters
+
+##### key
+
+`string`
+
+##### windowId
+
+`string`
+
+#### Returns
+
+`void`
+
+#### Implementation of
+
+`ICacheManagerInternal.releaseForWindow`
+
+---
+
+### releaseHolds()
+
+> **releaseHolds**(`keys`): `void`
+
+Release all holds on the given cache keys across all windows.
+Used by QueryManager.destroy() to clean up without knowing window IDs.
+
+#### Parameters
+
+##### keys
+
+`string`[]
+
+#### Returns
+
+`void`
+
+#### Implementation of
+
+`ICacheManagerInternal.releaseHolds`
+
+---
+
+### resolvePendingKeys()
+
+> **resolvePendingKeys**(`commandId`, `idMap`, `resolveCacheKey?`): `void`
+
+Resolve pending cache keys when a command succeeds with ID mappings.
+Called by CommandQueue after reconcileCreateIds.
+
+#### Parameters
+
+##### commandId
+
+`string`
+
+The succeeded command's ID
+
+##### idMap
+
+`Record`\<`string`, \{ `commandType`: `string`; `serverId`: `string`; \}\>
+
+clientId → { serverId, commandType } mappings
+
+##### resolveCacheKey?
+
+(`cacheKey`) => [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
+Optional custom resolver from command handler registration
+
+#### Returns
+
+`void`
+
+#### Implementation of
+
+`ICacheManagerInternal.resolvePendingKeys`
+
+---
+
+### setCommandQueue()
+
+> **setCommandQueue**(`commandQueue`): `void`
+
+Set the CommandQueue reference for synchronous id mapping lookup.
+Called after construction by the orchestrator to break the circular dependency.
+
+#### Parameters
+
+##### commandQueue
+
+`ICommandQueueInternal`\<`TLink`, `TCommand`\>
+
+#### Returns
+
+`void`
+
+---
+
+### setWriteQueue()
+
+> **setWriteQueue**(`writeQueue`): `void`
+
+Set the WriteQueue reference for dirty flush scheduling.
+Called after construction by the orchestrator.
+
+#### Parameters
+
+##### writeQueue
+
+`IWriteQueue`\<`TLink`\>
+
+#### Returns
+
+`void`
 
 ---
 
@@ -459,7 +683,7 @@ Cache key identity
 
 #### Implementation of
 
-[`ICacheManager`](../interfaces/ICacheManager.md).[`touch`](../interfaces/ICacheManager.md#touch)
+`ICacheManagerInternal.touch`
 
 ---
 
@@ -483,7 +707,7 @@ Cache key UUID
 
 #### Implementation of
 
-[`ICacheManager`](../interfaces/ICacheManager.md).[`unfreeze`](../interfaces/ICacheManager.md#unfreeze)
+`ICacheManagerInternal.unfreeze`
 
 ---
 
@@ -502,3 +726,7 @@ Unregister a window, releasing all its holds.
 #### Returns
 
 `Promise`\<`void`\>
+
+#### Implementation of
+
+`ICacheManagerInternal.unregisterWindow`

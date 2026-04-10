@@ -12,6 +12,7 @@ import { deriveScopeKey } from '../core/cache-manager/CacheKey.js'
 import type { IAnticipatedEvent } from '../core/command-lifecycle/AnticipatedEventShape.js'
 import type { ICommandSender } from '../core/command-queue/types.js'
 import type { ProcessorRegistration } from '../core/event-processor/types.js'
+import { TodoAggregate } from '../testing/index.js'
 import type { EnqueueCommand } from '../types/commands.js'
 import type { Collection } from '../types/config.js'
 import type { CommandHandlerRegistration } from '../types/domain.js'
@@ -44,6 +45,7 @@ export const TODO_SCOPE_KEY = deriveScopeKey({ scopeType: 'todos' })
 export function createTodosCollection(): Collection<ServiceLink> {
   return {
     name: 'todos',
+    aggregate: TodoAggregate,
     matchesStream: (streamId) => streamId.startsWith('Todo-'),
     cacheKeysFromTopics: () => [TODO_SCOPE_KEY],
     seedOnInit: { cacheKey: TODO_SCOPE_KEY, topics: ['todos'] },

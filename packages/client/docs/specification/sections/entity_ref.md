@@ -147,13 +147,21 @@ The cache key system must treat permanent-strategy `EntityRef` values as stable 
 
 ## 15.5 Boundaries
 
-### 15.5.1 Read model hydration (EntityRef injection point)
+### 15.5.1 EntityRef in anticipated events
 
-`EntityRef` is injected at the boundary where anticipated events become read model data.
-The event processor (or a layer above it) hydrates ID fields for anticipated events using metadata from the originating command:
+EntityRef values flow into anticipated events naturally through the handler.
 
-- **Entity's own ID**: from the command's `creates` config — if `idStrategy === 'temporary'`, wrap the ID field in `EntityRef`.
-- **Parent reference fields**: from `entityRefData` on the command record (see §15.5.2) — if a field was submitted as `EntityRef`, preserve it in the read model.
+At enqueue, EntityRef values are stripped from command data for validation (§15.5.2).
+After validation, EntityRef values are re-injected into the command data before the handler runs.
+The handler produces anticipated events that carry EntityRef values in parent reference fields.
+The event processor receives these values and maps them to read model fields — the library makes no assumptions about field name correspondence between command data and read model data.
+
+**Entity's own ID**: the handler generates this via `createEntityId(context)`, which always returns a plain string.
+Post-processor injection wraps the entity's own `id` in the read model data using the command's `creates` config.
+
+**Parent reference fields**: these arrive in the handler's event data as EntityRef values (re-injected before the handler ran).
+The processor places them in the read model wherever appropriate.
+The library does not inject or transform parent reference fields — the processor is responsible for mapping them.
 
 Server events always produce plain string IDs.
 `EntityRef` must never appear in server-seeded read model data.
@@ -178,18 +186,25 @@ At the enqueue boundary, the library must:
 1. Walk the command data fields and identify `EntityRef` values.
 2. Extract them into a separate `entityRefData` map stored on the command record.
 3. Replace them with plain `entityId` strings in the command data.
+4. Run validation (schema, validate, validateAsync) on the stripped data.
+5. Re-inject EntityRef values into the command data before the handler runs.
+6. The handler produces anticipated events with EntityRef values in parent reference fields.
+7. Strip EntityRef values again before sending the command to the server.
 
 ```
 Consumer submits:
   data: { notebookId: EntityRef{ entityId: 'nb-1', commandId: 'cmd-1', ... }, title: 'hello' }
 
 Library splits at enqueue:
-  command.data:          { notebookId: 'nb-1', title: 'hello' }
-  command.entityRefData: { notebookId: EntityRef{ ... } }
+  command.data (for validation):  { notebookId: 'nb-1', title: 'hello' }
+  command.data (for handler):     { notebookId: EntityRef{ ... }, title: 'hello' }
+  command.data (for server):      { notebookId: 'nb-1', title: 'hello' }
+  command.entityRefData:          { '$.notebookId': EntityRef{ ... } }
 ```
 
-The command pipeline (validation, handlers, server payloads) always works with plain strings.
-`entityRefData` is library-internal metadata on the command record.
+Validation and the server see plain strings.
+The handler sees EntityRef values so anticipated events carry lifecycle metadata.
+`entityRefData` is library-internal metadata on the command record, used for re-injection and stored for reconciliation.
 
 #### entityRefData
 
@@ -217,7 +232,7 @@ Declared path extraction (nested and array structures):
 }
 ```
 
-Re-injection (§15.5.1) uses the same paths to set `EntityRef` values back into read model data.
+Re-injection uses these paths to restore `EntityRef` values into command data before the handler runs (§15.5.2 step 5).
 
 #### 15.5.2.1 Entity ref path expressions
 
@@ -251,9 +266,11 @@ The library must resolve declaration paths against command data at extraction ti
 
 ### 15.5.3 Handlers and validation
 
-Command handlers, schema validation (Zod), and `validateAsync` all receive plain string data.
-The handler API is unaffected.
-`entityRefData` extraction occurs before validation runs.
+Schema validation (Zod), `validate`, and `validateAsync` receive plain string data — EntityRef values are stripped before validation runs.
+
+Command handlers receive re-injected data with EntityRef values in parent reference fields.
+The handler passes these values through to anticipated event data.
+Handlers must not interpolate EntityRef values into strings (e.g., streamIds) — use the entity's own ID from `createEntityId(context)` for streamId construction.
 
 ### 15.5.4 Submit result enrichment
 

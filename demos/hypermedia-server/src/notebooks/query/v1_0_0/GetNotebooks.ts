@@ -2,8 +2,7 @@
  * Notebook collection resolver — v1.0.0.
  */
 
-import type { NotebookRepository } from '@cqrs-toolkit/demo-base/notebooks/server'
-import type { Notebook } from '@cqrs-toolkit/demo-base/notebooks/shared'
+import type { Notebook, NotebookRepository } from '@cqrs-toolkit/demo-base/notebooks/server'
 import type { CursorPagination, HypermediaTypes } from '@cqrs-toolkit/hypermedia'
 import { Hypermedia, type RepliedValue, type ResolvedValue } from '@cqrs-toolkit/hypermedia/server'
 import { Ok, type Result } from '@meticoeus/ddd-es'

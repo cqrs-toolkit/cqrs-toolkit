@@ -1,6 +1,6 @@
 import { type ProcessorRegistration } from '@cqrs-toolkit/client'
+import type { Todo } from '@cqrs-toolkit/demo-base/todos/domain'
 import type {
-  Todo,
   TodoContentUpdatedEvent,
   TodoCreatedEvent,
   TodoDeletedEvent,

@@ -2,7 +2,6 @@
  * Note repository — extends Repository with a read model cache for queries.
  */
 
-import type { Note } from '@cqrs-toolkit/demo-base/notes/shared'
 import {
   Repository,
   type ConcurrencyException,
@@ -13,6 +12,7 @@ import {
   type SaveEventSuccess,
 } from '@meticoeus/ddd-es'
 import { NoteAggregate, type NoteServerEvent } from './aggregate.js'
+import type { Note } from './types.js'
 
 export class NoteRepository extends Repository<NoteServerEvent, NoteAggregate> {
   private readonly readModels = new Map<string, Note>()

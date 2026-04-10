@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { createEntityRef } from '../../types/entities.js'
+import { createEntityRef, isEntityRef } from '../../types/entities.js'
 import {
   extractTopLevelEntityRefs,
+  findMatchingPaths,
   getAtPath,
   resolveRefPaths,
   setAtPath,
@@ -92,6 +93,123 @@ describe('setAtPath', () => {
 
   it('creates intermediate objects if missing', () => {
     expect(setAtPath({}, '$.a.b', 1)).toEqual({ a: { b: 1 } })
+  })
+})
+
+describe('findMatchingPaths', () => {
+  it('returns a single concrete path for a non-wildcard pattern', () => {
+    const data = { notebookId: 'nb-1' }
+    const result = findMatchingPaths(data, '$.notebookId', (v) => v === 'nb-1')
+    expect(result).toEqual([{ path: '$.notebookId', value: 'nb-1' }])
+  })
+
+  it('returns empty when predicate does not match', () => {
+    const data = { notebookId: 'nb-1' }
+    const result = findMatchingPaths(data, '$.notebookId', (v) => v === 'other')
+    expect(result).toEqual([])
+  })
+
+  it('returns empty when path does not resolve', () => {
+    const data = { other: 'value' }
+    const result = findMatchingPaths(data, '$.notebookId', () => true)
+    expect(result).toEqual([])
+  })
+
+  it('expands a wildcard over array elements and filters by predicate', () => {
+    const data = {
+      attachments: [
+        { fileObjectId: 'file-1' },
+        { fileObjectId: 'file-2' },
+        { fileObjectId: 'file-3' },
+      ],
+    }
+    const result = findMatchingPaths(data, '$.attachments[*].fileObjectId', (v) => v === 'file-2')
+    expect(result).toEqual([{ path: '$.attachments[1].fileObjectId', value: 'file-2' }])
+  })
+
+  it('returns multiple matches when several elements satisfy the predicate', () => {
+    const data = {
+      attachments: [
+        { fileObjectId: 'target' },
+        { fileObjectId: 'other' },
+        { fileObjectId: 'target' },
+      ],
+    }
+    const result = findMatchingPaths(data, '$.attachments[*].fileObjectId', (v) => v === 'target')
+    expect(result).toEqual([
+      { path: '$.attachments[0].fileObjectId', value: 'target' },
+      { path: '$.attachments[2].fileObjectId', value: 'target' },
+    ])
+  })
+
+  it('expands nested wildcards', () => {
+    const data = {
+      sections: [{ items: [{ parentId: 'a' }, { parentId: 'b' }] }, { items: [{ parentId: 'a' }] }],
+    }
+    const result = findMatchingPaths(data, '$.sections[*].items[*].parentId', (v) => v === 'a')
+    expect(result).toEqual([
+      { path: '$.sections[0].items[0].parentId', value: 'a' },
+      { path: '$.sections[1].items[0].parentId', value: 'a' },
+    ])
+  })
+
+  it('returns matches against EntityRef values via isEntityRef predicate', () => {
+    const data = { forms: [{ id: ref1 }, { id: 'plain' }, { id: ref2 }] }
+    const result = findMatchingPaths(data, '$.forms[*].id', isEntityRef)
+    expect(result).toEqual([
+      { path: '$.forms[0].id', value: ref1 },
+      { path: '$.forms[2].id', value: ref2 },
+    ])
+  })
+
+  it('matches Link objects via a structural predicate', () => {
+    const data = {
+      assignee: { service: 'auth', type: 'User', id: 'user-1' },
+    }
+    const result = findMatchingPaths(
+      data,
+      '$.assignee',
+      (v) =>
+        typeof v === 'object' &&
+        v !== null &&
+        'type' in v &&
+        (v as { type: unknown }).type === 'User',
+    )
+    expect(result).toEqual([
+      { path: '$.assignee', value: { service: 'auth', type: 'User', id: 'user-1' } },
+    ])
+  })
+
+  it('skips wildcard on a non-array value', () => {
+    const data = { attachments: 'not-an-array' }
+    const result = findMatchingPaths(data, '$.attachments[*].id', () => true)
+    expect(result).toEqual([])
+  })
+
+  it('skips missing intermediate paths', () => {
+    const data = { a: 1 }
+    const result = findMatchingPaths(data, '$.b.c.d', () => true)
+    expect(result).toEqual([])
+  })
+
+  it('returned paths can be used with setAtPath', () => {
+    const data = {
+      attachments: [{ fileObjectId: 'old' }, { fileObjectId: 'keep' }, { fileObjectId: 'old' }],
+    }
+    const matches = findMatchingPaths(data, '$.attachments[*].fileObjectId', (v) => v === 'old')
+    let updated: unknown = data
+    for (const { path } of matches) {
+      updated = setAtPath(updated, path, 'new')
+    }
+    expect(updated).toEqual({
+      attachments: [{ fileObjectId: 'new' }, { fileObjectId: 'keep' }, { fileObjectId: 'new' }],
+    })
+  })
+
+  it('does not mutate the original data', () => {
+    const data = { items: [{ id: 'a' }, { id: 'b' }] }
+    findMatchingPaths(data, '$.items[*].id', () => true)
+    expect(data).toEqual({ items: [{ id: 'a' }, { id: 'b' }] })
   })
 })
 

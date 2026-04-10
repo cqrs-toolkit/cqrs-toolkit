@@ -1,6 +1,6 @@
 import type { ProcessorRegistration } from '@cqrs-toolkit/client'
+import type { FileObject } from '@cqrs-toolkit/demo-base/file-objects/domain'
 import type {
-  FileObject,
   FileObjectCreatedEvent,
   FileObjectDeletedEvent,
 } from '@cqrs-toolkit/demo-base/file-objects/shared'

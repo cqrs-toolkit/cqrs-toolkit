@@ -1,7 +1,8 @@
 import { createMutationEditState } from '#common/components'
-import type { Todo, TodoStatus } from '#todos/shared'
-import type { AutoRevision, SubmitResult } from '@cqrs-toolkit/client'
+import { AutoRevision, EntityId, entityIdToString, SubmitResult } from '@cqrs-toolkit/client'
 import { createSignal, Show } from 'solid-js'
+import type { Todo } from '../domain/index.js'
+import type { TodoStatus } from '../shared/index.js'
 
 const STATUS_CLASS: Record<TodoStatus, string> = {
   pending: 'pending',
@@ -12,16 +13,19 @@ const STATUS_CLASS: Record<TodoStatus, string> = {
 interface TodoItemProps {
   todo: Todo
   onSubmitChangeStatus: (params: {
-    id: string
+    id: EntityId
     status: TodoStatus
     revision: AutoRevision
   }) => Promise<SubmitResult<unknown>>
   onSubmitUpdateContent: (params: {
-    id: string
+    id: EntityId
     content: string
     revision: AutoRevision
   }) => Promise<SubmitResult<unknown>>
-  onSubmitDelete: (params: { id: string; revision: AutoRevision }) => Promise<SubmitResult<unknown>>
+  onSubmitDelete: (params: {
+    id: EntityId
+    revision: AutoRevision
+  }) => Promise<SubmitResult<unknown>>
   onError: (message: string | undefined) => void
 }
 
@@ -143,7 +147,7 @@ export function TodoItem(props: TodoItemProps) {
         liRef = el
         el.addEventListener('requestedit', () => startEdit())
       }}
-      id={`todo-${props.todo.id}`}
+      id={`todo-${entityIdToString(props.todo.id)}`}
       class={`todo-item ${STATUS_CLASS[props.todo.status]} flex items-center gap-2 p-2 rounded border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800`}
       onFocusOut={handleFocusOut}
     >

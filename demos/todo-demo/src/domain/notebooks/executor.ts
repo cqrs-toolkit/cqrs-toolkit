@@ -9,13 +9,14 @@ import {
   ValidationException,
   type AsyncValidationContext,
 } from '@cqrs-toolkit/client'
+import type { Notebook } from '@cqrs-toolkit/demo-base/notebooks/domain'
+import { NotebookAggregate } from '@cqrs-toolkit/demo-base/notebooks/domain'
 import {
   addNotebookTagPayloadSchema,
   createNotebookPayloadSchema,
   deleteNotebookPayloadSchema,
   removeNotebookTagPayloadSchema,
   updateNotebookNamePayloadSchema,
-  type Notebook,
 } from '@cqrs-toolkit/demo-base/notebooks/shared'
 import { Err, Ok, ServiceLink, type Result } from '@meticoeus/ddd-es'
 import type { AppCommandHandlerRegistration } from '../utils/executors.js'
@@ -52,13 +53,13 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
     commandType: 'CreateNotebook',
     schema: createNotebookPayloadSchema,
     creates: { eventType: 'NotebookCreated', idStrategy: 'temporary' },
-    async validateAsync(command, context) {
+    async validateAsync(command, _state, context) {
       const { name } = command.data as { name: string }
       const check = await checkNameUniqueness(name, undefined, context)
       if (!check.ok) return check
       return Ok(command.data)
     },
-    handler(command, context) {
+    handler(command, _state, context) {
       const { name } = command.data as { name: string }
       const id = createEntityId(context)
       const now = new Date().toISOString()
@@ -66,7 +67,7 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
         {
           type: 'NotebookCreated',
           data: { id, name, createdAt: now },
-          streamId: `Notebook-${id}`,
+          streamId: NotebookAggregate.getStreamId(id),
         },
       ])
     },
@@ -74,7 +75,7 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
   {
     commandType: 'UpdateNotebookName',
     schema: updateNotebookNamePayloadSchema,
-    async validateAsync(command, context) {
+    async validateAsync(command, _state, context) {
       const { id, name } = command.data as { id: string; name: string }
       const check = await checkNameUniqueness(name, id, context)
       if (!check.ok) return check
@@ -86,7 +87,7 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
         {
           type: 'NotebookNameUpdated',
           data: { id, name, updatedAt: new Date().toISOString() },
-          streamId: `Notebook-${id}`,
+          streamId: NotebookAggregate.getStreamId(id),
         },
       ])
     },
@@ -100,7 +101,7 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
         {
           type: 'NotebookDeleted',
           data: { id },
-          streamId: `Notebook-${id}`,
+          streamId: NotebookAggregate.getStreamId(id),
         },
       ])
     },
@@ -114,7 +115,7 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
         {
           type: 'NotebookTagAdded',
           data: { id, tag },
-          streamId: `Notebook-${id}`,
+          streamId: NotebookAggregate.getStreamId(id),
         },
       ])
     },
@@ -128,7 +129,7 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
         {
           type: 'NotebookTagRemoved',
           data: { id, tag },
-          streamId: `Notebook-${id}`,
+          streamId: NotebookAggregate.getStreamId(id),
         },
       ])
     },

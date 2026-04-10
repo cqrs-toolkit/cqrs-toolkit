@@ -36,5 +36,10 @@ export type { ICommandFileStore } from './core/command-queue/file-store/ICommand
 export { AbstractConnectivityManager } from './core/sync-manager/AbstractConnectivityManager.js'
 export type { IConnectivityManager } from './core/sync-manager/IConnectivityManager.js'
 
+// Internal interfaces for sibling packages that wire up concrete classes
+export type { ICacheManagerInternal } from './core/cache-manager/types.js'
+export type { ICommandQueueInternal } from './core/command-queue/types.js'
+export type { IQueryManagerInternal } from './core/query-manager/types.js'
+
 // Storage types needed by alternative ISqliteDb implementations
 export type { SqliteBatchStatement } from './storage/ISqliteDb.js'

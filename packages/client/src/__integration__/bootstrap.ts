@@ -134,9 +134,7 @@ async function wireComponents(
   }
 
   // 5. CacheManager
-  const cacheManager = new CacheManager<TLink, TCommand>(storage, eventBus, {
-    windowId: 'integration-test',
-  })
+  const cacheManager = new CacheManager<TLink, TCommand>(storage, eventBus, {})
   await cacheManager.initialize()
 
   // 6. EventCache + ReadModelStore
@@ -209,6 +207,11 @@ async function wireComponents(
     collections,
   )
   syncManagerRef = syncManager
+
+  // Wire cross-dependencies (property-set to break circular refs)
+  cacheManager.setWriteQueue(writeQueue)
+  cacheManager.setCommandQueue(commandQueue)
+  commandQueue.setCacheManager(cacheManager)
 
   // Cleanup function
   async function destroy(): Promise<void> {

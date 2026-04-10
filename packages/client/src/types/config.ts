@@ -4,10 +4,15 @@
 
 import type { IPersistedEvent, Link } from '@meticoeus/ddd-es'
 import type { AuthStrategy } from '../core/auth.js'
-import type { CacheKeyIdentity, CacheKeyMatcher } from '../core/cache-manager/CacheKey.js'
+import type {
+  CacheKeyIdentity,
+  CacheKeyMatcher,
+  CacheKeyTemplate,
+} from '../core/cache-manager/CacheKey.js'
 import type { IAnticipatedEvent } from '../core/command-lifecycle/AnticipatedEventShape.js'
 import type { ICommandSender } from '../core/command-queue/types.js'
 import type { ProcessorRegistration } from '../core/event-processor/types.js'
+import type { AggregateConfig, DirectIdReference, IdReference } from './aggregates.js'
 import { EnqueueCommand } from './commands.js'
 import type { CommandHandlerRegistration, SchemaValidator } from './domain.js'
 
@@ -248,16 +253,42 @@ export interface SeedOnDemandConfig<TLink extends Link> {
 }
 
 /**
- * A synchronized event collection.
+ * A synchronized event collection backed by exactly one primary aggregate.
  *
  * Collections define how the library discovers, fetches, and routes events.
  * Consumer code implements the fetch methods to control HTTP conventions.
  *
  * Parameterized on `TLink` so multi-service apps using `ServiceLink`
  * get typed entity cache keys with required `service` field.
+ *
+ * The 1-to-1 relationship with an aggregate is enforced by the required
+ * `aggregate` field. A separate `CompositeCollection` type built from multiple
+ * aggregates is future work, pending a strong example case to design against —
+ * it will not be a variant of this interface.
  */
 export interface Collection<TLink extends Link> {
   readonly name: string
+
+  /**
+   * The primary aggregate this collection tracks.
+   * Provides stream ID derivation and aggregate identity (type, service for ServiceLink).
+   */
+  readonly aggregate: AggregateConfig<TLink>
+
+  /**
+   * Declares which paths in this collection's read model data contain references
+   * to aggregate IDs or links. Used by the event processor for overlay event reconciliation
+   * when an anticipated create resolves to a server ID.
+   *
+   * Each entry is either a {@link DirectIdReference} (path points at a plain string ID)
+   * or a {@link LinkIdReference} (path points at a `Link` object whose `type`/`service`
+   * are validated against the declared aggregates before its `id` is rewritten).
+   *
+   * The self-ID at `$.id` is injected automatically by `resolveConfig` using this
+   * collection's `aggregate` — no need to declare it manually. You must declare all other
+   * references to an aggregate id/link (e.g. `notebookId` on a Note pointing at the Notebook aggregate).
+   */
+  readonly idReferences?: readonly IdReference<TLink>[]
 
   /**
    * Derive cache key identities from WS event topics.
@@ -266,9 +297,12 @@ export interface Collection<TLink extends Link> {
    * no further topic resolution happens downstream.
    *
    * @param topics - Topic strings from the WS event message
-   * @returns Cache key identities this event should be associated with
+   * @returns Cache key identities or templates. Templates (no `.key`) are resolved
+   *   by the caller via `registerCacheKeySync`.
    */
-  cacheKeysFromTopics(topics: readonly string[]): CacheKeyIdentity<TLink>[]
+  cacheKeysFromTopics(
+    topics: readonly string[],
+  ): (CacheKeyIdentity<TLink> | CacheKeyTemplate<TLink>)[]
 
   /**
    * Auto-seed this collection on startup.
@@ -315,30 +349,6 @@ export interface Collection<TLink extends Link> {
    */
   fetchStreamEvents?(opts: FetchStreamEventOptions): Promise<IPersistedEvent[]>
 
-  /**
-   * Derive stream ID from entity ID.
-   * Used to restore knownRevisions from persisted read model revisions on startup
-   * and to populate knownRevisions during record-based seeding.
-   *
-   * ## 1:1 aggregate assumption
-   *
-   * Revision tracking assumes each read model entity maps to exactly one domain
-   * aggregate (stream). The read model's `_revision` column stores a single scalar
-   * (the aggregate's stream revision), and this function maps entity → stream.
-   *
-   * Composite read models — entities built from events across multiple aggregates —
-   * should omit this function and do not participate in per-stream revision tracking.
-   * If composite read models are introduced, the following need extension:
-   *
-   * - `ReadModelRecord.revision` / `_revision` column — scalar → per-aggregate map
-   * - `ReadModel<T>.revision` — scalar → structured type
-   * - This function — single return → multiple, or replaced
-   * - `SyncManager.restoreKnownRevisions` — iterate map entries per entity
-   * - `EventProcessorRunner.applyResult` — `RevisionMeta` would carry stream identity
-   * - `SeedRecord.revision` — scalar → per-aggregate map
-   */
-  getStreamId?(entityId: string): string
-
   /** Page size for seeding. Default: 100. */
   readonly seedPageSize?: number
 }
@@ -360,6 +370,27 @@ export function isCollectionWithFetchStreamEvents<TLink extends Link>(
 ): c is CollectionWithFetchStreamEvents<TLink> {
   if (!c?.fetchStreamEvents) return false
   return true
+}
+
+function injectCollectionDefaults<TLink extends Link>(
+  collections: Collection<TLink>[] | undefined,
+): Collection<TLink>[] | undefined {
+  if (!collections) return undefined
+
+  return collections.map((c) => {
+    // check if collection is a composite collection when that is implemented
+    if (!c.aggregate) return c
+
+    // mutable reference
+    const col = c as { idReferences?: readonly IdReference<TLink>[] }
+    if (!col.idReferences) {
+      col.idReferences = [{ aggregate: c.aggregate, path: '$.id' }]
+    } else if (!col.idReferences.some((r) => r.path === '$.id')) {
+      col.idReferences = [{ aggregate: c.aggregate, path: '$.id' }, ...col.idReferences]
+    }
+
+    return c
+  })
 }
 
 /**
@@ -574,7 +605,7 @@ export function resolveConfig<
       ...DEFAULT_CONFIG.cache,
       ...config.cache,
     },
-    collections: config.collections ?? [],
+    collections: injectCollectionDefaults(config.collections) ?? [],
     processors: config.processors ?? [],
     retainTerminal: config.retainTerminal ?? false,
     debug: config.debug ?? false,

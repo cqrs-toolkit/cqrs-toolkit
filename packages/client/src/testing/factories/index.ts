@@ -7,6 +7,7 @@ export {
   createFrozenCacheKey,
   createHeldCacheKey,
   createTestCacheKey,
+  deriveEntityKey,
 } from './cacheKey.js'
 export {
   createFailedCommand,

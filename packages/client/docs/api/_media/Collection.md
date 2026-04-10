@@ -14,6 +14,9 @@ Consumer code implements the fetch methods to control HTTP conventions.
 Parameterized on `TLink` so multi-service apps using `ServiceLink`
 get typed entity cache keys with required `service` field.
 
+This currently operates one-to-one with Aggregate.
+Support for composite collections that are built from multiple aggregates are being considered for a future release.
+
 ## Extended by
 
 - [`CollectionWithSeedOnDemand`](CollectionWithSeedOnDemand.md)
@@ -26,6 +29,18 @@ get typed entity cache keys with required `service` field.
 `TLink` _extends_ `Link`
 
 ## Properties
+
+### aggregate
+
+> **aggregate**: [`AggregateConfig`](../type-aliases/AggregateConfig.md)\<`TLink`\>
+
+---
+
+### idReferences?
+
+> `optional` **idReferences**: `IdReference`\<`TLink`\>[]
+
+---
 
 ### name
 
@@ -62,7 +77,7 @@ Page size for seeding. Default: 100.
 
 ### cacheKeysFromTopics()
 
-> **cacheKeysFromTopics**(`topics`): [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>[]
+> **cacheKeysFromTopics**(`topics`): ([`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\> \| [`CacheKeyTemplate`](../type-aliases/CacheKeyTemplate.md)\<`TLink`\>)[]
 
 Derive cache key identities from WS event topics.
 Called at WS ingestion to resolve which cache keys an event belongs to.
@@ -79,9 +94,10 @@ Topic strings from the WS event message
 
 #### Returns
 
-[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>[]
+([`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\> \| [`CacheKeyTemplate`](../type-aliases/CacheKeyTemplate.md)\<`TLink`\>)[]
 
-Cache key identities this event should be associated with
+Cache key identities or templates. Templates (no `.key`) are resolved
+by the caller via `registerCacheKeySync`.
 
 ---
 
@@ -146,43 +162,6 @@ If undefined, gap recovery processes buffered events as-is (lossy).
 #### Returns
 
 `Promise`\<[`IPersistedEvent`](../type-aliases/IPersistedEvent.md)[]\>
-
----
-
-### getStreamId()?
-
-> `optional` **getStreamId**(`entityId`): `string`
-
-Derive stream ID from entity ID.
-Used to restore knownRevisions from persisted read model revisions on startup
-and to populate knownRevisions during record-based seeding.
-
-## 1:1 aggregate assumption
-
-Revision tracking assumes each read model entity maps to exactly one domain
-aggregate (stream). The read model's `_revision` column stores a single scalar
-(the aggregate's stream revision), and this function maps entity → stream.
-
-Composite read models — entities built from events across multiple aggregates —
-should omit this function and do not participate in per-stream revision tracking.
-If composite read models are introduced, the following need extension:
-
-- `ReadModelRecord.revision` / `_revision` column — scalar → per-aggregate map
-- `ReadModel<T>.revision` — scalar → structured type
-- This function — single return → multiple, or replaced
-- `SyncManager.restoreKnownRevisions` — iterate map entries per entity
-- `EventProcessorRunner.applyResult` — `RevisionMeta` would carry stream identity
-- `SeedRecord.revision` — scalar → per-aggregate map
-
-#### Parameters
-
-##### entityId
-
-`string`
-
-#### Returns
-
-`string`
 
 ---
 

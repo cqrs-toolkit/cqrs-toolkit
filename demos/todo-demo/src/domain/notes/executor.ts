@@ -3,6 +3,7 @@
  */
 
 import { createEntityId, domainSuccess } from '@cqrs-toolkit/client'
+import { NoteAggregate } from '@cqrs-toolkit/demo-base/notes/domain'
 import {
   createNotePayloadSchema,
   deleteNotePayloadSchema,
@@ -17,7 +18,7 @@ export const noteHandlers: AppCommandHandlerRegistration[] = [
     schema: createNotePayloadSchema,
     creates: { eventType: 'NoteCreated', idStrategy: 'temporary' },
     parentRef: [{ field: 'notebookId', fromCommand: 'CreateNotebook' }],
-    handler(command, context) {
+    handler(command, _state, context) {
       const { notebookId, title, body } = command.data as {
         notebookId: string
         title: string
@@ -29,7 +30,7 @@ export const noteHandlers: AppCommandHandlerRegistration[] = [
         {
           type: 'NoteCreated',
           data: { id, notebookId, title, body, createdAt: now },
-          streamId: `Note-${id}`,
+          streamId: NoteAggregate.getStreamId(id),
         },
       ])
     },
@@ -43,7 +44,7 @@ export const noteHandlers: AppCommandHandlerRegistration[] = [
         {
           type: 'NoteTitleUpdated',
           data: { id, title, updatedAt: new Date().toISOString() },
-          streamId: `Note-${id}`,
+          streamId: NoteAggregate.getStreamId(id),
         },
       ])
     },
@@ -57,7 +58,7 @@ export const noteHandlers: AppCommandHandlerRegistration[] = [
         {
           type: 'NoteBodyUpdated',
           data: { id, body, updatedAt: new Date().toISOString() },
-          streamId: `Note-${id}`,
+          streamId: NoteAggregate.getStreamId(id),
         },
       ])
     },
@@ -71,7 +72,7 @@ export const noteHandlers: AppCommandHandlerRegistration[] = [
         {
           type: 'NoteDeleted',
           data: { id },
-          streamId: `Note-${id}`,
+          streamId: NoteAggregate.getStreamId(id),
         },
       ])
     },

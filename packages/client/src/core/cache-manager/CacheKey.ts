@@ -1,18 +1,18 @@
 /**
  * Cache key identity types, derivation, and hydration.
  *
- * A cache key identity carries the full identifying tuple alongside the derived UUID v5 key.
- * Two kinds exist (spec §2.2.1):
+ * Two kinds of cache key identity exist (spec §2.2.1):
  * - Entity: tied to a concrete domain entity via a Link
  * - Scope: a logical data scope with optional params
+ *
+ * Cache keys with opaque UUIDs are created via {@link registerCacheKey} on the CacheManager.
+ * UUID v5 derivation via {@link deriveScopeKey} is available for scope keys without EntityRef values.
  */
 
 import { stableStringify } from '#utils'
 import type { Link } from '@meticoeus/ddd-es'
 import { v5 as uuidv5 } from 'uuid'
 import type { CacheKeyRecord } from '../../storage/IStorage.js'
-import type { EntityId } from '../../types/entities.js'
-import { entityIdToString } from '../../types/entities.js'
 
 /**
  * Namespace UUID for cache key derivation.
@@ -54,6 +54,99 @@ export interface ScopeCacheKey {
  * get `service` required on entity keys.
  */
 export type CacheKeyIdentity<TLink extends Link> = EntityCacheKey<TLink> | ScopeCacheKey
+
+export function isEntityCacheKey<TLink extends Link>(
+  key: CacheKeyIdentity<TLink>,
+): key is EntityCacheKey<TLink> {
+  return key.kind === 'entity'
+}
+
+export function isScopeCacheKey<TLink extends Link>(
+  key: CacheKeyIdentity<TLink>,
+): key is ScopeCacheKey {
+  return key.kind === 'scope'
+}
+
+// ---------------------------------------------------------------------------
+// Cache key templates (identity without key — input to registerCacheKey)
+// ---------------------------------------------------------------------------
+
+/**
+ * Entity cache key template — identity without a resolved `.key` UUID.
+ * Consumers construct these as typed object literals and pass to `registerCacheKey`.
+ *
+ * `link.id` may be an `EntityId` (string or EntityRef). When it's an EntityRef,
+ * `registerCacheKey` auto-wires reconciliation from the embedded metadata.
+ */
+export interface EntityCacheKeyTemplate<TLink extends Link> {
+  kind: 'entity'
+  link: TLink
+  parentKey?: string
+}
+
+/**
+ * Scope cache key template — identity without a resolved `.key` UUID.
+ * Consumers construct these as typed object literals and pass to `registerCacheKey`.
+ *
+ * `scopeParams` values may contain EntityRef objects. Default extraction scans
+ * top-level values. Declare `entityRefPaths` for deeper structures.
+ *
+ * **Warning:** Do not use `deriveScopeKey` when `scopeParams` contains EntityRef
+ * values or temporary client-generated IDs — the UUID v5 derivation produces a
+ * key that becomes orphaned when the ID resolves. Use `registerCacheKey` instead.
+ */
+export interface ScopeCacheKeyTemplate {
+  kind: 'scope'
+  service?: string
+  scopeType: string
+  scopeParams?: Record<string, unknown>
+  parentKey?: string
+  /**
+   * JSONPath expressions (RFC 9535 subset) for EntityRef values in nested
+   * scopeParams structures. Default extraction scans top-level scopeParams values.
+   * Declare paths here for deeper structures. Paths are relative to scopeParams.
+   * Uses `[*]` for array wildcard.
+   *
+   * @example ['$.filter.orgId', '$.items[*].parentId']
+   */
+  entityRefPaths?: string[]
+}
+
+/**
+ * Discriminated union of cache key templates.
+ * Input to `registerCacheKey` — the system assigns a stable opaque UUID.
+ */
+export type CacheKeyTemplate<TLink extends Link> =
+  | EntityCacheKeyTemplate<TLink>
+  | ScopeCacheKeyTemplate
+
+/**
+ * Build a CacheKeyIdentity from a template and a resolved key UUID.
+ */
+export function templateToIdentity<TLink extends Link>(
+  template: CacheKeyTemplate<TLink>,
+  key: string,
+): CacheKeyIdentity<TLink> {
+  if (template.kind === 'entity') {
+    const identity: EntityCacheKey<TLink> = {
+      kind: 'entity',
+      key,
+      link: template.link,
+      parentKey: template.parentKey,
+    }
+    return identity
+  }
+
+  const identity: ScopeCacheKey = {
+    kind: 'scope',
+    key,
+    service: template.service,
+    scopeType: template.scopeType,
+    scopeParams: template.scopeParams,
+    parentKey: template.parentKey,
+  }
+  return identity
+}
 
 // ---------------------------------------------------------------------------
 // Cache key matchers (for Collection.keyTypes)
@@ -115,45 +208,13 @@ export function matchesCacheKey<TLink extends Link>(
 // ---------------------------------------------------------------------------
 
 /**
- * Derive an entity cache key from a Link.
- * Produces a deterministic UUID v5 from the link's identifying fields.
- */
-export function deriveEntityKey<TLink extends Link>(
-  link: TLink,
-  parentKey?: string,
-): EntityCacheKey<TLink> {
-  const parts: string[] = []
-  if ('service' in link && typeof link.service === 'string') {
-    parts.push(link.service)
-  }
-  parts.push(link.type, link.id)
-  const input = `entity:${parts.join(':')}`
-  return {
-    kind: 'entity',
-    key: uuidv5(input, CACHE_KEY_NAMESPACE),
-    link,
-    parentKey,
-  }
-}
-
-/**
- * Derive an entity cache key from a link template and an EntityId value.
- *
- * Resolves the EntityId to a plain string (extracting entityId from EntityRef
- * if needed), then delegates to {@link deriveEntityKey}.
- */
-export function deriveEntityKeyFromRef<TLink extends Link>(
-  linkTemplate: Omit<TLink, 'id'>,
-  id: EntityId,
-  parentKey?: string,
-): EntityCacheKey<TLink> {
-  const link = { ...linkTemplate, id: entityIdToString(id) } as TLink
-  return deriveEntityKey(link, parentKey)
-}
-
-/**
  * Derive a scope cache key from scope identifiers and optional params.
  * Produces a deterministic UUID v5 from the scope's identifying fields.
+ *
+ * **Warning:** Do not use when `scopeParams` contains EntityRef values or
+ * temporary client-generated IDs. The UUID v5 derivation produces a key that
+ * becomes orphaned when the ID resolves. Use `registerCacheKey` with a
+ * `ScopeCacheKeyTemplate` instead.
  */
 export function deriveScopeKey(opts: {
   service?: string
@@ -238,6 +299,7 @@ export function identityToRecord<TLink extends Link>(
     evictionPolicy: 'persistent' | 'ephemeral'
     expiresAt: number | null
     now: number
+    pendingIdMappings?: string | null
   },
 ): CacheKeyRecord {
   const base: CacheKeyRecord = {
@@ -259,6 +321,7 @@ export function identityToRecord<TLink extends Link>(
     createdAt: opts.now,
     holdCount: 0,
     estimatedSizeBytes: null,
+    pendingIdMappings: opts.pendingIdMappings ?? null,
   }
 
   if (cacheKey.kind === 'entity') {

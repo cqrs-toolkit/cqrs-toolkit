@@ -19,3 +19,7 @@ export function assert(value: unknown, message: string): asserts value {
     throw new AssertionError(message)
   }
 }
+
+assert.fail = function fail(message: string): never {
+  throw new AssertionError(message)
+}

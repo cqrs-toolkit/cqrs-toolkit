@@ -29,7 +29,7 @@ managing per-tab SQLite workers and active tab routing.
 
 ### TEvent
 
-`TEvent` _extends_ [`IAnticipatedEvent`](../interfaces/IAnticipatedEvent.md)\<`string`, `AggregateEventData`\>
+`TEvent` _extends_ [`IAnticipatedEvent`](../interfaces/IAnticipatedEvent.md)\<`string`, `AnticipatedAggregateEventData`\>
 
 ## Parameters
 

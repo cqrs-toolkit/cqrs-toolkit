@@ -18,6 +18,7 @@ import {
   InvalidCommandStatusException,
   WaitOptions,
 } from '../../types/commands.js'
+import { EntityId } from '../../types/index.js'
 import type { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventShape.js'
 
 /**
@@ -35,6 +36,7 @@ export interface ICommandQueue<TLink extends Link, TCommand extends EnqueueComma
    */
   enqueue<TData, TEvent extends IAnticipatedEvent>(
     params: EnqueueParams<TLink, TData>,
+    modelState?: unknown | undefined,
   ): Promise<EnqueueResult<TEvent>>
 
   /**
@@ -60,6 +62,7 @@ export interface ICommandQueue<TLink extends Link, TCommand extends EnqueueComma
    */
   enqueueAndWait<TData, TEvent extends IAnticipatedEvent, TResponse>(
     params: EnqueueAndWaitParams<TLink, TData>,
+    modelState?: unknown | undefined,
   ): Promise<EnqueueAndWaitResult<TResponse>>
 
   /**
@@ -141,6 +144,35 @@ export interface ICommandQueue<TLink extends Link, TCommand extends EnqueueComma
    * @returns Entity IDs, or empty if the command has no tracked entries
    */
   getCommandEntities(commandId: string, collection?: string): Promise<string[]>
+}
+
+/**
+ * Internal command queue interface.
+ *
+ * Extends the public {@link ICommandQueue} with lifecycle methods used by
+ * internal callers (SyncManager, createCqrsClient) that run in the same
+ * thread as the CommandQueue.
+ *
+ * Not exposed to consumers — the public API is always {@link ICommandQueue}.
+ */
+export interface ICommandQueueInternal<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+> extends ICommandQueue<TLink, TCommand> {
+  /** Clear all command state for session destroy. Pauses processing, clears timers, deletes all commands. */
+  clearAll(): Promise<void>
+
+  /** Destroy the command queue and release resources. */
+  destroy(): Promise<void>
+
+  /**
+   * Synchronous in-memory lookup for a client→server ID mapping.
+   * Checks the aggregate chain for a completed create command.
+   * Used by CacheManager to detect already-settled commands during registration.
+   *
+   * @returns The server ID if the client ID has been reconciled, undefined otherwise.
+   */
+  getIdMapping(clientId: EntityId): { serverId: string } | undefined
 }
 
 /**

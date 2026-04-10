@@ -21,13 +21,16 @@ build-client-electron:
 	$(CACHE) packages/client-electron client -- npm run build -w packages/client-electron
 build-devtools:
 	$(CACHE) packages/devtools client -- npm run build -w packages/devtools
+build-demo-base:
+	$(CACHE) demos/base client client-solid -- npm run build -w @cqrs-toolkit/demo-base
+build-hypermedia-base:
+	$(CACHE) demos/hypermedia-base client client-solid demo-base hypermedia-client -- npm run build -w @cqrs-toolkit/hypermedia-base
+
 COMPILE = CACHE_NS=compile $(CACHE)
 
 compile-todo-demo:
 	$(CACHE) demos/todo-demo client client-solid -- npx tsc -p demos/todo-demo/tsconfig.json --noEmit
-	$(CACHE) demos/todo-demo-server client -- npx tsc -p demos/todo-demo/tsconfig.server.json --noEmit
-compile-hypermedia-base:
-	$(CACHE) demos/hypermedia-base client client-solid hypermedia-client -- npx tsc -p demos/hypermedia-base/tsconfig.json --noEmit
+	./demos/todo-demo/scripts/cache-server-compile.sh
 compile-hypermedia-server:
 	$(CACHE) demos/hypermedia-server client hypermedia hypermedia-cli -- npx tsc -p demos/hypermedia-server/tsconfig.json --noEmit
 compile-hypermedia-web:
@@ -68,7 +71,8 @@ build:
 	make build-client
 	make -j build-client-solid build-client-electron build-hypermedia-client
 	make build-hypermedia-cli
-	make -j build-devtools compile-todo-demo compile-hypermedia-base compile-hypermedia-server
+	make build-demo-base
+	make -j build-devtools build-hypermedia-base compile-todo-demo compile-hypermedia-server
 	make compile-hypermedia-web
 
 hm-start-electron:

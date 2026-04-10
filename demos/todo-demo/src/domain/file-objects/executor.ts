@@ -3,6 +3,7 @@
  */
 
 import { createEntityId, domainSuccess } from '@cqrs-toolkit/client'
+import { FileObjectAggregate } from '@cqrs-toolkit/demo-base/file-objects/domain'
 import {
   createFileObjectPayloadSchema,
   deleteFileObjectPayloadSchema,
@@ -15,7 +16,7 @@ export const fileObjectHandlers: AppCommandHandlerRegistration[] = [
     schema: createFileObjectPayloadSchema,
     creates: { eventType: 'FileObjectCreated', idStrategy: 'temporary' },
     parentRef: [{ field: 'noteId', fromCommand: 'CreateNote' }],
-    handler(command, context) {
+    handler(command, _state, context) {
       const { noteId } = command.data as { noteId: string }
       const id = createEntityId(context)
       const now = new Date().toISOString()
@@ -31,7 +32,7 @@ export const fileObjectHandlers: AppCommandHandlerRegistration[] = [
             size: 0,
             createdAt: now,
           },
-          streamId: `FileObject-${id}`,
+          streamId: FileObjectAggregate.getStreamId(id),
         },
       ])
     },
@@ -45,7 +46,7 @@ export const fileObjectHandlers: AppCommandHandlerRegistration[] = [
         {
           type: 'FileObjectDeleted',
           data: { id },
-          streamId: `FileObject-${id}`,
+          streamId: FileObjectAggregate.getStreamId(id),
         },
       ])
     },

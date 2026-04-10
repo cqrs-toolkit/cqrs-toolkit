@@ -2,15 +2,13 @@ import { noop } from '#utils'
 import { type Link, logProvider, type Result } from '@meticoeus/ddd-es'
 import { EnqueueCommand, TerminalCommandStatus } from '../../types/commands.js'
 import type { Collection } from '../../types/config.js'
-import type { CreateCommandConfig } from '../../types/domain.js'
-import type { EntityRef } from '../../types/entities.js'
 import type { IAnticipatedEventHandler } from '../command-queue/CommandQueue.js'
 import type { EventCache } from '../event-cache/EventCache.js'
 import type { EventProcessorRunner, ParsedEvent } from '../event-processor/EventProcessorRunner.js'
 import type { ReadModelStore } from '../read-model-store/ReadModelStore.js'
 import { ApplyAnticipatedOp } from '../write-queue/index.js'
 import { IWriteQueue, WriteQueueException } from '../write-queue/IWriteQueue.js'
-import { type IAnticipatedEvent, isAnticipatedEventShape } from './AnticipatedEventShape.js'
+import { type IAnticipatedEvent, isAnticipatedEvent } from './AnticipatedEventShape.js'
 
 /**
  * Handles anticipated (optimistic) events for in-flight commands.
@@ -45,8 +43,6 @@ export class AnticipatedEventHandler<
     events: TEvent[]
     clientId?: string
     cacheKey: string
-    creates?: CreateCommandConfig
-    entityRefData?: Record<string, EntityRef>
   }): Promise<Result<void, WriteQueueException>> {
     return this.writeQueue.enqueue({
       type: 'apply-anticipated',
@@ -54,8 +50,6 @@ export class AnticipatedEventHandler<
       events: params.events,
       cacheKey: params.cacheKey,
       clientId: params.clientId,
-      creates: params.creates,
-      entityRefData: params.entityRefData,
     })
   }
 
@@ -64,7 +58,15 @@ export class AnticipatedEventHandler<
     const updatedIds: string[] = []
 
     for (const raw of events) {
-      if (!isAnticipatedEventShape(raw)) continue
+      if (!isAnticipatedEvent(raw)) continue
+
+      // Dev mode: warn if streamId was constructed from an EntityRef without entityIdToString
+      if (raw.streamId.includes('[object Object]')) {
+        logProvider.log.warn(
+          { streamId: raw.streamId, type: raw.type, commandId },
+          'Anticipated event streamId contains [object Object] — use entityIdToString() or collection.aggregate.getStreamId() to convert EntityRef before constructing streamId',
+        )
+      }
 
       const collection = this.collections.find((c) => c.matchesStream(raw.streamId))
       if (!collection) {
@@ -88,10 +90,6 @@ export class AnticipatedEventHandler<
         data: raw.data,
         commandId,
         cacheKey,
-        entityRefInjection:
-          op.creates || op.entityRefData
-            ? { commandId, creates: op.creates, entityRefData: op.entityRefData }
-            : undefined,
       }
 
       const result = await this.eventProcessorRunner.processEvent(parsed)
@@ -154,8 +152,6 @@ export class AnticipatedEventHandler<
     commandId: string,
     newEvents: TEvent[],
     cacheKey: string,
-    creates?: CreateCommandConfig,
-    entityRefData?: Record<string, EntityRef>,
   ): Promise<void> {
     await this.eventCache.deleteAnticipatedEvents(commandId)
     const tracked = this.anticipatedUpdates.get(commandId)
@@ -169,7 +165,7 @@ export class AnticipatedEventHandler<
         await this.readModelStore.clearLocalChanges(collection, id)
       }
     }
-    await this.cache({ commandId, events: newEvents, cacheKey, creates, entityRefData })
+    await this.cache({ commandId, events: newEvents, cacheKey })
   }
 
   getTrackedEntries(commandId: string): string[] | undefined {

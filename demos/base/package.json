@@ -7,51 +7,115 @@
   "author": "Ontel, LLC",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./commands/components": "./src/commands/components/index.ts",
-    "./common/components": "./src/common/components/index.ts",
-    "./common/server": "./src/common/server/index.ts",
-    "./common/shared": "./src/common/shared/index.ts",
-    "./file-objects/components": "./src/file-objects/components/index.ts",
-    "./file-objects/domain": "./src/file-objects/domain/index.ts",
-    "./file-objects/server": "./src/file-objects/server/index.ts",
-    "./file-objects/shared": "./src/file-objects/shared/index.ts",
-    "./notebooks/components": "./src/notebooks/components/index.ts",
-    "./notebooks/domain": "./src/notebooks/domain/index.ts",
-    "./notebooks/server": "./src/notebooks/server/index.ts",
-    "./notebooks/shared": "./src/notebooks/shared/index.ts",
-    "./notes/components": "./src/notes/components/index.ts",
-    "./notes/domain": "./src/notes/domain/index.ts",
-    "./notes/server": "./src/notes/server/index.ts",
-    "./notes/shared": "./src/notes/shared/index.ts",
-    "./todos/components": "./src/todos/components/index.ts",
-    "./todos/domain": "./src/todos/domain/index.ts",
-    "./todos/server": "./src/todos/server/index.ts",
-    "./todos/shared": "./src/todos/shared/index.ts"
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    },
+    "./commands/components": {
+      "types": "./dist/src/commands/components/index.d.ts",
+      "import": "./dist/src/commands/components/index.js"
+    },
+    "./common/components": {
+      "types": "./dist/src/common/components/index.d.ts",
+      "import": "./dist/src/common/components/index.js"
+    },
+    "./common/server": {
+      "types": "./dist/src/common/server/index.d.ts",
+      "import": "./dist/src/common/server/index.js"
+    },
+    "./common/shared": {
+      "types": "./dist/src/common/shared/index.d.ts",
+      "import": "./dist/src/common/shared/index.js"
+    },
+    "./file-objects/components": {
+      "types": "./dist/src/file-objects/components/index.d.ts",
+      "import": "./dist/src/file-objects/components/index.js"
+    },
+    "./file-objects/domain": {
+      "types": "./dist/src/file-objects/domain/index.d.ts",
+      "import": "./dist/src/file-objects/domain/index.js"
+    },
+    "./file-objects/server": {
+      "types": "./dist/src/file-objects/server/index.d.ts",
+      "import": "./dist/src/file-objects/server/index.js"
+    },
+    "./file-objects/shared": {
+      "types": "./dist/src/file-objects/shared/index.d.ts",
+      "import": "./dist/src/file-objects/shared/index.js"
+    },
+    "./notebooks/components": {
+      "types": "./dist/src/notebooks/components/index.d.ts",
+      "import": "./dist/src/notebooks/components/index.js"
+    },
+    "./notebooks/domain": {
+      "types": "./dist/src/notebooks/domain/index.d.ts",
+      "import": "./dist/src/notebooks/domain/index.js"
+    },
+    "./notebooks/server": {
+      "types": "./dist/src/notebooks/server/index.d.ts",
+      "import": "./dist/src/notebooks/server/index.js"
+    },
+    "./notebooks/shared": {
+      "types": "./dist/src/notebooks/shared/index.d.ts",
+      "import": "./dist/src/notebooks/shared/index.js"
+    },
+    "./notes/components": {
+      "types": "./dist/src/notes/components/index.d.ts",
+      "import": "./dist/src/notes/components/index.js"
+    },
+    "./notes/domain": {
+      "types": "./dist/src/notes/domain/index.d.ts",
+      "import": "./dist/src/notes/domain/index.js"
+    },
+    "./notes/server": {
+      "types": "./dist/src/notes/server/index.d.ts",
+      "import": "./dist/src/notes/server/index.js"
+    },
+    "./notes/shared": {
+      "types": "./dist/src/notes/shared/index.d.ts",
+      "import": "./dist/src/notes/shared/index.js"
+    },
+    "./todos/components": {
+      "types": "./dist/src/todos/components/index.d.ts",
+      "import": "./dist/src/todos/components/index.js"
+    },
+    "./todos/domain": {
+      "types": "./dist/src/todos/domain/index.d.ts",
+      "import": "./dist/src/todos/domain/index.js"
+    },
+    "./todos/server": {
+      "types": "./dist/src/todos/server/index.d.ts",
+      "import": "./dist/src/todos/server/index.js"
+    },
+    "./todos/shared": {
+      "types": "./dist/src/todos/shared/index.d.ts",
+      "import": "./dist/src/todos/shared/index.js"
+    }
   },
   "imports": {
-    "#commands/components": "./src/commands/components/index.ts",
-    "#common/components": "./src/common/components/index.ts",
-    "#common/server": "./src/common/server/index.ts",
-    "#common/shared": "./src/common/shared/index.ts",
-    "#file-objects/components": "./src/file-objects/components/index.ts",
-    "#file-objects/domain": "./src/file-objects/domain/index.ts",
-    "#file-objects/server": "./src/file-objects/server/index.ts",
-    "#file-objects/shared": "./src/file-objects/shared/index.ts",
-    "#notebooks/components": "./src/notebooks/components/index.ts",
-    "#notebooks/domain": "./src/notebooks/domain/index.ts",
-    "#notebooks/server": "./src/notebooks/server/index.ts",
-    "#notebooks/shared": "./src/notebooks/shared/index.ts",
-    "#notes/components": "./src/notes/components/index.ts",
-    "#notes/domain": "./src/notes/domain/index.ts",
-    "#notes/server": "./src/notes/server/index.ts",
-    "#notes/shared": "./src/notes/shared/index.ts",
-    "#todos/components": "./src/todos/components/index.ts",
-    "#todos/domain": "./src/todos/domain/index.ts",
-    "#todos/server": "./src/todos/server/index.ts",
-    "#todos/shared": "./src/todos/shared/index.ts"
+    "#commands/components": "./src/commands/components/index.js",
+    "#common/components": "./src/common/components/index.js",
+    "#common/server": "./src/common/server/index.js",
+    "#common/shared": "./src/common/shared/index.js",
+    "#file-objects/components": "./src/file-objects/components/index.js",
+    "#file-objects/domain": "./src/file-objects/domain/index.js",
+    "#file-objects/server": "./src/file-objects/server/index.js",
+    "#file-objects/shared": "./src/file-objects/shared/index.js",
+    "#notebooks/components": "./src/notebooks/components/index.js",
+    "#notebooks/domain": "./src/notebooks/domain/index.js",
+    "#notebooks/server": "./src/notebooks/server/index.js",
+    "#notebooks/shared": "./src/notebooks/shared/index.js",
+    "#notes/components": "./src/notes/components/index.js",
+    "#notes/domain": "./src/notes/domain/index.js",
+    "#notes/server": "./src/notes/server/index.js",
+    "#notes/shared": "./src/notes/shared/index.js",
+    "#todos/components": "./src/todos/components/index.js",
+    "#todos/domain": "./src/todos/domain/index.js",
+    "#todos/server": "./src/todos/server/index.js",
+    "#todos/shared": "./src/todos/shared/index.js"
   },
   "scripts": {
+    "build": "rm -rf dist && rollup -c && tsc -p tsconfig.build.json",
     "compile": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

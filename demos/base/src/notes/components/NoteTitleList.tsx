@@ -1,10 +1,11 @@
-import type { Note } from '#notes/shared'
+import { EntityId, entityIdMatches } from '@cqrs-toolkit/client'
 import { createMemo, createSignal, For, Show } from 'solid-js'
+import type { Note } from '../domain/index.js'
 
 interface NoteTitleListProps {
   notes: Note[]
-  selectedId: string | undefined
-  onSelect: (id: string) => void
+  selectedId: EntityId | undefined
+  onSelect: (id: EntityId) => void
   onAddPlaceholder: () => void
   /** Live title from the editor, used as display override for the selected note. */
   editingTitle: string | undefined
@@ -20,7 +21,7 @@ export function NoteTitleList(props: NoteTitleListProps) {
   })
 
   function displayTitle(note: Note): string {
-    if (props.selectedId === note.id && props.editingTitle !== undefined) {
+    if (entityIdMatches(props.selectedId, note.id) && props.editingTitle !== undefined) {
       return props.editingTitle
     }
     return note.title
@@ -66,7 +67,7 @@ export function NoteTitleList(props: NoteTitleListProps) {
           {(note) => (
             <li
               class={`note-title-item flex items-center px-2 py-1.5 cursor-pointer border-b border-neutral-100 dark:border-neutral-700 ${
-                props.selectedId === note.id
+                entityIdMatches(props.selectedId, note.id)
                   ? 'bg-indigo-50 dark:bg-indigo-900/30'
                   : 'hover:bg-neutral-50 dark:hover:bg-neutral-800'
               }`}

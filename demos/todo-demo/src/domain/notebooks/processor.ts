@@ -1,6 +1,6 @@
 import type { ProcessorRegistration } from '@cqrs-toolkit/client'
+import type { Notebook } from '@cqrs-toolkit/demo-base/notebooks/domain'
 import type {
-  Notebook,
   NotebookCreatedEvent,
   NotebookDeletedEvent,
   NotebookNameUpdatedEvent,

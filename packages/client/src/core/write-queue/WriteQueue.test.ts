@@ -1,5 +1,6 @@
 import type { IPersistedEvent, ServiceLink } from '@meticoeus/ddd-es'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestWriteQueue } from '../../testing/index.js'
 import { deriveScopeKey } from '../cache-manager/index.js'
 import { EventBus } from '../events/index.js'
 import {
@@ -7,7 +8,6 @@ import {
   WriteQueueDestroyedException,
   WriteQueueException,
 } from './IWriteQueue.js'
-import { WriteQueue } from './WriteQueue.js'
 import type {
   ApplyGapRepairOp,
   ApplyRecordsOp,
@@ -15,13 +15,19 @@ import type {
   EvictCacheKeyOp,
   WriteQueueOp,
 } from './operations.js'
-import { ALL_OP_TYPES } from './operations.js'
 
 const DUMMY_EVENT = { id: 'evt-1' } as unknown as IPersistedEvent
 
 const TODO_CACHE_KEY = deriveScopeKey({ scopeType: 'todos' })
 
 describe('WriteQueue', () => {
+  let cleanup: (() => void)[] = []
+
+  afterEach(() => {
+    for (const fn of cleanup) fn()
+    cleanup = []
+  })
+
   describe('sequential execution', () => {
     it('processes items one at a time', async () => {
       const order: number[] = []
@@ -668,31 +674,16 @@ describe('WriteQueue', () => {
       expect(evictionHandler).toHaveBeenCalledTimes(2)
     })
   })
-})
 
-function registerAll(
-  queue: WriteQueue<ServiceLink>,
-  handler: (op: WriteQueueOp<ServiceLink>) => Promise<void>,
-  evictionHandler?: (op: WriteQueueOp<ServiceLink>, reason: WriteQueueException) => void,
-): void {
-  const noop = () => {}
-  for (const type of ALL_OP_TYPES) {
-    queue.register(type, handler)
-    queue.registerEviction(type, evictionHandler ?? noop)
+  function createQueue(params?: {
+    handler?: (op: WriteQueueOp<ServiceLink>) => Promise<void>
+    evictionHandler?: (op: WriteQueueOp<ServiceLink>, reason: WriteQueueException) => void
+    onSessionReset?: (reason: string) => Promise<void>
+  }) {
+    const eventBus = new EventBus<ServiceLink>()
+    return createTestWriteQueue<ServiceLink>(eventBus, cleanup, [], params)
   }
-}
-
-function createQueue(params?: {
-  handler?: (op: WriteQueueOp<ServiceLink>) => Promise<void>
-  evictionHandler?: (op: WriteQueueOp<ServiceLink>, reason: WriteQueueException) => void
-  onSessionReset?: (reason: string) => Promise<void>
-}) {
-  const eventBus = new EventBus<ServiceLink>()
-  const queue = new WriteQueue<ServiceLink>(eventBus)
-  queue.setSessionResetHandler(params?.onSessionReset ?? vi.fn(async () => {}))
-  registerAll(queue, params?.handler ?? vi.fn(async () => {}), params?.evictionHandler)
-  return queue
-}
+})
 
 function controllableHandler() {
   const calls: Array<{

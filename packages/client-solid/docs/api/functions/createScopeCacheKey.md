@@ -6,14 +6,23 @@
 
 # Function: createScopeCacheKey()
 
-> **createScopeCacheKey**(`options`): () => `ScopeCacheKey` \| `undefined`
+> **createScopeCacheKey**\<`TLink`\>(`options`): () => `ScopeCacheKey` \| `undefined`
 
-Create a reactive scope cache key that re-derives when scope parameters change.
+Create a reactive scope cache key that registers with the CacheManager.
 
-Wraps deriveScopeKey in a `createMemo`. When `scopeParams` is an
-accessor, the memo re-runs when the params change.
+Uses the CqrsClient from context. Always goes through `registerCacheKey`
+for stable opaque UUIDs. Automatically updates when IDs are reconciled.
 
-Returns `undefined` when `scopeParams` returns `undefined` (if provided as an accessor).
+`entityRefPaths` is only needed for nested EntityRef values in `scopeParams`.
+Top-level EntityRef values in `scopeParams` are detected automatically.
+
+Returns `undefined` when `scopeParams` returns `undefined`.
+
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`\<`string`, `string`\>
 
 ## Parameters
 
@@ -21,11 +30,7 @@ Returns `undefined` when `scopeParams` returns `undefined` (if provided as an ac
 
 `ScopeCacheKeyOptions`
 
-Scope key options with optional reactive scopeParams
-
 ## Returns
-
-Accessor returning the derived scope cache key, or undefined
 
 > (): `ScopeCacheKey` \| `undefined`
 

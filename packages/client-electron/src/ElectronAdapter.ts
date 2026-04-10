@@ -143,8 +143,9 @@ export class ElectronAdapter<
       // Create proxy objects
       const fileStore = new ElectronCommandFileStore(this.channel)
       this._commandQueue = new CommandQueueProxy(this.channel, fileStore, broadcastEvents$)
-      this._queryManager = new QueryManagerProxy<TLink>(this.channel, broadcastEvents$)
-      this._cacheManager = new CacheManagerProxy<TLink>(this.channel)
+      const windowId = crypto.randomUUID()
+      this._queryManager = new QueryManagerProxy<TLink>(this.channel, broadcastEvents$, windowId)
+      this._cacheManager = new CacheManagerProxy<TLink>(this.channel, windowId)
       this._syncManager = new SyncManagerProxy<TLink>(this.channel, broadcastEvents$)
 
       // Sync connectivity state from the worker

@@ -58,10 +58,10 @@ export class GapRepairCoordinator<TLink extends Link, TCommand extends EnqueueCo
    */
   async restoreKnownRevisions(): Promise<void> {
     for (const collection of this.collections) {
-      if (!collection.getStreamId) continue
+      if (!collection.aggregate.getStreamId) continue
       const entries = await this.readModelStore.getRevisionMap(collection.name)
       for (const entry of entries) {
-        const streamId = collection.getStreamId(entry.id)
+        const streamId = collection.aggregate.getStreamId(entry.id)
         const revBigint = BigInt(entry.revision)
         const current = this.knownRevisions.get(streamId)
         if (current === undefined || revBigint > current) {

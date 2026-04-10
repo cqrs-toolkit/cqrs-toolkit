@@ -4,8 +4,6 @@
  * Resolves notebookId from the associated note for topic tagging and read model construction.
  */
 
-import type { FileObject } from '@cqrs-toolkit/demo-base/file-objects/shared'
-import type { NoteRepository } from '@cqrs-toolkit/demo-base/notes/server'
 import {
   Repository,
   type ConcurrencyException,
@@ -16,7 +14,9 @@ import {
   type SaveEventSuccess,
 } from '@meticoeus/ddd-es'
 import assert from 'node:assert'
+import type { NoteRepository } from '../../notes/server/repository.js'
 import { FileObjectAggregate, type FileObjectServerEvent } from './aggregate.js'
+import type { FileObject } from './types.js'
 
 export class FileObjectRepository extends Repository<FileObjectServerEvent, FileObjectAggregate> {
   private readonly readModels = new Map<string, FileObject>()

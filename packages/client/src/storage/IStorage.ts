@@ -5,6 +5,7 @@
 
 import type { Link } from '@meticoeus/ddd-es'
 import { CommandFilter, CommandRecord, CommandStatus, EnqueueCommand } from '../types/commands.js'
+import { EntityId } from '../types/index.js'
 
 /**
  * Session record stored in the database.
@@ -61,6 +62,12 @@ export interface CacheKeyRecord {
   holdCount: number
   /** Estimated size in bytes for quota-aware eviction prioritization */
   estimatedSizeBytes: number | null
+  /**
+   * JSON-serialized array of pending ID mappings awaiting command resolution.
+   * Each entry: `{ commandId: string; clientId: string; paramKey?: string }`.
+   * Null when no IDs are pending (fully resolved or never had pending IDs).
+   */
+  pendingIdMappings: string | null
 }
 
 /**
@@ -126,7 +133,11 @@ export interface ReadModelRecord {
   /**
    * Stream revision of the last event that updated this read model (bigint as string).
    * Null for locally-created entries.
-   * @see {@link Collection.getStreamId} for the 1:1 aggregate assumption this relies on.
+   *
+   * A scalar revision is sufficient because each {@link Collection} tracks exactly
+   * one aggregate via its required `aggregate` field — the revision is that aggregate's
+   * stream position. A future `CompositeCollection` type built from multiple aggregates
+   * would need a per-aggregate revision map instead.
    */
   revision: string | null
   /** Global position of the last event that updated this read model (bigint as string). Null for locally-created entries. */
@@ -231,6 +242,16 @@ export interface IStorage<TLink extends Link, TCommand extends EnqueueCommand> {
    * Delete a cache key and all associated data.
    */
   deleteCacheKey(key: string): Promise<void>
+
+  /**
+   * Delete multiple cache keys and their associated events/read models in a batch.
+   */
+  deleteCacheKeys(keys: string[]): Promise<void>
+
+  /**
+   * Save multiple cache key records in a batch.
+   */
+  saveCacheKeys(records: CacheKeyRecord[]): Promise<void>
 
   /**
    * Increment hold count for a cache key.
@@ -443,7 +464,7 @@ export interface IStorage<TLink extends Link, TCommand extends EnqueueCommand> {
   /**
    * Get a command ID mapping by client ID.
    */
-  getCommandIdMapping(clientId: string): Promise<CommandIdMappingRecord | undefined>
+  getCommandIdMapping(clientId: EntityId): Promise<CommandIdMappingRecord | undefined>
 
   /**
    * Get a command ID mapping by server ID.

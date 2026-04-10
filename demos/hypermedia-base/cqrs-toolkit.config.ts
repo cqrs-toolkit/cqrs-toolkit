@@ -1,11 +1,15 @@
 import { defineConfig } from '@cqrs-toolkit/hypermedia-cli/config'
 import type { JSONSchema7 } from 'json-schema'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
 export default defineConfig({
   client: {
     server: 'http://localhost:3002',
     apidocPath: '/api/meta/apidoc',
-    outputDir: 'src/.cqrs',
+    outputDir: path.resolve(__dirname, 'src/cqrs'),
     schemas: 'bundled',
 
     // Command-surface envelopes wrap data in a $ref. Extract the data schema $id.

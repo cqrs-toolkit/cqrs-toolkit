@@ -131,6 +131,16 @@ Parent cache key for hierarchical eviction (null if top-level)
 
 ---
 
+### pendingIdMappings
+
+> **pendingIdMappings**: `string` \| `null`
+
+JSON-serialized array of pending ID mappings awaiting command resolution.
+Each entry: `{ commandId: string; clientId: string; paramKey?: string }`.
+Null when no IDs are pending (fully resolved or never had pending IDs).
+
+---
+
 ### scopeParams
 
 > **scopeParams**: `string` \| `null`

@@ -5,6 +5,7 @@
  * It wraps the ReadModelStore with cache key management.
  */
 
+import { assert } from '#utils'
 import { type Link, logProvider } from '@meticoeus/ddd-es'
 import type { Observable } from 'rxjs'
 import {
@@ -22,14 +23,14 @@ import {
 } from 'rxjs'
 import { EnqueueCommand } from '../../types/index.js'
 import type { CacheKeyIdentity } from '../cache-manager/CacheKey.js'
-import type { CacheManager } from '../cache-manager/CacheManager.js'
+import type { ICacheManagerInternal } from '../cache-manager/types.js'
 import type { EventBus } from '../events/EventBus.js'
 import type { ReadModelStore } from '../read-model-store/index.js'
 import type {
   CollectionSignal,
   GetByIdParams,
   GetByIdsParams,
-  IQueryManager,
+  IQueryManagerInternal,
   ListParams,
   ListQueryResult,
   QueryResult,
@@ -44,13 +45,13 @@ export type { ListQueryResult, QueryOptions, QueryResult } from './types.js'
 export class QueryManager<
   TLink extends Link,
   TCommand extends EnqueueCommand,
-> implements IQueryManager<TLink> {
+> implements IQueryManagerInternal<TLink> {
   private readonly destroy$ = new Subject<void>()
   private readonly activeHolds = new Map<string, number>()
 
   constructor(
     private readonly eventBus: EventBus<TLink>,
-    private readonly cacheManager: CacheManager<TLink, TCommand>,
+    private readonly cacheManager: ICacheManagerInternal<TLink>,
     private readonly readModelStore: ReadModelStore<TLink, TCommand>,
   ) {}
 
@@ -65,6 +66,7 @@ export class QueryManager<
   async getById<T>(params: GetByIdParams<TLink>): Promise<QueryResult<TLink, T>> {
     const cacheKeyIdentity = await this.cacheManager.acquireKey(params.cacheKey, {
       hold: params.hold ?? false,
+      windowId: params.windowId,
     })
 
     const model = await this.readModelStore.getById<T>(params.collection, params.id)
@@ -95,6 +97,7 @@ export class QueryManager<
   async getByIds<T>(params: GetByIdsParams<TLink>): Promise<Map<string, QueryResult<TLink, T>>> {
     const cacheKeyIdentity = await this.cacheManager.acquireKey(params.cacheKey, {
       hold: params.hold ?? false,
+      windowId: params.windowId,
     })
 
     const models = await this.readModelStore.getByIds<T>(params.collection, params.ids)
@@ -125,6 +128,7 @@ export class QueryManager<
   async list<T>(params: ListParams<TLink>): Promise<ListQueryResult<TLink, T>> {
     const cacheKeyIdentity = await this.cacheManager.acquireKey(params.cacheKey, {
       hold: params.hold ?? false,
+      windowId: params.windowId,
     })
 
     const models = await this.readModelStore.list<T>(params.collection, {
@@ -227,44 +231,61 @@ export class QueryManager<
   /**
    * Touch the cache key for a collection.
    * Extends its lifetime in the cache.
-   *
-   * @param collection - Collection name
    */
   async touch(cacheKey: CacheKeyIdentity<TLink>): Promise<void> {
     await this.cacheManager.touch(cacheKey)
   }
 
+  async hold(_cacheKey: string): Promise<void> {
+    assert.fail('QueryManager.hold() requires a windowId. Use holdForWindow() or the facade.')
+  }
+
+  async release(_cacheKey: string): Promise<void> {
+    assert.fail('QueryManager.release() requires a windowId. Use releaseForWindow() or the facade.')
+  }
+
+  async releaseAll(): Promise<void> {
+    assert.fail(
+      'QueryManager.releaseAll() requires a windowId. Use releaseAllForWindow() or the facade.',
+    )
+  }
+
   /**
-   * Place a hold on a cache key.
-   * While held, the data cannot be evicted.
-   * Only calls cacheManager.hold() on the 0→1 transition.
-   *
-   * @param cacheKey - Cache key to hold
+   * Place a hold on a cache key for a specific window.
+   * Ref-counted — only calls cacheManager.holdForWindow() on the 0→1 transition.
    */
-  async hold(cacheKey: string): Promise<void> {
+  holdForWindow(cacheKey: string, windowId: string): void {
     const current = this.activeHolds.get(cacheKey) ?? 0
     if (current === 0) {
-      await this.cacheManager.hold(cacheKey)
+      this.cacheManager.holdForWindow(cacheKey, windowId)
     }
     this.activeHolds.set(cacheKey, current + 1)
   }
 
   /**
-   * Release a hold on a cache key.
-   * Only calls cacheManager.release() on the 1→0 transition.
-   *
-   * @param cacheKey - Cache key to release
+   * Release a hold on a cache key for a specific window.
+   * Ref-counted — only calls cacheManager.releaseForWindow() on the 1→0 transition.
    */
-  async release(cacheKey: string): Promise<void> {
+  releaseForWindow(cacheKey: string, windowId: string): void {
     const current = this.activeHolds.get(cacheKey) ?? 0
     if (current <= 0) return
 
     if (current === 1) {
       this.activeHolds.delete(cacheKey)
-      await this.cacheManager.release(cacheKey)
+      this.cacheManager.releaseForWindow(cacheKey, windowId)
     } else {
       this.activeHolds.set(cacheKey, current - 1)
     }
+  }
+
+  /**
+   * Release all holds for a specific window.
+   */
+  releaseAllForWindow(windowId: string): void {
+    for (const cacheKey of this.activeHolds.keys()) {
+      this.cacheManager.releaseForWindow(cacheKey, windowId)
+    }
+    this.activeHolds.clear()
   }
 
   /**
@@ -285,22 +306,12 @@ export class QueryManager<
   }
 
   /**
-   * Release all active holds.
-   * One cacheManager.release() per key regardless of local count.
-   */
-  async releaseAll(): Promise<void> {
-    for (const cacheKey of this.activeHolds.keys()) {
-      await this.cacheManager.release(cacheKey)
-    }
-    this.activeHolds.clear()
-  }
-
-  /**
    * Destroy the query manager.
    */
   async destroy(): Promise<void> {
     this.destroy$.next()
     this.destroy$.complete()
-    await this.releaseAll()
+    this.cacheManager.releaseHolds([...this.activeHolds.keys()])
+    this.activeHolds.clear()
   }
 }

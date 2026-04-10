@@ -27,6 +27,7 @@ import { SharedWorkerAdapter } from './adapters/shared-worker/SharedWorkerAdapte
 import { OpfsUnavailableException } from './adapters/worker-core/probeOpfs.js'
 import type { CacheKeyIdentity } from './core/cache-manager/CacheKey.js'
 import { CacheManager } from './core/cache-manager/CacheManager.js'
+import { CacheManagerFacade } from './core/cache-manager/CacheManagerFacade.js'
 import type { ICacheManager } from './core/cache-manager/types.js'
 import { AnticipatedEventHandler } from './core/command-lifecycle/AnticipatedEventHandler.js'
 import type { IAnticipatedEvent } from './core/command-lifecycle/AnticipatedEventShape.js'
@@ -39,6 +40,7 @@ import { EventCache } from './core/event-cache/EventCache.js'
 import { EventProcessorRegistry } from './core/event-processor/EventProcessorRegistry.js'
 import { EventProcessorRunner } from './core/event-processor/EventProcessorRunner.js'
 import { QueryManager } from './core/query-manager/QueryManager.js'
+import { QueryManagerFacade } from './core/query-manager/QueryManagerFacade.js'
 import { StableRefQueryManager } from './core/query-manager/StableRefQueryManager.js'
 import type { IQueryManager } from './core/query-manager/types.js'
 import { ReadModelStore } from './core/read-model-store/ReadModelStore.js'
@@ -418,9 +420,9 @@ async function createOnlineOnlyClient<
   }
 
   // Create core components
+  const windowId = crypto.randomUUID()
   const cacheManager = new CacheManager<TLink, TCommand>(storage, eventBus, {
     cacheConfig: resolved.cache,
-    windowId: crypto.randomUUID(),
   })
   await cacheManager.initialize()
 
@@ -484,7 +486,8 @@ async function createOnlineOnlyClient<
     },
   )
 
-  const stableQueryManager = new StableRefQueryManager<TLink>(queryManager)
+  const queryManagerFacade = new QueryManagerFacade<TLink>(queryManager, windowId)
+  const stableQueryManager = new StableRefQueryManager<TLink>(queryManagerFacade)
 
   const connectivity = new ConnectivityManager<TLink>(eventBus, {
     healthCheckUrl: `${resolved.network.baseUrl}/health`,
@@ -506,6 +509,11 @@ async function createOnlineOnlyClient<
     resolved.collections,
   )
   syncManagerRef = syncManager
+
+  // Wire cross-dependencies (property-set to break circular refs)
+  cacheManager.setWriteQueue(writeQueue)
+  cacheManager.setCommandQueue(commandQueue)
+  commandQueue.setCacheManager(cacheManager)
 
   // Build sync manager facade
   const syncManagerFacade: CqrsClientSyncManager<TLink> = {
@@ -533,9 +541,12 @@ async function createOnlineOnlyClient<
     await commandQueue.destroy()
   }
 
+  const cacheManagerFacade = new CacheManagerFacade<TLink>(cacheManager, windowId)
+  cacheManager.registerWindow(windowId)
+
   return new CqrsClient<TLink, TCommand>(
     adapter,
-    cacheManager,
+    cacheManagerFacade,
     commandQueue,
     stableQueryManager,
     syncManagerFacade,

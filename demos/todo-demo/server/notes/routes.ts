@@ -7,17 +7,17 @@ import type { CommandResponse, CommandSuccessResponse } from '@cqrs-toolkit/demo
 import { NotebookRepository } from '@cqrs-toolkit/demo-base/notebooks/server'
 import {
   NoteAggregate,
+  type ListNotesResponse,
+  type Note,
   type NoteRepository,
   type NoteServerEvent,
 } from '@cqrs-toolkit/demo-base/notes/server'
 import {
-  type ListNotesResponse,
-  type Note,
-  type NoteCommand,
   createNotePayloadSchema,
   deleteNotePayloadSchema,
   updateNoteBodyPayloadSchema,
   updateNoteTitlePayloadSchema,
+  type NoteCommand,
 } from '@cqrs-toolkit/demo-base/notes/shared'
 import {
   EventExistenceRevision,

@@ -2,8 +2,7 @@
  * Note collection resolver — v1.0.0.
  */
 
-import type { NoteRepository } from '@cqrs-toolkit/demo-base/notes/server'
-import type { Note } from '@cqrs-toolkit/demo-base/notes/shared'
+import type { Note, NoteRepository } from '@cqrs-toolkit/demo-base/notes/server'
 import type { CursorPagination, HypermediaTypes } from '@cqrs-toolkit/hypermedia'
 import { Hypermedia, type RepliedValue, type ResolvedValue } from '@cqrs-toolkit/hypermedia/server'
 import { Ok, type Result } from '@meticoeus/ddd-es'

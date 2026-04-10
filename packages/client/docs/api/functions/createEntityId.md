@@ -6,12 +6,15 @@
 
 # Function: createEntityId()
 
-> **createEntityId**(`context`): `string`
+> **createEntityId**(`context`): [`EntityId`](../type-aliases/EntityId.md)
 
 Generate or reuse an entity ID based on handler context.
 
-During initial execution, generates a new random UUID.
-During regeneration, returns the entity ID from the original execution.
+For create commands with `idStrategy: 'temporary'`, returns an EntityRef carrying
+lifecycle metadata (commandId, idStrategy). For permanent IDs or non-create commands,
+returns a plain string.
+
+During regeneration, reuses the entity ID from the original execution.
 
 ## Parameters
 
@@ -23,6 +26,6 @@ The handler context
 
 ## Returns
 
-`string`
+[`EntityId`](../type-aliases/EntityId.md)
 
-A stable entity ID
+An EntityId (EntityRef for temporary creates, string otherwise)

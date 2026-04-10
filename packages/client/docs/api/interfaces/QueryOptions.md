@@ -43,3 +43,13 @@ Collection name
 > `optional` **hold**: `boolean`
 
 Place a hold on the cache key while query is active
+
+---
+
+### windowId?
+
+> `optional` **windowId**: `string`
+
+**`Internal`**
+
+Window ID for hold tracking. Injected by the facade/proxy.

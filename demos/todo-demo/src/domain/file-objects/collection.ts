@@ -1,14 +1,24 @@
 import { Collection } from '@cqrs-toolkit/client'
 import { assert } from '@cqrs-toolkit/client/utils'
-import { cacheKeysFromTopics, subscribeTopics } from '@cqrs-toolkit/demo-base/file-objects/domain'
+import {
+  FileObjectAggregate,
+  cacheKeysFromTopics,
+  subscribeTopics,
+} from '@cqrs-toolkit/demo-base/file-objects/domain'
+import { NotebookAggregate } from '@cqrs-toolkit/demo-base/notebooks/domain'
+import { NoteAggregate } from '@cqrs-toolkit/demo-base/notes/domain'
 import type { ServiceLink } from '@meticoeus/ddd-es'
 import { aggregateId, fetchSeedRecordPage, fetchStreamEventsAfter } from '../utils/collection.js'
 
 export const fileObjectsCollection: Collection<ServiceLink> = {
   name: 'file_objects',
+  aggregate: FileObjectAggregate,
+  idReferences: [
+    { path: '$.noteId', aggregate: NoteAggregate },
+    { path: '$.notebookId', aggregate: NotebookAggregate },
+  ],
   cacheKeysFromTopics,
   matchesStream: (streamId) => streamId.startsWith('FileObject-'),
-  getStreamId: (entityId) => `FileObject-${entityId}`,
   seedOnDemand: {
     keyTypes: [{ kind: 'entity', link: { service: 'nb', type: 'Notebook' } }],
     subscribeTopics,

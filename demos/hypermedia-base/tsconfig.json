@@ -4,9 +4,12 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "rootDir": ".",
+    "outDir": "dist",
     "jsx": "preserve",
     "jsxImportSource": "solid-js",
-    "noEmit": true,
+    "emitDeclarationOnly": true,
+    "noEmit": false,
     "esModuleInterop": true,
     "resolveJsonModule": true
   },

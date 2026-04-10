@@ -26,7 +26,7 @@ Resolve shared configuration with defaults.
 
 ### TEvent
 
-`TEvent` _extends_ [`IAnticipatedEvent`](../interfaces/IAnticipatedEvent.md)\<`string`, `AggregateEventData`\>
+`TEvent` _extends_ [`IAnticipatedEvent`](../interfaces/IAnticipatedEvent.md)\<`string`, `AnticipatedAggregateEventData`\>
 
 ## Parameters
 

@@ -1,7 +1,9 @@
 import { Collection } from '@cqrs-toolkit/client'
 import { assert } from '@cqrs-toolkit/client/utils'
+import { NotebookAggregate } from '@cqrs-toolkit/demo-base/notebooks/domain'
 import {
   cacheKeysFromTopics,
+  NoteAggregate,
   NOTES_COLLECTION_NAME,
   subscribeTopics,
 } from '@cqrs-toolkit/demo-base/notes/domain'
@@ -10,9 +12,10 @@ import { aggregateId, fetchSeedRecordPage, fetchStreamEventsAfter } from '../uti
 
 export const notesCollection: Collection<ServiceLink> = {
   name: NOTES_COLLECTION_NAME,
+  aggregate: NoteAggregate,
+  idReferences: [{ path: '$.notebookId', aggregate: NotebookAggregate }],
   cacheKeysFromTopics,
   matchesStream: (streamId) => streamId.startsWith('Note-'),
-  getStreamId: (entityId) => `Note-${entityId}`,
   seedOnDemand: {
     keyTypes: [{ kind: 'entity', link: { service: 'nb', type: 'Notebook' } }],
     subscribeTopics,

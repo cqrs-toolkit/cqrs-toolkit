@@ -10,14 +10,13 @@ import {
 } from '@cqrs-toolkit/demo-base/common/server'
 import type { CommandResponse, CommandSuccessResponse } from '@cqrs-toolkit/demo-base/common/shared'
 import {
+  type FileObject,
   FileObjectAggregate,
   type FileObjectRepository,
   type FileObjectServerEvent,
-} from '@cqrs-toolkit/demo-base/file-objects/server'
-import {
-  type FileObject,
   type ListFileObjectsResponse,
-} from '@cqrs-toolkit/demo-base/file-objects/shared'
+} from '@cqrs-toolkit/demo-base/file-objects/server'
+import {} from '@cqrs-toolkit/demo-base/file-objects/shared'
 import type { NoteRepository } from '@cqrs-toolkit/demo-base/notes/server'
 import type { MultipartValue } from '@fastify/multipart'
 import {

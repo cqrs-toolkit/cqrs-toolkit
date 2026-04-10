@@ -2,13 +2,10 @@
  * FileObject aggregate — server-side event sourcing with AggregateRoot.
  */
 
-import type {
-  FileObject,
-  FileObjectCreatedEvent,
-  FileObjectDeletedEvent,
-} from '@cqrs-toolkit/demo-base/file-objects/shared'
 import { AggregateRoot, type EventMetadata, type IEvent, createEvent } from '@meticoeus/ddd-es'
 import assert from 'node:assert'
+import type { FileObjectCreatedEvent, FileObjectDeletedEvent } from '../shared/index.js'
+import type { FileObject } from './types.js'
 
 export type FileObjectServerEvent =
   | IEvent<'FileObjectCreated', FileObjectCreatedEvent['data'], EventMetadata>
@@ -31,7 +28,7 @@ export class FileObjectAggregate extends AggregateRoot<FileObjectServerEvent> {
   }
 
   static getStreamName(id: string): string {
-    return `FileObject-${id}`
+    return `storage.FileObject-${id}`
   }
 
   create(

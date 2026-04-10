@@ -2,10 +2,26 @@
  * Type exports for the CQRS Client library.
  */
 
+// Aggregates
+
+export { ClientAggregate, matchesAggregate } from './aggregates.js'
+export type {
+  AggregateConfig,
+  DirectIdReference,
+  IdReference,
+  LinkIdReference,
+} from './aggregates.js'
+
 // Entities
 export type { EntityId, EntityRef } from './entities.js'
 
-export { createEntityRef, entityIdToString, isEntityRef } from './entities.js'
+export {
+  createEntityRef,
+  entityIdEquals,
+  entityIdMatches,
+  entityIdToString,
+  isEntityRef,
+} from './entities.js'
 
 // Events
 export type {
@@ -137,6 +153,8 @@ export type { ICommandSender } from '../core/command-queue/types.js'
 
 // Debug
 export type { CqrsDebugAPI, CqrsDevToolsHook } from './debug.js'
+
+export type { JSONPathExpression } from './json-path.js'
 
 // Re-export ddd-es event types for consumer convenience
 export type { IPersistedEvent, ISerializedEvent } from '@meticoeus/ddd-es'

@@ -4,7 +4,7 @@
 
 import type { Link } from '@meticoeus/ddd-es'
 import type { CacheKeyRecord } from '../../storage/IStorage.js'
-import type { CacheKeyIdentity } from './CacheKey.js'
+import type { CacheKeyIdentity, CacheKeyTemplate } from './CacheKey.js'
 
 /**
  * Options for acquiring a cache key.
@@ -12,6 +12,8 @@ import type { CacheKeyIdentity } from './CacheKey.js'
 export interface AcquireCacheKeyOptions {
   /** Whether to place a hold (prevents eviction) */
   hold?: boolean
+  /** @internal Window ID for hold tracking. Injected by the facade/proxy. */
+  windowId?: string
   /** TTL in milliseconds (overrides default) */
   ttl?: number
   /** Eviction policy for new keys (default: 'persistent') */
@@ -147,4 +149,81 @@ export interface ICacheManager<TLink extends Link> {
    * @returns The subset of keys that exist
    */
   filterExistingCacheKeys(keys: string[]): Promise<string[]>
+
+  /**
+   * Register a cache key from a template. Assigns a stable opaque UUID.
+   * Auto-wires pending ID reconciliation from EntityRef values in the template.
+   *
+   * For templates without EntityRef values, this is equivalent to acquireKey
+   * with a deterministic identity.
+   *
+   * @param template - Cache key template (entity or scope)
+   * @param options - Acquisition options (hold, ttl, eviction policy)
+   * @returns The registered cache key identity with a stable UUID
+   */
+  registerCacheKey(
+    template: CacheKeyTemplate<TLink>,
+    options?: AcquireCacheKeyOptions,
+  ): Promise<CacheKeyIdentity<TLink>>
+}
+
+/**
+ * Internal cache manager interface.
+ *
+ * Extends the public {@link ICacheManager} with methods used by internal
+ * callers (SyncManager, CommandQueue, WorkerOrchestrator) that run in the
+ * same thread as the CacheManager.
+ *
+ * Not exposed to consumers — the public API is always {@link ICacheManager}.
+ */
+export interface ICacheManagerInternal<TLink extends Link> extends ICacheManager<TLink> {
+  /** Initialize the cache manager. Resets hold counts, evicts stale ephemeral keys. */
+  initialize(): Promise<void>
+
+  /** Clean up cache state when the session is destroyed (user changed, logout). */
+  onSessionDestroyed(): Promise<void>
+
+  /** Register a window for multi-tab coordination. Returns false if max windows exceeded. */
+  registerWindow(windowId: string): boolean
+
+  /** Unregister a window. Releases all holds from that window and evicts orphaned ephemeral keys. */
+  unregisterWindow(windowId: string): Promise<void>
+
+  /**
+   * Place a hold on a cache key for a specific window.
+   * Used by RPC handlers that know the calling window's ID.
+   */
+  holdForWindow(key: string, windowId: string): void
+
+  /**
+   * Release a hold on a cache key for a specific window.
+   * Used by RPC handlers that know the calling window's ID.
+   */
+  releaseForWindow(key: string, windowId: string): void
+
+  /**
+   * Release all holds on the given cache keys across all windows.
+   * Used by QueryManager.destroy() to clean up without knowing window IDs.
+   */
+  releaseHolds(keys: string[]): void
+
+  /**
+   * Synchronous cache key registration. For internal callers in the same thread
+   * (SyncManager, CommandQueue, anywhere inside the worker).
+   * Does not touch storage — the dirty flush handles persistence.
+   */
+  registerCacheKeySync(
+    template: CacheKeyTemplate<TLink>,
+    options?: AcquireCacheKeyOptions,
+  ): CacheKeyIdentity<TLink>
+
+  /**
+   * Resolve pending cache keys when a command succeeds with ID mappings.
+   * Called by CommandQueue after reconcileCreateIds.
+   */
+  resolvePendingKeys(
+    commandId: string,
+    idMap: Record<string, { serverId: string; commandType: string }>,
+    resolveCacheKey?: (cacheKey: CacheKeyIdentity<TLink>) => CacheKeyIdentity<TLink>,
+  ): void
 }

@@ -13,7 +13,7 @@ Mirrors ddd-es `IEvent` but scoped to client-side event generation:
 - `type` and `data` from `IEvent`
 - `streamId` for stream routing (from `IPersistedEvent`)
 - No `metadata` (TBD) or `persistence` (not needed client-side)
-- `Data` extends `AggregateEventData` (requires `{ readonly id: string }`)
+- `Data` extends `AnticipatedEventData` (requires `{ readonly id: EntityId }`)
   without an index signature — consumers get exact type checking on data.
 
 Consumers write typed event unions for type-safe handlers:
@@ -22,7 +22,7 @@ Consumers write typed event unions for type-safe handlers:
 type TodoCreatedEvent = IAnticipatedEvent<
   'TodoCreated',
   {
-    readonly id: string
+    readonly id: EntityId
     readonly content: string
   }
 >
@@ -37,7 +37,7 @@ type TodoEvent = TodoCreatedEvent | TodoDeletedEvent
 
 ### Data
 
-`Data` _extends_ `AggregateEventData` = `AggregateEventData`
+`Data` _extends_ `AnticipatedAggregateEventData` = `AnticipatedAggregateEventData`
 
 ## Properties
 

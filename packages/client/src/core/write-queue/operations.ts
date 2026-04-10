@@ -1,7 +1,5 @@
 import type { IPersistedEvent, Link } from '@meticoeus/ddd-es'
 import type { SeedRecord } from '../../types/config.js'
-import type { CreateCommandConfig } from '../../types/domain.js'
-import type { EntityRef } from '../../types/entities.js'
 import type { CacheKeyIdentity } from '../cache-manager/index.js'
 import type { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventShape.js'
 
@@ -59,10 +57,6 @@ export interface ApplyAnticipatedOp {
    * Passed through to the anticipated event handler for _clientMetadata tracking.
    */
   clientId?: string
-  /** Creates config from the command handler registration. Used for EntityRef injection. */
-  creates?: CreateCommandConfig
-  /** EntityRef data extracted from command data. Used for EntityRef injection into read model parent ref fields. */
-  entityRefData?: Record<string, EntityRef>
 }
 
 /**
@@ -88,6 +82,15 @@ export interface EvictCacheKeyOp {
 }
 
 /**
+ * Flush dirty cache key registry entries to SQL storage.
+ * Batches multiple in-memory updates into a single write.
+ * The in-memory registry is always ahead of SQL — this is just durability.
+ */
+export interface FlushCacheKeysOp {
+  type: 'flush-cache-keys'
+}
+
+/**
  * Discriminated union of all write queue operation types.
  * Processed sequentially in FIFO order.
  */
@@ -98,6 +101,7 @@ export type WriteQueueOp<TLink extends Link> =
   | ApplyAnticipatedOp
   | ApplyGapRepairOp
   | EvictCacheKeyOp
+  | FlushCacheKeysOp
 
 /**
  * All operation type tags. Used by the queue to assert handler completeness at bootstrap.
@@ -109,4 +113,5 @@ export const ALL_OP_TYPES: readonly WriteQueueOp<Link>['type'][] = [
   'apply-anticipated',
   'apply-gap-repair',
   'evict-cache-key',
+  'flush-cache-keys',
 ] as const

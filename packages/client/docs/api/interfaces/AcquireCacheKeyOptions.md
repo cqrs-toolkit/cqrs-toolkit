@@ -31,3 +31,13 @@ Whether to place a hold (prevents eviction)
 > `optional` **ttl**: `number`
 
 TTL in milliseconds (overrides default)
+
+---
+
+### windowId?
+
+> `optional` **windowId**: `string`
+
+**`Internal`**
+
+Window ID for hold tracking. Injected by the facade/proxy.

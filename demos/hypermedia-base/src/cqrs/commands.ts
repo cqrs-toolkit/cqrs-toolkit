@@ -3,7 +3,7 @@
  * Regenerate with: cqrs-pull generate
  */
 
-import type { AutoRevision } from '@cqrs-toolkit/client'
+import type { AutoRevision, EntityId } from '@cqrs-toolkit/client'
 import type { CommandManifest } from '@cqrs-toolkit/hypermedia-client'
 
 export const commands: CommandManifest = {
@@ -222,60 +222,70 @@ export type AppCommand =
   | { type: 'nb.CreateTodo'; data: unknown }
   | {
       type: 'nb.UpdateTodoContent'
-      path: { id: string }
+      path: { id: EntityId }
       data: unknown
       revision?: string | AutoRevision
     }
   | {
       type: 'nb.ChangeTodoStatus'
-      path: { id: string }
+      path: { id: EntityId }
       data: unknown
       revision?: string | AutoRevision
     }
-  | { type: 'nb.DeleteTodo'; path: { id: string }; data: unknown; revision?: string | AutoRevision }
+  | {
+      type: 'nb.DeleteTodo'
+      path: { id: EntityId }
+      data: unknown
+      revision?: string | AutoRevision
+    }
   | { type: 'nb.CreateNote'; data: unknown }
   | {
       type: 'nb.UpdateNoteTitle'
-      path: { id: string }
+      path: { id: EntityId }
       data: unknown
       revision?: string | AutoRevision
     }
   | {
       type: 'nb.UpdateNoteBody'
-      path: { id: string }
+      path: { id: EntityId }
       data: unknown
       revision?: string | AutoRevision
     }
-  | { type: 'nb.DeleteNote'; path: { id: string }; data: unknown; revision?: string | AutoRevision }
+  | {
+      type: 'nb.DeleteNote'
+      path: { id: EntityId }
+      data: unknown
+      revision?: string | AutoRevision
+    }
   | { type: 'nb.CreateNotebook'; data: unknown }
   | {
       type: 'nb.UpdateNotebookName'
-      path: { id: string }
+      path: { id: EntityId }
       data: unknown
       revision?: string | AutoRevision
     }
   | {
       type: 'nb.DeleteNotebook'
-      path: { id: string }
+      path: { id: EntityId }
       data: unknown
       revision?: string | AutoRevision
     }
   | {
       type: 'nb.AddNotebookTag'
-      path: { id: string }
+      path: { id: EntityId }
       data: unknown
       revision?: string | AutoRevision
     }
   | {
       type: 'nb.RemoveNotebookTag'
-      path: { id: string }
+      path: { id: EntityId }
       data: unknown
       revision?: string | AutoRevision
     }
   | { type: 'storage.CreateFileObject'; data: unknown; files: [File] }
   | {
       type: 'storage.DeleteFileObject'
-      path: { id: string }
+      path: { id: EntityId }
       data: unknown
       revision?: string | AutoRevision
     }

@@ -4,16 +4,20 @@
  */
 
 import type { Link } from '@meticoeus/ddd-es'
-import type { CacheKeyIdentity } from '../../core/cache-manager/CacheKey.js'
+import type { CacheKeyIdentity, CacheKeyTemplate } from '../../core/cache-manager/CacheKey.js'
 import type { AcquireCacheKeyOptions, ICacheManager } from '../../core/cache-manager/types.js'
 import type { WorkerMessageChannel } from '../../protocol/MessageChannel.js'
 import type { CacheKeyRecord } from '../../storage/IStorage.js'
 
 /**
  * Main-thread proxy for the worker-side CacheManager.
+ * Each proxy knows its window's ID and sends it with hold/release calls.
  */
 export class CacheManagerProxy<TLink extends Link> implements ICacheManager<TLink> {
-  constructor(private readonly channel: WorkerMessageChannel) {}
+  constructor(
+    private readonly channel: WorkerMessageChannel,
+    private readonly windowId: string,
+  ) {}
 
   async acquireKey(
     cacheKey: CacheKeyIdentity<TLink>,
@@ -21,7 +25,7 @@ export class CacheManagerProxy<TLink extends Link> implements ICacheManager<TLin
   ): Promise<CacheKeyIdentity<TLink>> {
     return this.channel.request<CacheKeyIdentity<TLink>>('cacheManager.acquireKey', [
       cacheKey,
-      options,
+      { ...options, windowId: this.windowId },
     ])
   }
 
@@ -29,7 +33,10 @@ export class CacheManagerProxy<TLink extends Link> implements ICacheManager<TLin
     cacheKey: CacheKeyIdentity<TLink>,
     options?: AcquireCacheKeyOptions,
   ): Promise<string> {
-    return this.channel.request<string>('cacheManager.acquire', [cacheKey, options])
+    return this.channel.request<string>('cacheManager.acquire', [
+      cacheKey,
+      { ...options, windowId: this.windowId },
+    ])
   }
 
   async exists(key: string): Promise<boolean> {
@@ -45,11 +52,11 @@ export class CacheManagerProxy<TLink extends Link> implements ICacheManager<TLin
   }
 
   async hold(key: string): Promise<void> {
-    return this.channel.request<void>('cacheManager.hold', [key])
+    return this.channel.request<void>('cacheManager.holdForWindow', [key, this.windowId])
   }
 
   async release(key: string): Promise<void> {
-    return this.channel.request<void>('cacheManager.release', [key])
+    return this.channel.request<void>('cacheManager.releaseForWindow', [key, this.windowId])
   }
 
   async freeze(key: string): Promise<void> {
@@ -82,5 +89,15 @@ export class CacheManagerProxy<TLink extends Link> implements ICacheManager<TLin
 
   async filterExistingCacheKeys(keys: string[]): Promise<string[]> {
     return this.channel.request<string[]>('cacheManager.filterExistingCacheKeys', [keys])
+  }
+
+  async registerCacheKey(
+    template: CacheKeyTemplate<TLink>,
+    options?: AcquireCacheKeyOptions,
+  ): Promise<CacheKeyIdentity<TLink>> {
+    return this.channel.request<CacheKeyIdentity<TLink>>('cacheManager.registerCacheKey', [
+      template,
+      { ...options, windowId: this.windowId },
+    ])
   }
 }

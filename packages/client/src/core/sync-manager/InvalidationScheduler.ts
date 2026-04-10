@@ -11,7 +11,7 @@ import { Link, logProvider, Result } from '@meticoeus/ddd-es'
 import type { Collection, FetchContext } from '../../types/config.js'
 import { EnqueueCommand } from '../../types/index.js'
 import { type CacheKeyIdentity, hydrateCacheKeyIdentity } from '../cache-manager/CacheKey.js'
-import type { CacheManager } from '../cache-manager/CacheManager.js'
+import type { ICacheManagerInternal } from '../cache-manager/types.js'
 import type { EventBus } from '../events/EventBus.js'
 import { WriteQueueException } from '../write-queue/IWriteQueue.js'
 import type { SeedStatusIndex } from './SeedStatusIndex.js'
@@ -37,7 +37,7 @@ export class InvalidationScheduler<TLink extends Link, TCommand extends EnqueueC
 
   constructor(
     private readonly eventBus: EventBus<TLink>,
-    private readonly cacheManager: CacheManager<TLink, TCommand>,
+    private readonly cacheManager: ICacheManagerInternal<TLink>,
     private readonly seedStatus: SeedStatusIndex,
     private readonly collections: Collection<TLink>[],
     config: InvalidationSchedulerConfig<TLink>,

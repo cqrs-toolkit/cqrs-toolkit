@@ -1,6 +1,7 @@
-import type { Collection } from '@cqrs-toolkit/client'
+import { type Collection } from '@cqrs-toolkit/client'
 import {
   NOTEBOOK_SEED_KEY,
+  NotebookAggregate,
   NOTEBOOKS_COLLECTION_NAME,
 } from '@cqrs-toolkit/demo-base/notebooks/domain'
 import type { ServiceLink } from '@meticoeus/ddd-es'
@@ -8,13 +9,13 @@ import { aggregateId, fetchSeedRecordPage, fetchStreamEventsAfter } from '../uti
 
 export const notebooksCollection: Collection<ServiceLink> = {
   name: NOTEBOOKS_COLLECTION_NAME,
+  aggregate: NotebookAggregate,
   cacheKeysFromTopics: () => [NOTEBOOK_SEED_KEY],
   seedOnInit: {
     cacheKey: NOTEBOOK_SEED_KEY,
     topics: ['Notebook:*'],
   },
   matchesStream: (streamId) => streamId.startsWith('Notebook-'),
-  getStreamId: (entityId) => `Notebook-${entityId}`,
   fetchSeedRecords: ({ ctx, cursor, limit }) =>
     fetchSeedRecordPage(ctx, '/notebooks', cursor, limit),
   fetchStreamEvents: ({ ctx, streamId, afterRevision }) =>

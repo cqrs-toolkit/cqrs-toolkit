@@ -1,5 +1,5 @@
 import type { CommandSuccessResponse } from '@cqrs-toolkit/demo-base/common/shared'
-import type { FileObject } from '@cqrs-toolkit/demo-base/file-objects/shared'
+import type { FileObject } from '@cqrs-toolkit/demo-base/file-objects/server'
 import type { FastifyInstance } from 'fastify'
 import FormData from 'form-data'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'

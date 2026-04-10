@@ -4,25 +4,28 @@
 
 import type { ServiceLink } from '@meticoeus/ddd-es'
 import { take } from 'rxjs'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { EventBus } from '../events/EventBus.js'
 import { ConnectivityManager } from './ConnectivityManager.js'
 
 describe('ConnectivityManager', () => {
-  let eventBus: EventBus<ServiceLink>
-  let connectivity: ConnectivityManager<ServiceLink>
-
-  beforeEach(() => {
-    eventBus = new EventBus()
-    connectivity = new ConnectivityManager(eventBus)
-  })
+  let cleanup: (() => void)[] = []
 
   afterEach(() => {
-    connectivity.destroy()
+    for (const fn of cleanup) fn()
+    cleanup = []
   })
+
+  function bootstrap() {
+    const eventBus = new EventBus<ServiceLink>()
+    const connectivity = new ConnectivityManager<ServiceLink>(eventBus)
+    cleanup.push(() => connectivity.destroy())
+    return { connectivity, eventBus }
+  }
 
   describe('initial state', () => {
     it('starts with browser online status', () => {
+      const { connectivity } = bootstrap()
       const state = connectivity.getState()
       expect(state.network).toBe('online') // jsdom default
       expect(state.serverReachable).toBe('unknown')
@@ -30,12 +33,14 @@ describe('ConnectivityManager', () => {
     })
 
     it('reports not online initially (server reachability unknown)', () => {
+      const { connectivity } = bootstrap()
       expect(connectivity.isOnline()).toBe(false)
     })
   })
 
   describe('reportContact', () => {
     it('sets serverReachable to yes', () => {
+      const { connectivity } = bootstrap()
       connectivity.reportContact()
 
       const state = connectivity.getState()
@@ -44,11 +49,13 @@ describe('ConnectivityManager', () => {
     })
 
     it('makes isOnline return true when browser is online', () => {
+      const { connectivity } = bootstrap()
       connectivity.reportContact()
       expect(connectivity.isOnline()).toBe(true)
     })
 
     it('emits connectivity:changed event', async () => {
+      const { connectivity, eventBus } = bootstrap()
       const events: unknown[] = []
       eventBus.on('connectivity:changed').subscribe((e) => events.push(e))
 
@@ -63,6 +70,7 @@ describe('ConnectivityManager', () => {
 
   describe('reportFailure', () => {
     it('sets serverReachable to no', () => {
+      const { connectivity } = bootstrap()
       connectivity.reportContact() // First go online
       connectivity.reportFailure()
 
@@ -71,6 +79,7 @@ describe('ConnectivityManager', () => {
     })
 
     it('emits connectivity:changed event', async () => {
+      const { connectivity, eventBus } = bootstrap()
       connectivity.reportContact() // Go online first
 
       const events: unknown[] = []
@@ -87,6 +96,7 @@ describe('ConnectivityManager', () => {
 
   describe('online$', () => {
     it('emits distinct online status changes', async () => {
+      const { connectivity } = bootstrap()
       const values: boolean[] = []
       connectivity.online$.pipe(take(3)).subscribe((v) => values.push(v))
 
@@ -104,6 +114,7 @@ describe('ConnectivityManager', () => {
 
   describe('state observable', () => {
     it('emits state changes', async () => {
+      const { connectivity } = bootstrap()
       const states: unknown[] = []
       connectivity.state.pipe(take(2)).subscribe((s) => states.push(s))
 
@@ -118,6 +129,7 @@ describe('ConnectivityManager', () => {
 
   describe('lifecycle', () => {
     it('stop() cleans up browser event subscription', () => {
+      const { connectivity } = bootstrap()
       connectivity.start()
 
       // After start, browserSub should exist (via the merge subscription)
@@ -133,6 +145,8 @@ describe('ConnectivityManager', () => {
     })
 
     it('destroy() cleans up browser event subscription', () => {
+      const eventBus = new EventBus<ServiceLink>()
+      const connectivity = new ConnectivityManager<ServiceLink>(eventBus)
       connectivity.start()
       connectivity.destroy()
 

@@ -2,9 +2,9 @@ import type { CommandRecord, CommandStatus } from '@cqrs-toolkit/client'
 import { CommandItem, StatusFilter } from '@cqrs-toolkit/demo-base/commands/components'
 import { ServiceLink } from '@meticoeus/ddd-es'
 import { createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
-import { AppCommand } from '../.cqrs/commands.js'
 import { useClient } from '../bootstrap/typed-client.js'
 import PageShell from '../components/PageShell.js'
+import { AppCommand } from '../cqrs/commands.js'
 
 const ALL_STATUSES = new Set<CommandStatus>([
   'pending',

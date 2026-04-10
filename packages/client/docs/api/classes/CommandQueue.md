@@ -6,9 +6,6 @@
 
 # Class: CommandQueue\<TLink, TCommand, TSchema, TEvent\>
 
-Command queue interface.
-Provides form-friendly async patterns for command handling.
-
 ## Type Parameters
 
 ### TLink
@@ -29,7 +26,7 @@ Provides form-friendly async patterns for command handling.
 
 ## Implements
 
-- [`ICommandQueue`](../interfaces/ICommandQueue.md)\<`TLink`, `TCommand`\>
+- `ICommandQueueInternal`\<`TLink`, `TCommand`\>
 
 ## Constructors
 
@@ -82,7 +79,7 @@ Emits for all command status changes.
 
 #### Implementation of
 
-[`ICommandQueue`](../interfaces/ICommandQueue.md).[`events$`](../interfaces/ICommandQueue.md#events)
+`ICommandQueueInternal.events$`
 
 ## Methods
 
@@ -107,7 +104,7 @@ Command ID to cancel
 
 #### Implementation of
 
-[`ICommandQueue`](../interfaces/ICommandQueue.md).[`cancelCommand`](../interfaces/ICommandQueue.md#cancelcommand)
+`ICommandQueueInternal.cancelCommand`
 
 ---
 
@@ -121,6 +118,10 @@ Pauses, clears retry timers, waits for in-flight, clears anticipated event track
 #### Returns
 
 `Promise`\<`void`\>
+
+#### Implementation of
+
+`ICommandQueueInternal.clearAll`
 
 ---
 
@@ -147,7 +148,7 @@ Observable of events for that command
 
 #### Implementation of
 
-[`ICommandQueue`](../interfaces/ICommandQueue.md).[`commandEvents$`](../interfaces/ICommandQueue.md#commandevents)
+`ICommandQueueInternal.commandEvents$`
 
 ---
 
@@ -161,6 +162,10 @@ Waits for any in-flight command processing to settle before returning.
 #### Returns
 
 `Promise`\<`void`\>
+
+#### Implementation of
+
+`ICommandQueueInternal.destroy`
 
 ---
 
@@ -181,7 +186,7 @@ For forms: check result.ok to show validation errors immediately.
 
 ##### TEvent
 
-`TEvent` _extends_ [`IAnticipatedEvent`](../interfaces/IAnticipatedEvent.md)\<`string`, `AggregateEventData`\>
+`TEvent` _extends_ [`IAnticipatedEvent`](../interfaces/IAnticipatedEvent.md)\<`string`, `AnticipatedAggregateEventData`\>
 
 #### Parameters
 
@@ -197,7 +202,7 @@ Enqueue result with validation status
 
 #### Implementation of
 
-[`ICommandQueue`](../interfaces/ICommandQueue.md).[`enqueue`](../interfaces/ICommandQueue.md#enqueue)
+`ICommandQueueInternal.enqueue`
 
 ---
 
@@ -216,7 +221,7 @@ Best for simple form submissions.
 
 ##### TEvent
 
-`TEvent` _extends_ [`IAnticipatedEvent`](../interfaces/IAnticipatedEvent.md)\<`string`, `AggregateEventData`\>
+`TEvent` _extends_ [`IAnticipatedEvent`](../interfaces/IAnticipatedEvent.md)\<`string`, `AnticipatedAggregateEventData`\>
 
 ##### TResponse
 
@@ -236,7 +241,7 @@ Combined enqueue and completion result
 
 #### Implementation of
 
-[`ICommandQueue`](../interfaces/ICommandQueue.md).[`enqueueAndWait`](../interfaces/ICommandQueue.md#enqueueandwait)
+`ICommandQueueInternal.enqueueAndWait`
 
 ---
 
@@ -262,7 +267,7 @@ Command record or undefined
 
 #### Implementation of
 
-[`ICommandQueue`](../interfaces/ICommandQueue.md).[`getCommand`](../interfaces/ICommandQueue.md#getcommand)
+`ICommandQueueInternal.getCommand`
 
 ---
 
@@ -294,7 +299,33 @@ Entity IDs, or empty if the command has no tracked entries
 
 #### Implementation of
 
-[`ICommandQueue`](../interfaces/ICommandQueue.md).[`getCommandEntities`](../interfaces/ICommandQueue.md#getcommandentities)
+`ICommandQueueInternal.getCommandEntities`
+
+---
+
+### getIdMapping()
+
+> **getIdMapping**(`clientId`): \{ `serverId`: `string`; \} \| `undefined`
+
+Synchronous in-memory lookup for a client→server ID mapping.
+Checks the aggregate chain for a completed create command.
+Used by CacheManager to detect already-settled commands during registration.
+
+#### Parameters
+
+##### clientId
+
+[`EntityId`](../type-aliases/EntityId.md)
+
+#### Returns
+
+\{ `serverId`: `string`; \} \| `undefined`
+
+The server ID if the client ID has been reconciled, undefined otherwise.
+
+#### Implementation of
+
+`ICommandQueueInternal.getIdMapping`
 
 ---
 
@@ -310,7 +341,7 @@ Check if command processing is paused.
 
 #### Implementation of
 
-[`ICommandQueue`](../interfaces/ICommandQueue.md).[`isPaused`](../interfaces/ICommandQueue.md#ispaused)
+`ICommandQueueInternal.isPaused`
 
 ---
 
@@ -336,7 +367,7 @@ Matching commands
 
 #### Implementation of
 
-[`ICommandQueue`](../interfaces/ICommandQueue.md).[`listCommands`](../interfaces/ICommandQueue.md#listcommands)
+`ICommandQueueInternal.listCommands`
 
 ---
 
@@ -352,7 +383,7 @@ Pause command processing.
 
 #### Implementation of
 
-[`ICommandQueue`](../interfaces/ICommandQueue.md).[`pause`](../interfaces/ICommandQueue.md#pause)
+`ICommandQueueInternal.pause`
 
 ---
 
@@ -369,7 +400,7 @@ Called by the sync manager when network is available.
 
 #### Implementation of
 
-[`ICommandQueue`](../interfaces/ICommandQueue.md).[`processPendingCommands`](../interfaces/ICommandQueue.md#processpendingcommands)
+`ICommandQueueInternal.processPendingCommands`
 
 ---
 
@@ -398,7 +429,7 @@ Resume command processing.
 
 #### Implementation of
 
-[`ICommandQueue`](../interfaces/ICommandQueue.md).[`resume`](../interfaces/ICommandQueue.md#resume)
+`ICommandQueueInternal.resume`
 
 ---
 
@@ -422,7 +453,26 @@ Command ID to retry
 
 #### Implementation of
 
-[`ICommandQueue`](../interfaces/ICommandQueue.md).[`retryCommand`](../interfaces/ICommandQueue.md#retrycommand)
+`ICommandQueueInternal.retryCommand`
+
+---
+
+### setCacheManager()
+
+> **setCacheManager**(`cacheManager`): `void`
+
+Set the CacheManager reference for cache key reconciliation.
+Called after construction by the orchestrator to break the circular dependency.
+
+#### Parameters
+
+##### cacheManager
+
+`ICacheManagerInternal`\<`TLink`\>
+
+#### Returns
+
+`void`
 
 ---
 
@@ -457,4 +507,4 @@ Completion result
 
 #### Implementation of
 
-[`ICommandQueue`](../interfaces/ICommandQueue.md).[`waitForCompletion`](../interfaces/ICommandQueue.md#waitforcompletion)
+`ICommandQueueInternal.waitForCompletion`

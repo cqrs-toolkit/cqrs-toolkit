@@ -1,4 +1,4 @@
-import { type CacheKeyIdentity, IQueryManager } from '@cqrs-toolkit/client'
+import { type CacheKeyIdentity, type EntityId, IQueryManager } from '@cqrs-toolkit/client'
 import {
   createItemQuery,
   createListQuery,
@@ -27,7 +27,7 @@ export function appCreateListQuery<T extends Identifiable>(
 export function appCreateItemQuery<T extends Identifiable>(
   queryManager: IQueryManager<ServiceLink>,
   collection: string,
-  id: string | (() => string),
+  id: EntityId | (() => EntityId),
   cacheKey: CacheKeyIdentity<ServiceLink> | (() => CacheKeyIdentity<ServiceLink> | undefined),
 ): ItemQueryState<T> {
   const params: ItemQueryParams<ServiceLink> = {

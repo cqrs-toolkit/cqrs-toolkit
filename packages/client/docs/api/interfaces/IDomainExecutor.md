@@ -6,8 +6,11 @@
 
 # Interface: IDomainExecutor\<TLink, TCommand, TSchema, TEvent\>
 
-Domain executor interface - consumer implements this.
-The library is agnostic to how validation is performed internally.
+Domain executor interface.
+
+Provides separate validation and handler phases so the CommandQueue can
+transform data between them (e.g., re-injecting EntityRef values after
+validation but before the handler runs).
 
 ## Type Parameters
 
@@ -31,38 +34,6 @@ Event type produced by the executor
 
 ## Methods
 
-### execute()
-
-> **execute**(`command`, `context`): `Promise`\<[`DomainExecutionResult`](../type-aliases/DomainExecutionResult.md)\<`TEvent`\>\>
-
-Execute a command through the validation pipeline and produce anticipated events.
-
-On initial execution (`'initializing'`), runs all validation phases
-(schema, validate, validateAsync) before the handler.
-On regeneration (`'updating'`), skips validation and runs the handler directly.
-
-#### Parameters
-
-##### command
-
-[`ExecutorCommand`](ExecutorCommand.md)
-
-The command envelope to execute
-
-##### context
-
-[`HandlerContext`](../type-aliases/HandlerContext.md)
-
-Execution context (phase and entity ID for regeneration)
-
-#### Returns
-
-`Promise`\<[`DomainExecutionResult`](../type-aliases/DomainExecutionResult.md)\<`TEvent`\>\>
-
-Success with anticipated events, or failure with validation errors
-
----
-
 ### getRegistration()
 
 > **getRegistration**(`commandType`): [`CommandHandlerRegistration`](../type-aliases/CommandHandlerRegistration.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\> \| `undefined`
@@ -76,3 +47,53 @@ Success with anticipated events, or failure with validation errors
 #### Returns
 
 [`CommandHandlerRegistration`](../type-aliases/CommandHandlerRegistration.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\> \| `undefined`
+
+---
+
+### handle()
+
+> **handle**(`command`, `context`): [`DomainExecutionResult`](../type-aliases/DomainExecutionResult.md)\<`TEvent`\>
+
+Run the handler only. No validation.
+Produces anticipated events from the (possibly transformed) command data.
+
+#### Parameters
+
+##### command
+
+[`ExecutorCommand`](ExecutorCommand.md)
+
+The command envelope with data ready for the handler
+
+##### context
+
+[`HandlerContext`](../type-aliases/HandlerContext.md)
+
+Execution context (phase and entity ID for regeneration)
+
+#### Returns
+
+[`DomainExecutionResult`](../type-aliases/DomainExecutionResult.md)\<`TEvent`\>
+
+Success with anticipated events, or failure
+
+---
+
+### validate()
+
+> **validate**(`command`): `Promise`\<`Result`\<`unknown`, [`DomainExecutionError`](../type-aliases/DomainExecutionError.md)\>\>
+
+Run validation phases (schema, validate, validateAsync) on the command data.
+Returns the validated/hydrated data on success, or a validation error.
+
+Does NOT run the handler.
+
+#### Parameters
+
+##### command
+
+[`ExecutorCommand`](ExecutorCommand.md)
+
+#### Returns
+
+`Promise`\<`Result`\<`unknown`, [`DomainExecutionError`](../type-aliases/DomainExecutionError.md)\>\>

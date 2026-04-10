@@ -226,6 +226,24 @@ Delete a cache key and all associated data.
 
 ---
 
+### deleteCacheKeys()
+
+> **deleteCacheKeys**(`keys`): `Promise`\<`void`\>
+
+Delete multiple cache keys and their associated events/read models in a batch.
+
+#### Parameters
+
+##### keys
+
+`string`[]
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
 ### deleteCommand()
 
 > **deleteCommand**(`commandId`): `Promise`\<`void`\>
@@ -500,7 +518,7 @@ Get a command ID mapping by client ID.
 
 ##### clientId
 
-`string`
+[`EntityId`](../type-aliases/EntityId.md)
 
 #### Returns
 
@@ -874,6 +892,24 @@ Save or update a cache key.
 ##### record
 
 [`CacheKeyRecord`](CacheKeyRecord.md)
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
+### saveCacheKeys()
+
+> **saveCacheKeys**(`records`): `Promise`\<`void`\>
+
+Save multiple cache key records in a batch.
+
+#### Parameters
+
+##### records
+
+[`CacheKeyRecord`](CacheKeyRecord.md)[]
 
 #### Returns
 

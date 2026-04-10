@@ -3,7 +3,33 @@
  */
 
 import { deriveCacheKey } from '#utils'
+import type { Link } from '@meticoeus/ddd-es'
+import { v5 as uuidv5 } from 'uuid'
+import { CACHE_KEY_NAMESPACE, type EntityCacheKey } from '../../core/cache-manager/CacheKey.js'
 import type { CacheKeyRecord } from '../../storage/IStorage.js'
+
+/**
+ * Derive a deterministic entity cache key for tests.
+ * Uses UUID v5 derivation — only for tests, not production code.
+ * Production code should use `registerCacheKey` on the CacheManager.
+ */
+export function deriveEntityKey<TLink extends Link>(
+  link: TLink,
+  parentKey?: string,
+): EntityCacheKey<TLink> {
+  const parts: string[] = []
+  if ('service' in link && typeof link.service === 'string') {
+    parts.push(link.service)
+  }
+  parts.push(link.type, link.id)
+  const input = `entity:${parts.join(':')}`
+  return {
+    kind: 'entity',
+    key: uuidv5(input, CACHE_KEY_NAMESPACE),
+    link,
+    parentKey,
+  }
+}
 
 /**
  * Create a test cache key record with sensible defaults.
@@ -36,6 +62,7 @@ export function createTestCacheKey(overrides: Partial<CacheKeyRecord> = {}): Cac
     createdAt: now,
     holdCount: 0,
     estimatedSizeBytes: null,
+    pendingIdMappings: null,
     ...overrides,
   }
 

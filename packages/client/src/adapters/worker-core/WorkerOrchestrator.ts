@@ -147,10 +147,8 @@ export class WorkerOrchestrator<
     }
 
     // 6. Create CacheManager
-    const windowId = crypto.randomUUID()
     const cacheManager = new CacheManager<TLink, TCommand>(storage, eventBus, {
       cacheConfig: config.cache,
-      windowId,
     })
     await cacheManager.initialize()
     this.cacheManager = cacheManager
@@ -236,6 +234,11 @@ export class WorkerOrchestrator<
     syncManagerRef = syncManager
     this.syncManager = syncManager
 
+    // Wire cross-dependencies (property-set to break circular refs)
+    cacheManager.setWriteQueue(writeQueue)
+    cacheManager.setCommandQueue(commandQueue)
+    commandQueue.setCacheManager(cacheManager)
+
     // 14. Register RPC methods for all components
     registerCommandQueueMethods(this.messageHandler, commandQueue)
     registerQueryManagerMethods(this.messageHandler, queryManager)
@@ -259,7 +262,7 @@ export class WorkerOrchestrator<
       for (const key of data.cacheKeys) {
         const exists = await cacheManager.exists(key)
         if (exists) {
-          await cacheManager.hold(key)
+          cacheManager.holdForWindow(key, data.windowId)
           restoredKeys.push(key)
         } else {
           failedKeys.push(key)

@@ -41,20 +41,25 @@ export class QueryManagerProxy<TLink extends Link> implements IQueryManager<TLin
   constructor(
     private readonly channel: WorkerMessageChannel,
     private readonly broadcastEvents$: Observable<EventMessage>,
+    private readonly windowId: string,
   ) {}
 
   async getById<T>(params: GetByIdParams<TLink>): Promise<QueryResult<TLink, T>> {
-    return this.channel.request<QueryResult<TLink, T>>('queryManager.getById', [params])
+    return this.channel.request<QueryResult<TLink, T>>('queryManager.getById', [
+      { ...params, windowId: this.windowId },
+    ])
   }
 
   async getByIds<T>(params: GetByIdsParams<TLink>): Promise<Map<string, QueryResult<TLink, T>>> {
     return this.channel.request<Map<string, QueryResult<TLink, T>>>('queryManager.getByIds', [
-      params,
+      { ...params, windowId: this.windowId },
     ])
   }
 
   async list<T>(params: ListParams<TLink>): Promise<ListQueryResult<TLink, T>> {
-    return this.channel.request<ListQueryResult<TLink, T>>('queryManager.list', [params])
+    return this.channel.request<ListQueryResult<TLink, T>>('queryManager.list', [
+      { ...params, windowId: this.windowId },
+    ])
   }
 
   watchCollection(collection: string): Observable<CollectionSignal> {
@@ -132,15 +137,15 @@ export class QueryManagerProxy<TLink extends Link> implements IQueryManager<TLin
   }
 
   async hold(cacheKey: string): Promise<void> {
-    return this.channel.request<void>('queryManager.hold', [cacheKey])
+    return this.channel.request<void>('queryManager.holdForWindow', [cacheKey, this.windowId])
   }
 
   async release(cacheKey: string): Promise<void> {
-    return this.channel.request<void>('queryManager.release', [cacheKey])
+    return this.channel.request<void>('queryManager.releaseForWindow', [cacheKey, this.windowId])
   }
 
   async releaseAll(): Promise<void> {
-    return this.channel.request<void>('queryManager.releaseAll')
+    return this.channel.request<void>('queryManager.releaseAllForWindow', [this.windowId])
   }
 
   async destroy(): Promise<void> {

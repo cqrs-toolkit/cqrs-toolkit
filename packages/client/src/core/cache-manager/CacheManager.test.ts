@@ -3,31 +3,61 @@
  */
 
 import { ServiceLink } from '@meticoeus/ddd-es'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
+import { createTestWriteQueue } from '../../testing/createTestWriteQueue.js'
+import { deriveEntityKey } from '../../testing/factories/cacheKey.js'
 import { EnqueueCommand } from '../../types/index.js'
 import { EventBus } from '../events/EventBus.js'
+import { WriteQueue } from '../write-queue/WriteQueue.js'
 import {
-  deriveEntityKey,
   deriveScopeKey,
   matchesCacheKey,
   type EntityKeyMatcher,
   type ScopeKeyMatcher,
 } from './CacheKey.js'
-import { CacheManager } from './CacheManager.js'
+import { CacheManager, type CacheManagerConfig } from './CacheManager.js'
+import { CacheManagerFacade } from './CacheManagerFacade.js'
 
 const WINDOW_ID = 'window-1'
 
 describe('CacheManager', () => {
-  async function bootstrap() {
+  let cleanup: (() => void)[] = []
+
+  afterEach(() => {
+    for (const fn of cleanup) fn()
+    cleanup = []
+  })
+
+  async function bootstrap(params: { cacheManagerConfig?: CacheManagerConfig } = {}) {
     const storage = new InMemoryStorage<ServiceLink, EnqueueCommand>()
     await storage.initialize()
     const eventBus = new EventBus<ServiceLink>()
-    const cacheManager = new CacheManager<ServiceLink, EnqueueCommand>(storage, eventBus, {
-      cacheConfig: { maxCacheKeys: 10, defaultTtl: 60000 },
-      windowId: WINDOW_ID,
-    })
-    return { cacheManager, eventBus, storage }
+    const writeQueue = createTestWriteQueue(eventBus, cleanup, ['flush-cache-keys'])
+    const cacheManager = new CacheManager<ServiceLink, EnqueueCommand>(
+      storage,
+      eventBus,
+      params.cacheManagerConfig ?? { cacheConfig: { maxCacheKeys: 10, defaultTtl: 60000 } },
+    )
+    cacheManager.setWriteQueue(writeQueue)
+    cacheManager.registerWindow(WINDOW_ID)
+    const facade = new CacheManagerFacade<ServiceLink>(cacheManager, WINDOW_ID)
+    return { cacheManager, facade, eventBus, storage, writeQueue }
+  }
+
+  /** Wait for the write queue to drain all pending ops. */
+  async function drain(writeQueue: WriteQueue<ServiceLink>, timeoutMs = 1000): Promise<void> {
+    const start = Date.now()
+    while (true) {
+      const state = writeQueue.getDebugState()
+      if (state.status === 'idle' && state.pendingCount === 0) return
+      if (Date.now() - start > timeoutMs) {
+        throw new Error(
+          `Write queue did not drain within ${timeoutMs}ms (status: ${state.status}, pending: ${state.pendingCount})`,
+        )
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    }
   }
 
   describe('acquire', () => {
@@ -72,17 +102,19 @@ describe('CacheManager', () => {
     })
 
     it('places a hold when requested', async () => {
-      const { cacheManager, storage } = await bootstrap()
-      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), { hold: true })
+      const { facade, storage, writeQueue } = await bootstrap()
+      const key = await facade.acquire(deriveScopeKey({ scopeType: 'todos' }), { hold: true })
+      await drain(writeQueue)
 
       const record = await storage.getCacheKey(key)
       expect(record?.holdCount).toBe(1)
     })
 
     it('does not increment hold count on re-acquire with hold (idempotent per window)', async () => {
-      const { cacheManager, storage } = await bootstrap()
-      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), { hold: true })
-      await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), { hold: true })
+      const { facade, storage, writeQueue } = await bootstrap()
+      const key = await facade.acquire(deriveScopeKey({ scopeType: 'todos' }), { hold: true })
+      await facade.acquire(deriveScopeKey({ scopeType: 'todos' }), { hold: true })
+      await drain(writeQueue)
 
       const record = await storage.getCacheKey(key)
       // Same windowId → idempotent, holdCount stays at 1
@@ -90,8 +122,9 @@ describe('CacheManager', () => {
     })
 
     it('uses provided TTL', async () => {
-      const { cacheManager, storage } = await bootstrap()
+      const { cacheManager, storage, writeQueue } = await bootstrap()
       const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), { ttl: 1000 })
+      await drain(writeQueue)
 
       const record = await storage.getCacheKey(key)
       expect(record?.expiresAt).toBeDefined()
@@ -113,41 +146,45 @@ describe('CacheManager', () => {
 
   describe('evictionPolicy', () => {
     it('defaults to persistent', async () => {
-      const { cacheManager, storage } = await bootstrap()
+      const { cacheManager, storage, writeQueue } = await bootstrap()
       const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
+      await drain(writeQueue)
 
       const record = await storage.getCacheKey(key)
       expect(record?.evictionPolicy).toBe('persistent')
     })
 
     it('stores ephemeral policy on record', async () => {
-      const { cacheManager, storage } = await bootstrap()
+      const { cacheManager, storage, writeQueue } = await bootstrap()
       const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), {
         evictionPolicy: 'ephemeral',
       })
+      await drain(writeQueue)
 
       const record = await storage.getCacheKey(key)
       expect(record?.evictionPolicy).toBe('ephemeral')
     })
 
     it('does not change evictionPolicy on re-acquire', async () => {
-      const { cacheManager, storage } = await bootstrap()
+      const { cacheManager, storage, writeQueue } = await bootstrap()
       const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), {
         evictionPolicy: 'ephemeral',
       })
       await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), {
         evictionPolicy: 'persistent',
       })
+      await drain(writeQueue)
 
       const record = await storage.getCacheKey(key)
       expect(record?.evictionPolicy).toBe('ephemeral')
     })
 
     it('freeze is a no-op for ephemeral keys', async () => {
-      const { cacheManager } = await bootstrap()
+      const { cacheManager, writeQueue } = await bootstrap()
       const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), {
         evictionPolicy: 'ephemeral',
       })
+      await drain(writeQueue)
 
       await cacheManager.freeze(key)
 
@@ -155,28 +192,30 @@ describe('CacheManager', () => {
     })
 
     it('maybeEvict prioritizes ephemeral keys before persistent', async () => {
-      const { eventBus, storage } = await bootstrap()
-      const cacheManager = new CacheManager<ServiceLink, EnqueueCommand>(storage, eventBus, {
-        cacheConfig: { maxCacheKeys: 3, defaultTtl: 60000 },
-        windowId: WINDOW_ID,
+      const { cacheManager, writeQueue } = await bootstrap({
+        cacheManagerConfig: { cacheConfig: { maxCacheKeys: 3, defaultTtl: 60000 } },
       })
 
       // Create persistent key first (oldest)
       await cacheManager.acquire(deriveScopeKey({ scopeType: 'persistent-collection' }))
+      await drain(writeQueue)
       await new Promise((r) => setTimeout(r, 10))
 
       // Create ephemeral key second (newer)
       await cacheManager.acquire(deriveScopeKey({ scopeType: 'ephemeral-collection' }), {
         evictionPolicy: 'ephemeral',
       })
+      await drain(writeQueue)
       await new Promise((r) => setTimeout(r, 10))
 
       // Create third persistent key
       await cacheManager.acquire(deriveScopeKey({ scopeType: 'persistent-2' }))
+      await drain(writeQueue)
       await new Promise((r) => setTimeout(r, 10))
 
       // Add 4th — should evict ephemeral key first despite it being newer
       await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-4' }))
+      await drain(writeQueue)
 
       const ephemeralKey = deriveScopeKey({ scopeType: 'ephemeral-collection' }).key
       const persistentKey = deriveScopeKey({ scopeType: 'persistent-collection' }).key
@@ -188,101 +227,110 @@ describe('CacheManager', () => {
 
   describe('per-window holds', () => {
     it('hold adds windowId to tracking, storage holdCount becomes 1', async () => {
-      const { cacheManager, storage } = await bootstrap()
-      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
+      const { facade, storage, writeQueue } = await bootstrap()
+      const key = await facade.acquire(deriveScopeKey({ scopeType: 'todos' }))
+      await drain(writeQueue)
 
-      await cacheManager.hold(key)
+      await facade.hold(key)
+      await drain(writeQueue)
 
       const record = await storage.getCacheKey(key)
       expect(record?.holdCount).toBe(1)
     })
 
     it('second hold with same windowId is idempotent', async () => {
-      const { cacheManager, storage } = await bootstrap()
-      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
+      const { facade, storage, writeQueue } = await bootstrap()
+      const key = await facade.acquire(deriveScopeKey({ scopeType: 'todos' }))
+      await drain(writeQueue)
 
-      await cacheManager.hold(key)
-      await cacheManager.hold(key)
+      await facade.hold(key)
+      await facade.hold(key)
+      await drain(writeQueue)
 
       const record = await storage.getCacheKey(key)
+      // Same windowId → idempotent, holdCount stays at 1
       expect(record?.holdCount).toBe(1)
     })
 
-    it('hold with different windowId keeps storage holdCount at 1', async () => {
-      const { cacheManager, eventBus, storage } = await bootstrap()
-      // Create a second CacheManager representing a different window
-      const cacheManager2 = new CacheManager<ServiceLink, EnqueueCommand>(storage, eventBus, {
-        cacheConfig: { maxCacheKeys: 10, defaultTtl: 60000 },
-        windowId: 'window-2',
-      })
+    it('hold with different windowId — two facades share one CacheManager', async () => {
+      const { cacheManager, storage, writeQueue } = await bootstrap()
+      const facade2 = new CacheManagerFacade<ServiceLink>(cacheManager, 'window-2')
+      cacheManager.registerWindow('window-2')
 
-      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
+      const key = await cacheManager.acquireKey(deriveScopeKey({ scopeType: 'todos' }))
+      await drain(writeQueue)
 
-      await cacheManager.hold(key)
-      await cacheManager2.hold(key)
+      // Two facades hold the same key from different windows
+      await cacheManager.holdForWindow(key.key, WINDOW_ID)
+      await facade2.hold(key.key)
+      await drain(writeQueue)
 
-      // holdCacheKey is called once per CacheManager since each sees 0→1 transition
-      // storage.holdCacheKey increments, so holdCount = 2 in storage
-      // This is expected: each window's CacheManager manages its own transition
-      const record = await storage.getCacheKey(key)
+      const record = await storage.getCacheKey(key.key)
       expect(record?.holdCount).toBe(2)
     })
 
     it('release with one windowId remaining keeps key held', async () => {
-      const { cacheManager, eventBus, storage } = await bootstrap()
-      // Simulate two windows holding via two CacheManagers
-      const cacheManager2 = new CacheManager<ServiceLink, EnqueueCommand>(storage, eventBus, {
-        cacheConfig: { maxCacheKeys: 10, defaultTtl: 60000 },
-        windowId: 'window-2',
-      })
+      const { cacheManager, writeQueue } = await bootstrap()
+      const facade2 = new CacheManagerFacade<ServiceLink>(cacheManager, 'window-2')
+      cacheManager.registerWindow('window-2')
 
-      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
-      await cacheManager.hold(key)
-      await cacheManager2.hold(key)
+      const key = await cacheManager.acquireKey(deriveScopeKey({ scopeType: 'todos' }))
+      await drain(writeQueue)
 
-      // Release from window-1
-      await cacheManager.release(key)
+      // Both windows hold
+      await cacheManager.holdForWindow(key.key, WINDOW_ID)
+      await facade2.hold(key.key)
+      await drain(writeQueue)
 
-      // window-2's CacheManager still holds it — but from window-1's perspective it's released
-      const record = await storage.getCacheKey(key)
-      // window-1 released (0→empty transition called releaseCacheKey),
-      // window-2 still holds (holdCount = 1 in storage)
+      // Release one window — key still held by the other
+      await facade2.release(key.key)
+      await drain(writeQueue)
+
+      const record = await cacheManager.get(key.key)
       expect(record?.holdCount).toBe(1)
     })
 
     it('release last windowId drops storage holdCount to 0', async () => {
-      const { cacheManager, storage } = await bootstrap()
-      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
-      await cacheManager.hold(key)
+      const { facade, storage, writeQueue } = await bootstrap()
+      const key = await facade.acquire(deriveScopeKey({ scopeType: 'todos' }))
+      await drain(writeQueue)
 
-      await cacheManager.release(key)
+      await facade.hold(key)
+      await drain(writeQueue)
+
+      await facade.release(key)
+      await drain(writeQueue)
 
       const record = await storage.getCacheKey(key)
       expect(record?.holdCount).toBe(0)
     })
 
     it('ephemeral key auto-evicted when last window releases', async () => {
-      const { cacheManager } = await bootstrap()
-      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), {
+      const { facade, cacheManager } = await bootstrap()
+      const key = await facade.acquire(deriveScopeKey({ scopeType: 'todos' }), {
         evictionPolicy: 'ephemeral',
         hold: true,
       })
 
       expect(await cacheManager.exists(key)).toBe(true)
 
-      await cacheManager.release(key)
+      await facade.release(key)
 
       expect(await cacheManager.exists(key)).toBe(false)
     })
 
     it('releaseAllForWindow cleans up all keys for that window', async () => {
-      const { cacheManager, storage } = await bootstrap()
-      const key1 = await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-1' }))
-      const key2 = await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-2' }))
-      await cacheManager.hold(key1)
-      await cacheManager.hold(key2)
+      const { facade, cacheManager, storage, writeQueue } = await bootstrap()
+      const key1 = await facade.acquire(deriveScopeKey({ scopeType: 'collection-1' }))
+      const key2 = await facade.acquire(deriveScopeKey({ scopeType: 'collection-2' }))
+      await drain(writeQueue)
+
+      await facade.hold(key1)
+      await facade.hold(key2)
+      await drain(writeQueue)
 
       await cacheManager.releaseAllForWindow(WINDOW_ID)
+      await drain(writeQueue)
 
       const record1 = await storage.getCacheKey(key1)
       const record2 = await storage.getCacheKey(key2)
@@ -293,8 +341,9 @@ describe('CacheManager', () => {
 
   describe('initialize', () => {
     it('resets all holdCounts to 0', async () => {
-      const { cacheManager, eventBus, storage } = await bootstrap()
-      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), { hold: true })
+      const { facade, eventBus, storage, writeQueue } = await bootstrap()
+      const key = await facade.acquire(deriveScopeKey({ scopeType: 'todos' }), { hold: true })
+      await drain(writeQueue)
 
       const recordBefore = await storage.getCacheKey(key)
       expect(recordBefore?.holdCount).toBe(1)
@@ -302,7 +351,6 @@ describe('CacheManager', () => {
       // Create a fresh CacheManager and initialize
       const freshManager = new CacheManager<ServiceLink, EnqueueCommand>(storage, eventBus, {
         cacheConfig: { maxCacheKeys: 10, defaultTtl: 60000 },
-        windowId: 'window-fresh',
       })
       await freshManager.initialize()
 
@@ -311,16 +359,16 @@ describe('CacheManager', () => {
     })
 
     it('evicts all ephemeral keys (persistent keys survive)', async () => {
-      const { cacheManager, eventBus, storage } = await bootstrap()
+      const { cacheManager, eventBus, storage, writeQueue } = await bootstrap()
       const persistentKey = await cacheManager.acquire(deriveScopeKey({ scopeType: 'persistent' }))
       const ephemeralKey = await cacheManager.acquire(deriveScopeKey({ scopeType: 'ephemeral' }), {
         evictionPolicy: 'ephemeral',
       })
+      await drain(writeQueue)
 
       // Create a fresh CacheManager and initialize
       const freshManager = new CacheManager<ServiceLink, EnqueueCommand>(storage, eventBus, {
         cacheConfig: { maxCacheKeys: 10, defaultTtl: 60000 },
-        windowId: 'window-fresh',
       })
       await freshManager.initialize()
 
@@ -329,16 +377,16 @@ describe('CacheManager', () => {
     })
 
     it('emits cache:evicted for each ephemeral key', async () => {
-      const { cacheManager, eventBus, storage } = await bootstrap()
+      const { cacheManager, eventBus, storage, writeQueue } = await bootstrap()
       const cacheKey = deriveScopeKey({ scopeType: 'ephemeral' })
       await cacheManager.acquire(cacheKey, { evictionPolicy: 'ephemeral' })
+      await drain(writeQueue)
 
       const events: unknown[] = []
       eventBus.on('cache:evicted').subscribe((e) => events.push(e))
 
       const freshManager = new CacheManager<ServiceLink, EnqueueCommand>(storage, eventBus, {
         cacheConfig: { maxCacheKeys: 10, defaultTtl: 60000 },
-        windowId: 'window-fresh',
       })
       await freshManager.initialize()
 
@@ -357,7 +405,6 @@ describe('CacheManager', () => {
       const { eventBus, storage } = await bootstrap()
       const cacheManager = new CacheManager<ServiceLink, EnqueueCommand>(storage, eventBus, {
         cacheConfig: { maxCacheKeys: 10, defaultTtl: 60000, maxWindows: 2 },
-        windowId: 'w-1',
       })
 
       // w-1 is not auto-registered until initialize() is called
@@ -369,7 +416,6 @@ describe('CacheManager', () => {
       const { eventBus, storage } = await bootstrap()
       const cacheManager = new CacheManager<ServiceLink, EnqueueCommand>(storage, eventBus, {
         cacheConfig: { maxCacheKeys: 10, defaultTtl: 60000, maxWindows: 2 },
-        windowId: 'w-1',
       })
 
       const events: unknown[] = []
@@ -390,7 +436,6 @@ describe('CacheManager', () => {
       const { eventBus, storage } = await bootstrap()
       const cacheManager = new CacheManager<ServiceLink, EnqueueCommand>(storage, eventBus, {
         cacheConfig: { maxCacheKeys: 10, defaultTtl: 60000, maxWindows: 2 },
-        windowId: 'w-1',
       })
 
       cacheManager.registerWindow('w-1')
@@ -423,7 +468,7 @@ describe('CacheManager', () => {
     })
 
     it('wipes all cache keys and emits cache:session-reset on user change', async () => {
-      const { cacheManager, eventBus, storage } = await bootstrap()
+      const { cacheManager, eventBus, storage, writeQueue } = await bootstrap()
       await storage.saveSession({
         id: 1,
         userId: 'user-1',
@@ -433,6 +478,7 @@ describe('CacheManager', () => {
 
       await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-1' }))
       await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-2' }))
+      await drain(writeQueue)
 
       const events: unknown[] = []
       eventBus.on('cache:session-reset').subscribe((e) => events.push(e))
@@ -448,7 +494,7 @@ describe('CacheManager', () => {
     })
 
     it('clears in-memory hold state on user change', async () => {
-      const { cacheManager, storage } = await bootstrap()
+      const { cacheManager, facade, storage, writeQueue } = await bootstrap()
       await storage.saveSession({
         id: 1,
         userId: 'user-1',
@@ -456,9 +502,10 @@ describe('CacheManager', () => {
         lastSeenAt: Date.now(),
       })
 
-      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), {
+      const key = await facade.acquire(deriveScopeKey({ scopeType: 'todos' }), {
         hold: true,
       })
+      await drain(writeQueue)
       expect(await cacheManager.exists(key)).toBe(true)
 
       await cacheManager.checkSessionUser('user-2')
@@ -471,22 +518,26 @@ describe('CacheManager', () => {
 
   describe('hold/release', () => {
     it('holds a cache key', async () => {
-      const { cacheManager, storage } = await bootstrap()
+      const { cacheManager, facade, storage, writeQueue } = await bootstrap()
       const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
+      await drain(writeQueue)
 
-      await cacheManager.hold(key)
+      await facade.hold(key)
+      await drain(writeQueue)
 
       const record = await storage.getCacheKey(key)
       expect(record?.holdCount).toBe(1)
     })
 
     it('releases a cache key', async () => {
-      const { cacheManager, storage } = await bootstrap()
-      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), {
+      const { facade, storage, writeQueue } = await bootstrap()
+      const key = await facade.acquire(deriveScopeKey({ scopeType: 'todos' }), {
         hold: true,
       })
+      await drain(writeQueue)
 
-      await cacheManager.release(key)
+      await facade.release(key)
+      await drain(writeQueue)
 
       const record = await storage.getCacheKey(key)
       expect(record?.holdCount).toBe(0)
@@ -495,8 +546,9 @@ describe('CacheManager', () => {
 
   describe('freeze/unfreeze', () => {
     it('freezes a cache key', async () => {
-      const { cacheManager } = await bootstrap()
+      const { cacheManager, writeQueue } = await bootstrap()
       const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
+      await drain(writeQueue)
 
       await cacheManager.freeze(key)
 
@@ -504,8 +556,10 @@ describe('CacheManager', () => {
     })
 
     it('unfreezes a cache key', async () => {
-      const { cacheManager } = await bootstrap()
+      const { cacheManager, writeQueue } = await bootstrap()
       const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
+      await drain(writeQueue)
+
       await cacheManager.freeze(key)
 
       await cacheManager.unfreeze(key)
@@ -516,8 +570,9 @@ describe('CacheManager', () => {
 
   describe('evict', () => {
     it('evicts an unheld, unfrozen cache key', async () => {
-      const { cacheManager } = await bootstrap()
+      const { cacheManager, writeQueue } = await bootstrap()
       const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
+      await drain(writeQueue)
 
       const evicted = await cacheManager.evict(key)
 
@@ -526,10 +581,11 @@ describe('CacheManager', () => {
     })
 
     it('does not evict a held cache key', async () => {
-      const { cacheManager } = await bootstrap()
-      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), {
+      const { cacheManager, facade, writeQueue } = await bootstrap()
+      const key = await facade.acquire(deriveScopeKey({ scopeType: 'todos' }), {
         hold: true,
       })
+      await drain(writeQueue)
 
       const evicted = await cacheManager.evict(key)
 
@@ -538,8 +594,10 @@ describe('CacheManager', () => {
     })
 
     it('does not evict a frozen cache key', async () => {
-      const { cacheManager } = await bootstrap()
+      const { cacheManager, writeQueue } = await bootstrap()
       const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
+      await drain(writeQueue)
+
       await cacheManager.freeze(key)
 
       const evicted = await cacheManager.evict(key)
@@ -549,9 +607,11 @@ describe('CacheManager', () => {
     })
 
     it('emits cache:evicted event', async () => {
-      const { cacheManager, eventBus } = await bootstrap()
+      const { cacheManager, eventBus, writeQueue } = await bootstrap()
       const cacheKey = deriveScopeKey({ scopeType: 'todos' })
       await cacheManager.acquire(cacheKey)
+      await drain(writeQueue)
+
       const events: unknown[] = []
       eventBus.on('cache:evicted').subscribe((e) => events.push(e))
 
@@ -569,26 +629,28 @@ describe('CacheManager', () => {
 
   describe('automatic eviction', () => {
     it('evicts LRU cache key when at capacity', async () => {
-      const { eventBus, storage } = await bootstrap()
-      // Create cache manager with low max
-      const cacheManager = new CacheManager<ServiceLink, EnqueueCommand>(storage, eventBus, {
-        cacheConfig: { maxCacheKeys: 3, defaultTtl: 60000 },
-        windowId: WINDOW_ID,
+      const { cacheManager, writeQueue } = await bootstrap({
+        cacheManagerConfig: { cacheConfig: { maxCacheKeys: 3, defaultTtl: 60000 } },
       })
 
       // Fill up cache
       const key1 = await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-1' }))
+      await drain(writeQueue)
       await new Promise((r) => setTimeout(r, 10)) // Different access times
       const key2 = await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-2' }))
+      await drain(writeQueue)
       await new Promise((r) => setTimeout(r, 10))
       const key3 = await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-3' }))
+      await drain(writeQueue)
 
       // Touch key1 to make it more recent
       await cacheManager.touch(deriveScopeKey({ scopeType: 'collection-1' }))
+      await drain(writeQueue)
       await new Promise((r) => setTimeout(r, 10))
 
       // Add 4th key - should evict key2 (oldest access time)
       const _key4 = await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-4' }))
+      await drain(writeQueue)
 
       expect(await cacheManager.exists(key1)).toBe(true)
       expect(await cacheManager.exists(key2)).toBe(false) // Evicted
@@ -596,21 +658,22 @@ describe('CacheManager', () => {
     })
 
     it('does not evict held cache keys during capacity eviction', async () => {
-      const { eventBus, storage } = await bootstrap()
-      const cacheManager = new CacheManager<ServiceLink, EnqueueCommand>(storage, eventBus, {
-        cacheConfig: { maxCacheKeys: 2, defaultTtl: 60000 },
-        windowId: WINDOW_ID,
+      const { cacheManager, facade, writeQueue } = await bootstrap({
+        cacheManagerConfig: { cacheConfig: { maxCacheKeys: 2, defaultTtl: 60000 } },
       })
 
-      const key1 = await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-1' }), {
+      const key1 = await facade.acquire(deriveScopeKey({ scopeType: 'collection-1' }), {
         hold: true,
       })
+      await drain(writeQueue)
       await new Promise((r) => setTimeout(r, 10))
       const key2 = await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-2' }))
+      await drain(writeQueue)
       await new Promise((r) => setTimeout(r, 10))
 
       // Try to add 3rd - cannot evict key1 (held), so evict key2
       const _key3 = await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-3' }))
+      await drain(writeQueue)
 
       expect(await cacheManager.exists(key1)).toBe(true) // Held, not evicted
       expect(await cacheManager.exists(key2)).toBe(false) // Evicted
@@ -619,8 +682,9 @@ describe('CacheManager', () => {
 
   describe('evictExpired', () => {
     it('evicts expired cache keys', async () => {
-      const { cacheManager } = await bootstrap()
+      const { cacheManager, writeQueue } = await bootstrap()
       const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), { ttl: 1 })
+      await drain(writeQueue)
 
       await new Promise((r) => setTimeout(r, 50)) // Wait for expiry
 
@@ -631,10 +695,11 @@ describe('CacheManager', () => {
     })
 
     it('does not evict non-expired cache keys', async () => {
-      const { cacheManager } = await bootstrap()
+      const { cacheManager, writeQueue } = await bootstrap()
       const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), {
         ttl: 60000,
       })
+      await drain(writeQueue)
 
       const evicted = await cacheManager.evictExpired()
 
@@ -643,9 +708,11 @@ describe('CacheManager', () => {
     })
 
     it('emits cache:evicted with reason expired', async () => {
-      const { cacheManager, eventBus } = await bootstrap()
+      const { cacheManager, eventBus, writeQueue } = await bootstrap()
       const cacheKey = deriveScopeKey({ scopeType: 'todos' })
       await cacheManager.acquire(cacheKey, { ttl: 1 })
+      await drain(writeQueue)
+
       const events: unknown[] = []
       eventBus.on('cache:evicted').subscribe((e) => events.push(e))
 
@@ -662,11 +729,12 @@ describe('CacheManager', () => {
     })
 
     it('does not evict expired but held cache keys', async () => {
-      const { cacheManager } = await bootstrap()
-      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), {
+      const { cacheManager, facade, writeQueue } = await bootstrap()
+      const key = await facade.acquire(deriveScopeKey({ scopeType: 'todos' }), {
         ttl: 1,
         hold: true,
       })
+      await drain(writeQueue)
 
       await new Promise((r) => setTimeout(r, 50))
 
@@ -679,12 +747,13 @@ describe('CacheManager', () => {
 
   describe('evictAll', () => {
     it('evicts all evictable cache keys', async () => {
-      const { cacheManager } = await bootstrap()
+      const { cacheManager, facade, writeQueue } = await bootstrap()
       await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-1' }))
       await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-2' }))
-      const heldKey = await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-3' }), {
+      const heldKey = await facade.acquire(deriveScopeKey({ scopeType: 'collection-3' }), {
         hold: true,
       })
+      await drain(writeQueue)
 
       const evicted = await cacheManager.evictAll()
 
@@ -695,22 +764,25 @@ describe('CacheManager', () => {
 
   describe('getCount', () => {
     it('returns correct count', async () => {
-      const { cacheManager } = await bootstrap()
+      const { cacheManager, writeQueue } = await bootstrap()
       expect(await cacheManager.getCount()).toBe(0)
 
       await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-1' }))
+      await drain(writeQueue)
       expect(await cacheManager.getCount()).toBe(1)
 
       await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-2' }))
+      await drain(writeQueue)
       expect(await cacheManager.getCount()).toBe(2)
     })
   })
 
   describe('onSessionDestroyed', () => {
     it('deletes all cache keys from storage', async () => {
-      const { cacheManager } = await bootstrap()
+      const { cacheManager, writeQueue } = await bootstrap()
       await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-1' }))
       await cacheManager.acquire(deriveScopeKey({ scopeType: 'collection-2' }))
+      await drain(writeQueue)
       expect(await cacheManager.getCount()).toBe(2)
 
       await cacheManager.onSessionDestroyed()
@@ -719,15 +791,17 @@ describe('CacheManager', () => {
     })
 
     it('clears in-memory holds and registered windows', async () => {
-      const { cacheManager } = await bootstrap()
-      const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }), {
+      const { cacheManager, facade, writeQueue } = await bootstrap()
+      const key = await facade.acquire(deriveScopeKey({ scopeType: 'todos' }), {
         hold: true,
       })
+      await drain(writeQueue)
 
       await cacheManager.onSessionDestroyed()
 
       // Re-create cache key — hold should start fresh (not carry over)
       const newKey = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
+      await drain(writeQueue)
       const record = await cacheManager.get(newKey)
       expect(record?.holdCount).toBe(0)
     })
@@ -810,9 +884,10 @@ describe('CacheManager', () => {
     })
 
     it('emits cache:frozen-changed on freeze with frozenAt timestamp', async () => {
-      const { cacheManager, eventBus } = await bootstrap()
+      const { cacheManager, eventBus, writeQueue } = await bootstrap()
       const cacheKey = deriveScopeKey({ scopeType: 'todos' })
       await cacheManager.acquire(cacheKey)
+      await drain(writeQueue)
 
       const events: unknown[] = []
       eventBus.on('cache:frozen-changed').subscribe((e) => events.push(e))
@@ -834,9 +909,11 @@ describe('CacheManager', () => {
     })
 
     it('emits cache:frozen-changed on unfreeze with frozenAt null', async () => {
-      const { cacheManager, eventBus } = await bootstrap()
+      const { cacheManager, eventBus, writeQueue } = await bootstrap()
       const cacheKey = deriveScopeKey({ scopeType: 'todos' })
       await cacheManager.acquire(cacheKey)
+      await drain(writeQueue)
+
       await cacheManager.freeze(cacheKey.key)
 
       const events: unknown[] = []
@@ -859,8 +936,10 @@ describe('CacheManager', () => {
     })
 
     it('does not emit cache:frozen-changed when re-freezing already frozen key', async () => {
-      const { cacheManager, eventBus } = await bootstrap()
+      const { cacheManager, eventBus, writeQueue } = await bootstrap()
       const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
+      await drain(writeQueue)
+
       await cacheManager.freeze(key)
 
       const events: unknown[] = []
@@ -872,8 +951,9 @@ describe('CacheManager', () => {
     })
 
     it('does not emit cache:frozen-changed when unfreezing non-frozen key', async () => {
-      const { cacheManager, eventBus } = await bootstrap()
+      const { cacheManager, eventBus, writeQueue } = await bootstrap()
       const key = await cacheManager.acquire(deriveScopeKey({ scopeType: 'todos' }))
+      await drain(writeQueue)
 
       const events: unknown[] = []
       eventBus.on('cache:frozen-changed').subscribe((e) => events.push(e))
@@ -886,12 +966,13 @@ describe('CacheManager', () => {
 
   describe('hierarchical cache keys', () => {
     it('propagates inheritedFrozen to children when parent is frozen', async () => {
-      const { cacheManager } = await bootstrap()
+      const { cacheManager, writeQueue } = await bootstrap()
       const parent = deriveScopeKey({ scopeType: 'workspace' })
       const child = deriveScopeKey({ scopeType: 'todos', parentKey: parent.key })
 
       await cacheManager.acquireKey(parent)
       await cacheManager.acquireKey(child)
+      await drain(writeQueue)
 
       await cacheManager.freeze(parent.key)
 
@@ -900,12 +981,14 @@ describe('CacheManager', () => {
     })
 
     it('clears inheritedFrozen on children when parent is unfrozen', async () => {
-      const { cacheManager } = await bootstrap()
+      const { cacheManager, writeQueue } = await bootstrap()
       const parent = deriveScopeKey({ scopeType: 'workspace' })
       const child = deriveScopeKey({ scopeType: 'todos', parentKey: parent.key })
 
       await cacheManager.acquireKey(parent)
       await cacheManager.acquireKey(child)
+      await drain(writeQueue)
+
       await cacheManager.freeze(parent.key)
 
       await cacheManager.unfreeze(parent.key)
@@ -915,7 +998,7 @@ describe('CacheManager', () => {
     })
 
     it('propagates inheritedFrozen through multiple levels', async () => {
-      const { cacheManager } = await bootstrap()
+      const { cacheManager, writeQueue } = await bootstrap()
       const grandparent = deriveScopeKey({ scopeType: 'org' })
       const parent = deriveScopeKey({ scopeType: 'workspace', parentKey: grandparent.key })
       const child = deriveScopeKey({ scopeType: 'todos', parentKey: parent.key })
@@ -923,6 +1006,7 @@ describe('CacheManager', () => {
       await cacheManager.acquireKey(grandparent)
       await cacheManager.acquireKey(parent)
       await cacheManager.acquireKey(child)
+      await drain(writeQueue)
 
       await cacheManager.freeze(grandparent.key)
 
@@ -933,7 +1017,7 @@ describe('CacheManager', () => {
     })
 
     it('keeps inheritedFrozen when unfreezing middle node with frozen grandparent', async () => {
-      const { cacheManager } = await bootstrap()
+      const { cacheManager, writeQueue } = await bootstrap()
       const grandparent = deriveScopeKey({ scopeType: 'org' })
       const parent = deriveScopeKey({ scopeType: 'workspace', parentKey: grandparent.key })
       const child = deriveScopeKey({ scopeType: 'todos', parentKey: parent.key })
@@ -941,6 +1025,7 @@ describe('CacheManager', () => {
       await cacheManager.acquireKey(grandparent)
       await cacheManager.acquireKey(parent)
       await cacheManager.acquireKey(child)
+      await drain(writeQueue)
 
       // Freeze both grandparent and parent
       await cacheManager.freeze(grandparent.key)
@@ -954,12 +1039,14 @@ describe('CacheManager', () => {
     })
 
     it('does not evict inheritedFrozen keys', async () => {
-      const { cacheManager } = await bootstrap()
+      const { cacheManager, writeQueue } = await bootstrap()
       const parent = deriveScopeKey({ scopeType: 'workspace' })
       const child = deriveScopeKey({ scopeType: 'todos', parentKey: parent.key })
 
       await cacheManager.acquireKey(parent)
       await cacheManager.acquireKey(child)
+      await drain(writeQueue)
+
       await cacheManager.freeze(parent.key)
 
       const evicted = await cacheManager.evict(child.key)
@@ -967,24 +1054,26 @@ describe('CacheManager', () => {
     })
 
     it('cannot evict a parent while children exist', async () => {
-      const { cacheManager } = await bootstrap()
+      const { cacheManager, writeQueue } = await bootstrap()
       const parent = deriveScopeKey({ scopeType: 'workspace' })
       const child = deriveScopeKey({ scopeType: 'todos', parentKey: parent.key })
 
       await cacheManager.acquireKey(parent)
       await cacheManager.acquireKey(child)
+      await drain(writeQueue)
 
       const evicted = await cacheManager.evict(parent.key)
       expect(evicted).toBe(false)
     })
 
     it('can evict parent after all children are evicted', async () => {
-      const { cacheManager } = await bootstrap()
+      const { cacheManager, writeQueue } = await bootstrap()
       const parent = deriveScopeKey({ scopeType: 'workspace' })
       const child = deriveScopeKey({ scopeType: 'todos', parentKey: parent.key })
 
       await cacheManager.acquireKey(parent)
       await cacheManager.acquireKey(child)
+      await drain(writeQueue)
 
       await cacheManager.evict(child.key)
       const evicted = await cacheManager.evict(parent.key)
@@ -992,12 +1081,14 @@ describe('CacheManager', () => {
     })
 
     it('does not propagate inheritedFrozen to ephemeral children', async () => {
-      const { cacheManager } = await bootstrap()
+      const { cacheManager, facade, writeQueue } = await bootstrap()
       const parent = deriveScopeKey({ scopeType: 'workspace' })
       const child = deriveScopeKey({ scopeType: 'temp-view', parentKey: parent.key })
 
       await cacheManager.acquireKey(parent)
-      await cacheManager.acquireKey(child, { evictionPolicy: 'ephemeral', hold: true })
+      await facade.acquireKey(child, { evictionPolicy: 'ephemeral', hold: true })
+      await drain(writeQueue)
+
       await cacheManager.freeze(parent.key)
 
       const childRecord = await cacheManager.get(child.key)
@@ -1005,9 +1096,10 @@ describe('CacheManager', () => {
     })
 
     it('does not evict expired frozen keys', async () => {
-      const { cacheManager } = await bootstrap()
+      const { cacheManager, writeQueue } = await bootstrap()
       const cacheKey = deriveScopeKey({ scopeType: 'todos' })
       await cacheManager.acquireKey(cacheKey, { ttl: 1 })
+      await drain(writeQueue)
 
       // Wait for TTL to expire
       await new Promise((r) => setTimeout(r, 10))
@@ -1020,12 +1112,13 @@ describe('CacheManager', () => {
     })
 
     it('does not evict expired inheritedFrozen keys', async () => {
-      const { cacheManager } = await bootstrap()
+      const { cacheManager, writeQueue } = await bootstrap()
       const parent = deriveScopeKey({ scopeType: 'workspace' })
       const child = deriveScopeKey({ scopeType: 'todos', parentKey: parent.key })
 
       await cacheManager.acquireKey(parent)
       await cacheManager.acquireKey(child, { ttl: 1 })
+      await drain(writeQueue)
 
       // Wait for TTL to expire
       await new Promise((r) => setTimeout(r, 10))
@@ -1038,12 +1131,13 @@ describe('CacheManager', () => {
     })
 
     it('evictAll evicts leaves before parents (bottom-up)', async () => {
-      const { cacheManager, eventBus } = await bootstrap()
+      const { cacheManager, eventBus, writeQueue } = await bootstrap()
       const parent = deriveScopeKey({ scopeType: 'workspace' })
       const child = deriveScopeKey({ scopeType: 'todos', parentKey: parent.key })
 
       await cacheManager.acquireKey(parent)
       await cacheManager.acquireKey(child)
+      await drain(writeQueue)
 
       const evictedKeys: string[] = []
       eventBus.on('cache:evicted').subscribe((e) => evictedKeys.push(e.data.cacheKey.key))

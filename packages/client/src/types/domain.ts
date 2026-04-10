@@ -13,9 +13,12 @@ import {
   type OkResult,
   type Result,
 } from '@meticoeus/ddd-es'
+import type { CacheKeyIdentity } from '../core/cache-manager/CacheKey.js'
 import type { IAnticipatedEvent } from '../core/command-lifecycle/AnticipatedEventShape.js'
 import type { IQueryManager } from '../core/query-manager/types.js'
 import { EnqueueCommand } from './commands.js'
+import { createEntityRef, type EntityId } from './entities.js'
+import { JSONPathExpression } from './json-path.js'
 import { ValidationError, ValidationException } from './validation.js'
 
 /**
@@ -132,6 +135,10 @@ export type DomainExecutionResult<TEvent> = Result<
 export interface InitializingContext {
   /** First execution for this command. */
   phase: 'initializing'
+  /** The command ID. Used by createEntityId to build EntityRef. */
+  commandId: string
+  /** ID strategy from the creates config. Used by createEntityId to build EntityRef. */
+  idStrategy?: 'temporary' | 'permanent'
 }
 
 /**
@@ -143,6 +150,10 @@ export interface UpdatingContext {
   /** The entity ID established during initial execution. Create handlers should reuse this
    *  instead of generating a new ID. */
   entityId: string
+  /** The command ID. Used by createEntityId to build EntityRef. */
+  commandId: string
+  /** ID strategy from the creates config. Used by createEntityId to build EntityRef. */
+  idStrategy?: 'temporary' | 'permanent'
 }
 
 /**
@@ -156,14 +167,28 @@ export type HandlerContext = InitializingContext | UpdatingContext
 /**
  * Generate or reuse an entity ID based on handler context.
  *
- * During initial execution, generates a new random UUID.
- * During regeneration, returns the entity ID from the original execution.
+ * For create commands with `idStrategy: 'temporary'`, returns an EntityRef carrying
+ * lifecycle metadata (commandId, idStrategy). For permanent IDs or non-create commands,
+ * returns a plain string.
+ *
+ * During regeneration, reuses the entity ID from the original execution.
  *
  * @param context - The handler context
- * @returns A stable entity ID
+ * @returns An EntityId (EntityRef for temporary creates, string otherwise)
  */
-export function createEntityId(context: HandlerContext): string {
-  return context.phase === 'initializing' ? generateId() : context.entityId
+export function createEntityId(context: HandlerContext): EntityId {
+  if (context.phase === 'initializing') {
+    const id = generateId()
+    if (context.idStrategy === 'temporary') {
+      return createEntityRef(id, context.commandId, 'temporary')
+    }
+    return id
+  }
+  // Updating phase — reuse existing entity ID
+  if (context.idStrategy === 'temporary') {
+    return createEntityRef(context.entityId, context.commandId, 'temporary')
+  }
+  return context.entityId
 }
 
 // ---------------------------------------------------------------------------
@@ -195,8 +220,11 @@ export interface ExecutorCommand {
 }
 
 /**
- * Domain executor interface - consumer implements this.
- * The library is agnostic to how validation is performed internally.
+ * Domain executor interface.
+ *
+ * Provides separate validation and handler phases so the CommandQueue can
+ * transform data between them (e.g., re-injecting EntityRef values after
+ * validation but before the handler runs).
  *
  * @template TEvent - Event type produced by the executor
  */
@@ -207,17 +235,30 @@ export interface IDomainExecutor<
   TEvent extends IAnticipatedEvent,
 > {
   /**
-   * Execute a command through the validation pipeline and produce anticipated events.
+   * Run validation phases (schema, validate, validateAsync) on the command data.
+   * Returns the validated/hydrated data on success, or a validation error.
    *
-   * On initial execution (`'initializing'`), runs all validation phases
-   * (schema, validate, validateAsync) before the handler.
-   * On regeneration (`'updating'`), skips validation and runs the handler directly.
-   *
-   * @param command - The command envelope to execute
-   * @param context - Execution context (phase and entity ID for regeneration)
-   * @returns Success with anticipated events, or failure with validation errors
+   * Does NOT run the handler.
    */
-  execute(command: ExecutorCommand, context: HandlerContext): Promise<DomainExecutionResult<TEvent>>
+  validate(
+    command: ExecutorCommand,
+    state: unknown | undefined,
+  ): Promise<Result<unknown, DomainExecutionError>>
+
+  /**
+   * Run the handler only. No validation.
+   * Produces anticipated events from the (possibly transformed) command data.
+   *
+   * @param command - The command envelope with data ready for the handler
+   * @param context - Execution context (phase and entity ID for regeneration)
+   * @returns Success with anticipated events, or failure
+   */
+  handle(
+    command: ExecutorCommand,
+    state: unknown | undefined,
+    context: HandlerContext,
+  ): DomainExecutionResult<TEvent>
+
   getRegistration(
     commandType: string,
   ): CommandHandlerRegistration<TLink, TCommand, TSchema, TEvent> | undefined
@@ -318,14 +359,19 @@ export type CommandHandlerRegistration<
       /** Phase 1: structural schema validation (library-driven). */
       schema?: TSchema
       /** Phase 2: custom sync validation for rules the schema can't cover. */
-      validate?(data: unknown): Result<unknown, ValidationException>
+      validate?(data: unknown, state: unknown | undefined): Result<unknown, ValidationException>
       /** Phase 3: async validation querying local data (permissions, name conflicts, etc.). */
       validateAsync?(
         command: C,
+        state: unknown | undefined,
         context: AsyncValidationContext<TLink>,
       ): Promise<Result<unknown, ValidationException>>
       /** Phase 4: produce anticipated events from validated data. */
-      handler(command: C, context: HandlerContext): DomainExecutionResult<TEvent>
+      handler(
+        command: C,
+        state: unknown | undefined,
+        context: HandlerContext,
+      ): DomainExecutionResult<TEvent>
       /** If this command creates a new aggregate, configure how to extract the server ID. */
       creates?: CreateCommandConfig
       /** Cross-aggregate parent references. Each entry maps a data field to the command that produces the ID. */
@@ -333,7 +379,25 @@ export type CommandHandlerRegistration<
       /** JSONPath expressions (RFC 9535 subset) for EntityRef values in nested or array structures.
        *  Default extraction scans top-level fields. Declare paths here for deeper structures.
        *  Uses [*] for array wildcard. Example: ['$.forms[*].id', '$.metadata.orgId'] */
-      entityRefPaths?: string[]
+      entityRefPaths?: JSONPathExpression[]
+      /**
+       * Custom cache key resolver for complex commands where default resolution
+       * (replace single field) is insufficient.
+       *
+       * Called during cache key reconciliation when this command succeeds with
+       * a temporary ID mapping. Receives the command context and the current
+       * cache key identity — returns the updated identity (same `.key`, updated fields).
+       *
+       * Omit for the common case: the library auto-resolves entity `link.id`
+       * or scope `scopeParams` values from the id mapping.
+       */
+      resolveCacheKey?(params: {
+        commandId: string
+        type: string
+        data: unknown
+        serverResponse: unknown
+        cacheKey: CacheKeyIdentity<TLink>
+      }): CacheKeyIdentity<TLink>
     }
   : never
 
@@ -380,12 +444,6 @@ export interface CreateDomainExecutorOptions<TLink extends Link, TSchema = unkno
  * Builds an internal lookup map for O(1) dispatch.
  * Asserts no duplicate command types — a duplicate means a config wiring bug.
  * Unknown command types at runtime return a validation failure.
- *
- * The executor runs validation phases (schema, validate) before the handler
- * on initial execution. On regeneration, validation is skipped — data was
- * already validated and transformed during initial execution.
- *
- * Returns both the executor and a metadata lookup for registration config.
  */
 export function createDomainExecutor<
   TLink extends Link,
@@ -412,10 +470,10 @@ export function createDomainExecutor<
   }
 
   return {
-    async execute(
+    async validate(
       command: ExecutorCommand,
-      context: HandlerContext,
-    ): Promise<DomainExecutionResult<TEvent>> {
+      state: unknown | undefined,
+    ): Promise<Result<unknown, DomainExecutionError>> {
       const { type, data } = command
       const reg = registrationMap.get(type)
       if (!reg) {
@@ -424,35 +482,42 @@ export function createDomainExecutor<
 
       let currentData = data
 
-      // Validation phases only run on initial execution, not regeneration.
-      // During regeneration, data was already validated and transformed.
-      if (context.phase === 'initializing') {
-        // Phase 1: schema validation
-        if (reg.schema !== undefined && schemaValidator) {
-          const schemaResult = schemaValidator.validate(reg.schema, currentData)
-          if (!schemaResult.ok) return schemaResult
-          currentData = schemaResult.value
-        }
-
-        // Phase 2: custom sync validation
-        if (reg.validate) {
-          const validateResult = reg.validate(currentData)
-          if (!validateResult.ok) return validateResult
-          currentData = validateResult.value
-        }
-
-        // Phase 3: async validation (queries local read model)
-        if (reg.validateAsync && queryManager) {
-          const asyncResult = await reg.validateAsync(
-            { ...command, data: currentData } as TCommand,
-            { queryManager },
-          )
-          if (!asyncResult.ok) return asyncResult
-          currentData = asyncResult.value
-        }
+      // Phase 1: schema validation
+      if (reg.schema !== undefined && schemaValidator) {
+        const schemaResult = schemaValidator.validate(reg.schema, currentData)
+        if (!schemaResult.ok) return schemaResult
+        currentData = schemaResult.value
       }
 
-      return reg.handler({ ...command, data: currentData } as TCommand, context)
+      // Phase 2: custom sync validation
+      if (reg.validate) {
+        const validateResult = reg.validate(currentData, state)
+        if (!validateResult.ok) return validateResult
+        currentData = validateResult.value
+      }
+
+      // Phase 3: async validation (queries local read model)
+      if (reg.validateAsync && queryManager) {
+        const asyncResult = await reg.validateAsync({ ...command, data: currentData } as TCommand, state, {
+          queryManager,
+        })
+        if (!asyncResult.ok) return asyncResult
+        currentData = asyncResult.value
+      }
+
+      return Ok(currentData)
+    },
+
+    handle(
+      command: ExecutorCommand,
+      state: unknown | undefined,
+      context: HandlerContext,
+    ): DomainExecutionResult<TEvent> {
+      const reg = registrationMap.get(command.type)
+      if (!reg) {
+        return Err(new UnknownCommandException(command.type))
+      }
+      return reg.handler({ ...command, data: command.data } as TCommand, state, context)
     },
 
     getRegistration(

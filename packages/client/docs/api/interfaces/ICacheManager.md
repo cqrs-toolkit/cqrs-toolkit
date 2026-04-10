@@ -271,6 +271,38 @@ Whether the cache key is frozen
 
 ---
 
+### registerCacheKey()
+
+> **registerCacheKey**(`template`, `options?`): `Promise`\<[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>\>
+
+Register a cache key from a template. Assigns a stable opaque UUID.
+Auto-wires pending ID reconciliation from EntityRef values in the template.
+
+For templates without EntityRef values, this is equivalent to acquireKey
+with a deterministic identity.
+
+#### Parameters
+
+##### template
+
+[`CacheKeyTemplate`](../type-aliases/CacheKeyTemplate.md)\<`TLink`\>
+
+Cache key template (entity or scope)
+
+##### options?
+
+[`AcquireCacheKeyOptions`](AcquireCacheKeyOptions.md)
+
+Acquisition options (hold, ttl, eviction policy)
+
+#### Returns
+
+`Promise`\<[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>\>
+
+The registered cache key identity with a stable UUID
+
+---
+
 ### release()
 
 > **release**(`key`): `Promise`\<`void`\>

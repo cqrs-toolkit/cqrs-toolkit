@@ -31,7 +31,7 @@ trigger component creation (includes OPFS probe for Mode B).
 
 ### TEvent
 
-`TEvent` _extends_ [`IAnticipatedEvent`](../interfaces/IAnticipatedEvent.md)\<`string`, `AggregateEventData`\>
+`TEvent` _extends_ [`IAnticipatedEvent`](../interfaces/IAnticipatedEvent.md)\<`string`, `AnticipatedAggregateEventData`\>
 
 ## Parameters
 

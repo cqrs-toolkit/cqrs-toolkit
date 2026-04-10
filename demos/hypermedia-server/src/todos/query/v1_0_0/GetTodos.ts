@@ -2,8 +2,7 @@
  * Todo collection resolver — v1.0.0.
  */
 
-import type { TodoRepository } from '@cqrs-toolkit/demo-base/todos/server'
-import type { Todo } from '@cqrs-toolkit/demo-base/todos/shared'
+import type { Todo, TodoRepository } from '@cqrs-toolkit/demo-base/todos/server'
 import type { CursorPagination, HypermediaTypes } from '@cqrs-toolkit/hypermedia'
 import { Hypermedia, type RepliedValue, type ResolvedValue } from '@cqrs-toolkit/hypermedia/server'
 import { Ok, type Result } from '@meticoeus/ddd-es'

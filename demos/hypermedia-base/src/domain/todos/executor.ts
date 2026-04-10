@@ -3,13 +3,14 @@
  */
 
 import { createEntityId, domainSuccess } from '@cqrs-toolkit/client'
+import { TodoAggregate } from '@cqrs-toolkit/demo-base/todos/domain'
 import type { AppCommandHandlerRegistration } from '../utils/executors.js'
 
 export const todoHandlers: AppCommandHandlerRegistration[] = [
   {
     commandType: 'nb.CreateTodo',
     creates: { eventType: 'TodoCreated', idStrategy: 'temporary' },
-    handler(command, context) {
+    handler(command, _state, context) {
       const { content } = command.data as { content: string }
       const id = createEntityId(context)
       const now = new Date().toISOString()
@@ -17,7 +18,7 @@ export const todoHandlers: AppCommandHandlerRegistration[] = [
         {
           type: 'TodoCreated',
           data: { id, content, status: 'pending', createdAt: now },
-          streamId: `Todo-${id}`,
+          streamId: TodoAggregate.getStreamId(id),
         },
       ])
     },
@@ -26,12 +27,13 @@ export const todoHandlers: AppCommandHandlerRegistration[] = [
     commandType: 'nb.UpdateTodoContent',
     handler(command) {
       const { content } = command.data as { content: string }
-      const { id } = command.path
+      // TODO(command-types): Figure out how we can fix this
+      const { id } = command.path as { id: string }
       return domainSuccess([
         {
           type: 'TodoContentUpdated',
           data: { id, content, updatedAt: new Date().toISOString() },
-          streamId: `Todo-${id}`,
+          streamId: TodoAggregate.getStreamId(id),
         },
       ])
     },
@@ -40,12 +42,13 @@ export const todoHandlers: AppCommandHandlerRegistration[] = [
     commandType: 'nb.ChangeTodoStatus',
     handler(command) {
       const { status } = command.data as { status: string }
-      const { id } = command.path
+      // TODO(command-types): Figure out how we can fix this
+      const { id } = command.path as { id: string }
       return domainSuccess([
         {
           type: 'TodoStatusChanged',
           data: { id, status, updatedAt: new Date().toISOString() },
-          streamId: `Todo-${id}`,
+          streamId: TodoAggregate.getStreamId(id),
         },
       ])
     },
@@ -53,8 +56,11 @@ export const todoHandlers: AppCommandHandlerRegistration[] = [
   {
     commandType: 'nb.DeleteTodo',
     handler(command) {
-      const { id } = command.path
-      return domainSuccess([{ type: 'TodoDeleted', data: { id }, streamId: `Todo-${id}` }])
+      // TODO(command-types): Figure out how we can fix this
+      const { id } = command.path as { id: string }
+      return domainSuccess([
+        { type: 'TodoDeleted', data: { id }, streamId: TodoAggregate.getStreamId(id) },
+      ])
     },
   },
 ]

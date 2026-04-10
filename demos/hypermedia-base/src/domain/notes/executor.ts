@@ -3,6 +3,7 @@
  */
 
 import { createEntityId, domainSuccess } from '@cqrs-toolkit/client'
+import { NoteAggregate } from '@cqrs-toolkit/demo-base/notes/domain'
 import type { AppCommandHandlerRegistration } from '../utils/executors.js'
 
 export const noteHandlers: AppCommandHandlerRegistration[] = [
@@ -10,7 +11,7 @@ export const noteHandlers: AppCommandHandlerRegistration[] = [
     commandType: 'nb.CreateNote',
     creates: { eventType: 'NoteCreated', idStrategy: 'temporary' },
     parentRef: [{ field: 'notebookId', fromCommand: 'CreateNotebook' }],
-    handler(command, context) {
+    handler(command, _state, context) {
       const { notebookId, title, body } = command.data as {
         notebookId: string
         title: string
@@ -28,7 +29,7 @@ export const noteHandlers: AppCommandHandlerRegistration[] = [
             body,
             createdAt: now,
           },
-          streamId: `Note-${id}`,
+          streamId: NoteAggregate.getStreamId(id),
         },
       ])
     },
@@ -37,12 +38,13 @@ export const noteHandlers: AppCommandHandlerRegistration[] = [
     commandType: 'nb.UpdateNoteTitle',
     handler(command) {
       const { title } = command.data as { title: string }
-      const { id } = command.path
+      // TODO(command-types): Figure out how we can fix this
+      const { id } = command.path as { id: string }
       return domainSuccess([
         {
           type: 'NoteTitleUpdated',
           data: { id, title, updatedAt: new Date().toISOString() },
-          streamId: `Note-${id}`,
+          streamId: NoteAggregate.getStreamId(id),
         },
       ])
     },
@@ -51,12 +53,13 @@ export const noteHandlers: AppCommandHandlerRegistration[] = [
     commandType: 'nb.UpdateNoteBody',
     handler(command) {
       const { body } = command.data as { body: string }
-      const { id } = command.path
+      // TODO(command-types): Figure out how we can fix this
+      const { id } = command.path as { id: string }
       return domainSuccess([
         {
           type: 'NoteBodyUpdated',
           data: { id, body, updatedAt: new Date().toISOString() },
-          streamId: `Note-${id}`,
+          streamId: NoteAggregate.getStreamId(id),
         },
       ])
     },
@@ -64,8 +67,11 @@ export const noteHandlers: AppCommandHandlerRegistration[] = [
   {
     commandType: 'nb.DeleteNote',
     handler(command) {
-      const { id } = command.path
-      return domainSuccess([{ type: 'NoteDeleted', data: { id }, streamId: `Note-${id}` }])
+      // TODO(command-types): Figure out how we can fix this
+      const { id } = command.path as { id: string }
+      return domainSuccess([
+        { type: 'NoteDeleted', data: { id }, streamId: NoteAggregate.getStreamId(id) },
+      ])
     },
   },
 ]

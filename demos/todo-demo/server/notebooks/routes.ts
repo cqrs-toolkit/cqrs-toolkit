@@ -6,20 +6,20 @@ import type { DemoEventStore } from '@cqrs-toolkit/demo-base/common/server'
 import type { CommandResponse, CommandSuccessResponse } from '@cqrs-toolkit/demo-base/common/shared'
 import {
   NotebookAggregate,
+  type ListNotebooksResponse,
+  type Notebook,
   type NotebookRepository,
   type NotebookServerEvent,
   type NotebookService,
 } from '@cqrs-toolkit/demo-base/notebooks/server'
 import {
-  DuplicateNotebookNameException,
-  type ListNotebooksResponse,
-  type Notebook,
-  type NotebookCommand,
   addNotebookTagPayloadSchema,
   createNotebookPayloadSchema,
   deleteNotebookPayloadSchema,
+  DuplicateNotebookNameException,
   removeNotebookTagPayloadSchema,
   updateNotebookNamePayloadSchema,
+  type NotebookCommand,
 } from '@cqrs-toolkit/demo-base/notebooks/shared'
 import {
   EventExistenceRevision,

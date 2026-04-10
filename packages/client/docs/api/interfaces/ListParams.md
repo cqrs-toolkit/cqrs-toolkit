@@ -69,3 +69,17 @@ Limit number of results
 > `optional` **offset**: `number`
 
 Offset for pagination
+
+---
+
+### windowId?
+
+> `optional` **windowId**: `string`
+
+**`Internal`**
+
+Window ID for hold tracking. Injected by the facade/proxy.
+
+#### Inherited from
+
+[`QueryOptions`](QueryOptions.md).[`windowId`](QueryOptions.md#windowid)

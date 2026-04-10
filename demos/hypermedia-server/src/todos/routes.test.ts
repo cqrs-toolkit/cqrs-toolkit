@@ -1,5 +1,5 @@
 import type { CommandSuccessResponse } from '@cqrs-toolkit/demo-base/common/shared'
-import type { Todo } from '@cqrs-toolkit/demo-base/todos/shared'
+import type { Todo } from '@cqrs-toolkit/demo-base/todos/server'
 import type { FastifyInstance } from 'fastify'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createApp } from '../bootstrap.js'

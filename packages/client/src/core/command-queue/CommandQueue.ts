@@ -42,26 +42,27 @@ import {
 } from '../../types/commands.js'
 import type { RetryConfig } from '../../types/config.js'
 import type {
-  CreateCommandConfig,
   DomainExecutionResult,
   HandlerContext,
   IDomainExecutor,
   ParentRefConfig,
 } from '../../types/domain.js'
 import { autoRevision, isAutoRevision } from '../../types/domain.js'
-import type { EntityRef } from '../../types/entities.js'
-import { createEntityRef } from '../../types/entities.js'
+import { createEntityRef, EntityId, entityIdToString, EntityRef } from '../../types/entities.js'
+import type { CacheKeyIdentity } from '../cache-manager/CacheKey.js'
+import type { ICacheManagerInternal } from '../cache-manager/types.js'
 import type { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventShape.js'
 import {
   extractTopLevelEntityRefs,
   resolveRefPaths,
+  restoreEntityRefs,
   stripEntityRefs,
 } from '../entity-ref/ref-path.js'
 import type { ParsedEvent } from '../event-processor/EventProcessorRunner.js'
 import type { EventBus } from '../events/EventBus.js'
 import { WriteQueueException } from '../write-queue/IWriteQueue.js'
 import type { ICommandFileStore } from './file-store/ICommandFileStore.js'
-import type { ICommandQueue, ICommandSender } from './types.js'
+import type { ICommandQueueInternal, ICommandSender } from './types.js'
 
 /**
  * Handler for anticipated event lifecycle.
@@ -85,21 +86,11 @@ export interface IAnticipatedEventHandler {
     clientId?: string
     /** Cache key string for associating anticipated events with the correct data scope. */
     cacheKey: string
-    /** Creates config from the command handler registration. Used for EntityRef injection. */
-    creates?: CreateCommandConfig
-    /** EntityRef data extracted from command data. Used for EntityRef injection into read model parent ref fields. */
-    entityRefData?: Record<string, EntityRef>
   }): Promise<Result<void, WriteQueueException>>
   /** Clean up anticipated events when command reaches terminal state. Clears local changes for tracked entries. */
   cleanup(commandId: string, terminalStatus: TerminalCommandStatus): Promise<void>
   /** Replace anticipated events for a command (used when data is rewritten after a dependency succeeds). */
-  regenerate(
-    commandId: string,
-    newEvents: unknown[],
-    cacheKey: string,
-    creates?: CreateCommandConfig,
-    entityRefData?: Record<string, EntityRef>,
-  ): Promise<void>
+  regenerate(commandId: string, newEvents: unknown[], cacheKey: string): Promise<void>
   /** Get tracked read model entries for a command (e.g., ["todos:client-abc"]). */
   getTrackedEntries(commandId: string): string[] | undefined
   /** Get anticipated events for a stream, excluding a specific command's events. For re-applying overlays during reconciliation. */
@@ -167,7 +158,7 @@ export class CommandQueue<
   TCommand extends EnqueueCommand,
   TSchema,
   TEvent extends IAnticipatedEvent,
-> implements ICommandQueue<TLink, TCommand> {
+> implements ICommandQueueInternal<TLink, TCommand> {
   private readonly domainExecutor?: IDomainExecutor<TLink, TCommand, TSchema, TEvent>
   private readonly commandSender?: ICommandSender<TLink, TCommand>
   private readonly retryConfig: RetryConfig
@@ -179,6 +170,9 @@ export class CommandQueue<
   private readonly retainTerminal: boolean
   private readonly commandIdMappingTtl: number
 
+  /** CacheManager reference for cache key reconciliation. Set via setCacheManager(). */
+  private cacheManager: ICacheManagerInternal<TLink> | undefined
+
   protected readonly commandEvents = new Subject<CommandEvent>()
   private readonly destroy$ = new Subject<void>()
 
@@ -189,6 +183,9 @@ export class CommandQueue<
    * Key is the aggregate ID (client-generated for creates, data.id for mutates).
    */
   private readonly aggregateChains = new Map<string, AggregateChain>()
+
+  /** In-memory clientId → serverId mappings for synchronous lookup by CacheManager. */
+  private readonly resolvedIdMappings = new Map<string, string>()
 
   private lastMappingCleanup = 0
   private _paused = true
@@ -216,8 +213,17 @@ export class CommandQueue<
     this.events$ = this.commandEvents.asObservable().pipe(share(), takeUntil(this.destroy$))
   }
 
+  /**
+   * Set the CacheManager reference for cache key reconciliation.
+   * Called after construction by the orchestrator to break the circular dependency.
+   */
+  setCacheManager(cacheManager: ICacheManagerInternal<TLink>): void {
+    this.cacheManager = cacheManager
+  }
+
   async enqueue<TData, TEvent extends IAnticipatedEvent>(
     params: EnqueueParams<TLink, TData>,
+    modelState?: unknown | undefined,
   ): Promise<EnqueueResult<TEvent>> {
     const { command, cacheKey, skipValidation } = params
     const commandId = params.commandId ?? generateId()
@@ -247,22 +253,40 @@ export class CommandQueue<
     let postProcess: CommandRecord<TLink, TCommand>['postProcess']
 
     if (this.domainExecutor && !skipValidation) {
+      // 1. Validate with stripped data (plain strings)
+      const validationResult = await this.domainExecutor.validate(strippedCommand, modelState)
+      if (!validationResult.ok) {
+        return Err(validationResult.error)
+      }
+
+      // 2. Re-inject EntityRef into validated/hydrated data
+      const hydratedData = validationResult.value
+      const enrichedData = hasEntityRefs
+        ? restoreEntityRefs(hydratedData, entityRefData)
+        : hydratedData
+
+      // 3. Handler produces anticipated events with EntityRef in parent fields
+      const initialContext: HandlerContext = {
+        phase: 'initializing',
+        commandId,
+        idStrategy: registration?.creates?.idStrategy,
+      }
       // Trust boundary: the consumer-provided domainExecutor is expected to produce
       // TEvent-compatible anticipated events. TypeScript cannot verify this without
       // making CommandQueue generic in TEvent, which would propagate through the
       // entire client factory.
-      const initialContext: HandlerContext = { phase: 'initializing' }
-      const result = (await this.domainExecutor.execute(
-        strippedCommand,
+      const handleResult = this.domainExecutor.handle(
+        { ...strippedCommand, data: enrichedData },
+        modelState,
         initialContext,
-      )) as DomainExecutionResult<TEvent>
+      ) as DomainExecutionResult<TEvent>
 
-      if (!result.ok) {
-        return Err(result.error)
+      if (!handleResult.ok) {
+        return Err(handleResult.error)
       }
 
-      anticipatedEvents = result.value.anticipatedEvents
-      postProcess = result.value.postProcessPlan
+      anticipatedEvents = handleResult.value.anticipatedEvents
+      postProcess = handleResult.value.postProcessPlan
     }
 
     // Detect aggregate and build auto-dependencies
@@ -355,8 +379,6 @@ export class CommandQueue<
           events: anticipatedEvents,
           clientId,
           cacheKey: cacheKey.key, // string for EventCache and ReadModelStore
-          creates: registration?.creates,
-          entityRefData: hasEntityRefs ? entityRefData : undefined,
         })
       } catch (err) {
         logProvider.log.error(
@@ -434,8 +456,9 @@ export class CommandQueue<
 
   async enqueueAndWait<TData, TEvent extends IAnticipatedEvent, TResponse>(
     params: EnqueueAndWaitParams<TLink, TData>,
+    modelState?: unknown | undefined,
   ): Promise<EnqueueAndWaitResult<TResponse>> {
-    const enqueueResult = await this.enqueue<TData, TEvent>(params)
+    const enqueueResult = await this.enqueue<TData, TEvent>(params, modelState)
 
     if (!enqueueResult.ok) {
       return Err(enqueueResult.error)
@@ -655,6 +678,24 @@ export class CommandQueue<
       // to resolve their revision), but get the correct server ID immediately.
       if (Object.keys(idMap).length > 0) {
         await this.rewriteCommandsWithStaleIds(idMap)
+
+        // Resolve pending cache keys that depend on this command's ID mapping.
+        // The CacheManager's resolvePendingKeys updates identity fields in-place
+        // and emits cache:key-reconciled events.
+        if (this.cacheManager) {
+          const registration = this.domainExecutor?.getRegistration(succeededCommand.type)
+          const boundResolver = registration?.resolveCacheKey
+            ? (cacheKey: CacheKeyIdentity<TLink>) =>
+                registration.resolveCacheKey!({
+                  commandId: succeededCommand.commandId,
+                  type: succeededCommand.type,
+                  data: succeededCommand.data,
+                  serverResponse: succeededCommand.serverResponse,
+                  cacheKey,
+                })
+            : undefined
+          this.cacheManager.resolvePendingKeys(succeededCommand.commandId, idMap, boundResolver)
+        }
       }
 
       // Unblock direct dependents and resolve revision for the next command in chain
@@ -798,8 +839,14 @@ export class CommandQueue<
         // Regenerate anticipated events with the correct server ID
         if (this.domainExecutor) {
           const context = this.buildUpdatingContext(command, data)
-          const result = await this.domainExecutor.execute(
-            { type: command.type, data, path: command.path },
+          const enrichedData = updatedEntityRefData
+            ? restoreEntityRefs(data, updatedEntityRefData)
+            : data
+          const result = this.domainExecutor.handle(
+            { type: command.type, data: enrichedData, path: command.path },
+            // TODO: this should be getting updated local model from the caller
+            // modelState,
+            undefined,
             context,
           )
           if (result.ok) {
@@ -808,8 +855,6 @@ export class CommandQueue<
                 command.commandId,
                 result.value.anticipatedEvents as unknown[],
                 command.cacheKey.key,
-                command.creates,
-                updatedEntityRefData,
               )
             } catch (err) {
               logProvider.log.error(
@@ -856,6 +901,9 @@ export class CommandQueue<
     for (const [clientId, chain] of this.aggregateChains) {
       if (chain.createCommandId === command.commandId && clientId !== serverId) {
         map[clientId] = { serverId, commandType: command.type }
+
+        // Track in-memory for synchronous lookup by CacheManager
+        this.resolvedIdMappings.set(clientId, serverId)
 
         // Update the chain to use the server ID
         this.aggregateChains.delete(clientId)
@@ -920,12 +968,18 @@ export class CommandQueue<
     // Update the command record with the resolved revision
     await this.storage.updateCommand(command.commandId, { revision: parentRevision })
 
-    // Re-run the domain executor to produce fresh anticipated events with correct IDs
+    // Re-run the handler to produce fresh anticipated events with correct IDs
     if (this.domainExecutor) {
       const data = command.data as Record<string, unknown>
       const context = this.buildUpdatingContext(command, data)
-      const result = await this.domainExecutor.execute(
-        { type: command.type, data: command.data, path: command.path },
+      const enrichedData = command.entityRefData
+        ? restoreEntityRefs(data, command.entityRefData)
+        : data
+      const result = this.domainExecutor.handle(
+        { type: command.type, data: enrichedData, path: command.path },
+        // TODO: this should be getting updated local model from the caller
+        // modelState,
+        undefined,
         context,
       )
       if (result.ok) {
@@ -934,8 +988,6 @@ export class CommandQueue<
             command.commandId,
             result.value.anticipatedEvents as unknown[],
             command.cacheKey.key,
-            command.creates,
-            command.entityRefData,
           )
         } catch (err) {
           logProvider.log.error(
@@ -1183,7 +1235,12 @@ export class CommandQueue<
       ? this.getOriginalCreateId(command.commandId)
       : (data.id as string | undefined)
     assert(typeof entityId === 'string', 'Cannot build updating context without entity ID')
-    return { phase: 'updating', entityId }
+    return {
+      phase: 'updating',
+      entityId,
+      commandId: command.commandId,
+      idStrategy: command.creates?.idStrategy,
+    }
   }
 
   /**
@@ -1315,7 +1372,14 @@ export class CommandQueue<
     await this.storage.deleteAllCommands()
     await this.storage.deleteAllCommandIdMappings()
     this.aggregateChains.clear()
+    this.resolvedIdMappings.clear()
     logProvider.log.debug('Command queue cleared')
+  }
+
+  getIdMapping(clientId: EntityId): { serverId: string } | undefined {
+    const serverId = this.resolvedIdMappings.get(entityIdToString(clientId))
+    if (!serverId) return undefined
+    return { serverId }
   }
 
   /**

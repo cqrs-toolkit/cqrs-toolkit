@@ -9,6 +9,7 @@ import { FileObjectRepository } from '@cqrs-toolkit/demo-base/file-objects/serve
 import { NotebookRepository, NotebookService } from '@cqrs-toolkit/demo-base/notebooks/server'
 import { NoteRepository } from '@cqrs-toolkit/demo-base/notes/server'
 import { TodoRepository } from '@cqrs-toolkit/demo-base/todos/server'
+import { createMetaPlugin } from '@cqrs-toolkit/hypermedia/dev-server'
 import { hydraLinkHeader } from '@cqrs-toolkit/hypermedia/server'
 import { int64Visitor, validatorProvider } from '@cqrs-toolkit/schema'
 import multipart from '@fastify/multipart'
@@ -17,9 +18,9 @@ import { logProvider } from '@meticoeus/ddd-es'
 import scalarUi from '@scalar/fastify-api-reference'
 import { Ajv } from 'ajv'
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify'
+import toolkitConfig from '../cqrs-toolkit.config.js'
 import { fileObjectRoutes } from './file-objects/routes.js'
 import { uploadRoute } from './file-objects/upload-route.js'
-import { metaRoutes } from './meta/routes.js'
 import { notebookRoutes } from './notebooks/routes.js'
 import { noteRoutes } from './notes/routes.js'
 import { FakeUserStore, sessionRoutes } from './session/routes.js'
@@ -158,7 +159,7 @@ export function createApp(options?: { logLevel?: string }): AppContext {
 
     // Infrastructure routes
     server.register(sessionRoutes(userStore), { prefix: '/api/auth' })
-    server.register(metaRoutes(SERVER_PORT))
+    server.register(createMetaPlugin({ config: toolkitConfig.server }))
 
     server.get('/api/health', async () => {
       return { status: 'ok' }

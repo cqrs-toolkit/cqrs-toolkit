@@ -6,13 +6,17 @@ import { ServiceLink } from '@meticoeus/ddd-es'
 import { firstValueFrom, timeout } from 'rxjs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
+import { createTestWriteQueue } from '../../testing/createTestWriteQueue.js'
 import { EnqueueCommand } from '../../types/index.js'
 import { deriveScopeKey } from '../cache-manager/CacheKey.js'
 import { CacheManager } from '../cache-manager/CacheManager.js'
 import { EventBus } from '../events/EventBus.js'
 import { ReadModelStore } from '../read-model-store/ReadModelStore.js'
 import { QueryManager } from './QueryManager.js'
+import { QueryManagerFacade } from './QueryManagerFacade.js'
 import type { CollectionSignal } from './types.js'
+
+const WINDOW_ID = 'test-window'
 
 interface Todo {
   id: string
@@ -23,19 +27,30 @@ interface Todo {
 const TODOS_CACHE_KEY = deriveScopeKey({ scopeType: 'todos' })
 
 describe('QueryManager', () => {
+  let cleanup: (() => void)[] = []
+
+  afterEach(() => {
+    for (const fn of cleanup) fn()
+    cleanup = []
+  })
+
   let storage: InMemoryStorage<ServiceLink, EnqueueCommand>
   let eventBus: EventBus<ServiceLink>
   let cacheManager: CacheManager<ServiceLink, EnqueueCommand>
   let readModelStore: ReadModelStore<ServiceLink, EnqueueCommand>
   let queryManager: QueryManager<ServiceLink, EnqueueCommand>
-
+  let facade: QueryManagerFacade<ServiceLink>
   beforeEach(async () => {
     storage = new InMemoryStorage()
     await storage.initialize()
     eventBus = new EventBus()
-    cacheManager = new CacheManager(storage, eventBus, { windowId: 'test-window' })
+    const writeQueue = createTestWriteQueue(eventBus, cleanup, ['flush-cache-keys'])
+    cacheManager = new CacheManager(storage, eventBus)
+    cacheManager.setWriteQueue(writeQueue)
     readModelStore = new ReadModelStore(storage)
     queryManager = new QueryManager(eventBus, cacheManager, readModelStore)
+    cleanup.push(() => queryManager.destroy())
+    facade = new QueryManagerFacade(queryManager, WINDOW_ID)
 
     // Add some test data — cacheKey must match what QueryManager derives for 'todos'
     const todosCacheKey = deriveScopeKey({ scopeType: 'todos' }).key
@@ -63,10 +78,6 @@ describe('QueryManager', () => {
       position: null,
       _clientMetadata: null,
     })
-  })
-
-  afterEach(async () => {
-    await queryManager.destroy()
   })
 
   describe('getById', () => {
@@ -425,7 +436,7 @@ describe('QueryManager', () => {
         id: 'todo-1',
         cacheKey: TODOS_CACHE_KEY,
       })
-      await queryManager.hold(result.cacheKey.key)
+      await facade.hold(result.cacheKey.key)
 
       const cacheKey = await cacheManager.get(result.cacheKey.key)
       expect(cacheKey?.holdCount).toBe(1)
@@ -437,8 +448,8 @@ describe('QueryManager', () => {
         id: 'todo-1',
         cacheKey: TODOS_CACHE_KEY,
       })
-      await queryManager.hold(result.cacheKey.key)
-      await queryManager.release(result.cacheKey.key)
+      await facade.hold(result.cacheKey.key)
+      await facade.release(result.cacheKey.key)
 
       const cacheKey = await cacheManager.get(result.cacheKey.key)
       expect(cacheKey?.holdCount).toBe(0)
@@ -450,9 +461,9 @@ describe('QueryManager', () => {
         id: 'todo-1',
         cacheKey: TODOS_CACHE_KEY,
       })
-      await queryManager.hold(result.cacheKey.key)
-      await queryManager.hold(result.cacheKey.key)
-      await queryManager.release(result.cacheKey.key)
+      await facade.hold(result.cacheKey.key)
+      await facade.hold(result.cacheKey.key)
+      await facade.release(result.cacheKey.key)
 
       const cacheKey = await cacheManager.get(result.cacheKey.key)
       expect(cacheKey?.holdCount).toBe(1)
@@ -464,10 +475,10 @@ describe('QueryManager', () => {
         id: 'todo-1',
         cacheKey: TODOS_CACHE_KEY,
       })
-      await queryManager.hold(result.cacheKey.key)
-      await queryManager.hold(result.cacheKey.key)
+      await facade.hold(result.cacheKey.key)
+      await facade.hold(result.cacheKey.key)
 
-      await queryManager.releaseAll()
+      await facade.releaseAll()
 
       const cacheKey = await cacheManager.get(result.cacheKey.key)
       expect(cacheKey?.holdCount).toBe(0)
@@ -481,14 +492,13 @@ describe('QueryManager', () => {
         id: 'todo-1',
         cacheKey: TODOS_CACHE_KEY,
       })
-      await queryManager.hold(result.cacheKey.key)
-      await queryManager.hold(result.cacheKey.key) // refcount = 2 internally
+      await facade.hold(result.cacheKey.key)
+      await facade.hold(result.cacheKey.key) // refcount = 2 internally
 
       queryManager.onSessionDestroyed()
 
       // Internal tracking was cleared — release should be a no-op (no error, no call to cacheManager)
-      // Verify by doing a release — it should not throw or call through
-      await queryManager.release(result.cacheKey.key) // no-op since activeHolds was cleared
+      await facade.release(result.cacheKey.key) // no-op since activeHolds was cleared
 
       // Hold count in storage should still be 1 (we didn't call cacheManager.release)
       const cacheKey = await cacheManager.get(result.cacheKey.key)
@@ -503,8 +513,8 @@ describe('QueryManager', () => {
         id: 'todo-1',
         cacheKey: TODOS_CACHE_KEY,
       })
-      await queryManager.hold(result.cacheKey.key)
-      await queryManager.hold(result.cacheKey.key)
+      await facade.hold(result.cacheKey.key)
+      await facade.hold(result.cacheKey.key)
 
       queryManager.releaseForCacheKey(result.cacheKey.key)
 

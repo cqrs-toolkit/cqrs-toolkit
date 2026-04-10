@@ -53,6 +53,7 @@ export type LibraryEventType =
   | 'cache:quota-critical'
   | 'cache:too-many-windows'
   | 'cache:session-reset'
+  | 'cache:key-reconciled'
   | 'cache:seed-settled'
   | 'sync:seed-completed'
   | 'command:enqueued'
@@ -111,6 +112,13 @@ export interface LibraryEventData<TLink extends Link> {
   'cache:quota-critical': { usedBytes: number; totalBytes: number }
   'cache:too-many-windows': { windowId: string; maxWindows: number }
   'cache:session-reset': { previousUserId: string; newUserId: string }
+  'cache:key-reconciled': {
+    cacheKey: CacheKeyIdentity<TLink>
+    previousIdentity: CacheKeyIdentity<TLink>
+    commandId: string
+    clientId: string
+    serverId: string
+  }
   'cache:seed-settled': {
     cacheKey: CacheKeyIdentity<TLink>
     status: 'succeeded' | 'failed'

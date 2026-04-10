@@ -10,6 +10,12 @@
 
 - [CreateTestStorageOptions](interfaces/CreateTestStorageOptions.md)
 
+## Variables
+
+- [NoteAggregate](variables/NoteAggregate.md)
+- [NotebookAggregate](variables/NotebookAggregate.md)
+- [TodoAggregate](variables/TodoAggregate.md)
+
 ## Functions
 
 - [createAnticipatedEvent](functions/createAnticipatedEvent.md)
@@ -26,4 +32,6 @@
 - [createTestCommand](functions/createTestCommand.md)
 - [createTestSession](functions/createTestSession.md)
 - [createTestStorage](functions/createTestStorage.md)
+- [createTestWriteQueue](functions/createTestWriteQueue.md)
+- [deriveEntityKey](functions/deriveEntityKey.md)
 - [marbleTest](functions/marbleTest.md)

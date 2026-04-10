@@ -191,8 +191,9 @@ export class DedicatedWorkerAdapter<
         new OpfsCommandFileStore(),
         broadcastEvents$,
       )
-      this._queryManager = new QueryManagerProxy<TLink>(this.channel, broadcastEvents$)
-      this._cacheManager = new CacheManagerProxy<TLink>(this.channel)
+      const windowId = crypto.randomUUID()
+      this._queryManager = new QueryManagerProxy<TLink>(this.channel, broadcastEvents$, windowId)
+      this._cacheManager = new CacheManagerProxy<TLink>(this.channel, windowId)
       this._syncManager = new SyncManagerProxy<TLink>(this.channel, broadcastEvents$)
 
       // Sync connectivity state from worker

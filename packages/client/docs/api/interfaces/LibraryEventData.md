@@ -72,6 +72,32 @@ Library event data types.
 
 ---
 
+### cache:key-reconciled
+
+> **cache:key-reconciled**: `object`
+
+#### cacheKey
+
+> **cacheKey**: [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
+#### clientId
+
+> **clientId**: `string`
+
+#### commandId
+
+> **commandId**: `string`
+
+#### previousIdentity
+
+> **previousIdentity**: [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
+#### serverId
+
+> **serverId**: `string`
+
+---
+
 ### cache:quota-critical
 
 > **cache:quota-critical**: `object`

@@ -2,7 +2,6 @@
  * Notebook domain service — operations spanning Notebook and Note aggregates.
  */
 
-import type { NoteRepository } from '#notes/server'
 import type {
   ConcurrencyException,
   EventConflictException,
@@ -10,6 +9,7 @@ import type {
   Result,
   SaveEventSuccess,
 } from '@meticoeus/ddd-es'
+import type { NoteRepository } from '../../notes/server/repository.js'
 import type { NotebookServerEvent } from './aggregate.js'
 import type { NotebookRepository } from './repository.js'
 

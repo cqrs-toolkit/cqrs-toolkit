@@ -28,6 +28,13 @@ interface Todo {
 const TODOS_CACHE_KEY = deriveScopeKey({ scopeType: 'todos' })
 
 describe('StableRefQueryManager', () => {
+  let cleanup: (() => void)[] = []
+
+  afterEach(() => {
+    for (const fn of cleanup) fn()
+    cleanup = []
+  })
+
   let inner: IQueryManager<ServiceLink> & {
     setListResult: (result: ListQueryResult<ServiceLink, Todo>) => void
     setGetByIdResult: (result: QueryResult<ServiceLink, Todo>) => void
@@ -105,10 +112,7 @@ describe('StableRefQueryManager', () => {
     }
 
     stableQm = new StableRefQueryManager(inner)
-  })
-
-  afterEach(async () => {
-    await stableQm.destroy()
+    cleanup.push(() => stableQm.destroy())
   })
 
   describe('list', () => {

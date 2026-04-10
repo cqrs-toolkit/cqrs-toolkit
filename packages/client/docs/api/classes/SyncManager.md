@@ -44,7 +44,7 @@ Sync manager.
 
 ##### commandQueue
 
-[`CommandQueue`](CommandQueue.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
+`ICommandQueueInternal`\<`TLink`, `TCommand`\>
 
 ##### eventCache
 
@@ -52,7 +52,7 @@ Sync manager.
 
 ##### cacheManager
 
-[`CacheManager`](CacheManager.md)\<`TLink`, `TCommand`\>
+`ICacheManagerInternal`\<`TLink`\>
 
 ##### eventProcessor
 
@@ -64,7 +64,7 @@ Sync manager.
 
 ##### queryManager
 
-[`QueryManager`](QueryManager.md)\<`TLink`, `TCommand`\>
+`IQueryManagerInternal`\<`TLink`\>
 
 ##### writeQueue
 
@@ -282,7 +282,8 @@ missing events asynchronously.
 
 Resolve cache key identities from WS message topics.
 Finds matching collections by streamId, then calls each collection's
-`cacheKeysFromTopics` to derive the cache keys deterministically.
+`cacheKeysFromTopics` to derive the cache keys.
+Templates (without `.key`) are resolved via registerCacheKeySync.
 
 #### Parameters
 

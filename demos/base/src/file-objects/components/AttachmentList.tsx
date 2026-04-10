@@ -1,30 +1,36 @@
 import { appCreateListQuery, TrashIcon } from '#common/components'
-import { FILE_OBJECTS_COLLECTION_NAME } from '#file-objects/domain'
-import type { FileObject } from '#file-objects/shared'
-import type { AutoRevision, SubmitResult } from '@cqrs-toolkit/client'
-import { deriveEntityKey } from '@cqrs-toolkit/client'
-import { useClient } from '@cqrs-toolkit/client-solid'
+import { AutoRevision, EntityId, entityIdMatches, SubmitResult } from '@cqrs-toolkit/client'
+import { createEntityCacheKey, useClient } from '@cqrs-toolkit/client-solid'
 import type { ServiceLink } from '@meticoeus/ddd-es'
 import { createMemo, For, Show } from 'solid-js'
+import type { FileObject } from '../domain/index.js'
+import { FILE_OBJECTS_COLLECTION_NAME } from '../domain/index.js'
 
 interface AttachmentListProps {
-  noteId: string
-  notebookId: string
-  onSubmitUpload: (params: { noteId: string; file: File }) => Promise<SubmitResult<unknown>>
-  onSubmitDelete: (params: { id: string; revision: AutoRevision }) => Promise<SubmitResult<unknown>>
+  noteId: EntityId
+  notebookId: EntityId
+  onSubmitUpload: (params: { noteId: EntityId; file: File }) => Promise<SubmitResult<unknown>>
+  onSubmitDelete: (params: {
+    id: EntityId
+    revision: AutoRevision
+  }) => Promise<SubmitResult<unknown>>
 }
 
 export function AttachmentList(props: AttachmentListProps) {
   const client = useClient<ServiceLink>()
+  const notebookCacheKey = createEntityCacheKey<ServiceLink>(
+    { service: 'nb', type: 'Notebook' },
+    () => props.notebookId,
+  )
 
   const attachmentsQuery = appCreateListQuery<FileObject>(
     client.queryManager,
     FILE_OBJECTS_COLLECTION_NAME,
-    deriveEntityKey({ service: 'nb', type: 'Notebook', id: props.notebookId }),
+    notebookCacheKey,
   )
 
   const noteAttachments = createMemo(() =>
-    attachmentsQuery.items.filter((f) => f.noteId === props.noteId),
+    attachmentsQuery.items.filter((f) => entityIdMatches(f.noteId, props.noteId)),
   )
 
   function handleFileInput(files: FileList | null) {
@@ -46,7 +52,11 @@ export function AttachmentList(props: AttachmentListProps) {
 
   function handleDownload(attachment: FileObject) {
     const baseUrl = location.origin
-    window.open(`${baseUrl}/api/file-objects/${attachment.id}/download`, '_blank')
+    if (typeof attachment.id === 'string') {
+      window.open(`${baseUrl}/api/file-objects/${attachment.id}/download`, '_blank')
+    } else {
+      // TODO: prompt local download
+    }
   }
 
   return (

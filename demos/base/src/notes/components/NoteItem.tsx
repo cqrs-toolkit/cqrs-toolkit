@@ -1,21 +1,24 @@
 import { createMutationEditState } from '#common/components'
-import type { Note } from '#notes/shared'
-import type { AutoRevision, SubmitResult } from '@cqrs-toolkit/client'
+import { AutoRevision, EntityId, entityIdToString, SubmitResult } from '@cqrs-toolkit/client'
 import { createSignal, Show } from 'solid-js'
+import type { Note } from '../domain/index.js'
 
 interface NoteItemProps {
   note: Note
   onSubmitUpdateTitle: (params: {
-    id: string
+    id: EntityId
     title: string
     revision: AutoRevision
   }) => Promise<SubmitResult<unknown>>
   onSubmitUpdateBody: (params: {
-    id: string
+    id: EntityId
     body: string
     revision: AutoRevision
   }) => Promise<SubmitResult<unknown>>
-  onSubmitDelete: (params: { id: string; revision: AutoRevision }) => Promise<SubmitResult<unknown>>
+  onSubmitDelete: (params: {
+    id: EntityId
+    revision: AutoRevision
+  }) => Promise<SubmitResult<unknown>>
   onError: (message: string | undefined) => void
 }
 
@@ -147,7 +150,7 @@ export function NoteItem(props: NoteItemProps) {
         liRef = el
         el.addEventListener('requestedit', () => startEdit())
       }}
-      id={`note-${props.note.id}`}
+      id={`note-${entityIdToString(props.note.id)}`}
       class="note-item p-3 rounded border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800"
       onFocusOut={handleFocusOut}
     >

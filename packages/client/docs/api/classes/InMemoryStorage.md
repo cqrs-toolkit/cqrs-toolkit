@@ -249,6 +249,28 @@ Delete a cache key and all associated data.
 
 ---
 
+### deleteCacheKeys()
+
+> **deleteCacheKeys**(`keys`): `Promise`\<`void`\>
+
+Delete multiple cache keys and their associated events/read models in a batch.
+
+#### Parameters
+
+##### keys
+
+`string`[]
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`deleteCacheKeys`](../interfaces/IStorage.md#deletecachekeys)
+
+---
+
 ### deleteCommand()
 
 > **deleteCommand**(`commandId`): `Promise`\<`void`\>
@@ -583,7 +605,7 @@ Get a command ID mapping by client ID.
 
 ##### clientId
 
-`string`
+[`EntityId`](../type-aliases/EntityId.md)
 
 #### Returns
 
@@ -1027,6 +1049,28 @@ Save or update a cache key.
 #### Implementation of
 
 [`IStorage`](../interfaces/IStorage.md).[`saveCacheKey`](../interfaces/IStorage.md#savecachekey)
+
+---
+
+### saveCacheKeys()
+
+> **saveCacheKeys**(`records`): `Promise`\<`void`\>
+
+Save multiple cache key records in a batch.
+
+#### Parameters
+
+##### records
+
+[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md)[]
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`saveCacheKeys`](../interfaces/IStorage.md#savecachekeys)
 
 ---
 

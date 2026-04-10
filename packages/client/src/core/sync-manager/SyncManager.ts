@@ -22,13 +22,13 @@ import { hydrateSerializedEvent, normalizeEventPersistence } from '../../types/e
 import { EnqueueCommand } from '../../types/index.js'
 import type { AuthStrategy } from '../auth.js'
 import { type CacheKeyIdentity, matchesCacheKey } from '../cache-manager/CacheKey.js'
-import type { CacheManager } from '../cache-manager/CacheManager.js'
+import type { ICacheManagerInternal } from '../cache-manager/types.js'
 import type { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventShape.js'
-import type { CommandQueue } from '../command-queue/CommandQueue.js'
+import type { ICommandQueueInternal } from '../command-queue/types.js'
 import type { EventCache } from '../event-cache/EventCache.js'
 import type { EventProcessorRunner, ParsedEvent } from '../event-processor/index.js'
 import type { EventBus } from '../events/EventBus.js'
-import type { QueryManager } from '../query-manager/QueryManager.js'
+import type { IQueryManagerInternal } from '../query-manager/types.js'
 import type { ReadModelStore } from '../read-model-store/ReadModelStore.js'
 import type { SessionManager } from '../session/SessionManager.js'
 import { IWriteQueue, WriteQueueException } from '../write-queue/IWriteQueue.js'
@@ -77,12 +77,12 @@ export class SyncManager<
   constructor(
     private readonly eventBus: EventBus<TLink>,
     private readonly sessionManager: SessionManager<TLink, TCommand>,
-    private readonly commandQueue: CommandQueue<TLink, TCommand, TSchema, TEvent>,
+    private readonly commandQueue: ICommandQueueInternal<TLink, TCommand>,
     private readonly eventCache: EventCache<TLink, TCommand>,
-    private readonly cacheManager: CacheManager<TLink, TCommand>,
+    private readonly cacheManager: ICacheManagerInternal<TLink>,
     private readonly eventProcessor: EventProcessorRunner<TLink, TCommand>,
     private readonly readModelStore: ReadModelStore<TLink, TCommand>,
-    private readonly queryManager: QueryManager<TLink, TCommand>,
+    private readonly queryManager: IQueryManagerInternal<TLink>,
     private readonly writeQueue: IWriteQueue<TLink>,
     connectivity: IConnectivityManager<TLink>,
     private readonly networkConfig: NetworkConfig,
@@ -879,8 +879,8 @@ export class SyncManager<
         revisionMeta,
       )
 
-      if (record.revision && collection?.getStreamId) {
-        const streamId = collection.getStreamId(record.id)
+      if (record.revision && collection?.aggregate.getStreamId) {
+        const streamId = collection.aggregate.getStreamId(record.id)
         const revBigint = BigInt(record.revision)
         const current = this.knownRevisions.get(streamId)
         if (current === undefined || revBigint > current) {
@@ -944,7 +944,8 @@ export class SyncManager<
   /**
    * Resolve cache key identities from WS message topics.
    * Finds matching collections by streamId, then calls each collection's
-   * `cacheKeysFromTopics` to derive the cache keys deterministically.
+   * `cacheKeysFromTopics` to derive the cache keys.
+   * Templates (without `.key`) are resolved via registerCacheKeySync.
    */
   protected resolveCacheKeysFromTopics(
     streamId: string,
@@ -954,7 +955,12 @@ export class SyncManager<
     const seen = new Set<string>()
     const keys: CacheKeyIdentity<TLink>[] = []
     for (const collection of matchingCollections) {
-      for (const cacheKey of collection.cacheKeysFromTopics(topics)) {
+      for (const keyOrTemplate of collection.cacheKeysFromTopics(topics)) {
+        // Templates don't have a .key — resolve them through the registry
+        const cacheKey =
+          'key' in keyOrTemplate
+            ? keyOrTemplate
+            : this.cacheManager.registerCacheKeySync(keyOrTemplate)
         if (!seen.has(cacheKey.key)) {
           seen.add(cacheKey.key)
           keys.push(cacheKey)

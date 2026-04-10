@@ -148,10 +148,8 @@ async function bootstrapWorker<
     }
 
     // 5. Cache manager
-    const windowId = crypto.randomUUID()
     const cacheManager = new CacheManager<TLink, TCommand>(storage, eventBus, {
       cacheConfig: config.cache,
-      windowId,
     })
     await cacheManager.initialize()
 

@@ -2,16 +2,16 @@
  * Todo aggregate — server-side event sourcing with AggregateRoot.
  */
 
+import { AggregateRoot, type EventMetadata, type IEvent, createEvent } from '@meticoeus/ddd-es'
+import assert from 'node:assert'
 import type {
-  Todo,
   TodoContentUpdatedEvent,
   TodoCreatedEvent,
   TodoDeletedEvent,
   TodoStatus,
   TodoStatusChangedEvent,
-} from '@cqrs-toolkit/demo-base/todos/shared'
-import { AggregateRoot, type EventMetadata, type IEvent, createEvent } from '@meticoeus/ddd-es'
-import assert from 'node:assert'
+} from '../shared/index.js'
+import type { Todo } from './types.js'
 
 export type TodoServerEvent =
   | IEvent<'TodoCreated', TodoCreatedEvent['data'], EventMetadata>
@@ -30,7 +30,7 @@ export class TodoAggregate extends AggregateRoot<TodoServerEvent> {
   }
 
   static getStreamName(id: string): string {
-    return `Todo-${id}`
+    return `nb.Todo-${id}`
   }
 
   create(data: { content: string }, id: string, metadata: EventMetadata): void {

@@ -1,21 +1,22 @@
 import { SaveIcon, TrashIcon } from '#common/components'
-import { NOTEBOOKS_COLLECTION_NAME } from '#notebooks/domain'
-import type { Notebook } from '#notebooks/shared'
-import type { AutoRevision, SubmitResult } from '@cqrs-toolkit/client'
-import { useClient } from '@cqrs-toolkit/client-solid'
+import { AutoRevision, EntityId, entityIdMatches, SubmitResult } from '@cqrs-toolkit/client'
 import { createSignal, For, Show } from 'solid-js'
+import type { Notebook } from '../domain/index.js'
 
 interface NotebookListProps {
   notebooks: readonly Notebook[]
-  selectedId: string | undefined
-  onSelect: (id: string) => void
+  selectedId: EntityId | undefined
+  onSelect: (id: EntityId) => void
   onSubmitCreate: (params: { name: string }) => Promise<SubmitResult<unknown>>
   onSubmitRename: (params: {
-    id: string
+    id: EntityId
     name: string
     revision: AutoRevision
   }) => Promise<SubmitResult<unknown>>
-  onSubmitDelete: (params: { id: string; revision: AutoRevision }) => Promise<SubmitResult<unknown>>
+  onSubmitDelete: (params: {
+    id: EntityId
+    revision: AutoRevision
+  }) => Promise<SubmitResult<unknown>>
   onError: (message: string | undefined) => void
 }
 
@@ -23,11 +24,10 @@ type SaveState = 'idle' | 'saving'
 type RenameState = 'idle' | 'saving'
 
 export function NotebookList(props: NotebookListProps) {
-  const client = useClient()
   const [placeholderName, setPlaceholderName] = createSignal<string>()
   const [placeholderState, setPlaceholderState] = createSignal<SaveState>('idle')
   const [showTrash, setShowTrash] = createSignal(false)
-  const [renamingId, setRenamingId] = createSignal<string>()
+  const [renamingId, setRenamingId] = createSignal<EntityId>()
   const [renameName, setRenameName] = createSignal('')
   const [renameState, setRenameState] = createSignal<RenameState>('idle')
 
@@ -50,10 +50,7 @@ export function NotebookList(props: NotebookListProps) {
     const result = await props.onSubmitCreate({ name })
 
     if (result.ok) {
-      const [notebookId] = await client.getCommandEntities(
-        result.value.commandId,
-        NOTEBOOKS_COLLECTION_NAME,
-      )
+      const notebookId = result.value.entityRef
       setPlaceholderName(undefined)
       if (notebookId) {
         props.onSelect(notebookId)
@@ -178,7 +175,7 @@ export function NotebookList(props: NotebookListProps) {
           {(notebook) => (
             <li
               class={`notebook-item flex items-center gap-1 px-2 py-1.5 cursor-pointer border-b border-neutral-100 dark:border-neutral-700 ${
-                props.selectedId === notebook.id
+                entityIdMatches(props.selectedId, notebook.id)
                   ? 'notebook-selected bg-indigo-50 dark:bg-indigo-900/30'
                   : 'hover:bg-neutral-50 dark:hover:bg-neutral-800'
               }`}
@@ -186,7 +183,7 @@ export function NotebookList(props: NotebookListProps) {
               onDblClick={() => startRename(notebook)}
             >
               <Show
-                when={renamingId() !== notebook.id}
+                when={!entityIdMatches(renamingId(), notebook.id)}
                 fallback={
                   <input
                     class="rename-input min-w-0 flex-1 px-1 py-0.5 rounded border border-indigo-500 dark:bg-neutral-800 text-sm focus:outline-none"

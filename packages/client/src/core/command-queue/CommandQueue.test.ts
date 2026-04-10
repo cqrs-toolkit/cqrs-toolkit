@@ -198,11 +198,12 @@ describe('CommandQueue', () => {
         unknown,
         IAnticipatedEvent
       > = {
-        execute: vi.fn(),
+        validate: vi.fn(),
+        handle: vi.fn(),
         getRegistration: vi.fn(),
       }
       const { commandQueue } = await bootstrap({ domainExecutor })
-      vi.mocked(domainExecutor.execute).mockReturnValue(
+      vi.mocked(domainExecutor.validate).mockReturnValue(
         Promise.resolve(
           domainFailure([
             { path: 'title', code: 'required', message: 'Title is required', params: {} },
@@ -236,7 +237,8 @@ describe('CommandQueue', () => {
         unknown,
         IAnticipatedEvent<'TodoCreated', { id: string; title: string }>
       > = {
-        execute: vi.fn(),
+        validate: vi.fn(),
+        handle: vi.fn(),
         getRegistration: vi.fn(),
       }
       const { commandQueue } = await bootstrap({ domainExecutor })
@@ -247,7 +249,8 @@ describe('CommandQueue', () => {
           data: { id: '1', title: 'Test' },
         },
       ]
-      vi.mocked(domainExecutor.execute).mockReturnValue(Promise.resolve(domainSuccess(events)))
+      vi.mocked(domainExecutor.validate).mockResolvedValue(Ok({ title: 'Test' }))
+      vi.mocked(domainExecutor.handle).mockReturnValue(domainSuccess(events))
 
       const result = await commandQueue.enqueue({
         command: { type: 'CreateTodo', data: { title: 'Test' } },
@@ -271,16 +274,15 @@ describe('CommandQueue', () => {
         unknown,
         IAnticipatedEvent
       > = {
-        execute: vi.fn(),
+        validate: vi.fn(),
+        handle: vi.fn(),
         getRegistration: vi.fn(),
       }
       const { commandQueue } = await bootstrap({ domainExecutor })
-      vi.mocked(domainExecutor.execute).mockReturnValue(
-        Promise.resolve(
-          domainFailure([
-            { path: 'title', code: 'required', message: 'Title is required', params: {} },
-          ]),
-        ),
+      vi.mocked(domainExecutor.validate).mockResolvedValue(
+        domainFailure([
+          { path: 'title', code: 'required', message: 'Title is required', params: {} },
+        ]),
       )
 
       const result = await commandQueue.enqueue({
@@ -290,7 +292,7 @@ describe('CommandQueue', () => {
       })
 
       expect(result.ok).toBe(true)
-      expect(domainExecutor.execute).not.toHaveBeenCalled()
+      expect(domainExecutor.validate).not.toHaveBeenCalled()
     })
   })
 
@@ -473,8 +475,9 @@ describe('CommandQueue', () => {
         unknown,
         IAnticipatedEvent
       > = {
-        execute: async () =>
+        validate: async () =>
           domainFailure([{ path: 'email', code: 'invalid', message: 'Invalid email', params: {} }]),
+        handle: vi.fn(),
         getRegistration: vi.fn(),
       }
       const { commandQueue } = await bootstrap({ domainExecutor })
@@ -1064,12 +1067,14 @@ describe('CommandQueue', () => {
         unknown,
         IAnticipatedEvent
       > = {
-        execute: vi.fn(),
+        validate: vi.fn(),
+        handle: vi.fn(),
         getRegistration: vi.fn(),
       }
       const { anticipatedEventHandler, commandQueue } = await bootstrap({ domainExecutor })
       const events = [{ type: 'TodoCreated', data: { id: '1', title: 'Test' }, streamId: 'todo-1' }]
-      vi.mocked(domainExecutor.execute).mockReturnValue(Promise.resolve(domainSuccess(events)))
+      vi.mocked(domainExecutor.validate).mockResolvedValue(Ok({ title: 'Test' }))
+      vi.mocked(domainExecutor.handle).mockReturnValue(domainSuccess(events))
 
       const result = await commandQueue.enqueue({
         command: { type: 'CreateTodo', data: { title: 'Test' } },
@@ -1105,11 +1110,13 @@ describe('CommandQueue', () => {
         unknown,
         IAnticipatedEvent
       > = {
-        execute: vi.fn(),
+        validate: vi.fn(),
+        handle: vi.fn(),
         getRegistration: vi.fn(),
       }
       const { anticipatedEventHandler, commandQueue } = await bootstrap({ domainExecutor })
-      vi.mocked(domainExecutor.execute).mockReturnValue(Promise.resolve(domainSuccess([])))
+      vi.mocked(domainExecutor.validate).mockResolvedValue(Ok({}))
+      vi.mocked(domainExecutor.handle).mockReturnValue(domainSuccess([]))
 
       await commandQueue.enqueue({
         command: { type: 'CreateTodo', data: {} },
@@ -1126,12 +1133,14 @@ describe('CommandQueue', () => {
         unknown,
         IAnticipatedEvent
       > = {
-        execute: vi.fn(),
+        validate: vi.fn(),
+        handle: vi.fn(),
         getRegistration: vi.fn(),
       }
       const { anticipatedEventHandler, commandQueue } = await bootstrap({ domainExecutor })
       const events = [{ type: 'TodoCreated', data: { id: '1', title: 'Test' }, streamId: 'todo-1' }]
-      vi.mocked(domainExecutor.execute).mockReturnValue(Promise.resolve(domainSuccess(events)))
+      vi.mocked(domainExecutor.validate).mockResolvedValue(Ok({ title: 'Test' }))
+      vi.mocked(domainExecutor.handle).mockReturnValue(domainSuccess(events))
       anticipatedEventHandler.cache.mockRejectedValue(new Error('Cache failure'))
 
       const result = await commandQueue.enqueue({
@@ -1395,7 +1404,7 @@ describe('CommandQueue', () => {
         {
           commandType: 'CreateFolder',
           creates: { eventType: 'FolderCreated', idStrategy: 'temporary' },
-          handler(command, context) {
+          handler(command, _state, context) {
             const id = context.phase === 'updating' ? context.entityId : generateId()
             return domainSuccess([
               {
@@ -1410,7 +1419,7 @@ describe('CommandQueue', () => {
           commandType: 'CreateNote',
           creates: { eventType: 'NoteCreated', idStrategy: 'temporary' },
           parentRef: [{ field: 'parentId', fromCommand: 'CreateFolder' }],
-          handler(command, context) {
+          handler(command, _state, context) {
             const id = context.phase === 'updating' ? context.entityId : generateId()
             return domainSuccess([
               {
@@ -2018,7 +2027,7 @@ describe('CommandQueue', () => {
         {
           commandType: 'CreateItem',
           creates: { eventType: 'ItemCreated', idStrategy: 'temporary' },
-          handler(command, context) {
+          handler(command, _state, context) {
             const id = context.phase === 'updating' ? context.entityId : generateId()
             return domainSuccess([
               {

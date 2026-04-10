@@ -3,8 +3,10 @@
  */
 
 import type { IPersistedEvent, Result, ServiceLink } from '@meticoeus/ddd-es'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
+import { createTestWriteQueue } from '../../testing/createTestWriteQueue.js'
+import { NoteAggregate, NotebookAggregate, TodoAggregate } from '../../testing/index.js'
 import { Collection, FetchSeedRecordOptions, SeedRecordPage } from '../../types/config.js'
 import { EnqueueCommand } from '../../types/index.js'
 import { cookieAuthStrategy } from '../auth.js'
@@ -23,9 +25,9 @@ import { EventBus } from '../events/EventBus.js'
 import { QueryManager } from '../query-manager/QueryManager.js'
 import { ReadModelStore } from '../read-model-store/ReadModelStore.js'
 import type { SessionManager } from '../session/SessionManager.js'
+import { WriteQueue } from '../write-queue/index.js'
 import type { WriteQueueException } from '../write-queue/IWriteQueue.js'
 import { SessionResetException } from '../write-queue/IWriteQueue.js'
-import { WriteQueue } from '../write-queue/WriteQueue.js'
 import { ConnectivityManager } from './ConnectivityManager.js'
 import { SyncManager } from './SyncManager.js'
 
@@ -58,6 +60,13 @@ class TestSyncManager extends SyncManager<ServiceLink, EnqueueCommand, unknown, 
 }
 
 describe('SyncManager', () => {
+  let cleanup: (() => void)[] = []
+
+  afterEach(() => {
+    for (const fn of cleanup) fn()
+    cleanup = []
+  })
+
   interface BootstrapParams {
     collections?: Collection<ServiceLink>[]
     processors?: ProcessorRegistration<unknown, Record<string, unknown>>[]
@@ -93,9 +102,7 @@ describe('SyncManager', () => {
     await storage.initialize()
     const eventBus = new EventBus<ServiceLink>()
 
-    const cacheManager = new CacheManager<ServiceLink, EnqueueCommand>(storage, eventBus, {
-      windowId: 'test',
-    })
+    const cacheManager = new CacheManager<ServiceLink, EnqueueCommand>(storage, eventBus)
     await cacheManager.initialize()
 
     const eventCache = new EventCache<ServiceLink, EnqueueCommand>(storage, eventBus)
@@ -136,14 +143,28 @@ describe('SyncManager', () => {
 
     const todosCollection: Collection<ServiceLink> = {
       name: 'todos',
+      aggregate: TodoAggregate,
       cacheKeysFromTopics(topics: readonly string[]) {
         return [TODO_CACHE_KEY]
       },
-      matchesStream: (streamId: string) => streamId.startsWith('todo-'),
+      matchesStream: (streamId: string) => streamId.startsWith('nb.Todo-'),
       seedOnInit: { cacheKey: TODO_CACHE_KEY, topics: ['todos'] },
     }
     const sessionManager = createSessionManager()
-    const writeQueue = createTestWriteQueue(eventBus)
+    const writeQueue = createTestWriteQueue(
+      eventBus,
+      cleanup,
+      [
+        'apply-records',
+        'apply-seed-events',
+        'apply-ws-event',
+        'apply-gap-repair',
+        'evict-cache-key',
+      ],
+      {
+        onSessionReset: 'unset',
+      },
+    )
     const connectivity = new ConnectivityManager(eventBus)
 
     const syncManager = params?.customSyncManager
@@ -195,7 +216,7 @@ describe('SyncManager', () => {
         { id: 'todo-1', title: 'Test' },
         cacheKey,
       )
-      await queryManager.hold(cacheKey)
+      queryManager.holdForWindow(cacheKey, 'test')
       await commandQueue.enqueue({
         command: { type: 'CreateTodo', data: {} },
         cacheKey: TODO_CACHE_KEY,
@@ -233,7 +254,7 @@ describe('SyncManager', () => {
         {
           id: 'evt-1',
           type: 'TodoCreated',
-          streamId: 'todo-1',
+          streamId: TodoAggregate.getStreamId('todo-1'),
           persistence: 'Permanent',
           data: { id: 'todo-1', title: 'Test' },
           revision: 0n,
@@ -259,7 +280,7 @@ describe('SyncManager', () => {
         {
           id: 'evt-1',
           type: 'TodoCreated',
-          streamId: 'todo-1',
+          streamId: TodoAggregate.getStreamId('todo-1'),
           persistence: 'Permanent',
           data: { id: 'todo-1', title: 'Test' },
           revision: 0n,
@@ -269,7 +290,7 @@ describe('SyncManager', () => {
         {
           id: 'evt-2',
           type: 'TodoUpdated',
-          streamId: 'todo-1',
+          streamId: TodoAggregate.getStreamId('todo-1'),
           persistence: 'Permanent',
           data: { id: 'todo-1', title: 'Updated' },
           revision: 1n,
@@ -295,7 +316,7 @@ describe('SyncManager', () => {
         {
           id: 'evt-3',
           type: 'TodoUpdated',
-          streamId: 'todo-1',
+          streamId: TodoAggregate.getStreamId('todo-1'),
           persistence: 'Permanent',
           data: { id: 'todo-1', title: 'Gap' },
           revision: 2n,
@@ -356,6 +377,7 @@ describe('SyncManager', () => {
 
       const notesCollection: Collection<ServiceLink> = {
         name: 'notes',
+        aggregate: NoteAggregate,
         cacheKeysFromTopics(topics: readonly string[]) {
           return []
         },
@@ -363,7 +385,7 @@ describe('SyncManager', () => {
           keyTypes: [{ kind: 'scope', scopeType: 'notebook-notes' }],
           subscribeTopics: () => [],
         },
-        matchesStream: (streamId: string) => streamId.startsWith('note-'),
+        matchesStream: (streamId: string) => streamId.startsWith('nb.Note-'),
         fetchSeedRecords,
       }
 
@@ -425,6 +447,7 @@ describe('SyncManager', () => {
 
       const notesCollection: Collection<ServiceLink> = {
         name: 'notes',
+        aggregate: NoteAggregate,
         cacheKeysFromTopics(topics: readonly string[]) {
           return []
         },
@@ -432,7 +455,7 @@ describe('SyncManager', () => {
           keyTypes: [{ kind: 'scope', scopeType: 'notebook-notes' }],
           subscribeTopics: () => [],
         },
-        matchesStream: (streamId: string) => streamId.startsWith('note-'),
+        matchesStream: (streamId: string) => streamId.startsWith('nb.Note-'),
         fetchSeedRecords,
       }
 
@@ -487,6 +510,7 @@ describe('SyncManager', () => {
 
       const todosCollection: Collection<ServiceLink> = {
         name: 'todos',
+        aggregate: TodoAggregate,
         cacheKeysFromTopics(topics: readonly string[]) {
           return []
         },
@@ -535,7 +559,7 @@ describe('SyncManager', () => {
         connectivity,
       } = await bootstrap({ customSyncManager: true })
 
-      let resolveReset: (() => void) | undefined
+      let resolveReset: (() => void) | undefined = undefined
 
       class BlockingResetSyncManager extends TestSyncManager {
         protected override async onSessionDestroyed(): Promise<void> {
@@ -555,6 +579,7 @@ describe('SyncManager', () => {
 
       const notesCollection: Collection<ServiceLink> = {
         name: 'notes',
+        aggregate: NoteAggregate,
         cacheKeysFromTopics: () => [],
         seedOnDemand: {
           keyTypes: [{ kind: 'scope', scopeType: 'notebook-notes' }],
@@ -770,6 +795,7 @@ describe('SyncManager', () => {
     ): Collection<ServiceLink> {
       return {
         name: 'notes',
+        aggregate: NoteAggregate,
         cacheKeysFromTopics(topics: readonly string[]) {
           return []
         },
@@ -805,6 +831,7 @@ describe('SyncManager', () => {
 
       const notesCollection: Collection<ServiceLink> = {
         name: 'notes',
+        aggregate: NoteAggregate,
         cacheKeysFromTopics(topics: readonly string[]) {
           return []
         },
@@ -867,6 +894,7 @@ describe('SyncManager', () => {
 
       const todosCollection: Collection<ServiceLink> = {
         name: 'todos',
+        aggregate: TodoAggregate,
         cacheKeysFromTopics(topics: readonly string[]) {
           return []
         },
@@ -922,6 +950,7 @@ describe('SyncManager', () => {
 
       const notesCollection: Collection<ServiceLink> = {
         name: 'notes',
+        aggregate: NoteAggregate,
         cacheKeysFromTopics(topics: readonly string[]) {
           return []
         },
@@ -982,7 +1011,7 @@ describe('SyncManager', () => {
       return {
         id: 'event-1',
         type: 'NoteCreated',
-        streamId: 'Note-note-1',
+        streamId: NoteAggregate.getStreamId('note-1'),
         data: { id: 'note-1', title: 'Hello' },
         metadata: { correlationId: 'test' },
         created: new Date().toISOString(),
@@ -995,6 +1024,7 @@ describe('SyncManager', () => {
     it('processes WS event for all active cache keys', async () => {
       const notesCollection: Collection<ServiceLink> = {
         name: 'notes',
+        aggregate: NoteAggregate,
         cacheKeysFromTopics: (topics) =>
           topics
             .filter((t) => t.startsWith('Notebook:'))
@@ -1008,7 +1038,7 @@ describe('SyncManager', () => {
           keyTypes: [{ kind: 'scope', scopeType: 'notebook-notes' }],
           subscribeTopics: () => [],
         },
-        matchesStream: (s) => s.startsWith('Note-'),
+        matchesStream: (s) => s.startsWith('nb.Note-'),
         fetchSeedRecords: vi.fn().mockResolvedValue({ records: [], nextCursor: null }),
       } satisfies Collection<ServiceLink>
 
@@ -1056,6 +1086,7 @@ describe('SyncManager', () => {
     it('skips WS event when no active keys for collection', async () => {
       const notesCollection: Collection<ServiceLink> = {
         name: 'notes',
+        aggregate: NoteAggregate,
         cacheKeysFromTopics(topics: readonly string[]) {
           return []
         },
@@ -1063,7 +1094,7 @@ describe('SyncManager', () => {
           keyTypes: [{ kind: 'scope', scopeType: 'notebook-notes' }],
           subscribeTopics: () => [],
         },
-        matchesStream: (s) => s.startsWith('Note-'),
+        matchesStream: (s) => s.startsWith('nb.Note-'),
       }
 
       const { cacheManager, readModelStore, storage, syncManager } = await bootstrap({
@@ -1092,6 +1123,7 @@ describe('SyncManager', () => {
     it('adds cache key associations for duplicate WS events', async () => {
       const notesCollection: Collection<ServiceLink> = {
         name: 'notes',
+        aggregate: NoteAggregate,
         cacheKeysFromTopics: (topics) =>
           topics
             .filter((t) => t.startsWith('Notebook:'))
@@ -1105,7 +1137,7 @@ describe('SyncManager', () => {
           keyTypes: [{ kind: 'scope', scopeType: 'notebook-notes' }],
           subscribeTopics: () => [],
         },
-        matchesStream: (s) => s.startsWith('Note-'),
+        matchesStream: (s) => s.startsWith('nb.Note-'),
         fetchSeedRecords: vi.fn().mockResolvedValue({ records: [], nextCursor: null }),
       }
 
@@ -1147,7 +1179,7 @@ describe('SyncManager', () => {
         {
           id: 'missed-event',
           type: 'NotebookNameUpdated',
-          streamId: 'Notebook-nb-1',
+          streamId: NotebookAggregate.getStreamId('nb-1'),
           data: { id: 'nb-1', name: 'Updated', updatedAt: new Date().toISOString() },
           metadata: { correlationId: 'test' },
           created: new Date().toISOString(),
@@ -1158,6 +1190,7 @@ describe('SyncManager', () => {
 
       const notebooksCollection = {
         name: 'notebooks',
+        aggregate: NotebookAggregate,
         cacheKeysFromTopics(topics: readonly string[]) {
           return [deriveScopeKey({ scopeType: 'notebooks' })]
         },
@@ -1165,8 +1198,7 @@ describe('SyncManager', () => {
           cacheKey: deriveScopeKey({ scopeType: 'notebooks' }),
           topics: ['Notebook:*'],
         },
-        matchesStream: (s) => s.startsWith('Notebook-'),
-        getStreamId: (id) => `Notebook-${id}`,
+        matchesStream: (s) => s.startsWith('nb.Notebook-'),
         fetchSeedRecords: vi.fn().mockResolvedValue({
           records: [
             {
@@ -1230,7 +1262,7 @@ describe('SyncManager', () => {
         {
           id: 'ws-event',
           type: 'NotebookTagAdded',
-          streamId: 'Notebook-nb-1',
+          streamId: NotebookAggregate.getStreamId('nb-1'),
           data: { id: 'nb-1', tag: 'trigger-tag' },
           metadata: { correlationId: 'test' },
           created: new Date().toISOString(),
@@ -1259,15 +1291,6 @@ describe('SyncManager', () => {
     })
   })
 })
-
-function createTestWriteQueue(eventBus: EventBus<ServiceLink>): WriteQueue<ServiceLink> {
-  const writeQueue = new WriteQueue<ServiceLink>(eventBus)
-  // Pre-register handlers not owned by SyncManager or GapRepairCoordinator.
-  // SyncManager registers 5, GapRepairCoordinator registers 1 — this covers the rest.
-  writeQueue.register('apply-anticipated', async () => {})
-  writeQueue.registerEviction('apply-anticipated', () => {})
-  return writeQueue
-}
 
 function createSessionManager(): SessionManager<ServiceLink, EnqueueCommand> {
   return {

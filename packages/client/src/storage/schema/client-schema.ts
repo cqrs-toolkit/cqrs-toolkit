@@ -34,7 +34,8 @@ CREATE TABLE cache_keys (
   expires_at INTEGER,
   created_at INTEGER NOT NULL,
   hold_count INTEGER NOT NULL DEFAULT 0,
-  estimated_size_bytes INTEGER
+  estimated_size_bytes INTEGER,
+  pending_id_mappings TEXT
 )`
 
 const CACHE_KEYS_ACCESS_INDEX = `

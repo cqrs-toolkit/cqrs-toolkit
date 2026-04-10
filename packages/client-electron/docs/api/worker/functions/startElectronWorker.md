@@ -29,7 +29,7 @@ process bridge, then creates the full component stack.
 
 ### TEvent
 
-`TEvent` _extends_ `IAnticipatedEvent`\<`string`, `AggregateEventData`\>
+`TEvent` _extends_ `IAnticipatedEvent`\<`string`, `AnticipatedAggregateEventData`\>
 
 ## Parameters
 

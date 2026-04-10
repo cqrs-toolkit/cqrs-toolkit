@@ -279,8 +279,12 @@ export class SharedWorkerAdapter<
         new OpfsCommandFileStore(),
         broadcastEvents$,
       )
-      this._queryManager = new QueryManagerProxy<TLink>(this.channel, broadcastEvents$)
-      this._cacheManager = new SharedWorkerCacheManagerProxy<TLink>(this.channel)
+      this._queryManager = new QueryManagerProxy<TLink>(
+        this.channel,
+        broadcastEvents$,
+        this.windowId,
+      )
+      this._cacheManager = new SharedWorkerCacheManagerProxy<TLink>(this.channel, this.windowId)
       this._syncManager = new SyncManagerProxy<TLink>(this.channel, broadcastEvents$)
 
       // 10. Sync connectivity state from worker

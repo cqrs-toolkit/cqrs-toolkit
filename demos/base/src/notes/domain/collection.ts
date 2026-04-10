@@ -1,16 +1,11 @@
-import {
-  deriveEntityKey,
-  type CacheKeyIdentity,
-  type Collection,
-  type SeedOnDemandConfig,
-} from '@cqrs-toolkit/client'
+import type { Collection, EntityCacheKeyTemplate, SeedOnDemandConfig } from '@cqrs-toolkit/client'
 import type { ServiceLink } from '@meticoeus/ddd-es'
 
 export const NOTES_COLLECTION_NAME = 'notes'
 
 export const cacheKeysFromTopics: Collection<ServiceLink>['cacheKeysFromTopics'] = (topics) => {
   const seen = new Set<string>()
-  const keys: CacheKeyIdentity<ServiceLink>[] = []
+  const keys: EntityCacheKeyTemplate<ServiceLink>[] = []
   for (const topic of topics) {
     if (topic.startsWith('Notebook:')) {
       const id = topic.slice('Notebook:'.length)
@@ -18,7 +13,7 @@ export const cacheKeysFromTopics: Collection<ServiceLink>['cacheKeysFromTopics']
       if (seen.has(id)) continue
 
       seen.add(id)
-      keys.push(deriveEntityKey<ServiceLink>({ service: 'nb', type: 'Notebook', id }))
+      keys.push({ kind: 'entity', link: { service: 'nb', type: 'Notebook', id } })
     }
   }
   return keys

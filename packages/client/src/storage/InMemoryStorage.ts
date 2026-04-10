@@ -5,6 +5,7 @@
 
 import type { Link } from '@meticoeus/ddd-es'
 import { CommandFilter, CommandRecord, CommandStatus, EnqueueCommand } from '../types/commands.js'
+import { EntityId, entityIdToString } from '../types/index.js'
 import type {
   CacheKeyRecord,
   CachedEventRecord,
@@ -91,11 +92,27 @@ export class InMemoryStorage<
   }
 
   async deleteCacheKey(key: string): Promise<void> {
+    return this.deleteCacheKeyInternal(key)
+  }
+
+  private deleteCacheKeyInternal(key: string): void {
     this.cacheKeys.delete(key)
     // Remove cache key association from events, deleting orphans
-    await this.removeCacheKeyFromEvents(key)
+    this.removeCacheKeyFromEventsInternal(key)
     // Remove cache key association from read models, deleting orphans
-    await this.removeCacheKeyFromReadModels(key)
+    this.removeCacheKeyFromReadModelsInternal(key)
+  }
+
+  async deleteCacheKeys(keys: string[]): Promise<void> {
+    for (const key of keys) {
+      this.deleteCacheKeyInternal(key)
+    }
+  }
+
+  async saveCacheKeys(records: CacheKeyRecord[]): Promise<void> {
+    for (const record of records) {
+      this.cacheKeys.set(record.key, record)
+    }
   }
 
   async holdCacheKey(key: string): Promise<void> {
@@ -220,7 +237,7 @@ export class InMemoryStorage<
   async deleteCommand(commandId: string): Promise<void> {
     this.commands.delete(commandId)
     // Delete associated anticipated events
-    await this.deleteAnticipatedEventsByCommand(commandId)
+    this.deleteAnticipatedEventsByCommandInteral(commandId)
   }
 
   async deleteAllCommands(): Promise<void> {
@@ -299,6 +316,10 @@ export class InMemoryStorage<
   }
 
   async deleteAnticipatedEventsByCommand(commandId: string): Promise<void> {
+    return this.deleteAnticipatedEventsByCommandInteral(commandId)
+  }
+
+  private deleteAnticipatedEventsByCommandInteral(commandId: string): void {
     for (const event of this.cachedEvents.values()) {
       if (event.persistence === 'Anticipated' && event.commandId === commandId) {
         this.cachedEvents.delete(event.id)
@@ -307,6 +328,10 @@ export class InMemoryStorage<
   }
 
   async removeCacheKeyFromEvents(cacheKey: string): Promise<string[]> {
+    return this.removeCacheKeyFromEventsInternal(cacheKey)
+  }
+
+  private removeCacheKeyFromEventsInternal(cacheKey: string): string[] {
     const deletedIds: string[] = []
     for (const event of this.cachedEvents.values()) {
       if (!event.cacheKeys.includes(cacheKey)) continue
@@ -408,6 +433,10 @@ export class InMemoryStorage<
   }
 
   async removeCacheKeyFromReadModels(cacheKey: string): Promise<void> {
+    return this.removeCacheKeyFromReadModelsInternal(cacheKey)
+  }
+
+  private removeCacheKeyFromReadModelsInternal(cacheKey: string): void {
     for (const [key, record] of this.readModels.entries()) {
       if (!record.cacheKeys.includes(cacheKey)) continue
       const remaining = record.cacheKeys.filter((k) => k !== cacheKey)
@@ -462,8 +491,8 @@ export class InMemoryStorage<
 
   // Command ID mapping operations
 
-  async getCommandIdMapping(clientId: string): Promise<CommandIdMappingRecord | undefined> {
-    return this.commandIdMappingsByClientId.get(clientId)
+  async getCommandIdMapping(clientId: EntityId): Promise<CommandIdMappingRecord | undefined> {
+    return this.commandIdMappingsByClientId.get(entityIdToString(clientId))
   }
 
   async getCommandIdMappingByServerId(

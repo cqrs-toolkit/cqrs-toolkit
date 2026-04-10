@@ -1,6 +1,8 @@
 import type { ServiceLink } from '@meticoeus/ddd-es'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
+import { createTestWriteQueue } from '../../testing/createTestWriteQueue.js'
+import { TodoAggregate } from '../../testing/index.js'
 import type { Collection } from '../../types/config.js'
 import { EnqueueCommand } from '../../types/index.js'
 import { EventCache } from '../event-cache/EventCache.js'
@@ -9,8 +11,6 @@ import { EventProcessorRunner } from '../event-processor/EventProcessorRunner.js
 import type { ProcessorRegistration } from '../event-processor/types.js'
 import { EventBus } from '../events/EventBus.js'
 import { ReadModelStore } from '../read-model-store/ReadModelStore.js'
-import { WriteQueue } from '../write-queue/WriteQueue.js'
-import { ALL_OP_TYPES } from '../write-queue/operations.js'
 import { AnticipatedEventHandler } from './AnticipatedEventHandler.js'
 import type { IAnticipatedEvent } from './AnticipatedEventShape.js'
 
@@ -26,12 +26,20 @@ const CACHE_KEY = 'ck-todos'
 const COLLECTIONS: Collection<ServiceLink>[] = [
   {
     name: 'todos',
+    aggregate: TodoAggregate,
     matchesStream: (s) => s.startsWith('Todo-'),
     cacheKeysFromTopics: () => [],
   },
 ]
 
 describe('AnticipatedEventHandler', () => {
+  let cleanup: (() => void)[] = []
+
+  afterEach(() => {
+    for (const fn of cleanup) fn()
+    cleanup = []
+  })
+
   interface BootstrapResult {
     storage: InMemoryStorage<ServiceLink, EnqueueCommand>
     eventBus: EventBus<ServiceLink>
@@ -51,7 +59,7 @@ describe('AnticipatedEventHandler', () => {
     registry.register(todoProcessor())
     const runner = new EventProcessorRunner(readModelStore, eventBus, registry)
 
-    const wq = createTestWriteQueue(eventBus)
+    const wq = createTestWriteQueue(eventBus, cleanup, ['apply-anticipated'])
     const handler = new AnticipatedEventHandler<ServiceLink, EnqueueCommand>(
       eventCache,
       runner,
@@ -367,18 +375,4 @@ function todoProcessor(): ProcessorRegistration<{ id: string; title: string }> {
       isServerUpdate: false,
     }),
   }
-}
-
-function createTestWriteQueue(eventBus: EventBus<ServiceLink>): WriteQueue<ServiceLink> {
-  const wq = new WriteQueue<ServiceLink>(eventBus)
-  wq.setSessionResetHandler(vi.fn(async () => {}))
-  for (const type of ALL_OP_TYPES) {
-    if (type === 'apply-anticipated') continue
-    wq.register(
-      type,
-      vi.fn(async () => {}),
-    )
-    wq.registerEviction(type, () => {})
-  }
-  return wq
 }

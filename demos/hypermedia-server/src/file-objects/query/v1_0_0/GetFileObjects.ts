@@ -2,8 +2,7 @@
  * FileObject collection resolver — v1.0.0.
  */
 
-import type { FileObjectRepository } from '@cqrs-toolkit/demo-base/file-objects/server'
-import type { FileObject } from '@cqrs-toolkit/demo-base/file-objects/shared'
+import type { FileObject, FileObjectRepository } from '@cqrs-toolkit/demo-base/file-objects/server'
 import type { CursorPagination, HypermediaTypes } from '@cqrs-toolkit/hypermedia'
 import { Hypermedia, type RepliedValue, type ResolvedValue } from '@cqrs-toolkit/hypermedia/server'
 import { Ok, type Result } from '@meticoeus/ddd-es'

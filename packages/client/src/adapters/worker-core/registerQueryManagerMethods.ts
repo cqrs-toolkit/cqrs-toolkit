@@ -40,15 +40,15 @@ export function registerQueryManagerMethods<TLink extends Link, TCommand extends
     return queryManager.touch(args[0] as CacheKeyIdentity<TLink>)
   })
 
-  handler.registerMethod('queryManager.hold', async (args) => {
-    return queryManager.hold(args[0] as string)
+  handler.registerMethod('queryManager.holdForWindow', async (args) => {
+    return queryManager.holdForWindow(args[0] as string, args[1] as string)
   })
 
-  handler.registerMethod('queryManager.release', async (args) => {
-    return queryManager.release(args[0] as string)
+  handler.registerMethod('queryManager.releaseForWindow', async (args) => {
+    return queryManager.releaseForWindow(args[0] as string, args[1] as string)
   })
 
-  handler.registerMethod('queryManager.releaseAll', async () => {
-    return queryManager.releaseAll()
+  handler.registerMethod('queryManager.releaseAllForWindow', async (args) => {
+    return queryManager.releaseAllForWindow(args[0] as string)
   })
 }

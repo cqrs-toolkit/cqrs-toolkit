@@ -2,7 +2,6 @@
  * Todo repository — extends Repository with a read model cache for queries.
  */
 
-import type { Todo } from '@cqrs-toolkit/demo-base/todos/shared'
 import {
   Repository,
   type ConcurrencyException,
@@ -13,6 +12,7 @@ import {
   type SaveEventSuccess,
 } from '@meticoeus/ddd-es'
 import { TodoAggregate, type TodoServerEvent } from './aggregate.js'
+import type { Todo } from './types.js'
 
 export class TodoRepository extends Repository<TodoServerEvent, TodoAggregate> {
   private readonly readModels = new Map<string, Todo>()

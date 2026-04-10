@@ -10,6 +10,9 @@
 
 import type { EntityRef } from '../../types/entities.js'
 import { isEntityRef } from '../../types/entities.js'
+import { JSONPathExpression } from '../../types/index.js'
+
+// TODO: review which remaining `string`s here should be `JSONPathExpression` instead
 
 /** A single segment in a parsed path. */
 type PathSegment =
@@ -21,7 +24,7 @@ type PathSegment =
  * Parse a JSONPath expression into segments.
  * Expects paths starting with `$`.
  */
-function parsePath(path: string): PathSegment[] {
+function parsePath(path: JSONPathExpression): PathSegment[] {
   if (!path.startsWith('$')) {
     throw new Error(`EntityRef path must start with $: "${path}"`)
   }
@@ -123,7 +126,7 @@ function segmentsToPath(segments: PathSegment[]): string {
 /**
  * Read a value at a concrete path (no wildcards).
  */
-export function getAtPath(obj: unknown, path: string): unknown {
+export function getAtPath(obj: unknown, path: JSONPathExpression): unknown {
   const segments = parsePath(path)
   let current: unknown = obj
 
@@ -150,11 +153,11 @@ export function getAtPath(obj: unknown, path: string): unknown {
  * Set a value at a concrete path (no wildcards).
  * Returns a shallow-cloned object with the value set at the path.
  */
-export function setAtPath(obj: unknown, path: string, value: unknown): unknown {
+export function setAtPath<T>(obj: T, path: JSONPathExpression, value: unknown): T {
   const segments = parsePath(path)
-  if (segments.length === 0) return value
+  if (segments.length === 0) return value as T
 
-  return setAtSegments(obj, segments, 0, value)
+  return setAtSegments(obj, segments, 0, value) as T
 }
 
 function setAtSegments(
@@ -203,6 +206,40 @@ function setAtSegments(
 }
 
 /**
+ * A leaf match returned by {@link findMatchingPaths}.
+ * `path` is a concrete (wildcard-expanded) JSONPath suitable for {@link setAtPath}.
+ */
+export interface PathMatch {
+  path: JSONPathExpression
+  value: unknown
+}
+
+/**
+ * Walk a JSONPath pattern (which may contain `[*]` wildcards) against data,
+ * returning concrete paths whose leaf values satisfy the predicate.
+ *
+ * The returned paths are concrete — they can be passed directly to
+ * {@link setAtPath} to write replacement values.
+ *
+ * Used by read-model reconciliation to enumerate matching ID locations
+ * across array structures.
+ *
+ * @param data - Root data structure to walk
+ * @param pattern - JSONPath expression, may contain `[*]` wildcards
+ * @param predicate - Returns true for leaf values that should be collected
+ */
+export function findMatchingPaths(
+  data: unknown,
+  pattern: JSONPathExpression,
+  predicate: (value: unknown) => boolean,
+): PathMatch[] {
+  const segments = parsePath(pattern)
+  const result: PathMatch[] = []
+  walkSegments(data, segments, 0, [], predicate, result)
+  return result
+}
+
+/**
  * Resolve declaration paths (which may contain [*] wildcards) against data.
  * Returns a map of concrete paths to EntityRef values found at those paths.
  */
@@ -210,24 +247,29 @@ export function resolveRefPaths(data: unknown, patterns: string[]): Record<strin
   const result: Record<string, EntityRef> = {}
 
   for (const pattern of patterns) {
-    const segments = parsePath(pattern)
-    resolveSegments(data, segments, 0, [], result)
+    for (const match of findMatchingPaths(data, pattern, isEntityRef)) {
+      // Predicate guarantees value is an EntityRef
+      result[match.path] = match.value as EntityRef
+    }
   }
 
   return result
 }
 
-function resolveSegments(
+function walkSegments(
   current: unknown,
   segments: PathSegment[],
   index: number,
   concretePath: PathSegment[],
-  result: Record<string, EntityRef>,
+  predicate: (value: unknown) => boolean,
+  result: PathMatch[],
 ): void {
   if (index === segments.length) {
-    // Reached the end of the path — check if value is an EntityRef
-    if (isEntityRef(current)) {
-      result[segmentsToPath(concretePath)] = current
+    // Skip leaves that don't exist in the data — the predicate is only called
+    // for values actually present at the path.
+    if (current === undefined) return
+    if (predicate(current)) {
+      result.push({ path: segmentsToPath(concretePath), value: current })
     }
     return
   }
@@ -240,23 +282,24 @@ function resolveSegments(
   switch (seg.type) {
     case 'member': {
       const value = (current as Record<string, unknown>)[seg.name]
-      resolveSegments(value, segments, index + 1, [...concretePath, seg], result)
+      walkSegments(value, segments, index + 1, [...concretePath, seg], predicate, result)
       break
     }
     case 'index': {
       if (!Array.isArray(current)) return
       const value = current[seg.index]
-      resolveSegments(value, segments, index + 1, [...concretePath, seg], result)
+      walkSegments(value, segments, index + 1, [...concretePath, seg], predicate, result)
       break
     }
     case 'wildcard': {
       if (!Array.isArray(current)) return
       for (let i = 0; i < current.length; i++) {
-        resolveSegments(
+        walkSegments(
           current[i],
           segments,
           index + 1,
           [...concretePath, { type: 'index', index: i }],
+          predicate,
           result,
         )
       }
@@ -290,6 +333,21 @@ export function stripEntityRefs(data: unknown, entityRefData: Record<string, Ent
   let result = data
   for (const [path, ref] of Object.entries(entityRefData)) {
     result = setAtPath(result, path, ref.entityId)
+  }
+  return result
+}
+
+/**
+ * Restore EntityRef values at the given paths (inverse of stripEntityRefs).
+ * Returns a clone of the data with EntityRef values re-injected at their original paths.
+ */
+export function restoreEntityRefs(
+  data: unknown,
+  entityRefData: Record<string, EntityRef>,
+): unknown {
+  let result = data
+  for (const [path, ref] of Object.entries(entityRefData)) {
+    result = setAtPath(result, path, ref)
   }
   return result
 }

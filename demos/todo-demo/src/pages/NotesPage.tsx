@@ -1,5 +1,7 @@
 import {
   deriveScopeKey,
+  entityIdEquals,
+  entityIdMatches,
   entityIdToString,
   type CollectionSyncStatus,
   type EntityId,
@@ -8,10 +10,10 @@ import {
 import { createEntityCacheKey, useClient } from '@cqrs-toolkit/client-solid'
 import { appCreateListQuery } from '@cqrs-toolkit/demo-base/common/components'
 import { NotebookList } from '@cqrs-toolkit/demo-base/notebooks/components'
+import type { Notebook } from '@cqrs-toolkit/demo-base/notebooks/domain'
 import { NOTEBOOK_SEED_KEY } from '@cqrs-toolkit/demo-base/notebooks/domain'
-import type { Notebook } from '@cqrs-toolkit/demo-base/notebooks/shared'
 import { NoteEditor, NoteTitleList } from '@cqrs-toolkit/demo-base/notes/components'
-import type { Note } from '@cqrs-toolkit/demo-base/notes/shared'
+import type { Note } from '@cqrs-toolkit/demo-base/notes/domain'
 import { ServiceLink } from '@meticoeus/ddd-es'
 import { A } from '@solidjs/router'
 import { filter } from 'rxjs'
@@ -21,7 +23,7 @@ export default function NotesPage() {
   const client = useClient<ServiceLink>()
 
   const [selectedNotebookId, setSelectedNotebookId] = createSignal<EntityId>()
-  const [selectedNoteId, setSelectedNoteId] = createSignal<string>()
+  const [selectedNoteId, setSelectedNoteId] = createSignal<EntityId>()
 
   const notebookCacheKey = createEntityCacheKey<ServiceLink>(
     { service: 'nb', type: 'Notebook' },
@@ -99,7 +101,7 @@ export default function NotesPage() {
     setError(undefined)
   }
 
-  function handleSelectNote(id: string) {
+  function handleSelectNote(id: EntityId) {
     setSelectedNoteId(id)
     setEditingTitle(undefined)
   }
@@ -115,10 +117,17 @@ export default function NotesPage() {
     }
   })
 
-  function handleEditorIdChanged(previousId: string, newId: string) {
-    if (selectedNoteId() === previousId) {
-      setSelectedNoteId(newId)
+  function handleEditorIdChanged(previousId: EntityId, newId: EntityId) {
+    const current = selectedNoteId()
+
+    if (!entityIdMatches(current, previousId)) {
+      // Different entity — clear editing state
       setEditingTitle(undefined)
+    }
+
+    if (!entityIdEquals(current, newId)) {
+      // Same entity, different lifecycle state — update signal, preserve editing
+      setSelectedNoteId(newId)
     }
   }
 

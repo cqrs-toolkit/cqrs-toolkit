@@ -22,8 +22,8 @@ import {
 } from '@cqrs-toolkit/hypermedia-client'
 import type { ServiceLink } from '@meticoeus/ddd-es'
 import type { JSONSchema7 } from 'json-schema'
-import { type AppCommand, commands } from '../.cqrs/commands.js'
-import { schemas } from '../.cqrs/schemas.js'
+import { type AppCommand, commands } from '../cqrs/commands.js'
+import { schemas } from '../cqrs/schemas.js'
 import { fileObjectsCollection } from '../domain/file-objects/collection.js'
 import { fileObjectHandlers } from '../domain/file-objects/executor.js'
 import { fileObjectProcessors } from '../domain/file-objects/processor.js'
@@ -36,7 +36,7 @@ import { noteProcessors } from '../domain/notes/processor.js'
 import { todosCollection } from '../domain/todos/collection.js'
 import { todoHandlers } from '../domain/todos/executor.js'
 import { todoProcessors } from '../domain/todos/processor.js'
-export type { AppCommand } from '../.cqrs/commands.js'
+export type { AppCommand } from '../cqrs/commands.js'
 
 export function createCqrsConfig(
   baseUrl: string,

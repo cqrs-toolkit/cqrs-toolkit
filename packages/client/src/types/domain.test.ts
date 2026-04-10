@@ -34,7 +34,7 @@ type TestRegistration = CommandHandlerRegistration<ServiceLink, TestCommand>
 
 const mockQueryManager = {} as unknown as IQueryManager<ServiceLink>
 
-const INITIALIZING: HandlerContext = { phase: 'initializing' }
+const INITIALIZING: HandlerContext = { phase: 'initializing', commandId: 'test-cmd' }
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -44,7 +44,7 @@ describe('createDomainExecutor', () => {
   const registrations: TestRegistration[] = [
     {
       commandType: 'CreateTodo',
-      handler(command, context) {
+      handler(command, _state, context) {
         const id = createEntityId(context)
         return domainSuccess([
           {
@@ -57,20 +57,17 @@ describe('createDomainExecutor', () => {
     },
     {
       commandType: 'DeleteTodo',
-      handler(command, _context) {
+      handler(command, _state, _context) {
         const { id } = command.path
         return domainSuccess([{ type: 'TodoDeleted', data: { id }, streamId: `Todo-${id}` }])
       },
     },
   ]
 
-  it('dispatches to the correct handler by command type', async () => {
+  it('dispatches to the correct handler by command type', () => {
     const executor = createDomainExecutor(registrations)
 
-    const result = await executor.execute(
-      { type: 'CreateTodo', data: { content: 'test' } },
-      INITIALIZING,
-    )
+    const result = executor.handle({ type: 'CreateTodo', data: { content: 'test' } }, undefined, INITIALIZING)
 
     expect(result.ok).toBe(true)
     if (result.ok) {
@@ -82,12 +79,12 @@ describe('createDomainExecutor', () => {
     }
   })
 
-  it('passes data and context to handler', async () => {
+  it('passes data and context to handler', () => {
     let receivedContext: HandlerContext | undefined
     const executor = createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>([
       {
         commandType: 'CreateNamed',
-        handler(command, context) {
+        handler(command, _state, context) {
           receivedContext = context
           const id = createEntityId(context)
           return domainSuccess([
@@ -101,8 +98,9 @@ describe('createDomainExecutor', () => {
       },
     ])
 
-    const result = await executor.execute(
+    const result = executor.handle(
       { type: 'CreateNamed', data: { name: 'value' } },
+      undefined,
       INITIALIZING,
     )
 
@@ -116,12 +114,12 @@ describe('createDomainExecutor', () => {
     expect(receivedContext).toEqual(INITIALIZING)
   })
 
-  it('passes updating context with entityId to handler', async () => {
+  it('passes updating context with entityId to handler', () => {
     let receivedContext: HandlerContext | undefined
     const executor = createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>([
       {
         commandType: 'UpdateEntity',
-        handler(_command, context) {
+        handler(_command, _state, context) {
           receivedContext = context
           const id = createEntityId(context)
           return domainSuccess([{ type: 'EntityUpdated', data: { id }, streamId: `Entity-${id}` }])
@@ -129,16 +127,24 @@ describe('createDomainExecutor', () => {
       },
     ])
 
-    const updatingContext: HandlerContext = { phase: 'updating', entityId: 'entity-123' }
-    await executor.execute({ type: 'UpdateEntity', data: {} }, updatingContext)
+    const updatingContext: HandlerContext = {
+      phase: 'updating',
+      entityId: 'entity-123',
+      commandId: 'test-cmd',
+    }
+    executor.handle({ type: 'UpdateEntity', data: {} }, undefined, updatingContext)
 
-    expect(receivedContext).toEqual({ phase: 'updating', entityId: 'entity-123' })
+    expect(receivedContext).toEqual({
+      phase: 'updating',
+      entityId: 'entity-123',
+      commandId: 'test-cmd',
+    })
   })
 
   it('returns UnknownCommandException for unregistered command type', async () => {
     const executor = createDomainExecutor(registrations)
 
-    const result = await executor.execute({ type: 'UnknownCommand', data: {} }, INITIALIZING)
+    const result = await executor.validate({ type: 'UnknownCommand', data: {} }, undefined)
 
     expect(result.ok).toBe(false)
     if (!result.ok) {
@@ -151,14 +157,14 @@ describe('createDomainExecutor', () => {
     const duplicates: TestRegistration[] = [
       {
         commandType: 'CreateTodo',
-        handler(_command, context) {
+        handler(_command, _state, context) {
           const id = createEntityId(context)
           return domainSuccess([{ type: 'TodoCreated', data: { id }, streamId: `Todo-${id}` }])
         },
       },
       {
         commandType: 'CreateTodo',
-        handler(_command, context) {
+        handler(_command, _state, context) {
           const id = createEntityId(context)
           return domainSuccess([{ type: 'TodoCreated', data: { id }, streamId: `Todo-${id}` }])
         },
@@ -170,7 +176,7 @@ describe('createDomainExecutor', () => {
     )
   })
 
-  it('propagates handler validation failures', async () => {
+  it('propagates handler validation failures', () => {
     const executor = createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>([
       {
         commandType: 'ValidateOnly',
@@ -182,7 +188,7 @@ describe('createDomainExecutor', () => {
       },
     ])
 
-    const result = await executor.execute({ type: 'ValidateOnly', data: {} }, INITIALIZING)
+    const result = executor.handle({ type: 'ValidateOnly', data: {} }, undefined, INITIALIZING)
 
     expect(result.ok).toBe(false)
     if (!result.ok) {
@@ -194,7 +200,7 @@ describe('createDomainExecutor', () => {
     }
   })
 
-  it('skips validation phases on regeneration', async () => {
+  it('skips validation phases when only handle() is called', () => {
     let validateCalled = false
     let validateAsyncCalled = false
     const executor = createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>(
@@ -209,7 +215,7 @@ describe('createDomainExecutor', () => {
             validateAsyncCalled = true
             return Ok({ asyncValidated: true })
           },
-          handler(_command, context) {
+          handler(_command, _state, context) {
             const id = createEntityId(context)
             return domainSuccess([
               { type: 'EntityUpdated', data: { id }, streamId: `Entity-${id}` },
@@ -220,8 +226,12 @@ describe('createDomainExecutor', () => {
       { queryManager: mockQueryManager },
     )
 
-    const updatingContext: HandlerContext = { phase: 'updating', entityId: 'e-1' }
-    await executor.execute({ type: 'UpdateEntity', data: {} }, updatingContext)
+    const updatingContext: HandlerContext = {
+      phase: 'updating',
+      entityId: 'e-1',
+      commandId: 'test-cmd',
+    }
+    executor.handle({ type: 'UpdateEntity', data: {} }, undefined, updatingContext)
 
     expect(validateCalled).toBe(false)
     expect(validateAsyncCalled).toBe(false)
@@ -239,7 +249,7 @@ describe('createDomainExecutor', () => {
               ]),
             )
           },
-          handler(command, context) {
+          handler(command, _state, context) {
             const id = createEntityId(context)
             return domainSuccess([
               {
@@ -254,10 +264,7 @@ describe('createDomainExecutor', () => {
       { queryManager: mockQueryManager },
     )
 
-    const result = await executor.execute(
-      { type: 'CreateNamed', data: { name: 'x' } },
-      INITIALIZING,
-    )
+    const result = await executor.validate({ type: 'CreateNamed', data: { name: 'x' } }, undefined)
 
     expect(result.ok).toBe(false)
     if (!result.ok) {
@@ -278,7 +285,7 @@ describe('createDomainExecutor', () => {
           async validateAsync(command) {
             return Ok({ ...command.data, enriched: true })
           },
-          handler(command, context) {
+          handler(command, _state, context) {
             handlerData = command.data
             const id = createEntityId(context)
             return domainSuccess([
@@ -294,7 +301,12 @@ describe('createDomainExecutor', () => {
       { queryManager: mockQueryManager },
     )
 
-    await executor.execute({ type: 'EnrichData', data: { original: true } }, INITIALIZING)
+    const command = { type: 'EnrichData', data: { original: true } } as const
+    const validateResult = await executor.validate(command, undefined)
+    expect(validateResult.ok).toBe(true)
+    if (!validateResult.ok) return
+
+    executor.handle({ ...command, data: validateResult.value }, undefined, INITIALIZING)
 
     expect(handlerData).toEqual({ original: true, enriched: true })
   })
@@ -309,7 +321,7 @@ describe('createDomainExecutor', () => {
             receivedPath = command.path
             return Ok(command.data)
           },
-          handler(command, _context) {
+          handler(command, _state, _context) {
             const { id } = command.path
             return domainSuccess([
               { type: 'EntityUpdated', data: { id }, streamId: `Entity-${id}` },
@@ -320,10 +332,7 @@ describe('createDomainExecutor', () => {
       { queryManager: mockQueryManager },
     )
 
-    await executor.execute(
-      { type: 'UpdateEntity', data: {}, path: { id: 'abc-123' } },
-      INITIALIZING,
-    )
+    await executor.validate({ type: 'UpdateEntity', data: {}, path: { id: 'abc-123' } }, undefined)
 
     expect(receivedPath).toEqual({ id: 'abc-123' })
   })

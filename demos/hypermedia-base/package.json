@@ -7,23 +7,48 @@
   "author": "Ontel, LLC",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./bootstrap/cqrs-config": "./src/bootstrap/cqrs-config.ts",
-    "./bootstrap/typed-client": "./src/bootstrap/typed-client.ts",
-    "./pages": "./src/pages/index.ts",
-    "./components/PageShell": "./src/components/PageShell.tsx",
-    "./primitives/createEditNavigator": "./src/primitives/createEditNavigator.ts",
-    "./e2e-helpers": "./src/e2e-helpers.ts",
-    "./e2e-nav": "./src/e2e-nav.ts"
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    },
+    "./bootstrap/cqrs-config": {
+      "types": "./dist/src/bootstrap/cqrs-config.d.ts",
+      "import": "./dist/src/bootstrap/cqrs-config.js"
+    },
+    "./bootstrap/typed-client": {
+      "types": "./dist/src/bootstrap/typed-client.d.ts",
+      "import": "./dist/src/bootstrap/typed-client.js"
+    },
+    "./pages": {
+      "types": "./dist/src/pages/index.d.ts",
+      "import": "./dist/src/pages/index.js"
+    },
+    "./components/PageShell": {
+      "types": "./dist/src/components/PageShell.d.ts",
+      "import": "./dist/src/components/PageShell.js"
+    },
+    "./primitives/createEditNavigator": {
+      "types": "./dist/src/primitives/createEditNavigator.d.ts",
+      "import": "./dist/src/primitives/createEditNavigator.js"
+    },
+    "./e2e-helpers": {
+      "types": "./dist/src/e2e-helpers.d.ts",
+      "import": "./dist/src/e2e-helpers.js"
+    },
+    "./e2e-nav": {
+      "types": "./dist/src/e2e-nav.d.ts",
+      "import": "./dist/src/e2e-nav.js"
+    }
   },
   "imports": {
-    "#bootstrap/cqrs-config": "./src/bootstrap/cqrs-config.ts",
-    "#bootstrap/typed-client": "./src/bootstrap/typed-client.ts",
-    "#pages": "./src/pages/index.ts",
-    "#components/PageShell": "./src/components/PageShell.tsx",
-    "#primitives/createEditNavigator": "./src/primitives/createEditNavigator.ts"
+    "#bootstrap/cqrs-config": "./src/bootstrap/cqrs-config.js",
+    "#bootstrap/typed-client": "./src/bootstrap/typed-client.js",
+    "#pages": "./src/pages/index.js",
+    "#components/PageShell": "./src/components/PageShell.js",
+    "#primitives/createEditNavigator": "./src/primitives/createEditNavigator.js"
   },
   "scripts": {
+    "build": "rm -rf dist && rollup -c && tsc -p tsconfig.build.json",
     "compile": "tsc -p tsconfig.json --noEmit",
     "cqrs:client:init": "cqrs-toolkit client init --server=http://localhost:3002 --apidoc-path=/api/meta/apidoc",
     "cqrs:client:pull": "cqrs-toolkit client pull"

@@ -1,39 +1,47 @@
 import { appCreateItemQuery, SaveIcon, TrashIcon } from '#common/components'
 import { AttachmentList } from '#file-objects/components'
-import { NOTES_COLLECTION_NAME } from '#notes/domain'
-import type { Note } from '#notes/shared'
-import type { AutoRevision, SubmitResult } from '@cqrs-toolkit/client'
-import { deriveEntityKey } from '@cqrs-toolkit/client'
-import { useClient } from '@cqrs-toolkit/client-solid'
-import { ServiceLink } from '@meticoeus/ddd-es'
+import {
+  AutoRevision,
+  EntityId,
+  entityIdMatches,
+  entityIdToString,
+  SubmitResult,
+} from '@cqrs-toolkit/client'
+import { createEntityCacheKey, useClient } from '@cqrs-toolkit/client-solid'
+import type { ServiceLink } from '@meticoeus/ddd-es'
 import { createEffect, createSignal, Show } from 'solid-js'
+import type { Note } from '../domain/index.js'
+import { NOTES_COLLECTION_NAME } from '../domain/index.js'
 
 interface NoteEditorProps {
-  noteId: string
-  notebookId: string
+  noteId: EntityId
+  notebookId: EntityId
   onSubmitCreate: (params: {
-    notebookId: string
+    notebookId: EntityId
     title: string
     body: string
   }) => Promise<SubmitResult<unknown>>
   onSubmitUpdateTitle: (params: {
-    id: string
+    id: EntityId
     title: string
     revision: AutoRevision
   }) => Promise<SubmitResult<unknown>>
   onSubmitUpdateBody: (params: {
-    id: string
+    id: EntityId
     body: string
     revision: AutoRevision
   }) => Promise<SubmitResult<unknown>>
-  onSubmitDelete: (params: { id: string; revision: AutoRevision }) => Promise<SubmitResult<unknown>>
-  onSubmitUploadFile?: (params: { noteId: string; file: File }) => Promise<SubmitResult<unknown>>
+  onSubmitDelete: (params: {
+    id: EntityId
+    revision: AutoRevision
+  }) => Promise<SubmitResult<unknown>>
+  onSubmitUploadFile?: (params: { noteId: EntityId; file: File }) => Promise<SubmitResult<unknown>>
   onSubmitDeleteFile?: (params: {
-    id: string
+    id: EntityId
     revision: AutoRevision
   }) => Promise<SubmitResult<unknown>>
   onError: (message: string | undefined) => void
-  onIdChanged: (previousId: string, newId: string) => void
+  onIdChanged: (previousId: EntityId, newId: EntityId) => void
   onDeleted: () => void
   onTitleChanged: (title: string) => void
 }
@@ -42,11 +50,15 @@ type SaveState = 'idle' | 'saving' | 'deleting'
 
 export function NoteEditor(props: NoteEditorProps) {
   const client = useClient<ServiceLink>()
+  const notebookCacheKey = createEntityCacheKey<ServiceLink>(
+    { service: 'nb', type: 'Notebook' },
+    () => props.notebookId,
+  )
   const query = appCreateItemQuery<Note>(
     client.queryManager,
     NOTES_COLLECTION_NAME,
     () => props.noteId,
-    deriveEntityKey({ service: 'nb', type: 'Notebook', id: props.notebookId }),
+    notebookCacheKey,
   )
 
   const [title, setTitle] = createSignal('')
@@ -102,10 +114,7 @@ export function NoteEditor(props: NoteEditorProps) {
         body: body(),
       })
       if (result.ok) {
-        const [noteId] = await client.getCommandEntities(
-          result.value.commandId,
-          NOTES_COLLECTION_NAME,
-        )
+        const noteId = result.value.entityRef
         if (noteId) {
           props.onIdChanged('placeholder', noteId)
         }
@@ -186,7 +195,7 @@ export function NoteEditor(props: NoteEditorProps) {
   function isDisabled(): boolean {
     if (saveState() !== 'idle') return true
     if (isCreateMode()) return false
-    if (!query.data || query.data.id !== props.noteId) return true
+    if (!query.data || !entityIdMatches(query.data.id, props.noteId)) return true
     return false
   }
 
@@ -218,7 +227,7 @@ export function NoteEditor(props: NoteEditorProps) {
   return (
     <div
       class={`note-editor flex flex-col h-full editor-${saveState()}${isCreateMode() ? ' editor-create' : query.loading ? ' editor-loading' : query.data ? ' editor-ready' : ' editor-not-found'}${dragOver() ? ' drag-over' : ''}`}
-      data-note-id={query.data?.id}
+      data-note-id={entityIdToString(query.data?.id)}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

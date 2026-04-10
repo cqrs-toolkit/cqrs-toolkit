@@ -79,7 +79,7 @@ Null for locally-created entries.
 
 #### See
 
-[Collection.getStreamId](Collection.md#getstreamid) for the 1:1 aggregate assumption this relies on.
+Collection.getStreamId for the 1:1 aggregate assumption this relies on.
 
 ---
 

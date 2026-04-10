@@ -23,16 +23,10 @@ export class DuplicateNotebookNameException extends Exception<ValidationError[]>
   }
 }
 
-export interface Notebook {
-  readonly id: string
+export interface NotebookBase {
   readonly name: string
   readonly tags: string[]
   readonly createdAt: string
   readonly updatedAt: string
   readonly latestRevision?: string | undefined
-}
-
-export interface ListNotebooksResponse {
-  readonly items: Notebook[]
-  readonly nextCursor: string | null
 }

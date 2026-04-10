@@ -3,6 +3,7 @@
  */
 
 import { createEntityId, domainSuccess } from '@cqrs-toolkit/client'
+import { TodoAggregate } from '@cqrs-toolkit/demo-base/todos/domain'
 import {
   changeTodoStatusPayloadSchema,
   createTodoPayloadSchema,
@@ -16,7 +17,7 @@ export const todoHandlers: AppCommandHandlerRegistration[] = [
     commandType: 'CreateTodo',
     schema: createTodoPayloadSchema,
     creates: { eventType: 'TodoCreated', idStrategy: 'temporary' },
-    handler(command, context) {
+    handler(command, _state, context) {
       const { content } = command.data as { content: string }
       const id = createEntityId(context)
       const now = new Date().toISOString()
@@ -24,7 +25,7 @@ export const todoHandlers: AppCommandHandlerRegistration[] = [
         {
           type: 'TodoCreated',
           data: { id, content, status: 'pending', createdAt: now },
-          streamId: `Todo-${id}`,
+          streamId: TodoAggregate.getStreamId(id),
         },
       ])
     },
@@ -38,7 +39,7 @@ export const todoHandlers: AppCommandHandlerRegistration[] = [
         {
           type: 'TodoContentUpdated',
           data: { id, content, updatedAt: new Date().toISOString() },
-          streamId: `Todo-${id}`,
+          streamId: TodoAggregate.getStreamId(id),
         },
       ])
     },
@@ -52,7 +53,7 @@ export const todoHandlers: AppCommandHandlerRegistration[] = [
         {
           type: 'TodoStatusChanged',
           data: { id, status, updatedAt: new Date().toISOString() },
-          streamId: `Todo-${id}`,
+          streamId: TodoAggregate.getStreamId(id),
         },
       ])
     },
@@ -66,7 +67,7 @@ export const todoHandlers: AppCommandHandlerRegistration[] = [
         {
           type: 'TodoDeleted',
           data: { id },
-          streamId: `Todo-${id}`,
+          streamId: TodoAggregate.getStreamId(id),
         },
       ])
     },

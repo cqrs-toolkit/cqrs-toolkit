@@ -6,17 +6,17 @@ import type { DemoEventStore } from '@cqrs-toolkit/demo-base/common/server'
 import type { CommandResponse, CommandSuccessResponse } from '@cqrs-toolkit/demo-base/common/shared'
 import {
   TodoAggregate,
+  type ListTodosResponse,
+  type Todo,
   type TodoRepository,
   type TodoServerEvent,
 } from '@cqrs-toolkit/demo-base/todos/server'
 import {
-  type ListTodosResponse,
-  type Todo,
-  type TodoCommand,
   changeTodoStatusPayloadSchema,
   createTodoPayloadSchema,
   deleteTodoPayloadSchema,
   updateTodoContentPayloadSchema,
+  type TodoCommand,
 } from '@cqrs-toolkit/demo-base/todos/shared'
 import {
   EventExistenceRevision,

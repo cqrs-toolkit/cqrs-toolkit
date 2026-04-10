@@ -12,6 +12,7 @@ import { assert } from '#utils'
 import { Link } from '@meticoeus/ddd-es'
 import { CommandFilter, CommandRecord, CommandStatus, EnqueueCommand } from '../types/commands.js'
 import type { SchemaMigration } from '../types/config.js'
+import { EntityId, entityIdToString } from '../types/index.js'
 import type { ISqliteDb, SqliteBatchStatement } from './ISqliteDb.js'
 import type {
   CacheKeyRecord,
@@ -159,8 +160,8 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
     this.assertInitialized()
     await this.exec(
       `INSERT OR REPLACE INTO cache_keys
-       (key, kind, link_service, link_type, link_id, service, scope_type, scope_params, parent_key, eviction_policy, frozen, frozen_at, inherited_frozen, last_accessed_at, expires_at, created_at, hold_count, estimated_size_bytes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (key, kind, link_service, link_type, link_id, service, scope_type, scope_params, parent_key, eviction_policy, frozen, frozen_at, inherited_frozen, last_accessed_at, expires_at, created_at, hold_count, estimated_size_bytes, pending_id_mappings)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         record.key,
         record.kind,
@@ -180,6 +181,7 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
         record.createdAt,
         record.holdCount,
         record.estimatedSizeBytes,
+        record.pendingIdMappings,
       ],
     )
   }
@@ -191,6 +193,50 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
       ...this.buildRemoveCacheKeyFromEvents(key),
       ...this.buildRemoveCacheKeyFromReadModels(key),
     ]
+    await this.db.execBatch(statements)
+  }
+
+  async deleteCacheKeys(keys: string[]): Promise<void> {
+    if (keys.length === 0) return
+    this.assertInitialized()
+    const statements: SqliteBatchStatement[] = []
+    for (const key of keys) {
+      statements.push({ sql: 'DELETE FROM cache_keys WHERE key = ?', bind: [key] })
+      statements.push(...this.buildRemoveCacheKeyFromEvents(key))
+      statements.push(...this.buildRemoveCacheKeyFromReadModels(key))
+    }
+    await this.db.execBatch(statements)
+  }
+
+  async saveCacheKeys(records: CacheKeyRecord[]): Promise<void> {
+    if (records.length === 0) return
+    this.assertInitialized()
+    const statements: SqliteBatchStatement[] = records.map((record) => ({
+      sql: `INSERT OR REPLACE INTO cache_keys
+       (key, kind, link_service, link_type, link_id, service, scope_type, scope_params, parent_key, eviction_policy, frozen, frozen_at, inherited_frozen, last_accessed_at, expires_at, created_at, hold_count, estimated_size_bytes, pending_id_mappings)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      bind: [
+        record.key,
+        record.kind,
+        record.linkService,
+        record.linkType,
+        record.linkId,
+        record.service,
+        record.scopeType,
+        record.scopeParams,
+        record.parentKey,
+        record.evictionPolicy,
+        record.frozen ? 1 : 0,
+        record.frozenAt,
+        record.inheritedFrozen ? 1 : 0,
+        record.lastAccessedAt,
+        record.expiresAt,
+        record.createdAt,
+        record.holdCount,
+        record.estimatedSizeBytes,
+        record.pendingIdMappings,
+      ],
+    }))
     await this.db.execBatch(statements)
   }
 
@@ -892,12 +938,12 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
   // Command ID mapping operations
 
   async getCommandIdMapping(
-    clientId: string,
+    clientId: EntityId,
   ): Promise<import('./IStorage.js').CommandIdMappingRecord | undefined> {
     this.assertInitialized()
     const row = await this.queryOne<CommandIdMappingRow>(
       'SELECT * FROM command_id_mappings WHERE client_id = ?',
-      [clientId],
+      [entityIdToString(clientId)],
     )
     if (!row) return undefined
     return {
@@ -1094,6 +1140,7 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
       createdAt: row.created_at,
       holdCount: row.hold_count,
       estimatedSizeBytes: row.estimated_size_bytes,
+      pendingIdMappings: row.pending_id_mappings,
     }
   }
 
@@ -1136,6 +1183,7 @@ interface CacheKeyRow {
   created_at: number
   hold_count: number
   estimated_size_bytes: number | null
+  pending_id_mappings: string | null
 }
 
 interface CommandRow {

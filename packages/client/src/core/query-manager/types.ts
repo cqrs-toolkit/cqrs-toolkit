@@ -25,6 +25,8 @@ export interface QueryOptions<TLink extends Link> {
   cacheKey: CacheKeyIdentity<TLink>
   /** Place a hold on the cache key while query is active */
   hold?: boolean
+  /** @internal Window ID for hold tracking. Injected by the facade/proxy. */
+  windowId?: string
 }
 
 /**
@@ -188,4 +190,29 @@ export interface IQueryManager<TLink extends Link> {
    * Destroy the query manager and release resources.
    */
   destroy(): Promise<void>
+}
+
+/**
+ * Internal query manager interface.
+ *
+ * Extends the public {@link IQueryManager} with methods used by internal
+ * callers (SyncManager) that run in the same thread as the QueryManager.
+ *
+ * Not exposed to consumers — the public API is always {@link IQueryManager}.
+ */
+export interface IQueryManagerInternal<TLink extends Link> extends IQueryManager<TLink> {
+  /** Place a hold on a cache key for a specific window. */
+  holdForWindow(cacheKey: string, windowId: string): void
+
+  /** Release a hold on a cache key for a specific window. */
+  releaseForWindow(cacheKey: string, windowId: string): void
+
+  /** Release all holds for a specific window. */
+  releaseAllForWindow(windowId: string): void
+
+  /** Clear all in-memory hold tracking on session destroy. */
+  onSessionDestroyed(): void
+
+  /** Release hold tracking for an evicted cache key without calling cacheManager.release(). */
+  releaseForCacheKey(cacheKey: string): void
 }

@@ -2,15 +2,15 @@
  * Note aggregate — server-side event sourcing with AggregateRoot.
  */
 
+import { AggregateRoot, type EventMetadata, type IEvent, createEvent } from '@meticoeus/ddd-es'
+import assert from 'node:assert'
 import type {
-  Note,
   NoteBodyUpdatedEvent,
   NoteCreatedEvent,
   NoteDeletedEvent,
   NoteTitleUpdatedEvent,
-} from '@cqrs-toolkit/demo-base/notes/shared'
-import { AggregateRoot, type EventMetadata, type IEvent, createEvent } from '@meticoeus/ddd-es'
-import assert from 'node:assert'
+} from '../shared/index.js'
+import type { Note } from './types.js'
 
 export type NoteServerEvent =
   | IEvent<'NoteCreated', NoteCreatedEvent['data'], EventMetadata>
@@ -34,7 +34,7 @@ export class NoteAggregate extends AggregateRoot<NoteServerEvent> {
   }
 
   static getStreamName(id: string): string {
-    return `Note-${id}`
+    return `nb.Note-${id}`
   }
 
   create(

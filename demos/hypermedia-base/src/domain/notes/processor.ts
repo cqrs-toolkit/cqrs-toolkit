@@ -1,6 +1,6 @@
 import type { ProcessorRegistration } from '@cqrs-toolkit/client'
+import type { Note } from '@cqrs-toolkit/demo-base/notes/domain'
 import type {
-  Note,
   NoteBodyUpdatedEvent,
   NoteCreatedEvent,
   NoteDeletedEvent,

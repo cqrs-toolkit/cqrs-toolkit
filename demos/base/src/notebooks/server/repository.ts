@@ -2,7 +2,6 @@
  * Notebook repository — extends Repository with a read model cache for queries.
  */
 
-import type { Notebook } from '@cqrs-toolkit/demo-base/notebooks/shared'
 import {
   Repository,
   type ConcurrencyException,
@@ -13,6 +12,7 @@ import {
   type SaveEventSuccess,
 } from '@meticoeus/ddd-es'
 import { NotebookAggregate, type NotebookServerEvent } from './aggregate.js'
+import type { Notebook } from './types.js'
 
 export class NotebookRepository extends Repository<NotebookServerEvent, NotebookAggregate> {
   private readonly readModels = new Map<string, Notebook>()

@@ -64,6 +64,33 @@ export function entityIdToString(id: EntityId | undefined): string | undefined {
 }
 
 /**
+ * Strict equality: same value AND same lifecycle state.
+ *
+ * Two strings are equal if identical. Two EntityRefs are equal if they have
+ * the same entityId and commandId. A string and an EntityRef are never equal —
+ * they represent different lifecycle states of the same entity.
+ */
+export function entityIdEquals(a: EntityId | undefined, b: EntityId | undefined): boolean {
+  if (typeof a === 'undefined' && typeof b === 'undefined') return true
+  if (typeof a === 'string' && typeof b === 'string') return a === b
+  if (isEntityRef(a) && isEntityRef(b)) {
+    return a.entityId === b.entityId && a.commandId === b.commandId
+  }
+  return false
+}
+
+/**
+ * Lenient match: same logical entity regardless of lifecycle state.
+ *
+ * Compares resolved string IDs only. A string `'abc'` matches an EntityRef
+ * with `entityId: 'abc'`. Useful for finding an entity across reconciliation
+ * boundaries where the lifecycle representation has changed.
+ */
+export function entityIdMatches(a: EntityId | undefined, b: EntityId | undefined): boolean {
+  return entityIdToString(a) === entityIdToString(b)
+}
+
+/**
  * Create an EntityRef value.
  */
 export function createEntityRef(

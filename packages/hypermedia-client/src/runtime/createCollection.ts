@@ -6,7 +6,7 @@
  * callbacks (topics, stream matching).
  */
 
-import type { Collection } from '@cqrs-toolkit/client'
+import { AggregateConfig, Collection, IdReference } from '@cqrs-toolkit/client'
 import type { Link } from '@meticoeus/ddd-es'
 import { fetchEventPage, fetchStreamEvents } from './fetchHelpers.js'
 import type { RepresentationSurfaces } from './types.js'
@@ -17,6 +17,10 @@ import type { RepresentationSurfaces } from './types.js'
 export interface CreateCollectionOptions<TLink extends Link> {
   /** Collection name (e.g. 'todos') */
   name: string
+  /** Forwarded to {@link Collection.aggregate}. */
+  aggregate: AggregateConfig<TLink>
+  /** Forwarded to {@link Collection.idReferences}. */
+  readonly idReferences?: IdReference<TLink>[]
   /** Derive cache key identities from WS event topics. Forwarded to {@link Collection.cacheKeysFromTopics}. */
   cacheKeysFromTopics: Collection<TLink>['cacheKeysFromTopics']
   /** Representation surface data from generated representations.ts */
@@ -61,13 +65,15 @@ function expandItemEventsPath(template: string, aggregateId: string): string {
 export function createCollection<TLink extends Link>(
   opts: CreateCollectionOptions<TLink>,
 ): Collection<TLink> {
-  const { name, representation, cacheKeysFromTopics, matchesStream } = opts
+  const { name, aggregate, idReferences, representation, cacheKeysFromTopics, matchesStream } = opts
   const extractId = opts.aggregateId ?? defaultAggregateId
   const aggregateEventsHref =
     representation.aggregateEvents.href ?? representation.aggregateEvents.template
 
   return {
     name,
+    aggregate,
+    idReferences,
     cacheKeysFromTopics,
     matchesStream,
     seedOnInit: opts.seedOnInit,

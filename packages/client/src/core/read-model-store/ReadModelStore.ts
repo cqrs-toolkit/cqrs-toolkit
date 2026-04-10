@@ -14,7 +14,7 @@ import type {
   IStorageQueryOptions,
   ReadModelRecord,
 } from '../../storage/IStorage.js'
-import { EnqueueCommand } from '../../types/index.js'
+import { EnqueueCommand, EntityId, entityIdToString } from '../../types/index.js'
 
 /**
  * Revision metadata from the event or seed record that produced this update.
@@ -248,18 +248,18 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
       return false
     }
 
-    const record: ReadModelRecord = {
+    const record = this.readModelToRecord({
       id,
       collection,
-      cacheKeys: existing ? existing.cacheKeys : [cacheKey],
+      cacheKey,
+      existing,
       serverData: dataJson,
       effectiveData,
       hasLocalChanges,
       updatedAt: now,
       revision,
       position,
-      _clientMetadata: existing?._clientMetadata ?? null,
-    }
+    })
 
     await this.storage.saveReadModel(record)
     if (existing) {
@@ -297,18 +297,15 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
       return false
     }
 
-    const record: ReadModelRecord = {
+    const record = this.readModelToRecord({
       id,
       collection,
-      cacheKeys: existing ? existing.cacheKeys : [cacheKey],
-      serverData: existing?.serverData ?? null,
+      cacheKey,
+      existing,
       effectiveData,
       hasLocalChanges: true,
       updatedAt: now,
-      revision: existing?.revision ?? null,
-      position: existing?.position ?? null,
-      _clientMetadata: existing?._clientMetadata ?? null,
-    }
+    })
 
     await this.storage.saveReadModel(record)
     if (existing) {
@@ -341,18 +338,14 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
       return false
     }
 
-    const record: ReadModelRecord = {
+    const record = this.readModelToRecord({
       id,
       collection,
-      cacheKeys: existing ? existing.cacheKeys : [cacheKey],
-      serverData: existing?.serverData ?? null,
+      cacheKey,
+      existing,
       effectiveData,
       hasLocalChanges: true,
-      updatedAt: Date.now(),
-      revision: existing?.revision ?? null,
-      position: existing?.position ?? null,
-      _clientMetadata: existing?._clientMetadata ?? null,
-    }
+    })
 
     await this.storage.saveReadModel(record)
     if (existing) {
@@ -431,18 +424,17 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
       return false
     }
 
-    const record: ReadModelRecord = {
+    const record = this.readModelToRecord({
       id,
       collection,
-      cacheKeys: existing ? existing.cacheKeys : [cacheKey],
+      cacheKey,
+      existing,
       serverData: serverDataJson,
       effectiveData,
       hasLocalChanges,
-      updatedAt: Date.now(),
       revision,
       position,
-      _clientMetadata: existing?._clientMetadata ?? null,
-    }
+    })
 
     await this.storage.saveReadModel(record)
     if (existing) {
@@ -508,6 +500,47 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
    */
   async getRevisionMap(collection: string): Promise<Array<{ id: string; revision: string }>> {
     return this.storage.getReadModelRevisions(collection)
+  }
+
+  /**
+   * Convert read model to storage record.
+   */
+  private readModelToRecord(params: {
+    id: EntityId
+    collection: string
+    cacheKey: string
+    existing: ReadModelRecord | undefined
+    serverData?: string | null
+    effectiveData: string
+    hasLocalChanges: boolean
+    updatedAt?: number
+    revision?: string | null
+    position?: string | null
+  }): ReadModelRecord {
+    const {
+      id,
+      collection,
+      cacheKey,
+      existing,
+      serverData,
+      effectiveData,
+      hasLocalChanges,
+      updatedAt,
+      revision,
+      position,
+    } = params
+    return {
+      id: entityIdToString(id),
+      collection,
+      cacheKeys: existing ? existing.cacheKeys : [cacheKey],
+      serverData: serverData ?? existing?.serverData ?? null,
+      effectiveData,
+      hasLocalChanges,
+      updatedAt: updatedAt ?? Date.now(),
+      revision: revision ?? existing?.revision ?? null,
+      position: position ?? existing?.position ?? null,
+      _clientMetadata: existing?._clientMetadata ?? null,
+    }
   }
 
   /**

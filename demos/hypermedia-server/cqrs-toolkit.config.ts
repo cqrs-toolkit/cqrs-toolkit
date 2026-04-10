@@ -1,6 +1,10 @@
 import { defineConfig } from '@cqrs-toolkit/hypermedia-cli/config'
 import { builtinPropertyDictionary } from '@cqrs-toolkit/hypermedia/builder'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { HydraDemoClasses } from './src/doc.js'
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
 export default defineConfig({
   server: {
@@ -13,10 +17,10 @@ export default defineConfig({
       },
     },
     docs: {
-      outputDir: 'static/meta',
+      outputDir: path.resolve(__dirname, 'static/meta'),
     },
     build: {
-      outputDir: 'dist/static/meta',
+      outputDir: path.resolve(__dirname, 'dist/static/meta'),
     },
     openapi: {
       info: { title: 'Hypermedia Demo API', version: '1.0.0' },

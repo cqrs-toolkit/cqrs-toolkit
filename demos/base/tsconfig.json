@@ -5,7 +5,9 @@
     "rootDir": ".",
     "outDir": "dist",
     "jsx": "preserve",
-    "jsxImportSource": "solid-js"
+    "jsxImportSource": "solid-js",
+    "emitDeclarationOnly": true,
+    "noEmit": false
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"]
 }
