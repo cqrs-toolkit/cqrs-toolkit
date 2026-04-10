@@ -3,7 +3,7 @@
  */
 
 import type { JSONSchema7 } from 'json-schema'
-import { resolve } from 'node:path'
+import { isAbsolute } from 'node:path'
 import { HydraDoc } from '../HydraDoc.js'
 import type { HydraConfig } from './config-types.js'
 
@@ -40,10 +40,10 @@ export function resolveConfig(
     envName: opts.env ?? 'dev',
     resolved: {
       docs: {
-        outputDir: resolve(projectRoot, rawConfig.docs.outputDir),
+        outputDir: rawConfig.docs.outputDir,
       },
       build: {
-        outputDir: resolve(projectRoot, rawConfig.build.outputDir),
+        outputDir: rawConfig.build.outputDir,
       },
     },
   }
@@ -64,9 +64,19 @@ function validateConfig(config: unknown): asserts config is HydraConfig {
   if (typeof docs !== 'object' || docs === null || typeof docs['outputDir'] !== 'string') {
     throw new Error(`Config 'server.docs.outputDir' must be a string`)
   }
+  if (!isAbsolute(docs['outputDir'])) {
+    throw new Error(
+      `Config 'server.docs.outputDir' must be an absolute path. Use path.resolve(__dirname, '...') in your config.`,
+    )
+  }
   const build = c['build'] as Record<string, unknown> | undefined
   if (typeof build !== 'object' || build === null || typeof build['outputDir'] !== 'string') {
     throw new Error(`Config 'server.build.outputDir' must be a string`)
+  }
+  if (!isAbsolute(build['outputDir'])) {
+    throw new Error(
+      `Config 'server.build.outputDir' must be an absolute path. Use path.resolve(__dirname, '...') in your config.`,
+    )
   }
 
   const classes = c['classes'] as HydraDoc.ClassDef[]

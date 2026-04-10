@@ -33,7 +33,7 @@ commandHandlers: withSchemaRegistry(schemas, [...todoHandlers, ...noteHandlers])
 
 ### TEvent
 
-`TEvent` _extends_ `IAnticipatedEvent`\<`string`, `AggregateEventData`\>
+`TEvent` _extends_ `IAnticipatedEvent`\<`string`, `AnticipatedAggregateEventData`\>
 
 ## Parameters
 

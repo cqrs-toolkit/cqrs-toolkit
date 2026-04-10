@@ -94,6 +94,8 @@ export function transformOpenapi(
   openapi: MetaFiles['openapi'],
   schemas: ResolvedSchemaBundle,
 ): ResolvedDocument | undefined {
+  if (!openapi) return
+
   const resolvedOpenapi = resolveOpenApiUrns(openapi, schemas.schemaUrns)
   const openapiContent = JSON.stringify(stableOrder(resolvedOpenapi))
   return { content: openapiContent, etag: computeEtag(openapiContent) }

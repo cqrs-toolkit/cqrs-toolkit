@@ -39,12 +39,12 @@ export interface HydraConfig {
   openapi?: OpenApiConfig
   /** configuration specific to the stable documentation generator command */
   docs: {
-    /** Output directory for generated files (relative to config file location) */
+    /** Absolute path to the output directory for generated files. Use path.resolve(__dirname, '...') in your config. */
     outputDir: string
   }
   /** configuration specific to the production docs generator build command */
   build: {
-    /** Output directory for generated files (relative to config file location) */
+    /** Absolute path to the output directory for generated files. Use path.resolve(__dirname, '...') in your config. */
     outputDir: string
   }
   /**

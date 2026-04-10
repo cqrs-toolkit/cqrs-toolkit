@@ -19,6 +19,6 @@ export interface ToolkitConfig {
  * })
  * ```
  */
-export function defineConfig(config: ToolkitConfig): ToolkitConfig {
+export function defineConfig<T extends ToolkitConfig>(config: T): T {
   return config
 }

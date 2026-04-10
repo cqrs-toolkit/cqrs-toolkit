@@ -39,8 +39,8 @@ export interface PullConfig {
   server: string
   /** Path to the served apidoc.jsonld (e.g. '/api/meta/apidoc') */
   apidocPath: string
-  /** Output directory for generated files (default: '.cqrs') */
-  outputDir?: string
+  /** Absolute path to the output directory for generated files. Use path.resolve(__dirname, '...') in your config. */
+  outputDir: string
   /** Schema handling mode (default: 'bundled') */
   schemas?: SchemaMode
   /**

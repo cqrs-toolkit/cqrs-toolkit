@@ -8,6 +8,6 @@ export async function run(projectRoot: string): Promise<void> {
     )
   }
   const { resolveConfig, pull } = await import('@cqrs-toolkit/hypermedia-client/internals')
-  const resolved = resolveConfig(config.client, projectRoot)
-  await pull(resolved)
+  resolveConfig(config.client)
+  await pull(config.client)
 }

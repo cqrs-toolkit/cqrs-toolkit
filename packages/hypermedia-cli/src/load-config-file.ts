@@ -46,6 +46,7 @@ export async function loadConfigFile<T>(configPath: string): Promise<T> {
       entryPoints: [configPath],
       outfile: tmpFile,
       bundle: true,
+      packages: 'external',
       platform: 'node',
       format: 'esm',
       target: 'node18',

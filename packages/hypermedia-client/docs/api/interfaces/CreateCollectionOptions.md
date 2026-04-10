@@ -37,7 +37,7 @@ Default: splits on first '-' (convention: 'Todo-{uuid}' → '{uuid}')
 
 ### cacheKeysFromTopics()
 
-> **cacheKeysFromTopics**: (`topics`) => `CacheKeyIdentity`\<`TLink`\>[]
+> **cacheKeysFromTopics**: (`topics`) => (`CacheKeyIdentity`\<`TLink`\> \| `CacheKeyTemplate`\<`TLink`\>)[]
 
 Derive cache key identities from WS event topics. Forwarded to Collection.cacheKeysFromTopics.
 
@@ -56,9 +56,10 @@ Topic strings from the WS event message
 
 #### Returns
 
-`CacheKeyIdentity`\<`TLink`\>[]
+(`CacheKeyIdentity`\<`TLink`\> \| `CacheKeyTemplate`\<`TLink`\>)[]
 
-Cache key identities this event should be associated with
+Cache key identities or templates. Templates (no `.key`) are resolved
+by the caller via `registerCacheKeySync`.
 
 ---
 

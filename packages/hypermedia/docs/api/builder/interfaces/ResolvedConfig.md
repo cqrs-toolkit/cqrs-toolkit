@@ -22,7 +22,7 @@ configuration specific to the production docs generator build command
 
 > **outputDir**: `string`
 
-Output directory for generated files (relative to config file location)
+Absolute path to the output directory for generated files. Use path.resolve(\_\_dirname, '...') in your config.
 
 #### Inherited from
 
@@ -52,7 +52,7 @@ configuration specific to the stable documentation generator command
 
 > **outputDir**: `string`
 
-Output directory for generated files (relative to config file location)
+Absolute path to the output directory for generated files. Use path.resolve(\_\_dirname, '...') in your config.
 
 #### Inherited from
 

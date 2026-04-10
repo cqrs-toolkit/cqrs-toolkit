@@ -60,6 +60,10 @@ export class ParseValidationException extends Exception<{ mutatedSource: string 
  */
 export function generateConfigFileContent(opts: InitWriterOptions): string {
   return `import { defineConfig } from '@cqrs-toolkit/hypermedia-cli/config'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
 export default defineConfig({
   client: ${buildClientObjectContent(opts)},
@@ -121,7 +125,7 @@ function buildClientObjectContent(opts: InitWriterOptions): string {
   return `{
     server: '${opts.server}',
     apidocPath: '${opts.apidocPath}',
-    outputDir: 'src/.cqrs',
+    outputDir: path.resolve(__dirname, 'src/cqrs'),
     schemas: 'bundled',
 
     commands: [

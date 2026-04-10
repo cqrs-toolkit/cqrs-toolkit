@@ -5,14 +5,13 @@
 
 import type { HydraApiDocumentation } from '@cqrs-toolkit/hypermedia'
 import type { JSONSchema7 } from 'json-schema'
-import type { EnvelopeExtractor } from '../config.js'
+import type { EnvelopeExtractor, PullConfig } from '../config.js'
 import { parseApidoc, type ParsedCommand } from './apidoc-parser.js'
 import { parseRepresentations } from './apidoc-representations.js'
-import type { ResolvedPullConfig } from './config.js'
 import { fetchSchemas, type FetchedCommonSchema, type FetchedSchema } from './schema-fetcher.js'
 import { writeGeneratedOutput } from './ts-writer.js'
 
-export async function pull(config: ResolvedPullConfig): Promise<void> {
+export async function pull(config: PullConfig): Promise<void> {
   const apidocUrl = `${config.server}${config.apidocPath}`
 
   // Extract URNs and per-command overrides from CommandEntry[]
@@ -77,7 +76,7 @@ export async function pull(config: ResolvedPullConfig): Promise<void> {
 
   // Write generated output
   writeGeneratedOutput({
-    outputDir: config.resolvedOutputDir,
+    outputDir: config.outputDir,
     apidocUrl,
     commands: commandResult.commands,
     representations: repResult.representations,
@@ -86,7 +85,7 @@ export async function pull(config: ResolvedPullConfig): Promise<void> {
 
   const repCount = Object.keys(repResult.representations).length
   const totalSchemas = extracted.commands.length + extracted.common.length
-  console.log(`\nWrote to ${config.resolvedOutputDir}/`)
+  console.log(`\nWrote to ${config.outputDir}/`)
   console.log(`  commands.ts         (${commandResult.commands.size} commands)`)
   console.log(`  representations.ts  (${repCount} representations)`)
   console.log(

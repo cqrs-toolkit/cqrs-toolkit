@@ -2,24 +2,16 @@
  * Config validation and resolution for `cqrs-toolkit client` commands.
  */
 
-import { resolve } from 'node:path'
+import { isAbsolute } from 'node:path'
 import type { PullConfig } from '../config.js'
 
-export interface ResolvedPullConfig extends PullConfig {
-  /** Resolved absolute path to the output directory */
-  resolvedOutputDir: string
-}
-
 /**
- * Validate and resolve a raw PullConfig into a ResolvedPullConfig.
+ * Validate a raw PullConfig.
  * Throws on invalid config.
  */
-export function resolveConfig(rawConfig: PullConfig, projectRoot: string): ResolvedPullConfig {
+export function resolveConfig(rawConfig: PullConfig): PullConfig {
   validateConfig(rawConfig)
-  return {
-    ...rawConfig,
-    resolvedOutputDir: resolve(projectRoot, rawConfig.outputDir ?? '.cqrs'),
-  }
+  return rawConfig
 }
 
 function validateConfig(config: unknown): asserts config is PullConfig {
@@ -38,5 +30,13 @@ function validateConfig(config: unknown): asserts config is PullConfig {
   }
   if (!Array.isArray(c['representations'])) {
     throw new Error(`Config 'client.representations' must be an array of @id fragment strings`)
+  }
+  if (typeof c['outputDir'] !== 'string') {
+    throw new Error(`Config 'client.outputDir' must be a string`)
+  }
+  if (!isAbsolute(c['outputDir'])) {
+    throw new Error(
+      `Config 'client.outputDir' must be an absolute path. Use path.resolve(__dirname, '...') in your config.`,
+    )
   }
 }
