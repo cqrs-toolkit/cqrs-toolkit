@@ -7,13 +7,18 @@
  */
 
 import {
-  clientSchema,
-  cookieAuthStrategy,
   type CqrsConfig,
   EnqueueCommand,
   type IAnticipatedEvent,
+  clientSchema,
+  cookieAuthStrategy,
 } from '@cqrs-toolkit/client'
-import type { ServiceLink } from '@meticoeus/ddd-es'
+import { parseStreamId } from '@cqrs-toolkit/demo-base/common/domain'
+import { FileObjectAggregate } from '@cqrs-toolkit/demo-base/file-objects/domain'
+import { NotebookAggregate } from '@cqrs-toolkit/demo-base/notebooks/domain'
+import { NoteAggregate } from '@cqrs-toolkit/demo-base/notes/domain'
+import { TodoAggregate } from '@cqrs-toolkit/demo-base/todos/domain'
+import { ServiceLink } from '@meticoeus/ddd-es'
 import type { JSONSchema7 } from 'json-schema'
 import { fileObjectsCollection } from '../domain/file-objects/collection.js'
 import { fileObjectHandlers } from '../domain/file-objects/executor.js'
@@ -54,6 +59,10 @@ export const cqrsConfig: CqrsConfig<ServiceLink, EnqueueCommand, JSONSchema7, IA
         ],
       },
     ],
+  },
+  aggregates: {
+    parseStreamId,
+    aggregates: [TodoAggregate, NotebookAggregate, NoteAggregate, FileObjectAggregate],
   },
   collections: [todosCollection, notebooksCollection, notesCollection, fileObjectsCollection],
   processors: [

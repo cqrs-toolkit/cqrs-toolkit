@@ -32,17 +32,17 @@
 
 ### Constructor
 
-> **new CommandQueue**\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>(`storage`, `eventBus`, `fileStore`, `anticipatedEventHandler`, `config?`): `CommandQueue`\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
+> **new CommandQueue**\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>(`eventBus`, `storage`, `fileStore`, `anticipatedEventHandler`, `aggregates`, `readModelStore`, `commandStore`, `mappingStore`, `config?`): `CommandQueue`\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 #### Parameters
-
-##### storage
-
-[`IStorage`](../interfaces/IStorage.md)\<`TLink`, `TCommand`\>
 
 ##### eventBus
 
 [`EventBus`](EventBus.md)\<`TLink`\>
+
+##### storage
+
+[`IStorage`](../interfaces/IStorage.md)\<`TLink`, `TCommand`\>
 
 ##### fileStore
 
@@ -52,7 +52,26 @@ File store for commands with file attachments.
 
 ##### anticipatedEventHandler
 
-`IAnticipatedEventHandler`
+`IAnticipatedEventHandler`\<`TLink`, `TCommand`\>
+
+##### aggregates
+
+`IClientAggregates`\<`TLink`\>
+
+##### readModelStore
+
+[`ReadModelStore`](ReadModelStore.md)\<`TLink`, `TCommand`\>
+
+Read-model store — used by the success path to apply best-guess ID rewrites
+as local-changes overlays. Must not be used to touch `serverData`.
+
+##### commandStore
+
+[`ICommandStore`](../interfaces/ICommandStore.md)\<`TLink`, `TCommand`\>
+
+##### mappingStore
+
+[`ICommandIdMappingStore`](../interfaces/ICommandIdMappingStore.md)
 
 ##### config?
 
@@ -63,6 +82,20 @@ File store for commands with file attachments.
 `CommandQueue`\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 ## Properties
+
+### chains
+
+> `protected` `readonly` **chains**: `AggregateChainRegistry`
+
+In-memory tracking of command chains per aggregate stream.
+Keyed by the aggregate's streamId (client and/or server); the registry
+keeps both indices of a dual-indexed chain in sync.
+
+`protected` so test subclasses can introspect chain state after
+[rebuildChains](#rebuildchains); production access stays through this class's
+own methods.
+
+---
 
 ### commandEvents
 
@@ -82,6 +115,65 @@ Emits for all command status changes.
 `ICommandQueueInternal.events$`
 
 ## Methods
+
+### advanceChainRevisions()
+
+> **advanceChainRevisions**(`updates`): `void`
+
+Advance chain revisions from server data (WS events, seed records, refetches).
+Only updates chains that already exist — does not create new chains.
+Compares as bigint; only advances forward, never backwards.
+
+#### Parameters
+
+##### updates
+
+readonly `AdvanceChainRevisionsUpdate`[]
+
+#### Returns
+
+`void`
+
+---
+
+### batchUpdateSyncStatus()
+
+> **batchUpdateSyncStatus**(`params`): `Promise`\<`void`\>
+
+Batch-write the sync pipeline's per-command progress at end-of-batch.
+
+`applied` — commands transitioning from `'succeeded'` to `'applied'` this
+batch. Each gets `{ status: 'applied', pendingAggregateCoverage: null,
+updatedAt }` written and emits one `'status-changed'` event.
+`updated` — commands that stay in `'succeeded'` but had their coverage
+record shrink during this batch. Each gets its `pendingAggregateCoverage`
+re-persisted (status stays `'succeeded'`); no event is emitted.
+
+**Contract invariants:**
+
+- MUST NOT enqueue a write-queue op. The pipeline calls this from inside
+  its own `reconcile-ws-events` op handler — re-entry would deadlock.
+- The caller already holds the command records (loaded at batch setup).
+  This method must not re-read them from storage.
+- A single `storage.updateCommands` call batches both sets.
+
+#### Parameters
+
+##### params
+
+###### applied?
+
+`Iterable`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>, `any`, `any`\>
+
+###### updated?
+
+`Iterable`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>, `any`, `any`\>
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
 
 ### cancelCommand()
 
@@ -303,6 +395,31 @@ Entity IDs, or empty if the command has no tracked entries
 
 ---
 
+### getEntityIdForCommand()
+
+> **getEntityIdForCommand**(`command`): `string` \| `undefined`
+
+Derive the primary entity ID for a command. For create commands this comes from
+the aggregate chain; for mutate commands it comes from the first affected
+aggregate. Returns undefined when neither path yields an ID — callers decide
+whether that's fatal (`buildUpdatingContext`) or expected (reconciliation).
+
+#### Parameters
+
+##### command
+
+[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`\>
+
+#### Returns
+
+`string` \| `undefined`
+
+#### Implementation of
+
+`ICommandQueueInternal.getEntityIdForCommand`
+
+---
+
 ### getIdMapping()
 
 > **getIdMapping**(`clientId`): \{ `serverId`: `string`; \} \| `undefined`
@@ -326,6 +443,22 @@ The server ID if the client ID has been reconciled, undefined otherwise.
 #### Implementation of
 
 `ICommandQueueInternal.getIdMapping`
+
+---
+
+### initialize()
+
+> **initialize**(): `Promise`\<`void`\>
+
+Restore in-memory state from storage.
+
+Rebuilds aggregate chains from persisted commands so AutoRevision resolution
+and auto-dependency detection work from the first enqueue.
+Must be awaited before the queue is resumed or any commands are enqueued.
+
+#### Returns
+
+`Promise`\<`void`\>
 
 ---
 
@@ -371,15 +504,43 @@ Matching commands
 
 ---
 
-### pause()
+### onCommandDeleted()
 
-> **pause**(): `void`
+> **onCommandDeleted**(`command`): `void`
 
-Pause command processing.
+Lifecycle hook invoked by the eventual command-record deletion path.
+
+Detaches the command from any aggregate chains that still reference it.
+For non-success terminals this is a no-op (chains were already cleaned at
+the terminal transition). For a deleted succeeded command it clears the
+command's remaining fingerprints (most commonly `latestCommandId`) while
+preserving any `lastKnownRevision` it contributed.
+
+Safe to call with a commandId whose record no longer exists in storage.
+
+#### Parameters
+
+##### command
+
+[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`\>
 
 #### Returns
 
 `void`
+
+---
+
+### pause()
+
+> **pause**(): `Promise`\<`void`\>
+
+Pause command processing.
+Resolves after any in-flight command finishes; callers who only want
+the flag flipped can simply not await.
+
+#### Returns
+
+`Promise`\<`void`\>
 
 #### Implementation of
 
@@ -404,6 +565,35 @@ Called by the sync manager when network is available.
 
 ---
 
+### rebuildChains()
+
+> `protected` **rebuildChains**(): `Promise`\<`void`\>
+
+Rebuild in-memory aggregate chains from active commands.
+Called on resume so chains exist for AutoRevision resolution and
+auto-dependency detection on new enqueues.
+
+`'applied'` is intentionally excluded from the status filter: chains are
+for in-flight coordination, and applied commands are fully terminal with
+their server state already reflected. Stale UI references to reconciled
+temp ids go through [ICommandIdMappingStore](../interfaces/ICommandIdMappingStore.md) (durable), not chains.
+
+On a worker-recreate mid-session this rebuild also:
+
+- Rehydrates the client↔server dual-index via mappingStore so a
+  newly enqueued command whose payload has been patched to the server id
+  finds the same chain as an in-flight command keyed by the client id.
+- Restores `lastKnownRevision` from each succeeded command's
+  `serverResponse` so AutoRevision resolves from the last confirmed
+  server revision instead of falling back to the consumer-provided
+  read-model rev.
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
 ### reset()
 
 > **reset**(): `Promise`\<`void`\>
@@ -419,13 +609,15 @@ Pauses, clears retry timers, and waits for in-flight processing to settle.
 
 ### resume()
 
-> **resume**(): `void`
+> **resume**(): `Promise`\<`void`\>
 
-Resume command processing.
+Resume command processing and drain any pending commands.
+Resolves after the drain completes; callers who want fire-and-forget
+can simply not await.
 
 #### Returns
 
-`void`
+`Promise`\<`void`\>
 
 #### Implementation of
 

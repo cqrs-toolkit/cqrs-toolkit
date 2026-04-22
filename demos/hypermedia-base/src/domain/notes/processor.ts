@@ -11,7 +11,7 @@ import { addRevision } from '../utils/processors.js'
 export const noteProcessors: ProcessorRegistration[] = [
   {
     eventTypes: 'NoteCreated',
-    processor: (data: NoteCreatedEvent['data'], ctx) => ({
+    processor: (data: NoteCreatedEvent['data'], _state, ctx) => ({
       collection: 'notes',
       id: data.id,
       update: {
@@ -30,7 +30,7 @@ export const noteProcessors: ProcessorRegistration[] = [
   } satisfies ProcessorRegistration<NoteCreatedEvent['data'], Note>,
   {
     eventTypes: 'NoteTitleUpdated',
-    processor: (data: NoteTitleUpdatedEvent['data'], ctx) => ({
+    processor: (data: NoteTitleUpdatedEvent['data'], _state, ctx) => ({
       collection: 'notes',
       id: data.id,
       update: {
@@ -45,7 +45,7 @@ export const noteProcessors: ProcessorRegistration[] = [
   },
   {
     eventTypes: 'NoteBodyUpdated',
-    processor: (data: NoteBodyUpdatedEvent['data'], ctx) => ({
+    processor: (data: NoteBodyUpdatedEvent['data'], _state, ctx) => ({
       collection: 'notes',
       id: data.id,
       update: {

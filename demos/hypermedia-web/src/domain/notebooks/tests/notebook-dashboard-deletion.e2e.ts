@@ -1,3 +1,4 @@
+import { expect, setupTestDiagnostics, test, url } from '#e2e-fixtures'
 import {
   addNotebook,
   addTodo,
@@ -9,9 +10,10 @@ import {
   waitForDashTodosReady,
 } from '@cqrs-toolkit/hypermedia-base/e2e-helpers'
 import { testNavigator } from '@cqrs-toolkit/hypermedia-base/e2e-nav'
-import { expect, test, url } from '../../../e2e-fixtures.js'
 
 const { Dashboard, Notes } = testNavigator
+
+setupTestDiagnostics()
 
 test.beforeEach(async ({ request }) => {
   await request.post('http://localhost:3002/api/test/reset')

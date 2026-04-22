@@ -228,13 +228,15 @@ Matching commands
 
 ### pause()
 
-> **pause**(): `void`
+> **pause**(): `Promise`\<`void`\>
 
 Pause command processing.
+Resolves after any in-flight command finishes; callers who only want
+the flag flipped can simply not await.
 
 #### Returns
 
-`void`
+`Promise`\<`void`\>
 
 ---
 
@@ -253,13 +255,15 @@ Called by the sync manager when network is available.
 
 ### resume()
 
-> **resume**(): `void`
+> **resume**(): `Promise`\<`void`\>
 
-Resume command processing.
+Resume command processing and drain any pending commands.
+Resolves after the drain completes; callers who want fire-and-forget
+can simply not await.
 
 #### Returns
 
-`void`
+`Promise`\<`void`\>
 
 ---
 

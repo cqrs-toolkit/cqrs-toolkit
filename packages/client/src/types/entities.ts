@@ -7,6 +7,8 @@
  * See specification §15 (EntityRef) for full details.
  */
 
+import { Link, ServiceLink } from '@meticoeus/ddd-es'
+
 /**
  * Entity reference carrying lifecycle metadata.
  *
@@ -36,6 +38,16 @@ export interface EntityRef {
  */
 export type EntityId = string | EntityRef
 
+export interface EntityLink extends Omit<Link, 'id'> {
+  id: EntityId
+}
+
+export interface EntityServiceLink extends Omit<ServiceLink, 'id'> {
+  id: EntityId
+}
+
+export type EntityTLink<TLink extends Link> = Omit<TLink, 'id'> & { id: EntityId }
+
 /**
  * Type guard for EntityRef values.
  */
@@ -46,6 +58,13 @@ export function isEntityRef(value: unknown): value is EntityRef {
     '__entityRef' in value &&
     value.__entityRef === true
   )
+}
+
+/**
+ * Type guard for EntityId values (plain string or EntityRef).
+ */
+export function isEntityId(value: unknown): value is EntityId {
+  return typeof value === 'string' || isEntityRef(value)
 }
 
 /**

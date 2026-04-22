@@ -1,4 +1,4 @@
-import { appCreateItemQuery, SaveIcon, TrashIcon } from '#common/components'
+import { SaveIcon, TrashIcon } from '#common/components'
 import { AttachmentList } from '#file-objects/components'
 import {
   AutoRevision,
@@ -7,15 +7,15 @@ import {
   entityIdToString,
   SubmitResult,
 } from '@cqrs-toolkit/client'
-import { createEntityCacheKey, useClient } from '@cqrs-toolkit/client-solid'
-import type { ServiceLink } from '@meticoeus/ddd-es'
 import { createEffect, createSignal, Show } from 'solid-js'
 import type { Note } from '../domain/index.js'
-import { NOTES_COLLECTION_NAME } from '../domain/index.js'
 
 interface NoteEditorProps {
   noteId: EntityId
   notebookId: EntityId
+  noteData: Note | undefined
+  noteLoading: boolean
+  isCreating: boolean
   onSubmitCreate: (params: {
     notebookId: EntityId
     title: string
@@ -41,7 +41,7 @@ interface NoteEditorProps {
     revision: AutoRevision
   }) => Promise<SubmitResult<unknown>>
   onError: (message: string | undefined) => void
-  onIdChanged: (previousId: EntityId, newId: EntityId) => void
+  onCreated: (entityId: EntityId) => void
   onDeleted: () => void
   onTitleChanged: (title: string) => void
 }
@@ -49,18 +49,6 @@ interface NoteEditorProps {
 type SaveState = 'idle' | 'saving' | 'deleting'
 
 export function NoteEditor(props: NoteEditorProps) {
-  const client = useClient<ServiceLink>()
-  const notebookCacheKey = createEntityCacheKey<ServiceLink>(
-    { service: 'nb', type: 'Notebook' },
-    () => props.notebookId,
-  )
-  const query = appCreateItemQuery<Note>(
-    client.queryManager,
-    NOTES_COLLECTION_NAME,
-    () => props.noteId,
-    notebookCacheKey,
-  )
-
   const [title, setTitle] = createSignal('')
   const [body, setBody] = createSignal('')
   const [saveState, setSaveState] = createSignal<SaveState>('idle')
@@ -70,27 +58,19 @@ export function NoteEditor(props: NoteEditorProps) {
     return props.noteId === 'placeholder'
   }
 
-  // Sync editor fields when item query data changes (edit mode)
+  // Sync editor fields when note data changes (edit mode)
   createEffect(() => {
-    const note = query.data
+    const note = props.noteData
     if (note) {
       setTitle(note.title)
       setBody(note.body)
     }
   })
 
-  // Detect external deletion: query finished loading but returned no data (edit mode only)
+  // Detect external deletion: data finished loading but returned nothing (edit mode only)
   createEffect(() => {
-    if (!query.loading && !query.data && !isCreateMode()) {
+    if (!props.noteLoading && !props.noteData && !isCreateMode() && !props.isCreating) {
       props.onDeleted()
-    }
-  })
-
-  // Detect reconciliation: item query followed client ID → server ID
-  createEffect(() => {
-    const reconciled = query.reconciledId
-    if (reconciled) {
-      props.onIdChanged(reconciled.clientId, reconciled.serverId)
     }
   })
 
@@ -116,13 +96,13 @@ export function NoteEditor(props: NoteEditorProps) {
       if (result.ok) {
         const noteId = result.value.entityRef
         if (noteId) {
-          props.onIdChanged('placeholder', noteId)
+          props.onCreated(noteId)
         }
       } else {
         props.onError(result.error.message)
       }
     } else {
-      const note = query.data
+      const note = props.noteData
       if (!note) {
         setSaveState('idle')
         return
@@ -175,7 +155,7 @@ export function NoteEditor(props: NoteEditorProps) {
       return
     }
 
-    const note = query.data
+    const note = props.noteData
     if (!note) return
 
     props.onError(undefined)
@@ -193,14 +173,23 @@ export function NoteEditor(props: NoteEditorProps) {
   }
 
   function isDisabled(): boolean {
+    if (props.isCreating) return true
     if (saveState() !== 'idle') return true
     if (isCreateMode()) return false
-    if (!query.data || !entityIdMatches(query.data.id, props.noteId)) return true
+    if (!props.noteData || !entityIdMatches(props.noteData.id, props.noteId)) return true
     return false
   }
 
+  function editorStateClass(): string {
+    if (isCreateMode()) return 'editor-create'
+    if (props.isCreating) return 'editor-creating'
+    if (props.noteLoading) return 'editor-loading'
+    if (props.noteData) return 'editor-ready'
+    return 'editor-not-found'
+  }
+
   function handleDragOver(e: DragEvent) {
-    if (isCreateMode() || !props.onSubmitUploadFile) return
+    if (isCreateMode() || props.isCreating || !props.onSubmitUploadFile) return
     e.preventDefault()
     setDragOver(true)
   }
@@ -212,22 +201,22 @@ export function NoteEditor(props: NoteEditorProps) {
   function handleDrop(e: DragEvent) {
     e.preventDefault()
     setDragOver(false)
-    if (isCreateMode() || !query.data || !props.onSubmitUploadFile) return
+    if (isCreateMode() || props.isCreating || !props.noteData || !props.onSubmitUploadFile) return
 
     const files = e.dataTransfer?.files
     if (!files) return
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
       if (file) {
-        props.onSubmitUploadFile({ noteId: query.data.id, file })
+        props.onSubmitUploadFile({ noteId: props.noteData.id, file })
       }
     }
   }
 
   return (
     <div
-      class={`note-editor flex flex-col h-full editor-${saveState()}${isCreateMode() ? ' editor-create' : query.loading ? ' editor-loading' : query.data ? ' editor-ready' : ' editor-not-found'}${dragOver() ? ' drag-over' : ''}`}
-      data-note-id={entityIdToString(query.data?.id)}
+      class={`note-editor flex flex-col h-full editor-${saveState()} ${editorStateClass()}${dragOver() ? ' drag-over' : ''}`}
+      data-note-id={entityIdToString(props.noteData?.id)}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -268,7 +257,13 @@ export function NoteEditor(props: NoteEditorProps) {
       />
 
       <Show
-        when={!isCreateMode() && query.data && props.onSubmitUploadFile && props.onSubmitDeleteFile}
+        when={
+          !isCreateMode() &&
+          !props.isCreating &&
+          props.noteData &&
+          props.onSubmitUploadFile &&
+          props.onSubmitDeleteFile
+        }
       >
         <AttachmentList
           noteId={props.noteId}

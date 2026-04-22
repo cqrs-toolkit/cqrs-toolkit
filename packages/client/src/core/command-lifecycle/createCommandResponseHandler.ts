@@ -1,6 +1,6 @@
-import { type Link, logProvider } from '@meticoeus/ddd-es'
+import { type IPersistedEvent, type Link, logProvider } from '@meticoeus/ddd-es'
+import { hydrateSerializedEvent } from '../../types/events.js'
 import { Collection, CommandRecord, EnqueueCommand } from '../../types/index.js'
-import type { ParsedEvent } from '../event-processor/index.js'
 import { SyncManager } from '../sync-manager/index.js'
 import type { IAnticipatedEvent } from './AnticipatedEventShape.js'
 import { hasResponseEvents, isResponseEvent } from './ResponseEvent.js'
@@ -9,9 +9,12 @@ import { hasResponseEvents, isResponseEvent } from './ResponseEvent.js'
  * Build the `onCommandResponse` callback wired into the CommandQueue.
  *
  * For each valid event in the response, finds the matching collection via
- * matchesStream, uses the command's cache key to tag the event, converts to
- * ParsedEvent, and routes through SyncManager.processResponseEvents() for
- * gap-aware processing and WS dedup.
+ * matchesStream, hydrates the serialized event into an `IPersistedEvent`,
+ * and hands the batch to `SyncManager.handleCommandResponseEvents` — the
+ * same batched drain entry used by the WS path. Fire-and-forget: the
+ * callback does not await event processing. Command lifecycle resolution
+ * is driven by `response.id` + `response.nextExpectedRevision` in the
+ * CommandQueue, not by whether these events have been applied.
  *
  * Uses a lazy SyncManager reference because CommandQueue is created before
  * SyncManager. The lazy ref is safe because onCommandResponse is never called
@@ -32,8 +35,7 @@ export function createCommandResponseHandler<
     const events = response.events
     if (events.length === 0) return
 
-    const cacheKey = command.cacheKey.key
-    const parsedEvents: ParsedEvent[] = []
+    const persistedEvents: IPersistedEvent[] = []
 
     for (const raw of events) {
       if (!isResponseEvent(raw)) continue
@@ -47,22 +49,11 @@ export function createCommandResponseHandler<
         continue
       }
 
-      parsedEvents.push({
-        id: raw.id,
-        type: raw.type,
-        streamId: raw.streamId,
-        persistence: raw.persistence ?? 'Permanent',
-        data: raw.data,
-        commandId: command.commandId,
-        revision: BigInt(raw.revision),
-        position: BigInt(raw.position),
-        cacheKey,
-      })
+      persistedEvents.push(hydrateSerializedEvent(raw))
     }
 
-    const syncManager = getSyncManager()
-    if (parsedEvents.length > 0) {
-      await syncManager.processResponseEvents(parsedEvents)
-    }
+    if (persistedEvents.length === 0) return
+
+    getSyncManager().handleCommandResponseEvents(persistedEvents, command.cacheKey)
   }
 }

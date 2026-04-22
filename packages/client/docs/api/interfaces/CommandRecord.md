@@ -24,6 +24,16 @@ Persisted command record.
 
 ## Properties
 
+### affectedAggregates?
+
+> `optional` **affectedAggregates**: `AffectedAggregate`\<`TLink`\>[]
+
+Aggregates affected by this command's anticipated events, derived at enqueue time.
+Each entry carries the canonical streamId (the chain/concurrency key from the
+event) and the EntityId-aware TLink for reconciliation across EntityRef lifecycles.
+
+---
+
 ### attempts
 
 > **attempts**: `number`
@@ -53,6 +63,18 @@ Cache key identity — associates this command's events with the correct data sc
 > **commandId**: `string`
 
 Unique command identifier (client-generated)
+
+---
+
+### commandIdPaths?
+
+> `optional` **commandIdPaths**: `Record`\<`string`, [`EntityRef`](EntityRef.md)\>
+
+Resolved paths to EntityRef (or EntityTLink for Link-shaped fields) values in the
+command record, captured at enqueue time. Keyed by JSONPath rooted at the command
+object (e.g. `$.data.notebookId`, `$.path.id`). Used to strip/restore EntityRefs
+for storage and handler re-runs, derive auto-dependencies from `ref.commandId`,
+and prune entries as tempIds resolve to serverIds.
 
 ---
 
@@ -88,14 +110,6 @@ Commands this command depends on (must complete first)
 
 ---
 
-### entityRefData?
-
-> `optional` **entityRefData**: `Record`\<`string`, [`EntityRef`](EntityRef.md)\>
-
-EntityRef metadata extracted from command data at enqueue time. Maps JSONPath expressions to their EntityRef values.
-
----
-
 ### error?
 
 > `optional` **error**: `IException`\<`unknown`\>
@@ -120,11 +134,40 @@ Timestamp of last send attempt
 
 ---
 
+### modelState?
+
+> `optional` **modelState**: `unknown`
+
+Read model snapshot the user had when the command was submitted. Used by anticipated event processors as input state.
+
+---
+
 ### path?
 
 > `optional` **path**: `unknown`
 
 URL path template values for command sender URL expansion.
+
+---
+
+### pendingAggregateCoverage?
+
+> `optional` **pendingAggregateCoverage**: `string`
+
+Pipeline coverage tracking for the `'succeeded' → 'applied'` transition. Populated
+by the CommandQueue success path; consumed + updated by the server data pipeline.
+
+JSON-encoded on-disk. After parse:
+
+- `'events'` — server response carried events; rule 1 (pipeline drain of those
+  events) will mark the command applied.
+- `Record<streamId, stringifiedBigInt>` — server response carried no events;
+  rule 2 (per-aggregate revision / cache-key eviction) removes entries as
+  coverage accrues. Empty map → command transitions to `'applied'`.
+
+Absent for commands not yet in `'succeeded'` status. The pipeline's in-flight
+filter on `'succeeded'` guarantees every in-scope command has this populated.
+See `_active-plans/command-applied.md` §3.2.
 
 ---
 
@@ -141,6 +184,16 @@ Post-processing instructions from the domain executor
 > `optional` **revision**: `string` \| [`AutoRevision`](AutoRevision.md)
 
 Revision for optimistic concurrency. AutoRevision markers are resolved before send.
+
+---
+
+### seq
+
+> **seq**: `number`
+
+Sequence number for stable submit-order sorting. Assigned by CommandStore;
+SQL autoincrement is authoritative on disk — this value is read-only from
+the storage perspective.
 
 ---
 

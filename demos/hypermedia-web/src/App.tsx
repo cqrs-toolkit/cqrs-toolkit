@@ -1,18 +1,16 @@
+import { createDiagnostics } from '@cqrs-toolkit/demo-base'
 import { useClient } from '@cqrs-toolkit/hypermedia-base/bootstrap/typed-client'
 import type { RouteSectionProps } from '@solidjs/router'
 import { createSignal, For, onCleanup } from 'solid-js'
 
-window.__CQRS_EVENTS__ = []
-
 export default function App(props: RouteSectionProps) {
   const client = useClient()
+  createDiagnostics(client)
 
   const [wsConnection, setWsConnection] = createSignal('disconnected')
   const [wsTopics, setWsTopics] = createSignal<readonly string[]>([])
 
   const sub = client.events$.subscribe((event) => {
-    window.__CQRS_EVENTS__.push(event)
-
     switch (event.type) {
       case 'ws:connecting':
         setWsConnection('connecting')

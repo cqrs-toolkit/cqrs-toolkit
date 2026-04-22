@@ -1,5 +1,11 @@
 import { appCreateListQuery, TrashIcon } from '#common/components'
-import { AutoRevision, EntityId, entityIdMatches, SubmitResult } from '@cqrs-toolkit/client'
+import {
+  AutoRevision,
+  EntityId,
+  entityIdMatches,
+  isEntityRef,
+  SubmitResult,
+} from '@cqrs-toolkit/client'
 import { createEntityCacheKey, useClient } from '@cqrs-toolkit/client-solid'
 import type { ServiceLink } from '@meticoeus/ddd-es'
 import { createMemo, For, Show } from 'solid-js'
@@ -24,7 +30,6 @@ export function AttachmentList(props: AttachmentListProps) {
   )
 
   const attachmentsQuery = appCreateListQuery<FileObject>(
-    client.queryManager,
     FILE_OBJECTS_COLLECTION_NAME,
     notebookCacheKey,
   )
@@ -78,7 +83,9 @@ export function AttachmentList(props: AttachmentListProps) {
         <div class="flex flex-wrap gap-1">
           <For each={noteAttachments()}>
             {(attachment) => (
-              <div class="attachment-item flex items-center gap-1 px-2 py-0.5 rounded bg-neutral-100 dark:bg-neutral-700 text-xs">
+              <div
+                class={`attachment-item ${isEntityRef(attachment.id) ? 'attachment-local' : 'attachment-server'} flex items-center gap-1 px-2 py-0.5 rounded bg-neutral-100 dark:bg-neutral-700 text-xs`}
+              >
                 <button
                   class="attachment-name text-blue-600 hover:underline cursor-pointer"
                   onClick={() => handleDownload(attachment)}

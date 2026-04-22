@@ -16,9 +16,10 @@ import {
 import type { CacheKeyIdentity } from '../core/cache-manager/CacheKey.js'
 import type { IAnticipatedEvent } from '../core/command-lifecycle/AnticipatedEventShape.js'
 import type { IQueryManager } from '../core/query-manager/types.js'
-import { EnqueueCommand } from './commands.js'
-import { createEntityRef, type EntityId } from './entities.js'
-import { JSONPathExpression } from './json-path.js'
+import { AggregateConfig, type IdReference, ResponseIdReference } from './aggregates.js'
+import type { CommandRecord, EnqueueCommand, HandlerCommand } from './commands.js'
+import { createEntityRef, type EntityId, type EntityRef } from './entities.js'
+import type { JSONPathExpression } from './json-path.js'
 import { ValidationError, ValidationException } from './validation.js'
 
 /**
@@ -206,18 +207,12 @@ export interface AsyncValidationContext<TLink extends Link> {
 }
 
 /**
- * Minimum command envelope shape required by the domain executor.
- * The executor needs the command type for dispatch, data for validation/handling,
- * and path for URL template values passed to validateAsync and handler contexts.
+ * Minimum command envelope shape for the domain executor dispatch layer.
+ * Extends HandlerCommand (what the handler receives) with no additional fields —
+ * exists as a named type for the executor's public API. Uses `unknown` for data
+ * since the executor dispatches to type-specific handlers.
  */
-export interface ExecutorCommand {
-  /** Command type for dispatch */
-  type: string
-  /** Command data (HTTP body payload) */
-  data: unknown
-  /** URL path template values from the command envelope */
-  path?: unknown
-}
+export type ExecutorCommand = HandlerCommand
 
 /**
  * Domain executor interface.
@@ -355,9 +350,10 @@ export type CommandHandlerRegistration<
 > = TCommand extends infer C extends EnqueueCommand
   ? {
       /** Command type this handler processes */
-      commandType: C['type']
+      readonly commandType: C['type']
+      readonly aggregate?: AggregateConfig<TLink>
       /** Phase 1: structural schema validation (library-driven). */
-      schema?: TSchema
+      readonly schema?: TSchema
       /** Phase 2: custom sync validation for rules the schema can't cover. */
       validate?(data: unknown, state: unknown | undefined): Result<unknown, ValidationException>
       /** Phase 3: async validation querying local data (permissions, name conflicts, etc.). */
@@ -368,18 +364,50 @@ export type CommandHandlerRegistration<
       ): Promise<Result<unknown, ValidationException>>
       /** Phase 4: produce anticipated events from validated data. */
       handler(
-        command: C,
+        command: HandlerCommand<C['data']>,
         state: unknown | undefined,
         context: HandlerContext,
       ): DomainExecutionResult<TEvent>
       /** If this command creates a new aggregate, configure how to extract the server ID. */
-      creates?: CreateCommandConfig
-      /** Cross-aggregate parent references. Each entry maps a data field to the command that produces the ID. */
-      parentRef?: ParentRefConfig[]
-      /** JSONPath expressions (RFC 9535 subset) for EntityRef values in nested or array structures.
-       *  Default extraction scans top-level fields. Declare paths here for deeper structures.
-       *  Uses [*] for array wildcard. Example: ['$.forms[*].id', '$.metadata.orgId'] */
-      entityRefPaths?: JSONPathExpression[]
+      readonly creates?: CreateCommandConfig
+      /**
+       * Declarative id mapping: paths into the command response that point to the server-assigned
+       * id(s) — and optionally the next expected revision — of aggregate(s) this command touched.
+       * Each entry pairs an id JSONPath with an aggregate config (or array for union links) and
+       * may include a `revisionPath` for per-aggregate revision tracking. Evaluated at command
+       * success to dual-index aggregate chains (client streamId ↔ server streamId), populate the
+       * id mapping cache, and update each chain's `lastKnownRevision`.
+       *
+       * When neither `responseIdReferences` nor `responseIdMapping` is provided and `aggregate` is
+       * set, `resolveConfig` auto-populates this with
+       * `[{ aggregate, path: '$.id', revisionPath: '$.nextExpectedRevision' }]`. Once either is
+       * explicitly provided, all id-mapping and revision-tracking behavior becomes the consumer's
+       * responsibility (useful for complex commands that may not have a single primary aggregate).
+       */
+      readonly responseIdReferences?: ResponseIdReference<TLink>[]
+      /**
+       * Callback id mapping: compute EntityRef → serverId mappings (with optional next revision)
+       * from arbitrary response shape. Use when `responseIdReferences` can't express the mapping
+       * (computed ids, response events, multi-step logic). Receives the full command record and
+       * response body.
+       */
+      responseIdMapping?(ctx: {
+        command: CommandRecord<TLink, C>
+        response: unknown
+      }): Array<{ clientId: EntityRef; serverId: string; nextExpectedRevision?: string }>
+      /**
+       * Explicit declaration of every id location in the command and the aggregate
+       * it belongs to. Paths are rooted at the command object: `$.data.foo`,
+       * `$.path.bar`. Uses [*] for array wildcard. Use `[]` for commands that
+       * reference no aggregate ids. Example:
+       * `[{ aggregate: Note, path: '$.data.id' }, { aggregate: Folder, path: '$.data.parentId' }]`.
+       *
+       * Cross-aggregate parent references flow through this config too. The
+       * producing create command is identified per-value by `EntityRef.commandId`
+       * on the EntityRef at the declared path, which the pipeline reads to
+       * auto-wire `dependsOn` and to rewrite ids on reconcile.
+       */
+      readonly commandIdReferences: IdReference<TLink>[]
       /**
        * Custom cache key resolver for complex commands where default resolution
        * (replace single field) is insufficient.
@@ -402,18 +430,6 @@ export type CommandHandlerRegistration<
   : never
 
 /**
- * Configuration for a cross-aggregate parent reference in a command data.
- * Tells the library which data field contains a parent aggregate's ID and
- * which create command type produces that ID.
- */
-export interface ParentRefConfig {
-  /** Field name in the data that contains the parent aggregate ID (e.g., 'parentId', 'folderId'). */
-  field: string
-  /** Command type that produces this ID. The library uses that command's `creates` config for ID extraction. */
-  fromCommand: string
-}
-
-/**
  * Metadata lookup for command handler registrations.
  * Allows the CommandQueue to access creates config by command type.
  */
@@ -426,6 +442,83 @@ export interface ICommandHandlerMetadata<
   getRegistration(
     commandType: string,
   ): CommandHandlerRegistration<TLink, TCommand, TSchema, TEvent> | undefined
+}
+
+/**
+ * Apply library defaults to a command handler registration and validate config.
+ *
+ * Defaults: auto-populates `responseIdReferences` with `[{ aggregate, path: '$.id' }]`
+ * when the consumer declared neither `responseIdReferences` nor `responseIdMapping`
+ * and the registration names its primary `aggregate`. Once either id-mapping config
+ * is explicitly provided, no defaults are injected — the consumer owns the behavior.
+ *
+ * Validation: asserts every `commandIdReferences` path is rooted at `$.data` or `$.path`.
+ */
+export function applyCommandHandlerDefaults<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+>(
+  registration: CommandHandlerRegistration<TLink, TCommand, TSchema, TEvent>,
+): CommandHandlerRegistration<TLink, TCommand, TSchema, TEvent> {
+  assert(
+    registration.aggregate !== undefined,
+    `Command "${registration.commandType}" must declare an aggregate. ` +
+      `Every command handler registration requires an explicit aggregate until ` +
+      `aggregate-less commands are supported.`,
+  )
+
+  if (registration.commandIdReferences) {
+    validateCommandIdReferencePaths(registration.commandType, registration.commandIdReferences)
+  }
+
+  if (
+    registration.responseIdReferences !== undefined ||
+    registration.responseIdMapping !== undefined
+  ) {
+    return registration
+  }
+  if (!registration.aggregate) return registration
+  return {
+    ...registration,
+    responseIdReferences: [
+      {
+        aggregate: registration.aggregate,
+        path: '$.id',
+        revisionPath: '$.nextExpectedRevision',
+      },
+    ],
+  }
+}
+
+const VALID_COMMAND_PATH_ROOTS = new Set(['data', 'path'])
+
+function extractPathRoot(path: JSONPathExpression): string {
+  if (path.startsWith('$.')) {
+    const rest = path.slice(2)
+    const end = rest.search(/[.\[]/)
+    return end === -1 ? rest : rest.slice(0, end)
+  }
+  if (path.startsWith('$[')) {
+    const match = path.match(/^\$\[['"](\w+)['"]\]/)
+    if (match?.[1]) return match[1]
+  }
+  return ''
+}
+
+function validateCommandIdReferencePaths<TLink extends Link>(
+  commandType: string,
+  refs: readonly IdReference<TLink>[],
+): void {
+  for (const ref of refs) {
+    const root = extractPathRoot(ref.path)
+    assert(
+      VALID_COMMAND_PATH_ROOTS.has(root),
+      `Command "${commandType}" has invalid commandIdReference path "${ref.path}": ` +
+        `root segment must be "data" or "path", got "${root}"`,
+    )
+  }
 }
 
 /**
@@ -466,7 +559,7 @@ export function createDomainExecutor<
       !registrationMap.has(reg.commandType),
       `Duplicate command handler registration for "${reg.commandType}"`,
     )
-    registrationMap.set(reg.commandType, reg)
+    registrationMap.set(reg.commandType, applyCommandHandlerDefaults(reg))
   }
 
   return {
@@ -498,9 +591,13 @@ export function createDomainExecutor<
 
       // Phase 3: async validation (queries local read model)
       if (reg.validateAsync && queryManager) {
-        const asyncResult = await reg.validateAsync({ ...command, data: currentData } as TCommand, state, {
-          queryManager,
-        })
+        const asyncResult = await reg.validateAsync(
+          { ...command, data: currentData } as TCommand,
+          state,
+          {
+            queryManager,
+          },
+        )
         if (!asyncResult.ok) return asyncResult
         currentData = asyncResult.value
       }

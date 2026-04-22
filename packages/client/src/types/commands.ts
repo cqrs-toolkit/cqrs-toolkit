@@ -11,23 +11,31 @@ import {
   type Result,
 } from '@meticoeus/ddd-es'
 import type { CacheKeyIdentity } from '../core/cache-manager/CacheKey.js'
+import type { AffectedAggregate } from './aggregates.js'
 import type {
   AutoRevision,
   CreateCommandConfig,
   DomainExecutionError,
   PostProcessPlan,
 } from './domain.js'
-import type { EntityRef } from './entities.js'
+import { type EntityRef } from './entities.js'
+import type { JSONPathExpression } from './json-path.js'
 import { ValidationError, ValidationException } from './validation.js'
 
 /**
  * Command lifecycle status.
+ *
+ * `'applied'` is **post-terminal** — it is not part of {@link TerminalCommandStatus}.
+ * A command reaches `'applied'` after its effects are reflected in `serverData`,
+ * which the sync pipeline establishes by observing either the command's response
+ * events or per-aggregate revision/eviction coverage.
  */
 export type CommandStatus =
   | 'pending' // Queued, not yet processed
   | 'blocked' // Waiting on dependencies
   | 'sending' // In-flight to server
-  | 'succeeded' // Server confirmed
+  | 'succeeded' // Server confirmed, effects not yet reflected in serverData
+  | 'applied' // Effects reflected in serverData (pipeline-owned transition)
   | 'failed' // Failed (local validation or server error)
   | 'cancelled' // User cancelled
 
@@ -178,8 +186,39 @@ export interface CommandRecord<
   revision?: string | AutoRevision
   /** File attachments — metadata at rest, hydrated with Blob data before send(). */
   fileRefs?: FileRef[]
-  /** EntityRef metadata extracted from command data at enqueue time. Maps JSONPath expressions to their EntityRef values. */
-  entityRefData?: Record<string, EntityRef>
+  /** Read model snapshot the user had when the command was submitted. Used by anticipated event processors as input state. */
+  modelState?: unknown
+  /** Aggregates affected by this command's anticipated events, derived at enqueue time.
+   *  Each entry carries the canonical streamId (the chain/concurrency key from the
+   *  event) and the EntityId-aware TLink for reconciliation across EntityRef lifecycles. */
+  affectedAggregates?: AffectedAggregate<TLink>[]
+  /** Resolved paths to EntityRef (or EntityTLink for Link-shaped fields) values in the
+   *  command record, captured at enqueue time. Keyed by JSONPath rooted at the command
+   *  object (e.g. `$.data.notebookId`, `$.path.id`). Used to strip/restore EntityRefs
+   *  for storage and handler re-runs, derive auto-dependencies from `ref.commandId`,
+   *  and prune entries as tempIds resolve to serverIds. */
+  // TODO: widen to Record<JSONPathExpression, EntityRef | EntityTLink<TLink>> when A.4 (Link-aware walker) lands
+  commandIdPaths?: Record<JSONPathExpression, EntityRef>
+  /**
+   * Pipeline coverage tracking for the `'succeeded' → 'applied'` transition. Populated
+   * by the CommandQueue success path; consumed + updated by the server data pipeline.
+   *
+   * JSON-encoded on-disk. After parse:
+   *   - `'events'` — server response carried events; rule 1 (pipeline drain of those
+   *     events) will mark the command applied.
+   *   - `Record<streamId, stringifiedBigInt>` — server response carried no events;
+   *     rule 2 (per-aggregate revision / cache-key eviction) removes entries as
+   *     coverage accrues. Empty map → command transitions to `'applied'`.
+   *
+   * Absent for commands not yet in `'succeeded'` status. The pipeline's in-flight
+   * filter on `'succeeded'` guarantees every in-scope command has this populated.
+   * See `_active-plans/command-applied.md` §3.2.
+   */
+  pendingAggregateCoverage?: string
+  /** Sequence number for stable submit-order sorting. Assigned by CommandStore;
+   *  SQL autoincrement is authoritative on disk — this value is read-only from
+   *  the storage perspective. */
+  seq: number
   /** Creation timestamp */
   createdAt: number
   /** Last update timestamp */
@@ -210,17 +249,31 @@ export interface FileRef {
 }
 
 /**
- * Command to enqueue.
+ * Command shape received by command handlers to produce anticipated events.
+ * Contains the command identity, payload, and file metadata — but NOT File
+ * blobs, revision, service, or dependency info (those are submit/send concerns).
  */
-export interface EnqueueCommand<TData = unknown> {
+export interface HandlerCommand<TData = unknown> {
   /** Command type */
   type: string
   /** Command data (HTTP body payload) */
   data: TData
+  /** URL path template values (e.g. `{ id: '...' }`). */
+  path?: unknown
+  /** File attachment metadata (library-populated from `files` at enqueue time).
+   *  Available to handlers for producing anticipated events that reference file
+   *  properties (filename, mimeType, etc.). */
+  fileRefs?: FileRef[]
+}
+
+/**
+ * Command to enqueue via `client.submit()`.
+ * Extends the handler shape with submit-time concerns: File blobs, revision,
+ * service routing, and dependency declarations.
+ */
+export interface EnqueueCommand<TData = unknown> extends HandlerCommand<TData> {
   /** File attachments for upload commands. Provide File objects (from input elements or `new File()`). */
   files?: File[]
-  /** URL path template values (e.g. `{ id: '...' }`). Used by the command sender for URL expansion. */
-  path?: unknown
   /** Revision for optimistic concurrency (mutate commands). Absent for creates. */
   revision?: string | AutoRevision
   /** Target service (optional, defaults to primary) */
@@ -239,6 +292,13 @@ export interface EnqueueOptions<TLink extends Link> {
   commandId?: string
   /** Cache key identity — associates anticipated events and response events with the correct data scope. */
   cacheKey: CacheKeyIdentity<TLink>
+  /**
+   * Read-model snapshot at submission time, passed to the domain executor as
+   * the handler's initial state. State-dependent anticipated event handlers
+   * use this so the optimistic event reflects what the user saw when they
+   * submitted.
+   */
+  modelState?: unknown
 }
 
 /**
@@ -383,14 +443,64 @@ export function isEnqueueFailure<TEvent>(
 
 /**
  * Terminal command statuses — command processing is complete.
+ *
+ * Note: `'applied'` is post-terminal and intentionally NOT included here.
+ * Terminal status gates `waitForCompletion`, file cleanup, and chain detachment —
+ * all of which fire at `'succeeded'` and must not wait for the pipeline's later
+ * `'succeeded' → 'applied'` transition.
  */
-export type TerminalCommandStatus = 'succeeded' | 'failed' | 'cancelled'
+export type TerminalCommandStatus = 'applied' | 'succeeded' | 'failed' | 'cancelled'
 
 /**
  * Check if command is in a terminal state.
+ *
+ * 'applied' is questionable and needs to be handled carefully by callers.
+ * The normal lifecycle is 'succeeded' -> 'applied' so naive treatment can double-effect.
  */
 export function isTerminalStatus(status: CommandStatus): status is TerminalCommandStatus {
-  return status === 'succeeded' || status === 'failed' || status === 'cancelled'
+  switch (status) {
+    case 'applied':
+    case 'succeeded':
+    case 'failed':
+    case 'cancelled':
+      return true
+    default:
+      return false
+  }
+}
+
+/**
+ * True for {@link CommandEvent}s that signal a command has finished all work —
+ * including post-success processing (aggregate-id reconciliation, overlay
+ * rewrites, dependent unblocking) and post-failure processing (dependent
+ * cancellation).
+ *
+ * Distinct from {@link isTerminalStatus}: a `status-changed` {@link CommandEvent}
+ * with a terminal {@link CommandEvent.status} fires at the status flip — BEFORE
+ * post-processing. The terminal {@link CommandEvent.eventType}s (`completed`,
+ * `failed`, `cancelled`) fire AFTER, so consumers that need to observe
+ * fully-settled state (e.g. `waitForCompletion`) should filter on the
+ * {@link CommandEvent.eventType} via this predicate rather than on status.
+ */
+export function isTerminalCommandEvent(event: CommandEvent): boolean {
+  return (
+    event.eventType === 'completed' ||
+    event.eventType === 'failed' ||
+    event.eventType === 'cancelled'
+  )
+}
+
+/**
+ * Check if a command has reached server confirmation — either `'succeeded'`
+ * (server acked, local serverData may not yet reflect effects) or `'applied'`
+ * (local serverData reflects effects).
+ *
+ * Use for completion-result branching where both statuses should resolve the
+ * same `Ok(response)` outcome. Consumer-awaited promises resolve on `'succeeded'`;
+ * if a consumer later inspects a command already in `'applied'`, treat it the same.
+ */
+export function isConfirmedStatus(status: CommandStatus): status is 'succeeded' | 'applied' {
+  return status === 'succeeded' || status === 'applied'
 }
 
 // ---------------------------------------------------------------------------

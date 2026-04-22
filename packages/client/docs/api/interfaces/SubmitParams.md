@@ -56,6 +56,21 @@ Custom command ID (defaults to generated UUID)
 
 ---
 
+### modelState?
+
+> `optional` **modelState**: `unknown`
+
+Read-model snapshot at submission time, passed to the domain executor as
+the handler's initial state. State-dependent anticipated event handlers
+use this so the optimistic event reflects what the user saw when they
+submitted.
+
+#### Inherited from
+
+[`SubmitOptions`](SubmitOptions.md).[`modelState`](SubmitOptions.md#modelstate)
+
+---
+
 ### skipValidation?
 
 > `optional` **skipValidation**: `boolean`

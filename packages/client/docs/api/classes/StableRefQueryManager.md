@@ -95,7 +95,7 @@ Collection name
 
 ##### id
 
-`string`
+[`EntityId`](../type-aliases/EntityId.md)
 
 Entity ID
 
@@ -166,6 +166,52 @@ Get multiple entities by IDs.
 #### Implementation of
 
 [`IQueryManager`](../interfaces/IQueryManager.md).[`getByIds`](../interfaces/IQueryManager.md#getbyids)
+
+---
+
+### getLocallyById()
+
+> **getLocallyById**\<`T`\>(`collection`, `id`): `Promise`\<`T` \| `undefined`\>
+
+Read a locally-cached read model by ID without triggering any client-side effects.
+
+Unlike [IQueryManager.getById](../interfaces/IQueryManager.md#getbyid), this does not acquire a cache key,
+register holds, emit events, or reconcile references.
+It reads straight from the local read-model store and returns the data
+if present, or `undefined` if the entity is not cached locally.
+
+Use this for quick local lookups where a full query result
+(with metadata and cache-key plumbing) is not needed.
+
+#### Type Parameters
+
+##### T
+
+`T`
+
+#### Parameters
+
+##### collection
+
+`string`
+
+Collection name
+
+##### id
+
+[`EntityId`](../type-aliases/EntityId.md)
+
+Entity ID
+
+#### Returns
+
+`Promise`\<`T` \| `undefined`\>
+
+The cached data, or `undefined` if not present locally
+
+#### Implementation of
+
+[`IQueryManager`](../interfaces/IQueryManager.md).[`getLocallyById`](../interfaces/IQueryManager.md#getlocallybyid)
 
 ---
 

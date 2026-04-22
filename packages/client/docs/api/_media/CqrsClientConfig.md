@@ -35,6 +35,18 @@ mode selection and worker script URL.
 
 ## Properties
 
+### aggregates
+
+> **aggregates**: [`ClientAggregatesConfig`](../type-aliases/ClientAggregatesConfig.md)\<`TLink`\>
+
+Aggregate registry and stream ID parser.
+
+#### Inherited from
+
+[`CqrsConfig`](CqrsConfig.md).[`aggregates`](CqrsConfig.md#aggregates)
+
+---
+
 ### auth
 
 > **auth**: [`AuthStrategy`](AuthStrategy.md)
@@ -109,6 +121,28 @@ Enable debug logging.
 #### Inherited from
 
 [`CqrsConfig`](CqrsConfig.md).[`debug`](CqrsConfig.md#debug)
+
+---
+
+### logger?
+
+> `optional` **logger**: `ILogger`
+
+Logger to install via `logProvider.setLogger(...)` at bootstrap.
+
+When provided, the client honours it verbatim — consumers wiring Pino
+or their own transport keep full control over level, format, and
+destination. When omitted, the client falls back to the built-in
+wiring: EventBusLogger in debug mode (so log calls land on
+`client.events$` alongside library events) or a plain console logger
+at `warn` otherwise.
+
+Applies on both main thread and worker — pass the same logger via the
+shared config and both sides install it.
+
+#### Inherited from
+
+[`CqrsConfig`](CqrsConfig.md).[`logger`](CqrsConfig.md#logger)
 
 ---
 

@@ -12,11 +12,7 @@ export default function TodosPage() {
   const client = useClient()
   const nav = createEditNavigator()
   const [error, setError] = createSignal<string>()
-  const query = appCreateListQuery<Todo>(
-    client.queryManager,
-    'todos',
-    deriveScopeKey({ scopeType: 'todos' }),
-  )
+  const query = appCreateListQuery<Todo>('todos', deriveScopeKey({ scopeType: 'todos' }))
 
   const sortedTodos = createMemo(() =>
     query.items.slice().sort((a, b) => {

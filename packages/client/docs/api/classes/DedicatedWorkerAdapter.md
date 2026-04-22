@@ -86,6 +86,34 @@ Role of this client instance.
 
 ---
 
+### channel
+
+#### Get Signature
+
+> **get** **channel**(): [`WorkerMessageChannel`](../@cqrs-toolkit/namespaces/protocol/classes/WorkerMessageChannel.md)
+
+Transport channel to the worker. Exposed so the bootstrap can treat it
+as the main-thread IEventSink for local events (log emissions,
+etc.) — events pushed through `channel.emit`/`emitDebug` surface on
+[events$](../interfaces/IWorkerAdapter.md#events) alongside events forwarded from the worker without
+crossing `postMessage`.
+
+##### Returns
+
+[`WorkerMessageChannel`](../@cqrs-toolkit/namespaces/protocol/classes/WorkerMessageChannel.md)
+
+Transport channel to the worker. Exposed so the bootstrap can treat it
+as the main-thread IEventSink for local events (log emissions,
+etc.) — events pushed through `channel.emit`/`emitDebug` surface on
+[events$](../interfaces/IWorkerAdapter.md#events) alongside events forwarded from the worker without
+crossing `postMessage`.
+
+#### Implementation of
+
+[`IWorkerAdapter`](../interfaces/IWorkerAdapter.md).[`channel`](../interfaces/IWorkerAdapter.md#channel)
+
+---
+
 ### commandQueue
 
 #### Get Signature

@@ -52,7 +52,7 @@ Event type produced by the executor
 
 ### handle()
 
-> **handle**(`command`, `context`): [`DomainExecutionResult`](../type-aliases/DomainExecutionResult.md)\<`TEvent`\>
+> **handle**(`command`, `state`, `context`): [`DomainExecutionResult`](../type-aliases/DomainExecutionResult.md)\<`TEvent`\>
 
 Run the handler only. No validation.
 Produces anticipated events from the (possibly transformed) command data.
@@ -61,9 +61,13 @@ Produces anticipated events from the (possibly transformed) command data.
 
 ##### command
 
-[`ExecutorCommand`](ExecutorCommand.md)
+[`ExecutorCommand`](../type-aliases/ExecutorCommand.md)
 
 The command envelope with data ready for the handler
+
+##### state
+
+`unknown`
 
 ##### context
 
@@ -81,7 +85,7 @@ Success with anticipated events, or failure
 
 ### validate()
 
-> **validate**(`command`): `Promise`\<`Result`\<`unknown`, [`DomainExecutionError`](../type-aliases/DomainExecutionError.md)\>\>
+> **validate**(`command`, `state`): `Promise`\<`Result`\<`unknown`, [`DomainExecutionError`](../type-aliases/DomainExecutionError.md)\>\>
 
 Run validation phases (schema, validate, validateAsync) on the command data.
 Returns the validated/hydrated data on success, or a validation error.
@@ -92,7 +96,11 @@ Does NOT run the handler.
 
 ##### command
 
-[`ExecutorCommand`](ExecutorCommand.md)
+[`ExecutorCommand`](../type-aliases/ExecutorCommand.md)
+
+##### state
+
+`unknown`
 
 #### Returns
 

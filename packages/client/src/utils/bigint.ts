@@ -10,8 +10,16 @@
  * silently produce corrupt data.
  */
 export function serializeBigint(value: bigint | string | undefined): string | undefined {
-  if (value === undefined) return undefined
+  if (typeof value === 'undefined') return undefined
   if (typeof value === 'bigint') return String(value)
   if (typeof value === 'string' && /^-?\d+$/.test(value)) return value
+  return undefined
+}
+
+export function safeParseSerializeBigint(value: unknown): bigint | undefined {
+  if (typeof value === 'string' && /^-?\d+$/.test(value)) {
+    return BigInt(value)
+  }
+
   return undefined
 }

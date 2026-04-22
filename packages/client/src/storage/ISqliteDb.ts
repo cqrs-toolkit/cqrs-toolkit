@@ -15,10 +15,26 @@
  * When `returnRows` is true the result slot for this statement will be
  * the row-object array; otherwise it will be `undefined`.
  */
-export interface SqliteBatchStatement {
+export interface SqliteBatchStatement<T = void> {
   sql: string
   bind?: unknown[]
   returnRows?: boolean
+}
+
+export type BatchResult<T extends readonly SqliteBatchStatement<any>[]> = {
+  [K in keyof T]: T[K] extends SqliteBatchStatement<infer R>
+    ? [R] extends [void]
+      ? undefined
+      : R[]
+    : never
+}
+
+export function queryStmt<R>(sql: string, bind?: unknown[]): SqliteBatchStatement<R> {
+  return { sql, bind, returnRows: true }
+}
+
+export function execStmt(sql: string, bind?: unknown[]): SqliteBatchStatement<void> {
+  return { sql, bind, returnRows: false }
 }
 
 /**
@@ -46,7 +62,9 @@ export interface ISqliteDb {
    * - `undefined` when `returnRows` was false/omitted
    * - the row-object array when `returnRows` was true
    */
-  execBatch(statements: SqliteBatchStatement[]): Promise<unknown[]>
+  execBatch<const T extends readonly SqliteBatchStatement<any>[]>(
+    statements: T,
+  ): Promise<BatchResult<T>>
 
   close(): Promise<void>
 }

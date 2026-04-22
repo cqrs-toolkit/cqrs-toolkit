@@ -7,6 +7,7 @@ const STATUS_BADGE_CLASSES: Record<CommandStatus, string> = {
   blocked: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
   sending: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
   succeeded: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  applied: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
   failed: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
   cancelled: 'bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-400',
 }
@@ -26,7 +27,7 @@ export function CommandItem(props: CommandItemProps) {
 
   return (
     <div
-      class={`command-item command-${cmd().status} rounded border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 overflow-hidden`}
+      class={`command-item command-${cmd().status}${cmd().status === 'succeeded' || cmd().status === 'applied' ? ' command-confirmed' : ''} rounded border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 overflow-hidden`}
     >
       {/* Collapsed row */}
       <button

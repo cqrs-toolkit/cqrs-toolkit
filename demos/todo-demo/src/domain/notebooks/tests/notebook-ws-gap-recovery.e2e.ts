@@ -1,6 +1,6 @@
+import { expect, setupTestDiagnostics, test, url } from '#e2e-fixtures'
 import type { CommandSuccessResponse } from '@cqrs-toolkit/demo-base/common/shared'
 import type { APIRequestContext } from '@playwright/test'
-import { expect, test, url } from '../../../e2e-fixtures.js'
 import {
   clearCqrsEventLog,
   gotoWithWsSubscribed,
@@ -8,6 +8,8 @@ import {
   waitForWsDisconnected,
   waitForWsReconnection,
 } from '../../../e2e-helpers.js'
+
+setupTestDiagnostics()
 
 const API = 'http://localhost:3001/api'
 

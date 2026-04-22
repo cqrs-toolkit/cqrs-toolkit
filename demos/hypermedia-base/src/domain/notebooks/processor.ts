@@ -12,7 +12,7 @@ import { addRevision } from '../utils/processors.js'
 export const notebookProcessors: ProcessorRegistration[] = [
   {
     eventTypes: 'NotebookCreated',
-    processor: (data: NotebookCreatedEvent['data'], ctx) => ({
+    processor: (data: NotebookCreatedEvent['data'], _state, ctx) => ({
       collection: 'notebooks',
       id: data.id,
       update: {
@@ -30,7 +30,7 @@ export const notebookProcessors: ProcessorRegistration[] = [
   } satisfies ProcessorRegistration<NotebookCreatedEvent['data'], Notebook>,
   {
     eventTypes: 'NotebookNameUpdated',
-    processor: (data: NotebookNameUpdatedEvent['data'], ctx) => ({
+    processor: (data: NotebookNameUpdatedEvent['data'], _state, ctx) => ({
       collection: 'notebooks',
       id: data.id,
       update: {
@@ -54,8 +54,8 @@ export const notebookProcessors: ProcessorRegistration[] = [
   },
   {
     eventTypes: 'NotebookTagAdded',
-    processor: async (data: NotebookTagAddedEvent['data'], ctx) => {
-      const current = await ctx.getCurrentState<Notebook>('notebooks', data.id)
+    processor: (data: NotebookTagAddedEvent['data'], state, ctx) => {
+      const current = state as Notebook | undefined
       const existingTags = current?.tags ?? []
       if (existingTags.includes(data.tag)) return undefined
       return {
@@ -71,8 +71,8 @@ export const notebookProcessors: ProcessorRegistration[] = [
   },
   {
     eventTypes: 'NotebookTagRemoved',
-    processor: async (data: NotebookTagRemovedEvent['data'], ctx) => {
-      const current = await ctx.getCurrentState<Notebook>('notebooks', data.id)
+    processor: (data: NotebookTagRemovedEvent['data'], state, ctx) => {
+      const current = state as Notebook | undefined
       const existingTags = current?.tags ?? []
       if (!existingTags.includes(data.tag)) return undefined
       return {

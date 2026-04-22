@@ -19,7 +19,9 @@
 import type { EnqueueCommand, IAnticipatedEvent, ResolvedConfig } from '@cqrs-toolkit/client'
 import {
   CacheManager,
+  CommandIdMappingStore,
   CommandQueue,
+  CommandStore,
   type CqrsConfig,
   EventBus,
   EventCache,
@@ -148,61 +150,72 @@ async function bootstrapWorker<
     }
 
     // 5. Cache manager
-    const cacheManager = new CacheManager<TLink, TCommand>(storage, eventBus, {
+    const cacheManager = new CacheManager<TLink, TCommand>(eventBus, storage, {
       cacheConfig: config.cache,
     })
     await cacheManager.initialize()
 
     // 6. Event cache
-    const eventCache = new EventCache<TLink, TCommand>(storage, eventBus)
+    const eventCache = new EventCache<TLink, TCommand>(storage)
+
+    // 6.5. Command id mapping store
+    const mappingStore = new CommandIdMappingStore<TLink, TCommand>(storage)
+    await mappingStore.initialize()
 
     // 7. Read model store
-    const readModelStore = new ReadModelStore<TLink, TCommand>(storage)
+    const readModelStore = new ReadModelStore<TLink, TCommand>(eventBus, storage, mappingStore)
 
     // 8. Event processor runner
     const eventProcessorRunner = new EventProcessorRunner<TLink, TCommand>(
-      readModelStore,
       eventBus,
       registry,
+      readModelStore,
     )
 
     // 9. Write queue
-    const writeQueue = new WriteQueue<TLink>(eventBus)
+    const writeQueue = new WriteQueue<TLink, TCommand>(eventBus)
 
     // 10. Anticipated event handler
     const anticipatedEventHandler = new AnticipatedEventHandler(
+      eventBus,
       eventCache,
-      eventProcessorRunner,
+      registry,
       readModelStore,
       config.collections,
       writeQueue,
     )
-    eventProcessorRunner.setAnticipatedEventHandler(anticipatedEventHandler)
 
     // 11. Query manager
     const queryManager = new QueryManager<TLink, TCommand>(eventBus, cacheManager, readModelStore)
+
+    // 11.5. Command store
+    const commandStore = new CommandStore(storage, {
+      retainTerminal: config.retainTerminal,
+    })
+    await commandStore.initialize()
 
     // 12. Command queue
     let syncManagerRef: SyncManager<TLink, TCommand, TSchema, TEvent>
     const fileStore = new FsCommandFileStore(init.filesPath)
 
+    const domainExecutor =
+      config.commandHandlers.length === 0
+        ? undefined
+        : createDomainExecutor<TLink, TCommand, TSchema, TEvent>(config.commandHandlers, {
+            schemaValidator: config.schemaValidator,
+            queryManager,
+          })
     const commandQueue = new CommandQueue<TLink, TCommand, TSchema, TEvent>(
-      storage,
       eventBus,
+      storage,
       fileStore,
       anticipatedEventHandler,
+      config.aggregates,
+      readModelStore,
+      commandStore,
+      mappingStore,
       {
-        ...(() => {
-          if (config.commandHandlers.length === 0) return {}
-          const executor = createDomainExecutor<TLink, TCommand, TSchema, TEvent>(
-            config.commandHandlers,
-            {
-              schemaValidator: config.schemaValidator,
-              queryManager,
-            },
-          )
-          return { domainExecutor: executor, handlerMetadata: executor }
-        })(),
+        domainExecutor,
         commandSender: config.commandSender,
         retryConfig: config.retry,
         retainTerminal: config.retainTerminal,
@@ -221,10 +234,13 @@ async function bootstrapWorker<
     // 14. Sync manager
     const syncManager = new SyncManager<TLink, TCommand, TSchema, TEvent>(
       eventBus,
+      storage,
       sessionMgr,
+      anticipatedEventHandler,
       commandQueue,
       eventCache,
       cacheManager,
+      registry,
       eventProcessorRunner,
       readModelStore,
       queryManager,
@@ -233,11 +249,17 @@ async function bootstrapWorker<
       config.network,
       config.auth,
       config.collections,
+      config.aggregates,
+      domainExecutor,
+      commandStore,
+      mappingStore,
     )
     syncManagerRef = syncManager
 
+    await commandQueue.initialize()
+
     // 15. Register RPC methods
-    registerCommandQueueMethods(messageHandler, commandQueue)
+    registerCommandQueueMethods(messageHandler, commandQueue, eventBus)
     registerQueryManagerMethods(messageHandler, queryManager)
     registerCacheManagerMethods(messageHandler, cacheManager)
     registerSyncManagerMethods(messageHandler, syncManager, sessionMgr)
@@ -310,6 +332,8 @@ async function bootstrapWorker<
       await syncManager.destroy()
       await queryManager.destroy()
       await commandQueue.destroy()
+      await commandStore.destroy()
+      await mappingStore.destroy()
       connectivity.destroy()
       eventBroadcastSub.unsubscribe()
       eventBus.complete()

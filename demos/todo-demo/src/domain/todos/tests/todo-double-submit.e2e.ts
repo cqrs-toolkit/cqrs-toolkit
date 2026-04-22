@@ -1,8 +1,10 @@
-import { expect, test, url } from '../../../e2e-fixtures.js'
+import { expect, setupTestDiagnostics, test, url } from '#e2e-fixtures'
 import { addTodo, waitForTodoCount } from '../../../e2e-helpers.js'
 import { testNavigator } from '../../../e2e-nav.js'
 
 const { Dashboard, Todos } = testNavigator
+
+setupTestDiagnostics()
 
 test.beforeEach(async ({ request }) => {
   await request.post('http://localhost:3001/api/test/reset')
@@ -22,9 +24,9 @@ test('toggling a todo produces exactly one status command', async ({ page, mode 
   await Dashboard.goToCommands(page)
 
   await expect(page.locator('.command-item')).toHaveCount(2)
-  await expect(page.locator('.command-item.command-succeeded')).toHaveCount(2)
+  await expect(page.locator('.command-item.command-confirmed')).toHaveCount(2)
   const types = await page
-    .locator('.command-item.command-succeeded .command-type')
+    .locator('.command-item.command-confirmed .command-type')
     .allTextContents()
   expect(types.sort()).toEqual(['ChangeTodoStatus', 'CreateTodo'])
 })
@@ -43,9 +45,9 @@ test('deleting a todo produces exactly one delete command', async ({ page, mode 
   await Dashboard.goToCommands(page)
 
   await expect(page.locator('.command-item')).toHaveCount(2)
-  await expect(page.locator('.command-item.command-succeeded')).toHaveCount(2)
+  await expect(page.locator('.command-item.command-confirmed')).toHaveCount(2)
   const types = await page
-    .locator('.command-item.command-succeeded .command-type')
+    .locator('.command-item.command-confirmed .command-type')
     .allTextContents()
   expect(types.sort()).toEqual(['CreateTodo', 'DeleteTodo'])
 })
@@ -70,9 +72,9 @@ test('editing a todo via Enter does not double-submit the update command', async
   await Dashboard.goToCommands(page)
 
   await expect(page.locator('.command-item')).toHaveCount(2)
-  await expect(page.locator('.command-item.command-succeeded')).toHaveCount(2)
+  await expect(page.locator('.command-item.command-confirmed')).toHaveCount(2)
   const types = await page
-    .locator('.command-item.command-succeeded .command-type')
+    .locator('.command-item.command-confirmed .command-type')
     .allTextContents()
   expect(types.sort()).toEqual(['CreateTodo', 'UpdateTodoContent'])
 })
@@ -94,9 +96,9 @@ test('editing a todo via ArrowDown does not double-submit', async ({ page, mode 
   await Dashboard.goToCommands(page)
 
   await expect(page.locator('.command-item')).toHaveCount(2)
-  await expect(page.locator('.command-item.command-succeeded')).toHaveCount(2)
+  await expect(page.locator('.command-item.command-confirmed')).toHaveCount(2)
   const types = await page
-    .locator('.command-item.command-succeeded .command-type')
+    .locator('.command-item.command-confirmed .command-type')
     .allTextContents()
   expect(types.sort()).toEqual(['CreateTodo', 'UpdateTodoContent'])
 })
@@ -118,9 +120,9 @@ test('editing a todo via blur does not produce extra commands', async ({ page, m
   await Dashboard.goToCommands(page)
 
   await expect(page.locator('.command-item')).toHaveCount(2)
-  await expect(page.locator('.command-item.command-succeeded')).toHaveCount(2)
+  await expect(page.locator('.command-item.command-confirmed')).toHaveCount(2)
   const types = await page
-    .locator('.command-item.command-succeeded .command-type')
+    .locator('.command-item.command-confirmed .command-type')
     .allTextContents()
   expect(types.sort()).toEqual(['CreateTodo', 'UpdateTodoContent'])
 })

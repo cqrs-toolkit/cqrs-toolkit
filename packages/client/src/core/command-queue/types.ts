@@ -36,7 +36,6 @@ export interface ICommandQueue<TLink extends Link, TCommand extends EnqueueComma
    */
   enqueue<TData, TEvent extends IAnticipatedEvent>(
     params: EnqueueParams<TLink, TData>,
-    modelState?: unknown | undefined,
   ): Promise<EnqueueResult<TEvent>>
 
   /**
@@ -62,7 +61,6 @@ export interface ICommandQueue<TLink extends Link, TCommand extends EnqueueComma
    */
   enqueueAndWait<TData, TEvent extends IAnticipatedEvent, TResponse>(
     params: EnqueueAndWaitParams<TLink, TData>,
-    modelState?: unknown | undefined,
   ): Promise<EnqueueAndWaitResult<TResponse>>
 
   /**
@@ -123,13 +121,17 @@ export interface ICommandQueue<TLink extends Link, TCommand extends EnqueueComma
 
   /**
    * Pause command processing.
+   * Resolves after any in-flight command finishes; callers who only want
+   * the flag flipped can simply not await.
    */
-  pause(): void
+  pause(): Promise<void>
 
   /**
-   * Resume command processing.
+   * Resume command processing and drain any pending commands.
+   * Resolves after the drain completes; callers who want fire-and-forget
+   * can simply not await.
    */
-  resume(): void
+  resume(): Promise<void>
 
   /**
    * Check if command processing is paused.
@@ -173,6 +175,15 @@ export interface ICommandQueueInternal<
    * @returns The server ID if the client ID has been reconciled, undefined otherwise.
    */
   getIdMapping(clientId: EntityId): { serverId: string } | undefined
+
+  /**
+   * Derive the primary entity ID for a command — `data.id` for mutate commands,
+   * the resolved create entity id (from the aggregate chain) for create commands.
+   * Used by reconciliation to key commands against per-entity dirty sets.
+   *
+   * @returns The entity ID as a plain string, or undefined if it cannot be resolved.
+   */
+  getEntityIdForCommand(command: CommandRecord<TLink, TCommand>): string | undefined
 }
 
 /**

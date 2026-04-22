@@ -15,6 +15,8 @@ import type { AppCommandHandlerRegistration } from '../utils/executors.js'
 export const todoHandlers: AppCommandHandlerRegistration[] = [
   {
     commandType: 'CreateTodo',
+    aggregate: TodoAggregate,
+    commandIdReferences: [],
     schema: createTodoPayloadSchema,
     creates: { eventType: 'TodoCreated', idStrategy: 'temporary' },
     handler(command, _state, context) {
@@ -32,6 +34,8 @@ export const todoHandlers: AppCommandHandlerRegistration[] = [
   },
   {
     commandType: 'UpdateTodoContent',
+    aggregate: TodoAggregate,
+    commandIdReferences: [{ aggregate: TodoAggregate, path: '$.data.id' }],
     schema: updateTodoContentPayloadSchema,
     handler(command) {
       const { id, content } = command.data as { id: string; content: string }
@@ -46,6 +50,8 @@ export const todoHandlers: AppCommandHandlerRegistration[] = [
   },
   {
     commandType: 'ChangeTodoStatus',
+    aggregate: TodoAggregate,
+    commandIdReferences: [{ aggregate: TodoAggregate, path: '$.data.id' }],
     schema: changeTodoStatusPayloadSchema,
     handler(command) {
       const { id, status } = command.data as { id: string; status: string }
@@ -60,6 +66,8 @@ export const todoHandlers: AppCommandHandlerRegistration[] = [
   },
   {
     commandType: 'DeleteTodo',
+    aggregate: TodoAggregate,
+    commandIdReferences: [{ aggregate: TodoAggregate, path: '$.data.id' }],
     schema: deleteTodoPayloadSchema,
     handler(command) {
       const { id } = command.data as { id: string }

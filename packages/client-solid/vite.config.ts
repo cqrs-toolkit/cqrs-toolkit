@@ -5,6 +5,7 @@ export default defineConfig({
   test: {
     name: 'unit-client-solid',
     environment: 'jsdom',
+    setupFiles: ['src/vitest-setup.ts'],
     includeSource: ['src/*.test.ts', 'src/**/*.test.ts'],
   },
   resolve: {

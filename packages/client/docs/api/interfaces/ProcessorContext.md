@@ -26,34 +26,6 @@ Unique event ID
 
 ---
 
-### getCurrentState()
-
-> **getCurrentState**: \<`T`\>(`collection`, `id`) => `Promise`\<`T` \| `undefined`\>
-
-Get current read model state (may not exist)
-
-#### Type Parameters
-
-##### T
-
-`T`
-
-#### Parameters
-
-##### collection
-
-`string`
-
-##### id
-
-`string`
-
-#### Returns
-
-`Promise`\<`T` \| `undefined`\>
-
----
-
 ### persistence
 
 > **persistence**: [`EventPersistence`](../type-aliases/EventPersistence.md)

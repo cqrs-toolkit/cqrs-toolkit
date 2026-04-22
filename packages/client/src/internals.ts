@@ -42,4 +42,4 @@ export type { ICommandQueueInternal } from './core/command-queue/types.js'
 export type { IQueryManagerInternal } from './core/query-manager/types.js'
 
 // Storage types needed by alternative ISqliteDb implementations
-export type { SqliteBatchStatement } from './storage/ISqliteDb.js'
+export type { BatchResult, SqliteBatchStatement } from './storage/ISqliteDb.js'

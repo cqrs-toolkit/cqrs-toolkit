@@ -26,7 +26,7 @@ Collection to update
 
 ### id
 
-> **id**: `string`
+> **id**: [`EntityId`](../type-aliases/EntityId.md)
 
 Entity ID to update
 

@@ -22,13 +22,21 @@ Read model store implementation.
 
 ### Constructor
 
-> **new ReadModelStore**\<`TLink`, `TCommand`\>(`storage`): `ReadModelStore`\<`TLink`, `TCommand`\>
+> **new ReadModelStore**\<`TLink`, `TCommand`\>(`eventBus`, `storage`, `mappingStore`): `ReadModelStore`\<`TLink`, `TCommand`\>
 
 #### Parameters
+
+##### eventBus
+
+[`EventBus`](EventBus.md)\<`TLink`\>
 
 ##### storage
 
 [`IStorage`](../interfaces/IStorage.md)\<`TLink`, `TCommand`\>
+
+##### mappingStore
+
+[`ICommandIdMappingStore`](../interfaces/ICommandIdMappingStore.md)
 
 #### Returns
 
@@ -96,9 +104,60 @@ Collection name
 
 ##### id
 
-`string`
+[`EntityId`](../type-aliases/EntityId.md)
 
 Entity ID
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
+### commit()
+
+> **commit**(`mutations`, `preloaded?`): `Promise`\<`void`\>
+
+Batched pipeline write entry point.
+
+Takes an ordered list of read-model mutations (set/merge/delete variants,
+in-place id migrations, and `_clientMetadata` stamps), folds them per row
+against a single batched baseline read, and commits the minimal set of
+storage writes. Preserves every side effect of the per-setter path:
+
+- `setServer` / `mergeServer`: three-way merge of local overlay against
+  the old server baseline, then reapplied over the new one (local
+  changes survive server updates).
+- `setLocal` / `applyLocal`: overwrite / spread into `effectiveData`
+  with `hasLocalChanges: true`; preserve `serverData`, `revision`,
+  `position`.
+- `delete`: tombstones the row; no-op when baseline absent.
+- `setClientMetadata`: overwrites `_clientMetadata` on the folded record.
+- `migrateId`: renames the row in-place via
+  [ReadModelStore.migrateEntityIds](#migrateentityids) (runs FIRST). Subsequent
+  mutations targeting the migrated tempId are remapped to the serverId.
+- No-op short-circuit: rows whose fold ends deep-equal to the original
+  baseline (with no new cache-key associations) skip the save — matches
+  the legacy per-setter behavior of avoiding spurious `updatedAt` bumps.
+- Cache-key preservation: saved record's `cacheKeys` come from the
+  baseline (or `[firstOpCacheKey]` for fresh rows); any additional
+  cache keys observed in the batch are associated via a follow-up
+  `addCacheKeysToReadModel` call (one per row).
+
+Reads are batched via [IStorage.getReadModels](../interfaces/IStorage.md#getreadmodels); writes are batched
+via [IStorage.saveReadModels](../interfaces/IStorage.md#savereadmodels) + [IStorage.migrateReadModelIds](../interfaces/IStorage.md#migratereadmodelids).
+Deletes and cache-key associations loop individually until bulk primitives
+land in `IStorage` (see `TODO(batch)` markers at the call sites).
+
+#### Parameters
+
+##### mutations
+
+readonly `ReadModelMutation`[]
+
+##### preloaded?
+
+`ReadonlyMap`\<`string`, [`ReadModelRecord`](../interfaces/ReadModelRecord.md)\>
 
 #### Returns
 
@@ -148,7 +207,7 @@ Collection name
 
 ##### id
 
-`string`
+[`EntityId`](../type-aliases/EntityId.md)
 
 Entity ID
 
@@ -174,7 +233,7 @@ Collection name
 
 ##### id
 
-`string`
+[`EntityId`](../type-aliases/EntityId.md)
 
 Entity ID
 
@@ -208,7 +267,7 @@ Collection name
 
 ##### id
 
-`string`
+[`EntityId`](../type-aliases/EntityId.md)
 
 Entity ID
 
@@ -242,7 +301,7 @@ Collection name
 
 ##### ids
 
-`string`[]
+[`EntityId`](../type-aliases/EntityId.md)[]
 
 Entity IDs
 
@@ -271,6 +330,54 @@ Get all read models with local changes.
 `Promise`\<[`ReadModel`](../interfaces/ReadModel.md)\<`T`\>[]\>
 
 Array of read models with uncommitted changes
+
+---
+
+### getManyByCollectionIds()
+
+> **getManyByCollectionIds**\<`T`\>(`pairs`): `Promise`\<`Map`\<`string`, [`ReadModel`](../interfaces/ReadModel.md)\<`T`\>\>\>
+
+Get multiple read models across collections by `(collection, id)` pairs.
+
+Returns a `Map` keyed by `"${collection}:${id}"` (the same format the
+event processor uses for its `updatedIds` result and the reconcile
+workflow uses for its working-state keys). Missing entries are absent
+from the returned map — callers can distinguish "not loaded" from
+"loaded empty" by checking `.has(key)`.
+
+This is the preload primitive for reconciliation. A single call
+replaces N per-entity `getById` hits inside the reconcile setup phase.
+
+Intentionally does **not** do the client→server id mapping fallback
+that `getById` does. Reconciliation callers already hold server ids
+by the time they preload, and the extra lookup per id would defeat
+the point of batching.
+
+TODO(storage-batching): the current implementation loops into
+`storage.getReadModel` once per pair. A real batched version should
+group the pairs by collection and run one SQL query per collection
+using a batch executor — `WHERE collection = ? AND id IN (?, ?, ...)`
+— then flatten the per-collection result arrays back into the shared
+Map keyed by `${collection}:${id}`. The InMemoryStorage version can
+stay as a simple filter over its in-memory map. Move the grouping
+logic into the storage layer (new `IStorage.getReadModels` method)
+once the SQL side lands.
+
+#### Type Parameters
+
+##### T
+
+`T`
+
+#### Parameters
+
+##### pairs
+
+`Iterable`\<\{ `collection`: `string`; `id`: `string`; \}\>
+
+#### Returns
+
+`Promise`\<`Map`\<`string`, [`ReadModel`](../interfaces/ReadModel.md)\<`T`\>\>\>
 
 ---
 
@@ -380,6 +487,49 @@ true if data changed
 
 ---
 
+### migrateEntityIds()
+
+> **migrateEntityIds**(`migrations`, `preloadedRecords?`): `Promise`\<`void`\>
+
+Migrate one or more read-model rows from a client-assigned id to a
+server-assigned id. For each entry in `migrations`:
+
+- Looks up the row in `preloadedRecords` (keyed by `${collection}:${fromId}`)
+  if provided, otherwise loads from storage. Missing rows are skipped.
+- Patches the top-level `id` field in both `effectiveData` and
+  `serverData` (if present) from `fromId` to `toId`.
+- Rewrites the row's primary key to `toId` in place via
+  [IStorage.migrateReadModelIds](../interfaces/IStorage.md#migratereadmodelids) — `cacheKeys`, `_clientMetadata`,
+  `revision`, and `position` are preserved by the storage layer
+  (columns not in the `UPDATE`'s SET clause are left untouched).
+- When the row had no server baseline (`serverData === null`), the
+  new record is written with `hasLocalChanges: false` — the overlay
+  is treated as the client's optimistic best guess of what the
+  server will eventually produce, so the first `setServerData` call
+  against this row will accept the baseline without introducing
+  spurious local changes. With an existing baseline,
+  `hasLocalChanges` is recomputed from the post-patch diff.
+
+Intended for the `CommandQueue` success path where `reconcileAggregateIds`
+has resolved a batch of client→server id mappings and needs to advance
+the optimistic read-model overlay onto the server ids in lockstep.
+
+#### Parameters
+
+##### migrations
+
+`Iterable`\<`EntityIdMigration`\>
+
+##### preloadedRecords?
+
+`ReadonlyMap`\<`string`, [`ReadModelRecord`](../interfaces/ReadModelRecord.md)\>
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
 ### setClientMetadata()
 
 > **setClientMetadata**(`collection`, `id`, `metadata`): `Promise`\<`void`\>
@@ -397,7 +547,7 @@ Collection name
 
 ##### id
 
-`string`
+[`EntityId`](../type-aliases/EntityId.md)
 
 Entity ID
 

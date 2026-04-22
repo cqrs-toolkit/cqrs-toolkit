@@ -1,4 +1,4 @@
-import { expect, test, url } from '../../../e2e-fixtures.js'
+import { expect, setupTestDiagnostics, test, url } from '#e2e-fixtures'
 import {
   addTodo,
   waitForDashTodosReady,
@@ -8,6 +8,8 @@ import {
 import { testNavigator } from '../../../e2e-nav.js'
 
 const { Dashboard, Todos } = testNavigator
+
+setupTestDiagnostics()
 
 test.skip(({ mode }) => mode === 'online-only', 'Session change only applies to worker modes')
 

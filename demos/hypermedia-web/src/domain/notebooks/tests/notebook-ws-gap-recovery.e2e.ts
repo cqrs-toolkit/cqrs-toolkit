@@ -1,3 +1,4 @@
+import { expect, setupTestDiagnostics, test, url } from '#e2e-fixtures'
 import type { CommandSuccessResponse } from '@cqrs-toolkit/demo-base/common/shared'
 import {
   gotoWithWsSubscribed,
@@ -7,9 +8,10 @@ import {
 } from '@cqrs-toolkit/hypermedia-base/e2e-helpers'
 import type { APIRequestContext } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
-import { expect, test, url } from '../../../e2e-fixtures.js'
 
 const API = 'http://localhost:3002/api'
+
+setupTestDiagnostics()
 
 test.beforeEach(async ({ request }) => {
   await request.post(`${API}/test/reset`)

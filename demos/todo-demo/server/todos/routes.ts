@@ -239,7 +239,7 @@ export function todoRoutes(
 
       const events = eventStore
         .getGlobalEvents(afterPosition, limit + 1)
-        .filter((e) => e.streamId.startsWith('Todo-'))
+        .filter((e) => e.streamId.startsWith('nb.Todo-'))
 
       const items = events.slice(0, limit)
       const hasMore = events.length > limit

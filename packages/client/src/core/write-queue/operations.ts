@@ -1,4 +1,5 @@
 import type { IPersistedEvent, Link } from '@meticoeus/ddd-es'
+import type { CommandRecord, EnqueueCommand } from '../../types/commands.js'
 import type { SeedRecord } from '../../types/config.js'
 import type { CacheKeyIdentity } from '../cache-manager/index.js'
 import type { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventShape.js'
@@ -22,36 +23,20 @@ export interface ApplyRecordsOp<TLink extends Link> {
 /**
  * Cache and process a page of events from an event-based seed fetch.
  */
-export interface ApplySeedEventsOp {
+export interface ApplySeedEventsOp<TLink extends Link> {
   type: 'apply-seed-events'
   collection: string
-  cacheKey: string
+  cacheKey: CacheKeyIdentity<TLink>
   events: IPersistedEvent[]
-}
-
-/**
- * Cache a WebSocket event, check for gaps, and potentially process it.
- *
- * The handler must:
- * 1. Cache to EventCache (with cacheKeys)
- * 2. Check revision order (gap detection)
- * 3. If in order: process through EventProcessorRunner for each cache key
- * 4. If gap detected: buffer the event and trigger repair fetch (outside queue)
- */
-export interface ApplyWsEventOp<TLink extends Link> {
-  type: 'apply-ws-event'
-  event: IPersistedEvent
-  cacheKeys: CacheKeyIdentity<TLink>[]
 }
 
 /**
  * Cache and process anticipated events from a command enqueue.
  */
-export interface ApplyAnticipatedOp {
+export interface ApplyAnticipatedOp<TLink extends Link, TCommand extends EnqueueCommand> {
   type: 'apply-anticipated'
-  commandId: string
+  command: CommandRecord<TLink, TCommand>
   events: IAnticipatedEvent[]
-  cacheKey: string
   /**
    * For creates with temporary ID: the client-generated entity ID.
    * Passed through to the anticipated event handler for _clientMetadata tracking.
@@ -64,10 +49,10 @@ export interface ApplyAnticipatedOp {
  * The handler caches the fetched events (SQLite + GapBuffer), then drains the full GapBuffer
  * in revision order through EventProcessorRunner.
  */
-export interface ApplyGapRepairOp {
+export interface ApplyGapRepairOp<TLink extends Link> {
   type: 'apply-gap-repair'
   streamId: string
-  cacheKeys: string[]
+  cacheKeys: CacheKeyIdentity<TLink>[]
   events: IPersistedEvent[]
 }
 
@@ -91,27 +76,38 @@ export interface FlushCacheKeysOp {
 }
 
 /**
+ * Drain all currently pending WS events from the SyncManager's in-memory
+ * queue and run them through the reconcile workflow. Carries no payload —
+ * the actual events live in SyncManager state and are snapshotted at the
+ * start of the handler (so additional events can enqueue concurrently into
+ * a fresh batch without racing the in-flight drain).
+ */
+export interface ReconcileWsEventsOp {
+  type: 'reconcile-ws-events'
+}
+
+/**
  * Discriminated union of all write queue operation types.
  * Processed sequentially in FIFO order.
  */
-export type WriteQueueOp<TLink extends Link> =
+export type WriteQueueOp<TLink extends Link, TCommand extends EnqueueCommand> =
   | ApplyRecordsOp<TLink>
-  | ApplySeedEventsOp
-  | ApplyWsEventOp<TLink>
-  | ApplyAnticipatedOp
-  | ApplyGapRepairOp
+  | ApplySeedEventsOp<TLink>
+  | ApplyAnticipatedOp<TLink, TCommand>
+  | ApplyGapRepairOp<TLink>
   | EvictCacheKeyOp
   | FlushCacheKeysOp
+  | ReconcileWsEventsOp
 
 /**
  * All operation type tags. Used by the queue to assert handler completeness at bootstrap.
  */
-export const ALL_OP_TYPES: readonly WriteQueueOp<Link>['type'][] = [
+export const ALL_OP_TYPES: readonly WriteQueueOp<Link, EnqueueCommand>['type'][] = [
   'apply-records',
   'apply-seed-events',
-  'apply-ws-event',
   'apply-anticipated',
   'apply-gap-repair',
   'evict-cache-key',
   'flush-cache-keys',
+  'reconcile-ws-events',
 ] as const

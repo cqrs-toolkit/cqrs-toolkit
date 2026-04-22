@@ -14,6 +14,21 @@ Configuration for [WorkerMessageHandler](../classes/WorkerMessageHandler.md).
 
 ## Properties
 
+### debug?
+
+> `optional` **debug**: `boolean`
+
+Whether debug-only emissions via [WorkerMessageChannel.emitDebug](../classes/WorkerMessageChannel.md#emitdebug)
+should fire. Mirrors [EventBus.debug](../../../../classes/EventBus.md#debug) semantics: when `false`,
+`emitDebug` is a no-op so callers can emit unconditionally without
+producing noise in non-debug runs. Defaults to `false`.
+
+#### Inherited from
+
+[`MessageChannelConfig`](MessageChannelConfig.md).[`debug`](MessageChannelConfig.md#debug)
+
+---
+
 ### requestTimeout?
 
 > `optional` **requestTimeout**: `number`

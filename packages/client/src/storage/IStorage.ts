@@ -5,7 +5,7 @@
 
 import type { Link } from '@meticoeus/ddd-es'
 import { CommandFilter, CommandRecord, CommandStatus, EnqueueCommand } from '../types/commands.js'
-import { EntityId } from '../types/index.js'
+import { EntityId, EventPersistence } from '../types/index.js'
 
 /**
  * Session record stored in the database.
@@ -81,7 +81,7 @@ export interface CachedEventRecord {
   /** Stream ID */
   streamId: string
   /** Event persistence type */
-  persistence: 'Permanent' | 'Stateful' | 'Anticipated'
+  persistence: EventPersistence
   /** Event data (JSON serialized) */
   data: string
   /** Global position (for Permanent events) */
@@ -154,17 +154,17 @@ export interface ReadModelRecord {
 
 /**
  * Command ID mapping record.
- * Maps a client-generated temporary ID to server reconciliation data.
+ * Maps a client-generated temporary ID to its server-assigned replacement.
  * Used to silently correct stale client IDs in command payloads when the UI
- * hasn't re-rendered with the server-assigned data yet.
+ * hasn't re-rendered with the server-assigned data yet, and to stamp
+ * `_clientMetadata.clientId` on reconciled read models so UI code can still
+ * reference the tempId.
  */
 export interface CommandIdMappingRecord {
   /** Client-generated temporary aggregate ID */
   clientId: string
   /** Server-assigned aggregate ID */
   serverId: string
-  /** JSON-serialized reconciliation data (revision, commandType, serverResponse) */
-  data: string
   /** Timestamp when the mapping was created */
   createdAt: number
 }
@@ -177,6 +177,37 @@ export interface IStorageQueryOptions {
   offset?: number
   orderBy?: string
   orderDirection?: 'asc' | 'desc'
+}
+
+export interface MigrateReadModelIdParams {
+  collection: string
+  fromId: string
+  toId: string
+  effectiveData: string
+  serverData: string | null
+  hasLocalChanges: boolean
+  updatedAt: number
+}
+
+export interface UpdateCommandsEntry<TLink extends Link, TCommand extends EnqueueCommand> {
+  commandId: string
+  updates: Partial<CommandRecord<TLink, TCommand>>
+}
+
+export interface AddCacheKeysToEventEntry {
+  eventId: string
+  cacheKeys: readonly string[]
+}
+
+export interface DeleteReadModelEntry {
+  collection: string
+  id: string
+}
+
+export interface AddCacheKeysToReadModelEntry {
+  collection: string
+  id: string
+  cacheKeys: readonly string[]
 }
 
 /**
@@ -284,10 +315,31 @@ export interface IStorage<TLink extends Link, TCommand extends EnqueueCommand> {
   filterExistingCacheKeys(keys: string[]): Promise<string[]>
 
   // Command operations
+
+  /**
+   * Get the current command sequence number. Used by CommandStore to initialize
+   * its local sequence counter so new commands get monotonically increasing seq values.
+   *
+   * - SQLiteStorage: reads MAX(seq) from the commands table (TODO: use sqlite_sequence for accuracy after deletes).
+   * - InMemoryStorage: always returns 0 (nothing to load on startup).
+   */
+  getCommandSequence(): Promise<number>
+
   /**
    * Get a command by ID.
    */
   getCommand(commandId: string): Promise<CommandRecord<TLink, TCommand> | undefined>
+
+  /**
+   * Batch-fetch commands by ID. Returns a `Map` keyed by commandId; absent
+   * keys mean the command is not in storage. Callers relying on batch
+   * semantics (e.g. CommandStore's `getByIds`) must prefer this over
+   * iterated {@link getCommand} calls — SQLite runs a single
+   * `WHERE command_id IN (...)` query.
+   */
+  getCommandsByIds(
+    commandIds: readonly string[],
+  ): Promise<Map<string, CommandRecord<TLink, TCommand>>>
 
   /**
    * Get commands matching a filter.
@@ -317,6 +369,14 @@ export interface IStorage<TLink extends Link, TCommand extends EnqueueCommand> {
   updateCommand(commandId: string, updates: Partial<CommandRecord<TLink, TCommand>>): Promise<void>
 
   /**
+   * Apply multiple command updates in a single call.
+   * Each entry is applied independently — partial updates to `CommandRecord`
+   * keyed by `commandId`. Used by reconcile workflows that need to save N
+   * rewritten commands without N round-trips.
+   */
+  updateCommands(updates: readonly UpdateCommandsEntry<TLink, TCommand>[]): Promise<void>
+
+  /**
    * Delete a command.
    */
   deleteCommand(commandId: string): Promise<void>
@@ -333,6 +393,15 @@ export interface IStorage<TLink extends Link, TCommand extends EnqueueCommand> {
   getCachedEvent(id: string): Promise<CachedEventRecord | undefined>
 
   /**
+   * Partition a batch of event IDs by whether they already exist in the
+   * cache. Returns the subset of ids that are already stored. Used by the
+   * WS drain dedup pass to split a batch into "new" (continue processing)
+   * and "already-seen" (just add cache-key associations and skip) without
+   * hitting the store N times.
+   */
+  getExistingCachedEventIds(ids: readonly string[]): Promise<Set<string>>
+
+  /**
    * Get cached events for a cache key.
    */
   getCachedEventsByCacheKey(cacheKey: string): Promise<CachedEventRecord[]>
@@ -346,6 +415,13 @@ export interface IStorage<TLink extends Link, TCommand extends EnqueueCommand> {
    * Get anticipated events for a command.
    */
   getAnticipatedEventsByCommand(commandId: string): Promise<CachedEventRecord[]>
+
+  /**
+   * Get every cached event with `persistence === 'Anticipated'`. Used by
+   * reconciliation to bulk-load all pending optimistic overlays in a single
+   * query rather than N per-command queries.
+   */
+  getAllAnticipatedEvents(): Promise<CachedEventRecord[]>
 
   /**
    * Save a cached event.
@@ -380,6 +456,13 @@ export interface IStorage<TLink extends Link, TCommand extends EnqueueCommand> {
   deleteAnticipatedEventsByCommand(commandId: string): Promise<void>
 
   /**
+   * Delete all anticipated events for a set of commands in a single call.
+   * Used by reconcile to clear stale overlays for every re-run command in
+   * one storage round-trip.
+   */
+  deleteAnticipatedEventsByCommands(commandIds: readonly string[]): Promise<void>
+
+  /**
    * Remove a cache key association from all events.
    * Deletes events that have no remaining cache key associations.
    * Returns the IDs of events that were fully deleted.
@@ -387,10 +470,11 @@ export interface IStorage<TLink extends Link, TCommand extends EnqueueCommand> {
   removeCacheKeyFromEvents(cacheKey: string): Promise<string[]>
 
   /**
-   * Add cache key associations to an existing event.
-   * Used when a WS event is relevant to additional active cache keys.
+   * Add cache-key associations to multiple existing events in a single
+   * storage round-trip. Used when a WS drain batch contains events that
+   * were already cached but under a different active cache-key set.
    */
-  addCacheKeysToEvent(eventId: string, cacheKeys: string[]): Promise<void>
+  addCacheKeysToEvents(entries: readonly AddCacheKeysToEventEntry[]): Promise<void>
 
   // Read model operations
   /**
@@ -417,6 +501,21 @@ export interface IStorage<TLink extends Link, TCommand extends EnqueueCommand> {
   countReadModels(collection: string, cacheKey?: string): Promise<number>
 
   /**
+   * Batch-fetch read model records for a set of `(collection, id)` pairs.
+   * Returns a `Map` keyed by `${collection}:${id}`; missing rows are absent
+   * from the map. Callers relying on batch semantics (e.g. the sync pipeline
+   * and the CommandQueue success path) must prefer this over iterated
+   * {@link getReadModel} calls.
+   *
+   * TODO(batch): SQLite implementation should group by collection and run
+   * one `WHERE id IN (...)` per collection. The in-memory implementation
+   * remains a straight filter over its map.
+   */
+  getReadModels(
+    pairs: Iterable<{ collection: string; id: string }>,
+  ): Promise<Map<string, ReadModelRecord>>
+
+  /**
    * Save a read model record.
    */
   saveReadModel(record: ReadModelRecord): Promise<void>
@@ -432,6 +531,28 @@ export interface IStorage<TLink extends Link, TCommand extends EnqueueCommand> {
   deleteReadModel(collection: string, id: string): Promise<void>
 
   /**
+   * Delete multiple read model records in a single storage round-trip.
+   * Entries may span different collections; each collection's data table
+   * and cache-key junction table are deleted together.
+   */
+  deleteReadModels(entries: readonly DeleteReadModelEntry[]): Promise<void>
+
+  /**
+   * Rewrite a read-model row's primary key from `fromId` to `toId` and
+   * update its data columns in the same operation. Also remaps any cache-key
+   * junction entries so associations survive the id change.
+   *
+   * The library's source of truth for "where data lives" is `(collection, id)`,
+   * so an id migration is a primary-key change — not an insert-new + delete-old.
+   * Implementations should perform the update in place (single `UPDATE` per
+   * backing table) rather than copy + delete, to avoid transient missing rows
+   * and to keep the round-trip count minimal.
+   *
+   * No-op when no row exists at `(collection, fromId)`.
+   */
+  migrateReadModelIds(batch: MigrateReadModelIdParams[]): Promise<void>
+
+  /**
    * Remove a cache key association from all read models.
    * Deletes read models that have no remaining cache key associations.
    */
@@ -442,6 +563,13 @@ export interface IStorage<TLink extends Link, TCommand extends EnqueueCommand> {
    * Used when a read model is relevant to additional active cache keys.
    */
   addCacheKeysToReadModel(collection: string, id: string, cacheKeys: string[]): Promise<void>
+
+  /**
+   * Add cache-key associations to multiple existing read models in a single
+   * storage round-trip. Entries may span different collections; each
+   * collection's junction table is written with its subset of rows.
+   */
+  addCacheKeysToReadModels(entries: readonly AddCacheKeysToReadModelEntry[]): Promise<void>
 
   /**
    * Delete all read model records for a collection.
@@ -477,9 +605,25 @@ export interface IStorage<TLink extends Link, TCommand extends EnqueueCommand> {
   saveCommandIdMapping(record: CommandIdMappingRecord): Promise<void>
 
   /**
+   * Save multiple command ID mappings in a single call.
+   * Used by reconcile to persist the full idMap from a single WS batch.
+   */
+  saveCommandIdMappings(records: readonly CommandIdMappingRecord[]): Promise<void>
+
+  /**
    * Delete command ID mappings older than a timestamp.
    */
   deleteCommandIdMappingsOlderThan(timestamp: number): Promise<void>
+
+  /**
+   * Purge expired mappings and return all remaining mappings in a single
+   * transaction. Used by `CommandIdMappingStore.initialize()` to hydrate its
+   * in-memory state while also enforcing the TTL, without a second round trip.
+   *
+   * Implementations execute (in order): delete WHERE created_at < `purgeOlderThan`,
+   * then select all remaining records.
+   */
+  loadAndPurgeCommandIdMappings(purgeOlderThan: number): Promise<CommandIdMappingRecord[]>
 
   /**
    * Delete all command ID mappings (e.g., on session clear).

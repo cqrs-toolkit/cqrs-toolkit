@@ -13,6 +13,7 @@ import { WriteQueueException } from '../core/write-queue/IWriteQueue.js'
 import { WriteQueue } from '../core/write-queue/WriteQueue.js'
 import type { WriteQueueOp } from '../core/write-queue/operations.js'
 import { ALL_OP_TYPES } from '../core/write-queue/operations.js'
+import type { EnqueueCommand } from '../types/index.js'
 
 /**
  * Create a WriteQueue for tests with proper lifecycle management.
@@ -22,17 +23,17 @@ import { ALL_OP_TYPES } from '../core/write-queue/operations.js'
  * @param ownedTypes - Op types registered by real components (skipped from no-op registration).
  *   Example: `['flush-cache-keys']` when CacheManager registers via `setWriteQueue`.
  */
-export function createTestWriteQueue<TLink extends Link>(
+export function createTestWriteQueue<TLink extends Link, TCommand extends EnqueueCommand>(
   eventBus: EventBus<TLink>,
   cleanup: (() => void)[],
-  ownedTypes: WriteQueueOp<TLink>['type'][] = [],
+  ownedTypes: WriteQueueOp<TLink, TCommand>['type'][] = [],
   params?: {
-    handler?: (op: WriteQueueOp<TLink>) => Promise<void>
-    evictionHandler?: (op: WriteQueueOp<TLink>, reason: WriteQueueException) => void
+    handler?: (op: WriteQueueOp<TLink, TCommand>) => Promise<void>
+    evictionHandler?: (op: WriteQueueOp<TLink, TCommand>, reason: WriteQueueException) => void
     onSessionReset?: ((reason: string) => Promise<void>) | 'unset'
   },
-): WriteQueue<TLink> {
-  const writeQueue = new WriteQueue<TLink>(eventBus)
+): WriteQueue<TLink, TCommand> {
+  const writeQueue = new WriteQueue<TLink, TCommand>(eventBus)
   cleanup.push(() => writeQueue.destroy())
   if (params?.onSessionReset !== 'unset') {
     writeQueue.setSessionResetHandler(params?.onSessionReset ?? vi.fn(async () => {}))

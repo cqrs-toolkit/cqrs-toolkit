@@ -5,7 +5,9 @@
 import type { ServiceLink } from '@meticoeus/ddd-es'
 import { describe, expect, it } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
+import { createEntityRef } from '../../types/entities.js'
 import { EnqueueCommand } from '../../types/index.js'
+import { CommandIdMappingStore } from '../command-id-mapping-store/CommandIdMappingStore.js'
 import { EventBus } from '../events/EventBus.js'
 import { ReadModelStore } from './ReadModelStore.js'
 
@@ -20,8 +22,10 @@ describe('ReadModelStore', () => {
     const storage = new InMemoryStorage<ServiceLink, EnqueueCommand>()
     await storage.initialize()
     const eventBus = new EventBus<ServiceLink>()
-    const store = new ReadModelStore<ServiceLink, EnqueueCommand>(storage)
-    return { eventBus, storage, store }
+    const mappingStore = new CommandIdMappingStore<ServiceLink, EnqueueCommand>(storage)
+    await mappingStore.initialize()
+    const store = new ReadModelStore<ServiceLink, EnqueueCommand>(eventBus, storage, mappingStore)
+    return { eventBus, storage, store, mappingStore }
   }
 
   describe('getById', () => {
@@ -751,6 +755,58 @@ describe('ReadModelStore', () => {
       await store.delete('todos', 'todo-1')
 
       expect(await store.exists('todos', 'todo-1')).toBe(false)
+    })
+  })
+
+  describe('EntityId acceptance', () => {
+    const ref = createEntityRef('tmp-1', 'cmd-1', 'temporary')
+
+    async function bootstrapWithRecord() {
+      const ctx = await bootstrap()
+      await ctx.storage.saveReadModel({
+        id: 'tmp-1',
+        collection: 'todos',
+        cacheKeys: ['ck'],
+        serverData: null,
+        effectiveData: JSON.stringify({ id: 'tmp-1', title: 'Local', done: false }),
+        hasLocalChanges: true,
+        updatedAt: 1000,
+        revision: null,
+        position: null,
+        _clientMetadata: null,
+      })
+      return ctx
+    }
+
+    it('getById accepts EntityRef', async () => {
+      const { store } = await bootstrapWithRecord()
+      const result = await store.getById<Todo>('todos', ref)
+      expect(result).toBeDefined()
+      expect(result?.id).toBe('tmp-1')
+    })
+
+    it('getByIds accepts EntityRef values', async () => {
+      const { store } = await bootstrapWithRecord()
+      const results = await store.getByIds<Todo>('todos', [ref])
+      expect(results.has('tmp-1')).toBe(true)
+    })
+
+    it('exists accepts EntityRef', async () => {
+      const { store } = await bootstrapWithRecord()
+      expect(await store.exists('todos', ref)).toBe(true)
+    })
+
+    it('clearLocalChanges accepts EntityRef', async () => {
+      const { store } = await bootstrapWithRecord()
+      await store.clearLocalChanges('todos', ref)
+      expect(await store.exists('todos', ref)).toBe(false)
+    })
+
+    it('delete accepts EntityRef', async () => {
+      const { store } = await bootstrapWithRecord()
+      const deleted = await store.delete('todos', ref)
+      expect(deleted).toBe(true)
+      expect(await store.exists('todos', ref)).toBe(false)
     })
   })
 })

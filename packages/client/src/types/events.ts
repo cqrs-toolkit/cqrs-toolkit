@@ -3,10 +3,10 @@
  * These are internal events emitted by the library, not domain events.
  */
 
-import type { IPersistedEvent, ISerializedEvent, Link } from '@meticoeus/ddd-es'
+import type { IEvent, IPersistedEvent, ISerializedEvent, Link } from '@meticoeus/ddd-es'
 import type { CacheKeyIdentity } from '../core/cache-manager/CacheKey.js'
 
-export type EventPersistence = 'Permanent' | 'Stateful' | 'Anticipated'
+export type EventPersistence = IEvent['persistence'] | 'Anticipated'
 
 /**
  * Anticipated event metadata — client-side optimistic event.
@@ -39,12 +39,6 @@ export interface AnticipatedEvent<TData = unknown> {
  * Library-level events emitted to consumers.
  */
 export type LibraryEventType =
-  | 'session:changed'
-  | 'session:destroyed'
-  | 'connectivity:changed'
-  | 'sync:started'
-  | 'sync:completed'
-  | 'sync:failed'
   | 'cache:key-added'
   | 'cache:key-accessed'
   | 'cache:evicted'
@@ -55,27 +49,35 @@ export type LibraryEventType =
   | 'cache:session-reset'
   | 'cache:key-reconciled'
   | 'cache:seed-settled'
-  | 'sync:seed-completed'
+  | 'connectivity:changed'
   | 'command:enqueued'
   | 'command:status-changed'
   | 'command:completed'
   | 'command:failed'
-  | 'readmodel:updated'
+  | 'command:cancelled'
+  | 'command:sent'
+  | 'command:response'
+  | 'commandqueue:paused'
+  | 'commandqueue:resumed'
+  | 'debug:log'
   | 'error:storage'
   | 'error:network'
-  | 'ws:connecting'
-  | 'ws:connected'
-  | 'ws:subscribed'
-  | 'ws:disconnected'
-  | 'sync:ws-event-received'
-  | 'sync:ws-event-processed'
+  | 'readmodel:updated'
+  | 'readmodel:id-reconciled'
+  | 'session:changed'
+  | 'session:destroyed'
+  | 'sync:started'
+  | 'sync:completed'
+  | 'sync:failed'
   | 'sync:gap-detected'
   | 'sync:gap-repair-started'
   | 'sync:gap-repair-completed'
+  | 'sync:invalidate-requested'
   | 'sync:refetch-scheduled'
   | 'sync:refetch-executed'
-  | 'command:sent'
-  | 'command:response'
+  | 'sync:seed-completed'
+  | 'sync:ws-event-received'
+  | 'sync:ws-event-processed'
   | 'writequeue:op-enqueued'
   | 'writequeue:op-started'
   | 'writequeue:op-completed'
@@ -83,17 +85,16 @@ export type LibraryEventType =
   | 'writequeue:op-discarded'
   | 'writequeue:reset-started'
   | 'writequeue:reset-completed'
+  | 'ws:connecting'
+  | 'ws:connected'
+  | 'ws:subscribed'
+  | 'ws:disconnected'
 
 /**
  * Library event data types.
+ * Grouped by namespace, ordered to match {@link LibraryEventType}.
  */
 export interface LibraryEventData<TLink extends Link> {
-  'session:changed': { userId: string; isNew: boolean }
-  'session:destroyed': { reason: 'user-changed' | 'explicit' | 'storage-error' }
-  'connectivity:changed': { online: boolean }
-  'sync:started': { collection: string }
-  'sync:completed': { collection: string; eventCount: number }
-  'sync:failed': { collection: string; error: string }
   'cache:key-added': {
     cacheKey: CacheKeyIdentity<TLink>
     evictionPolicy: 'persistent' | 'ephemeral'
@@ -124,11 +125,7 @@ export interface LibraryEventData<TLink extends Link> {
     status: 'succeeded' | 'failed'
     collections: Array<{ name: string; seeded: boolean; error?: string }>
   }
-  'sync:seed-completed': {
-    collection: string
-    cacheKey: CacheKeyIdentity<TLink>
-    recordCount: number
-  }
+
   'command:enqueued': { commandId: string; type: string; cacheKey: CacheKeyIdentity<TLink> }
   'command:status-changed': {
     commandId: string
@@ -143,20 +140,7 @@ export interface LibraryEventData<TLink extends Link> {
     error: string
     cacheKey: CacheKeyIdentity<TLink>
   }
-  'readmodel:updated': { collection: string; ids: string[] }
-  'error:storage': { message: string; code?: string }
-  'error:network': { message: string; code?: string }
-  'ws:connecting': {}
-  'ws:connected': {}
-  'ws:subscribed': { topics: readonly string[] }
-  'ws:disconnected': { topics: readonly string[] }
-  'sync:ws-event-received': { event: IPersistedEvent }
-  'sync:ws-event-processed': { event: IPersistedEvent; updatedIds: string[]; invalidated: boolean }
-  'sync:gap-detected': { streamId: string; expected: bigint; received: bigint }
-  'sync:gap-repair-started': { streamId: string; fromRevision: bigint }
-  'sync:gap-repair-completed': { streamId: string; eventCount: number }
-  'sync:refetch-scheduled': { collection: string; debounceMs: number }
-  'sync:refetch-executed': { collection: string; recordCount: number }
+  'command:cancelled': { commandId: string; type: string; cacheKey: CacheKeyIdentity<TLink> }
   'command:sent': {
     commandId: string
     correlationId: string
@@ -165,6 +149,60 @@ export interface LibraryEventData<TLink extends Link> {
     data: unknown
   }
   'command:response': { commandId: string; correlationId: string; response: unknown }
+
+  'commandqueue:paused': {}
+  'commandqueue:resumed': {}
+
+  'connectivity:changed': { online: boolean }
+
+  'debug:log': any
+
+  'error:storage': { message: string; code?: string }
+  'error:network': { message: string; code?: string }
+
+  'readmodel:updated': { collection: string; ids: string[]; commandIds: string[] }
+  /** Emitted after a read model row is migrated from a client-generated temp ID
+   *  to the server-assigned ID. Fired once per collection per migration, after
+   *  the row is durably renamed in storage. */
+  'readmodel:id-reconciled': {
+    collection: string
+    clientId: string
+    serverId: string
+  }
+
+  'session:changed': { userId: string; isNew: boolean }
+  'session:destroyed': { reason: 'user-changed' | 'explicit' | 'storage-error' }
+
+  'sync:started': { collection: string }
+  'sync:completed': { collection: string; eventCount: number }
+  'sync:failed': { collection: string; error: string }
+  'sync:gap-detected': { streamId: string; expected: bigint; received: bigint }
+  'sync:gap-repair-started': { streamId: string; fromRevision: bigint }
+  'sync:gap-repair-completed': { streamId: string; eventCount: number }
+  /**
+   * Fire-and-forget signal that an aggregate's server state should be
+   * refetched. Emitted by the CommandQueue success path when the sync
+   * pipeline cannot confirm the aggregate from events (event-less response,
+   * or uncovered expected revision). Consumed by `InvalidationScheduler`,
+   * which resolves `streamId → collection` and schedules the debounced
+   * refetch — no direct scheduler reference on the emitter side.
+   */
+  'sync:invalidate-requested': {
+    streamId: string
+    cacheKey: string
+    commandId: string
+    reason: 'event-less-response' | 'no-expected-revision'
+  }
+  'sync:refetch-scheduled': { collection: string; debounceMs: number }
+  'sync:refetch-executed': { collection: string; recordCount: number }
+  'sync:seed-completed': {
+    collection: string
+    cacheKey: CacheKeyIdentity<TLink>
+    recordCount: number
+  }
+  'sync:ws-event-received': { event: IPersistedEvent }
+  'sync:ws-event-processed': { event: IPersistedEvent; updatedIds: string[]; invalidated: boolean }
+
   'writequeue:op-enqueued': { opId: string; opType: string; priority: number; op: unknown }
   'writequeue:op-started': { opId: string; opType: string }
   'writequeue:op-completed': { opId: string; opType: string; durationMs: number }
@@ -172,6 +210,11 @@ export interface LibraryEventData<TLink extends Link> {
   'writequeue:op-discarded': { opId: string; opType: string; reason: string }
   'writequeue:reset-started': { reason: string }
   'writequeue:reset-completed': { reason: string }
+
+  'ws:connecting': {}
+  'ws:connected': {}
+  'ws:subscribed': { topics: readonly string[] }
+  'ws:disconnected': { topics: readonly string[] }
 }
 
 /**
@@ -188,15 +231,12 @@ export interface LibraryEvent<TLink extends Link, T extends LibraryEventType = L
 /**
  * Normalize event persistence - missing field means Permanent.
  * Accepts the ddd-es persistence values ('Permanent' | 'Stateful' | 'Ephemeral') in addition
- * to the client-only 'Anticipated' value. Ephemeral events are not persisted, so this value
- * should never appear on an IPersistedEvent; if it does, we treat it as Permanent.
+ * to the client-only 'Anticipated' value.
  */
 export function normalizeEventPersistence(event: {
-  persistence?: EventPersistence | 'Ephemeral'
+  persistence?: EventPersistence
 }): EventPersistence {
-  const p = event.persistence
-  if (p === 'Permanent' || p === 'Stateful' || p === 'Anticipated') return p
-  return 'Permanent'
+  return event.persistence ?? 'Permanent'
 }
 
 /**

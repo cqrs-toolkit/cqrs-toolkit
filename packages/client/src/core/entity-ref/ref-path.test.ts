@@ -302,29 +302,29 @@ describe('extractTopLevelEntityRefs', () => {
 describe('stripEntityRefs', () => {
   it('replaces EntityRef values with entityId strings', () => {
     const data = { notebookId: ref1, title: 'hello' }
-    const entityRefData = { '$.notebookId': ref1 }
-    const result = stripEntityRefs(data, entityRefData)
+    const commandIdPaths = { '$.notebookId': ref1 }
+    const result = stripEntityRefs(data, commandIdPaths)
     expect(result).toEqual({ notebookId: 'entity-1', title: 'hello' })
   })
 
   it('handles multiple replacements', () => {
     const data = { orgId: ref1, deptId: ref2, name: 'test' }
-    const entityRefData = { '$.orgId': ref1, '$.deptId': ref2 }
-    const result = stripEntityRefs(data, entityRefData)
+    const commandIdPaths = { '$.orgId': ref1, '$.deptId': ref2 }
+    const result = stripEntityRefs(data, commandIdPaths)
     expect(result).toEqual({ orgId: 'entity-1', deptId: 'entity-2', name: 'test' })
   })
 
   it('handles nested paths', () => {
     const data = { metadata: { orgId: ref1 } }
-    const entityRefData = { '$.metadata.orgId': ref1 }
-    const result = stripEntityRefs(data, entityRefData)
+    const commandIdPaths = { '$.metadata.orgId': ref1 }
+    const result = stripEntityRefs(data, commandIdPaths)
     expect(result).toEqual({ metadata: { orgId: 'entity-1' } })
   })
 
   it('handles array paths', () => {
     const data = { forms: [{ id: ref1 }, { id: ref2 }] }
-    const entityRefData = { '$.forms[0].id': ref1, '$.forms[1].id': ref2 }
-    const result = stripEntityRefs(data, entityRefData)
+    const commandIdPaths = { '$.forms[0].id': ref1, '$.forms[1].id': ref2 }
+    const result = stripEntityRefs(data, commandIdPaths)
     expect(result).toEqual({ forms: [{ id: 'entity-1' }, { id: 'entity-2' }] })
   })
 
@@ -334,7 +334,7 @@ describe('stripEntityRefs', () => {
     expect(data.orgId).toBe(ref1)
   })
 
-  it('returns data unchanged with empty entityRefData', () => {
+  it('returns data unchanged with empty commandIdPaths', () => {
     const data = { a: 1, b: 'two' }
     expect(stripEntityRefs(data, {})).toEqual(data)
   })

@@ -8,10 +8,36 @@ import { Observable, Subject, filter, share } from 'rxjs'
 import type { LibraryEvent, LibraryEventData, LibraryEventType } from '../../types/events.js'
 
 /**
+ * Narrow interface for "something you can emit a debug event to".
+ *
+ * Exists so {@link EventBusLogger} can target either a real {@link EventBus}
+ * (online-only mode) or a main-thread local sink (worker mode) without
+ * pulling in the full bus API. No `debug` gate: consumers of this interface
+ * are constructed conditionally in debug mode, so every call is expected
+ * to emit.
+ */
+export interface IDebugEventSink<TLink extends Link> {
+  emitDebug<T extends LibraryEventType>(type: T, data: LibraryEventData<TLink>[T]): void
+}
+
+/**
+ * Minimal emit surface for library events — `emit` for normal events,
+ * `emitDebug` for debug-only events that callers should be free to fire
+ * unconditionally (implementations gate based on their own debug config).
+ *
+ * Structurally satisfied by {@link EventBus} and by
+ * {@link WorkerMessageChannel} when it needs to surface local events on
+ * this thread's `libraryEvents$` stream.
+ */
+export interface IEventSink<TLink extends Link> extends IDebugEventSink<TLink> {
+  emit<T extends LibraryEventType>(type: T, data: LibraryEventData<TLink>[T]): void
+}
+
+/**
  * Event bus for library-level events.
  * All components can emit events, and consumers can subscribe to specific event types.
  */
-export class EventBus<TLink extends Link> {
+export class EventBus<TLink extends Link> implements IEventSink<TLink> {
   private readonly subject = new Subject<LibraryEvent<TLink>>()
 
   /**

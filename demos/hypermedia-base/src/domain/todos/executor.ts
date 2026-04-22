@@ -9,6 +9,8 @@ import type { AppCommandHandlerRegistration } from '../utils/executors.js'
 export const todoHandlers: AppCommandHandlerRegistration[] = [
   {
     commandType: 'nb.CreateTodo',
+    aggregate: TodoAggregate,
+    commandIdReferences: [],
     creates: { eventType: 'TodoCreated', idStrategy: 'temporary' },
     handler(command, _state, context) {
       const { content } = command.data as { content: string }
@@ -25,6 +27,8 @@ export const todoHandlers: AppCommandHandlerRegistration[] = [
   },
   {
     commandType: 'nb.UpdateTodoContent',
+    aggregate: TodoAggregate,
+    commandIdReferences: [{ aggregate: TodoAggregate, path: '$.path.id' }],
     handler(command) {
       const { content } = command.data as { content: string }
       // TODO(command-types): Figure out how we can fix this
@@ -40,6 +44,8 @@ export const todoHandlers: AppCommandHandlerRegistration[] = [
   },
   {
     commandType: 'nb.ChangeTodoStatus',
+    aggregate: TodoAggregate,
+    commandIdReferences: [{ aggregate: TodoAggregate, path: '$.path.id' }],
     handler(command) {
       const { status } = command.data as { status: string }
       // TODO(command-types): Figure out how we can fix this
@@ -55,6 +61,8 @@ export const todoHandlers: AppCommandHandlerRegistration[] = [
   },
   {
     commandType: 'nb.DeleteTodo',
+    aggregate: TodoAggregate,
+    commandIdReferences: [{ aggregate: TodoAggregate, path: '$.path.id' }],
     handler(command) {
       // TODO(command-types): Figure out how we can fix this
       const { id } = command.path as { id: string }

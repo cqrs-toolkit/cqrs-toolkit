@@ -6,7 +6,7 @@
 
 # Function: createItemQuery()
 
-> **createItemQuery**\<`TLink`, `T`\>(`queryManager`, `params`): [`ItemQueryState`](../interfaces/ItemQueryState.md)\<`T`\>
+> **createItemQuery**\<`TLink`, `T`\>(`params`): [`ItemQueryState`](../interfaces/ItemQueryState.md)\<`T`\>
 
 Create a reactive single-item query that subscribes to collection changes.
 
@@ -19,6 +19,8 @@ Handles ID reconciliation transparently: if the tracked client ID was replaced
 by a server-assigned ID, the query follows the new ID automatically and exposes
 the mapping via `reconciledId`.
 
+Uses the CQRS client from context (via `useClient()`).
+
 ## Type Parameters
 
 ### TLink
@@ -30,12 +32,6 @@ the mapping via `reconciledId`.
 `T` _extends_ [`Identifiable`](../interfaces/Identifiable.md)
 
 ## Parameters
-
-### queryManager
-
-`IQueryManager`\<`TLink`\>
-
-The query manager
 
 ### params
 

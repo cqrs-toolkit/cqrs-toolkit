@@ -91,46 +91,47 @@ function serializeRecursive(value: unknown, seen: WeakSet<object>): unknown {
     return value
   }
 
-  // Handle arrays
-  if (Array.isArray(value)) {
-    return value.map((item) => serializeRecursive(item, seen))
-  }
-
-  // Handle objects
+  // Handle objects and arrays — unified under `typeof === 'object'` so all
+  // reference types participate in the ancestor-path cycle detection.
   if (typeof value === 'object') {
-    // Circular reference check
     if (seen.has(value)) {
       throw new Error('Circular reference detected during serialization')
     }
     seen.add(value)
 
-    // Handle Map
-    if (value instanceof Map) {
+    let result: unknown
+
+    if (Array.isArray(value)) {
+      result = value.map((item) => serializeRecursive(item, seen))
+    } else if (value instanceof Map) {
       const entries: [unknown, unknown][] = []
       for (const [k, v] of value) {
         entries.push([serializeRecursive(k, seen), serializeRecursive(v, seen)])
       }
-      return {
+      result = {
         __serialized__: true,
         type: 'map',
         value: JSON.stringify(entries),
       } as SerializedValue
-    }
-
-    // Handle Set
-    if (value instanceof Set) {
+    } else if (value instanceof Set) {
       const values: unknown[] = []
       for (const v of value) {
         values.push(serializeRecursive(v, seen))
       }
-      return { __serialized__: true, type: 'set', value: JSON.stringify(values) } as SerializedValue
+      result = {
+        __serialized__: true,
+        type: 'set',
+        value: JSON.stringify(values),
+      } as SerializedValue
+    } else {
+      const obj: Record<string, unknown> = {}
+      for (const [key, val] of Object.entries(value)) {
+        obj[key] = serializeRecursive(val, seen)
+      }
+      result = obj
     }
 
-    // Handle plain objects
-    const result: Record<string, unknown> = {}
-    for (const [key, val] of Object.entries(value)) {
-      result[key] = serializeRecursive(val, seen)
-    }
+    seen.delete(value)
     return result
   }
 

@@ -1,3 +1,4 @@
+import { expect, setupTestDiagnostics, test, url } from '#e2e-fixtures'
 import {
   addNote,
   addNotebook,
@@ -6,9 +7,10 @@ import {
   waitForNoteCount,
 } from '@cqrs-toolkit/hypermedia-base/e2e-helpers'
 import { testNavigator } from '@cqrs-toolkit/hypermedia-base/e2e-nav'
-import { expect, test, url } from '../../../e2e-fixtures.js'
 
 const { Dashboard, Notes } = testNavigator
+
+setupTestDiagnostics()
 
 test.beforeEach(async ({ request }) => {
   await request.post('http://localhost:3002/api/test/reset')
@@ -32,9 +34,9 @@ test('deleting a note produces exactly one delete command', async ({ page, mode 
 
   // CreateNotebook + CreateNote + DeleteNote = 3 commands
   await expect(page.locator('.command-item')).toHaveCount(3)
-  await expect(page.locator('.command-item.command-succeeded')).toHaveCount(3)
+  await expect(page.locator('.command-item.command-confirmed')).toHaveCount(3)
   const types = await page
-    .locator('.command-item.command-succeeded .command-type')
+    .locator('.command-item.command-confirmed .command-type')
     .allTextContents()
   expect(types.sort()).toEqual(['nb.CreateNote', 'nb.CreateNotebook', 'nb.DeleteNote'])
 })
@@ -60,9 +62,9 @@ test('editing a note title via save button does not double-submit', async ({ pag
 
   // CreateNotebook + CreateNote + UpdateNoteTitle = 3 commands
   await expect(page.locator('.command-item')).toHaveCount(3)
-  await expect(page.locator('.command-item.command-succeeded')).toHaveCount(3)
+  await expect(page.locator('.command-item.command-confirmed')).toHaveCount(3)
   const types = await page
-    .locator('.command-item.command-succeeded .command-type')
+    .locator('.command-item.command-confirmed .command-type')
     .allTextContents()
   expect(types.sort()).toEqual(['nb.CreateNote', 'nb.CreateNotebook', 'nb.UpdateNoteTitle'])
 })
@@ -91,9 +93,9 @@ test('editing both note title and body produces exactly two update commands', as
 
   // CreateNotebook + CreateNote + UpdateNoteTitle + UpdateNoteBody = 4 commands
   await expect(page.locator('.command-item')).toHaveCount(4)
-  await expect(page.locator('.command-item.command-succeeded')).toHaveCount(4)
+  await expect(page.locator('.command-item.command-confirmed')).toHaveCount(4)
   const types = await page
-    .locator('.command-item.command-succeeded .command-type')
+    .locator('.command-item.command-confirmed .command-type')
     .allTextContents()
   expect(types.sort()).toEqual([
     'nb.CreateNote',
@@ -124,9 +126,9 @@ test('editing only the note body produces exactly one update command', async ({ 
 
   // CreateNotebook + CreateNote + UpdateNoteBody = 3 commands
   await expect(page.locator('.command-item')).toHaveCount(3)
-  await expect(page.locator('.command-item.command-succeeded')).toHaveCount(3)
+  await expect(page.locator('.command-item.command-confirmed')).toHaveCount(3)
   const types = await page
-    .locator('.command-item.command-succeeded .command-type')
+    .locator('.command-item.command-confirmed .command-type')
     .allTextContents()
   expect(types.sort()).toEqual(['nb.CreateNote', 'nb.CreateNotebook', 'nb.UpdateNoteBody'])
 })

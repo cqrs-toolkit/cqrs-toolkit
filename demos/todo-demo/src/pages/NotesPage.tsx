@@ -1,47 +1,79 @@
 import {
   deriveScopeKey,
-  entityIdEquals,
-  entityIdMatches,
   entityIdToString,
   type CollectionSyncStatus,
   type EntityId,
   type LibraryEvent,
 } from '@cqrs-toolkit/client'
 import { createEntityCacheKey, useClient } from '@cqrs-toolkit/client-solid'
-import { appCreateListQuery } from '@cqrs-toolkit/demo-base/common/components'
+import { appCreateItemQuery, appCreateListQuery } from '@cqrs-toolkit/demo-base/common/components'
 import { NotebookList } from '@cqrs-toolkit/demo-base/notebooks/components'
 import type { Notebook } from '@cqrs-toolkit/demo-base/notebooks/domain'
 import { NOTEBOOK_SEED_KEY } from '@cqrs-toolkit/demo-base/notebooks/domain'
 import { NoteEditor, NoteTitleList } from '@cqrs-toolkit/demo-base/notes/components'
 import type { Note } from '@cqrs-toolkit/demo-base/notes/domain'
-import { ServiceLink } from '@meticoeus/ddd-es'
+import { NOTES_COLLECTION_NAME } from '@cqrs-toolkit/demo-base/notes/domain'
+import { logProvider, ServiceLink } from '@meticoeus/ddd-es'
 import { A } from '@solidjs/router'
 import { filter } from 'rxjs'
 import { createEffect, createMemo, createSignal, onCleanup, onMount, Show } from 'solid-js'
+
+type NoteSelection =
+  | { type: 'none' }
+  | { type: 'placeholder' }
+  | { type: 'creating'; entityId: EntityId }
+  | { type: 'selected'; entityId: EntityId }
 
 export default function NotesPage() {
   const client = useClient<ServiceLink>()
 
   const [selectedNotebookId, setSelectedNotebookId] = createSignal<EntityId>()
-  const [selectedNoteId, setSelectedNoteId] = createSignal<EntityId>()
+  const [noteSelection, setNoteSelection] = createSignal<NoteSelection>({ type: 'none' })
 
   const notebookCacheKey = createEntityCacheKey<ServiceLink>(
     { service: 'nb', type: 'Notebook' },
     () => selectedNotebookId(),
   )
-  const noteEditorCtx = createMemo(() => {
-    const noteId = selectedNoteId()
-    const cacheKey = notebookCacheKey()
-    if (!noteId || !cacheKey) return undefined
-    return { noteId, notebookId: cacheKey.link.id, cacheKey }
-  })
 
   const notebooksQuery = appCreateListQuery<Notebook>(
-    client.queryManager,
     'notebooks',
     deriveScopeKey({ scopeType: 'notebooks' }),
   )
-  const notesQuery = appCreateListQuery<Note>(client.queryManager, 'notes', notebookCacheKey)
+  const notesQuery = appCreateListQuery<Note>('notes', notebookCacheKey)
+
+  const noteEntityId = createMemo<EntityId | undefined>(() => {
+    const sel = noteSelection()
+    if (sel.type === 'creating') return sel.entityId
+    if (sel.type === 'selected') return sel.entityId
+    return undefined
+  })
+
+  const noteQuery = appCreateItemQuery<Note>(
+    NOTES_COLLECTION_NAME,
+    () => noteEntityId() ?? '',
+    notebookCacheKey,
+  )
+
+  // When in 'creating' state and the read model data arrives, transition to 'selected'
+  createEffect(() => {
+    const sel = noteSelection()
+    if (sel.type === 'creating' && noteQuery.data) {
+      setNoteSelection({ type: 'selected', entityId: sel.entityId })
+    }
+  })
+
+  // Track note query reconciliation — update selection entityId when client→server ID resolves
+  createEffect(() => {
+    const reconciled = noteQuery.reconciledId
+    if (!reconciled) return
+    const sel = noteSelection()
+    if (sel.type === 'selected' || sel.type === 'creating') {
+      const currentStr = entityIdToString(sel.entityId)
+      if (currentStr === reconciled.clientId) {
+        setNoteSelection({ type: sel.type, entityId: reconciled.serverId })
+      }
+    }
+  })
 
   const [editingTitle, setEditingTitle] = createSignal<string>()
   const [error, setError] = createSignal<string>()
@@ -96,13 +128,27 @@ export default function NotesPage() {
 
   function handleSelectNotebook(id: EntityId) {
     setSelectedNotebookId(id)
-    setSelectedNoteId(undefined)
+    setNoteSelection({ type: 'none' })
     setEditingTitle(undefined)
     setError(undefined)
   }
 
   function handleSelectNote(id: EntityId) {
-    setSelectedNoteId(id)
+    setNoteSelection({ type: 'selected', entityId: id })
+    setEditingTitle(undefined)
+  }
+
+  function handleAddPlaceholder() {
+    setNoteSelection({ type: 'placeholder' })
+    setEditingTitle(undefined)
+  }
+
+  function handleNoteCreated(entityId: EntityId) {
+    setNoteSelection({ type: 'creating', entityId })
+  }
+
+  function handleNoteDeleted() {
+    setNoteSelection({ type: 'none' })
     setEditingTitle(undefined)
   }
 
@@ -117,19 +163,25 @@ export default function NotesPage() {
     }
   })
 
-  function handleEditorIdChanged(previousId: EntityId, newId: EntityId) {
-    const current = selectedNoteId()
+  const selectedNoteId = createMemo<EntityId | undefined>(() => {
+    const sel = noteSelection()
+    if (sel.type === 'placeholder' || sel.type === 'creating') return 'placeholder'
+    if (sel.type === 'selected') return sel.entityId
+    return undefined
+  })
 
-    if (!entityIdMatches(current, previousId)) {
-      // Different entity — clear editing state
-      setEditingTitle(undefined)
-    }
+  const showEditor = createMemo(() => {
+    const sel = noteSelection()
+    return sel.type !== 'none' && notebookCacheKey() !== undefined
+  })
 
-    if (!entityIdEquals(current, newId)) {
-      // Same entity, different lifecycle state — update signal, preserve editing
-      setSelectedNoteId(newId)
-    }
-  }
+  const editorNoteId = createMemo<EntityId>(() => {
+    const sel = noteSelection()
+    if (sel.type === 'placeholder') return 'placeholder'
+    if (sel.type === 'creating') return sel.entityId
+    if (sel.type === 'selected') return sel.entityId
+    return 'placeholder'
+  })
 
   return (
     <div class="flex flex-col h-screen">
@@ -203,7 +255,7 @@ export default function NotesPage() {
               notes={notesQuery.items}
               selectedId={selectedNoteId()}
               onSelect={handleSelectNote}
-              onAddPlaceholder={() => handleSelectNote('placeholder')}
+              onAddPlaceholder={handleAddPlaceholder}
               editingTitle={editingTitle()}
             />
           </Show>
@@ -212,21 +264,24 @@ export default function NotesPage() {
         {/* Right: editor */}
         <div class="flex-1 min-w-0 overflow-hidden">
           <Show
-            when={noteEditorCtx()}
+            when={showEditor() && notebookCacheKey()}
             fallback={
               <div class="flex items-center justify-center h-full text-neutral-400 text-sm">
                 {notebookCacheKey() ? 'Select or create a note' : ''}
               </div>
             }
           >
-            {(ctx) => (
+            {(cacheKey) => (
               <NoteEditor
-                noteId={ctx().noteId}
-                notebookId={ctx().notebookId}
+                noteId={editorNoteId()}
+                notebookId={cacheKey().link.id}
+                noteData={noteQuery.data}
+                noteLoading={noteQuery.loading}
+                isCreating={noteSelection().type === 'creating'}
                 onSubmitCreate={(p) =>
                   client.submit({
                     command: { type: 'CreateNote', data: p },
-                    cacheKey: ctx().cacheKey,
+                    cacheKey: cacheKey(),
                   })
                 }
                 onSubmitUpdateTitle={(p) =>
@@ -236,7 +291,7 @@ export default function NotesPage() {
                       data: { id: p.id, title: p.title },
                       revision: p.revision,
                     },
-                    cacheKey: ctx().cacheKey,
+                    cacheKey: cacheKey(),
                   })
                 }
                 onSubmitUpdateBody={(p) =>
@@ -246,7 +301,7 @@ export default function NotesPage() {
                       data: { id: p.id, body: p.body },
                       revision: p.revision,
                     },
-                    cacheKey: ctx().cacheKey,
+                    cacheKey: cacheKey(),
                   })
                 }
                 onSubmitDelete={(p) =>
@@ -256,19 +311,22 @@ export default function NotesPage() {
                       data: { id: p.id },
                       revision: p.revision,
                     },
-                    cacheKey: ctx().cacheKey,
+                    cacheKey: cacheKey(),
                   })
                 }
-                onSubmitUploadFile={(p) =>
-                  client.submit({
+                onSubmitUploadFile={async (p) => {
+                  logProvider.log.debug({ noteId: p.noteId }, 'NotesPage CreateFileObject submit')
+                  const result = await client.submit({
                     command: {
                       type: 'CreateFileObject',
                       data: { noteId: p.noteId },
                       files: [p.file],
                     },
-                    cacheKey: ctx().cacheKey,
+                    cacheKey: cacheKey(),
                   })
-                }
+                  logProvider.log.debug({ result }, 'NotesPage CreateFileObject result')
+                  return result
+                }}
                 onSubmitDeleteFile={(p) =>
                   client.submit({
                     command: {
@@ -276,12 +334,12 @@ export default function NotesPage() {
                       data: { id: p.id },
                       revision: p.revision,
                     },
-                    cacheKey: ctx().cacheKey,
+                    cacheKey: cacheKey(),
                   })
                 }
                 onError={setError}
-                onIdChanged={handleEditorIdChanged}
-                onDeleted={() => setSelectedNoteId(undefined)}
+                onCreated={handleNoteCreated}
+                onDeleted={handleNoteDeleted}
                 onTitleChanged={setEditingTitle}
               />
             )}

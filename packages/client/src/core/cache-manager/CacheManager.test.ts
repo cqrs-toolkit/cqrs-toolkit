@@ -6,7 +6,7 @@ import { ServiceLink } from '@meticoeus/ddd-es'
 import { afterEach, describe, expect, it } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import { createTestWriteQueue } from '../../testing/createTestWriteQueue.js'
-import { deriveEntityKey } from '../../testing/factories/cacheKey.js'
+import { deriveEntityKey } from '../../testing/fixtures/cacheKey.js'
 import { EnqueueCommand } from '../../types/index.js'
 import { EventBus } from '../events/EventBus.js'
 import { WriteQueue } from '../write-queue/WriteQueue.js'
@@ -35,8 +35,8 @@ describe('CacheManager', () => {
     const eventBus = new EventBus<ServiceLink>()
     const writeQueue = createTestWriteQueue(eventBus, cleanup, ['flush-cache-keys'])
     const cacheManager = new CacheManager<ServiceLink, EnqueueCommand>(
-      storage,
       eventBus,
+      storage,
       params.cacheManagerConfig ?? { cacheConfig: { maxCacheKeys: 10, defaultTtl: 60000 } },
     )
     cacheManager.setWriteQueue(writeQueue)
@@ -46,7 +46,10 @@ describe('CacheManager', () => {
   }
 
   /** Wait for the write queue to drain all pending ops. */
-  async function drain(writeQueue: WriteQueue<ServiceLink>, timeoutMs = 1000): Promise<void> {
+  async function drain(
+    writeQueue: WriteQueue<ServiceLink, EnqueueCommand>,
+    timeoutMs = 1000,
+  ): Promise<void> {
     const start = Date.now()
     while (true) {
       const state = writeQueue.getDebugState()
@@ -349,7 +352,7 @@ describe('CacheManager', () => {
       expect(recordBefore?.holdCount).toBe(1)
 
       // Create a fresh CacheManager and initialize
-      const freshManager = new CacheManager<ServiceLink, EnqueueCommand>(storage, eventBus, {
+      const freshManager = new CacheManager<ServiceLink, EnqueueCommand>(eventBus, storage, {
         cacheConfig: { maxCacheKeys: 10, defaultTtl: 60000 },
       })
       await freshManager.initialize()
@@ -367,7 +370,7 @@ describe('CacheManager', () => {
       await drain(writeQueue)
 
       // Create a fresh CacheManager and initialize
-      const freshManager = new CacheManager<ServiceLink, EnqueueCommand>(storage, eventBus, {
+      const freshManager = new CacheManager<ServiceLink, EnqueueCommand>(eventBus, storage, {
         cacheConfig: { maxCacheKeys: 10, defaultTtl: 60000 },
       })
       await freshManager.initialize()
@@ -385,7 +388,7 @@ describe('CacheManager', () => {
       const events: unknown[] = []
       eventBus.on('cache:evicted').subscribe((e) => events.push(e))
 
-      const freshManager = new CacheManager<ServiceLink, EnqueueCommand>(storage, eventBus, {
+      const freshManager = new CacheManager<ServiceLink, EnqueueCommand>(eventBus, storage, {
         cacheConfig: { maxCacheKeys: 10, defaultTtl: 60000 },
       })
       await freshManager.initialize()
@@ -403,7 +406,7 @@ describe('CacheManager', () => {
   describe('window capacity guard', () => {
     it('registerWindow succeeds up to maxWindows', async () => {
       const { eventBus, storage } = await bootstrap()
-      const cacheManager = new CacheManager<ServiceLink, EnqueueCommand>(storage, eventBus, {
+      const cacheManager = new CacheManager<ServiceLink, EnqueueCommand>(eventBus, storage, {
         cacheConfig: { maxCacheKeys: 10, defaultTtl: 60000, maxWindows: 2 },
       })
 
@@ -414,7 +417,7 @@ describe('CacheManager', () => {
 
     it('registerWindow at capacity returns false and emits event', async () => {
       const { eventBus, storage } = await bootstrap()
-      const cacheManager = new CacheManager<ServiceLink, EnqueueCommand>(storage, eventBus, {
+      const cacheManager = new CacheManager<ServiceLink, EnqueueCommand>(eventBus, storage, {
         cacheConfig: { maxCacheKeys: 10, defaultTtl: 60000, maxWindows: 2 },
       })
 
@@ -434,7 +437,7 @@ describe('CacheManager', () => {
 
     it('unregisterWindow releases holds and allows new registration', async () => {
       const { eventBus, storage } = await bootstrap()
-      const cacheManager = new CacheManager<ServiceLink, EnqueueCommand>(storage, eventBus, {
+      const cacheManager = new CacheManager<ServiceLink, EnqueueCommand>(eventBus, storage, {
         cacheConfig: { maxCacheKeys: 10, defaultTtl: 60000, maxWindows: 2 },
       })
 

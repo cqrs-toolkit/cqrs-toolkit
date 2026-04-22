@@ -1,17 +1,9 @@
-import type { EventPersistence } from '../../types/index.js'
+import { ISerializedEvent } from '@meticoeus/ddd-es'
 
 /**
  * Shape of an individual event inside a command response.
  */
-export interface ResponseEvent {
-  id: string
-  type: string
-  streamId: string
-  data: unknown
-  persistence?: EventPersistence
-  revision: string
-  position: string
-}
+export type ResponseEvent = ISerializedEvent
 
 /**
  * Type guard: does the response carry an `events` array with the fields we need?

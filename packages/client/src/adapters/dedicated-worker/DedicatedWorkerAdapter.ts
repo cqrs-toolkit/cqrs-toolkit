@@ -37,6 +37,15 @@ export interface DedicatedWorkerAdapterConfig {
   workerUrl: string
   /** Request timeout in milliseconds (default: 30000) */
   requestTimeout?: number
+  /**
+   * Whether the main-thread channel should allow `emitDebug` emissions.
+   * Forwarded to {@link WorkerMessageChannel} so local debug events
+   * (e.g. `debug:log` from the main-thread logger) surface on
+   * `libraryEvents$`. Has no effect on what the worker emits across
+   * `postMessage` — that's controlled by the worker's own `EventBus.debug`
+   * and toggled via the `debug.enable` RPC. Defaults to `false`.
+   */
+  debug?: boolean
 }
 
 /**
@@ -80,7 +89,7 @@ export class DedicatedWorkerAdapter<
   private _events$: Observable<LibraryEvent<TLink>> | undefined
 
   private worker: Worker | undefined
-  private channel: WorkerMessageChannel | undefined
+  private _channel: WorkerMessageChannel | undefined
 
   constructor(config: DedicatedWorkerAdapterConfig) {
     this.config = config
@@ -93,6 +102,11 @@ export class DedicatedWorkerAdapter<
   get events$(): Observable<LibraryEvent<TLink>> {
     assert(this._events$, 'Adapter not initialized')
     return this._events$
+  }
+
+  get channel(): WorkerMessageChannel {
+    assert(this._channel, 'Adapter not initialized')
+    return this._channel
   }
 
   get commandQueue(): ICommandQueue<TLink, TCommand> {
@@ -116,13 +130,13 @@ export class DedicatedWorkerAdapter<
   }
 
   async enableDebug(): Promise<void> {
-    assert(this.channel, 'Adapter not initialized')
-    await this.channel.request('debug.enable')
+    assert(this._channel, 'Adapter not initialized')
+    await this._channel.request('debug.enable')
   }
 
   async debugQuery<T>(method: string, args?: unknown[]): Promise<T> {
-    assert(this.channel, 'Adapter not initialized')
-    return this.channel.request(method, args) as Promise<T>
+    assert(this._channel, 'Adapter not initialized')
+    return this._channel.request(method, args) as Promise<T>
   }
 
   /**
@@ -153,15 +167,16 @@ export class DedicatedWorkerAdapter<
       })
 
       // Create message channel
-      this.channel = new WorkerMessageChannel(this.worker, {
+      this._channel = new WorkerMessageChannel(this.worker, {
         requestTimeout: this.config.requestTimeout,
+        debug: this.config.debug,
       })
 
       // Connect to worker
-      this.channel.connect(this.worker)
+      this._channel.connect(this.worker)
 
       // Build shared broadcast observable for proxies
-      const broadcastEvents$ = this.channel.libraryEvents$.pipe(share(), takeUntil(this.destroy$))
+      const broadcastEvents$ = this._channel.libraryEvents$.pipe(share(), takeUntil(this.destroy$))
 
       // Build events$ observable for consumers
       this._events$ = broadcastEvents$.pipe(
@@ -177,7 +192,7 @@ export class DedicatedWorkerAdapter<
 
       // Trigger worker-side orchestrator initialization (includes OPFS probe)
       try {
-        await this.channel.request('orchestrator.initialize')
+        await this._channel.request('orchestrator.initialize')
       } catch (error) {
         if (error instanceof RpcError && error.errorCode === 'OPFS_UNAVAILABLE') {
           throw new OpfsUnavailableException()
@@ -187,14 +202,14 @@ export class DedicatedWorkerAdapter<
 
       // Create proxy objects
       this._commandQueue = new CommandQueueProxy(
-        this.channel,
+        this._channel,
         new OpfsCommandFileStore(),
         broadcastEvents$,
       )
       const windowId = crypto.randomUUID()
-      this._queryManager = new QueryManagerProxy<TLink>(this.channel, broadcastEvents$, windowId)
-      this._cacheManager = new CacheManagerProxy<TLink>(this.channel, windowId)
-      this._syncManager = new SyncManagerProxy<TLink>(this.channel, broadcastEvents$)
+      this._queryManager = new QueryManagerProxy<TLink>(this._channel, broadcastEvents$, windowId)
+      this._cacheManager = new CacheManagerProxy<TLink>(this._channel, windowId)
+      this._syncManager = new SyncManagerProxy<TLink>(this._channel, broadcastEvents$)
 
       // Sync connectivity state from worker
       await this._syncManager.syncState()
@@ -222,14 +237,14 @@ export class DedicatedWorkerAdapter<
     }
 
     // Tell worker to close orchestrator
-    if (this.channel) {
+    if (this._channel) {
       try {
-        await this.channel.request('orchestrator.close')
+        await this._channel.request('orchestrator.close')
       } catch {
         // Worker may already be dead
       }
-      this.channel.destroy()
-      this.channel = undefined
+      this._channel.destroy()
+      this._channel = undefined
     }
 
     // Destroy proxies

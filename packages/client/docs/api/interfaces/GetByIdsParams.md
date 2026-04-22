@@ -58,7 +58,7 @@ Place a hold on the cache key while query is active
 
 ### ids
 
-> **ids**: `string`[]
+> **ids**: [`EntityId`](../type-aliases/EntityId.md)[]
 
 Entity IDs
 

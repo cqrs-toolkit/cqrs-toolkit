@@ -29,7 +29,7 @@ describe('EventCache', () => {
     const storage = new InMemoryStorage<ServiceLink, EnqueueCommand>()
     await storage.initialize()
     const eventBus = new EventBus<ServiceLink>()
-    const eventCache = new EventCache<ServiceLink, EnqueueCommand>(storage, eventBus)
+    const eventCache = new EventCache<ServiceLink, EnqueueCommand>(storage)
     return { storage, eventBus, eventCache }
   }
 
@@ -98,29 +98,35 @@ describe('EventCache', () => {
     })
   })
 
-  describe('cacheServerEvents', () => {
+  describe('cacheServerEventsWithKeys', () => {
     it('caches multiple events', async () => {
       const { eventCache } = await bootstrap()
-      const events: IPersistedEvent[] = [
-        createPersistedEvent({
-          id: 'event-1',
-          type: 'TodoCreated',
-          streamId: 'todo-1',
-          data: { id: 'todo-1', title: 'Test 1' },
-          position: BigInt(100),
-          revision: BigInt(1),
-        }),
-        createPersistedEvent({
-          id: 'event-2',
-          type: 'TodoCreated',
-          streamId: 'todo-2',
-          data: { id: 'todo-2', title: 'Test 2' },
-          position: BigInt(101),
-          revision: BigInt(1),
-        }),
+      const entries = [
+        {
+          event: createPersistedEvent({
+            id: 'event-1',
+            type: 'TodoCreated',
+            streamId: 'todo-1',
+            data: { id: 'todo-1', title: 'Test 1' },
+            position: BigInt(100),
+            revision: BigInt(1),
+          }),
+          cacheKeys: ['cache-1'],
+        },
+        {
+          event: createPersistedEvent({
+            id: 'event-2',
+            type: 'TodoCreated',
+            streamId: 'todo-2',
+            data: { id: 'todo-2', title: 'Test 2' },
+            position: BigInt(101),
+            revision: BigInt(1),
+          }),
+          cacheKeys: ['cache-1'],
+        },
       ]
 
-      const count = await eventCache.cacheServerEvents(events, { cacheKeys: ['cache-1'] })
+      const count = await eventCache.cacheServerEventsWithKeys(entries)
 
       expect(count).toBe(2)
       expect(await eventCache.getEvent('event-1')).toBeTruthy()
@@ -138,12 +144,47 @@ describe('EventCache', () => {
 
       await eventCache.cacheServerEvent(event, { cacheKeys: ['cache-1'] })
 
-      const count = await eventCache.cacheServerEvents(
-        [event, createPersistedEvent({ id: 'event-2', position: BigInt(101) })],
-        { cacheKeys: ['cache-1'] },
-      )
+      const count = await eventCache.cacheServerEventsWithKeys([
+        { event, cacheKeys: ['cache-1'] },
+        {
+          event: createPersistedEvent({ id: 'event-2', position: BigInt(101) }),
+          cacheKeys: ['cache-1'],
+        },
+      ])
 
       expect(count).toBe(2) // Returns total count; duplicates are silently ignored by storage
+    })
+
+    it('caches entries with distinct cacheKey sets in one call', async () => {
+      const { eventCache } = await bootstrap()
+      const entries = [
+        {
+          event: createPersistedEvent({
+            id: 'event-1',
+            streamId: 'todo-1',
+            position: BigInt(100),
+            revision: BigInt(1),
+          }),
+          cacheKeys: ['cache-1'],
+        },
+        {
+          event: createPersistedEvent({
+            id: 'event-2',
+            streamId: 'todo-2',
+            position: BigInt(101),
+            revision: BigInt(1),
+          }),
+          cacheKeys: ['cache-2', 'cache-3'],
+        },
+      ]
+
+      const count = await eventCache.cacheServerEventsWithKeys(entries)
+
+      expect(count).toBe(2)
+      const e1 = await eventCache.getEvent('event-1')
+      const e2 = await eventCache.getEvent('event-2')
+      expect(e1?.cacheKeys).toEqual(['cache-1'])
+      expect(e2?.cacheKeys?.sort()).toEqual(['cache-2', 'cache-3'])
     })
   })
 
@@ -344,56 +385,6 @@ describe('EventCache', () => {
 
       expect(eventCache.getBufferedEvents('stream-1')).toHaveLength(0)
       expect(eventCache.getBufferedEvents('stream-2')).toHaveLength(1)
-    })
-  })
-
-  describe('cacheResponseEvent', () => {
-    it('caches a response event to storage for WS dedup', async () => {
-      const { eventCache } = await bootstrap()
-      await eventCache.cacheResponseEvent({
-        id: 'resp-1',
-        type: 'TodoCreated',
-        streamId: 'todo-1',
-        persistence: 'Permanent',
-        data: { id: 'todo-1', title: 'Test' },
-        revision: 0n,
-        position: 100n,
-        commandId: 'cmd-1',
-        cacheKey: 'cache-1',
-      })
-
-      const stored = await eventCache.getEvent('resp-1')
-      expect(stored).toMatchObject({
-        id: 'resp-1',
-        type: 'TodoCreated',
-        persistence: 'Permanent',
-      })
-    })
-
-    it('subsequent WS event with same ID is rejected as duplicate', async () => {
-      const { eventCache } = await bootstrap()
-      await eventCache.cacheResponseEvent({
-        id: 'resp-1',
-        type: 'TodoCreated',
-        streamId: 'todo-1',
-        persistence: 'Permanent',
-        data: { id: 'todo-1', title: 'Test' },
-        revision: 0n,
-        position: 100n,
-        cacheKey: 'cache-1',
-      })
-
-      // Now the same event arrives via WS
-      const wsEvent = createPersistedEvent({
-        id: 'resp-1',
-        type: 'TodoCreated',
-        streamId: 'todo-1',
-        revision: 0n,
-        position: 100n,
-      })
-
-      const cached = await eventCache.cacheServerEvent(wsEvent, { cacheKeys: ['cache-1'] })
-      expect(cached).toBe(false)
     })
   })
 

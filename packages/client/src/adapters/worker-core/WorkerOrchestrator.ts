@@ -14,11 +14,13 @@
 import type { Link } from '@meticoeus/ddd-es'
 import type { Subscription } from 'rxjs'
 import { CacheManager } from '../../core/cache-manager/CacheManager.js'
+import { CommandIdMappingStore } from '../../core/command-id-mapping-store/CommandIdMappingStore.js'
 import { AnticipatedEventHandler } from '../../core/command-lifecycle/AnticipatedEventHandler.js'
 import type { IAnticipatedEvent } from '../../core/command-lifecycle/AnticipatedEventShape.js'
 import { createCommandResponseHandler } from '../../core/command-lifecycle/createCommandResponseHandler.js'
 import { CommandQueue } from '../../core/command-queue/CommandQueue.js'
 import type { ICommandFileStore } from '../../core/command-queue/file-store/ICommandFileStore.js'
+import { CommandStore } from '../../core/command-store/CommandStore.js'
 import { EventCache } from '../../core/event-cache/EventCache.js'
 import { EventProcessorRegistry } from '../../core/event-processor/EventProcessorRegistry.js'
 import { EventProcessorRunner } from '../../core/event-processor/EventProcessorRunner.js'
@@ -70,18 +72,20 @@ export class WorkerOrchestrator<
   private readonly config: ResolvedConfig<TLink, TCommand, TSchema, TEvent>
 
   private storage: IStorage<TLink, TCommand> | undefined
-  private eventBus: EventBus<TLink> | undefined
   private sessionManager: SessionManager<TLink, TCommand> | undefined
   private cacheManager: CacheManager<TLink, TCommand> | undefined
   private eventCache: EventCache<TLink, TCommand> | undefined
   private readModelStore: ReadModelStore<TLink, TCommand> | undefined
+  private commandStore: CommandStore<TLink, TCommand> | undefined
+  private mappingStore: CommandIdMappingStore<TLink, TCommand> | undefined
   private commandQueue: CommandQueue<TLink, TCommand, TSchema, TEvent> | undefined
   private queryManager: QueryManager<TLink, TCommand> | undefined
   private syncManager: SyncManager<TLink, TCommand, TSchema, TEvent> | undefined
-  private writeQueue: WriteQueue<TLink> | undefined
+  private writeQueue: WriteQueue<TLink, TCommand> | undefined
   private eventBroadcastSub: Subscription | undefined
 
   constructor(
+    private readonly eventBus: EventBus<TLink>,
     messageHandler: WorkerMessageHandler,
     config: ResolvedConfig<TLink, TCommand, TSchema, TEvent>,
   ) {
@@ -128,9 +132,8 @@ export class WorkerOrchestrator<
     await storage.initialize()
     this.storage = storage
 
-    // 3. Create EventBus and bridge to broadcast
-    const eventBus = new EventBus<TLink>()
-    this.eventBus = eventBus
+    // 3. use EventBus and bridge to broadcast
+    const eventBus = this.eventBus
     this.eventBroadcastSub = eventBus.events$.subscribe((event) => {
       this.messageHandler.broadcastEvent(event.type, event.data, event.debug)
     })
@@ -147,59 +150,71 @@ export class WorkerOrchestrator<
     }
 
     // 6. Create CacheManager
-    const cacheManager = new CacheManager<TLink, TCommand>(storage, eventBus, {
+    const cacheManager = new CacheManager<TLink, TCommand>(eventBus, storage, {
       cacheConfig: config.cache,
     })
     await cacheManager.initialize()
     this.cacheManager = cacheManager
 
     // 7. Create EventCache
-    const eventCache = new EventCache(storage, eventBus)
+    const eventCache = new EventCache(storage)
     this.eventCache = eventCache
 
     // 8. Create ReadModelStore
-    const readModelStore = new ReadModelStore(storage)
+    const mappingStore = new CommandIdMappingStore<TLink, TCommand>(storage)
+    await mappingStore.initialize()
+    this.mappingStore = mappingStore
+
+    const readModelStore = new ReadModelStore(eventBus, storage, mappingStore)
     this.readModelStore = readModelStore
 
+    // 8.5. Create and initialize CommandStore
+    const commandStore = new CommandStore(storage, {
+      retainTerminal: config.retainTerminal,
+    })
+    await commandStore.initialize()
+    this.commandStore = commandStore
+
     // 9. Create EventProcessorRunner
-    const eventProcessorRunner = new EventProcessorRunner(readModelStore, eventBus, registry)
+    const eventProcessorRunner = new EventProcessorRunner(eventBus, registry, readModelStore)
 
     // 10. Create WriteQueue — subsystems register their own handlers in their constructors.
-    const writeQueue = new WriteQueue<TLink>(eventBus)
+    const writeQueue = new WriteQueue<TLink, TCommand>(eventBus)
     this.writeQueue = writeQueue
 
     // 11. Create CommandQueue with anticipated event handler and response handler
     let syncManagerRef: SyncManager<TLink, TCommand, TSchema, TEvent>
 
     const anticipatedEventHandler = new AnticipatedEventHandler(
+      eventBus,
       eventCache,
-      eventProcessorRunner,
+      registry,
       readModelStore,
       config.collections,
       writeQueue,
     )
-    eventProcessorRunner.setAnticipatedEventHandler(anticipatedEventHandler)
 
     const queryManager = new QueryManager<TLink, TCommand>(eventBus, cacheManager, readModelStore)
     this.queryManager = queryManager
 
+    const domainExecutor =
+      config.commandHandlers.length === 0
+        ? undefined
+        : createDomainExecutor<TLink, TCommand, TSchema, TEvent>(config.commandHandlers, {
+            schemaValidator: config.schemaValidator,
+            queryManager,
+          })
     const commandQueue = new CommandQueue<TLink, TCommand, TSchema, TEvent>(
-      storage,
       eventBus,
+      storage,
       options.fileStore,
       anticipatedEventHandler,
+      config.aggregates,
+      readModelStore,
+      commandStore,
+      mappingStore,
       {
-        ...(() => {
-          if (config.commandHandlers.length === 0) return {}
-          const executor = createDomainExecutor<TLink, TCommand, TSchema, TEvent>(
-            config.commandHandlers,
-            {
-              schemaValidator: config.schemaValidator,
-              queryManager,
-            },
-          )
-          return { domainExecutor: executor, handlerMetadata: executor }
-        })(),
+        domainExecutor,
         commandSender: config.commandSender,
         retryConfig: config.retry,
         retainTerminal: config.retainTerminal,
@@ -218,10 +233,13 @@ export class WorkerOrchestrator<
 
     const syncManager = new SyncManager<TLink, TCommand, TSchema, TEvent>(
       eventBus,
+      storage,
       sessionManager,
+      anticipatedEventHandler,
       commandQueue,
       eventCache,
       cacheManager,
+      registry,
       eventProcessorRunner,
       readModelStore,
       queryManager,
@@ -230,6 +248,10 @@ export class WorkerOrchestrator<
       config.network,
       config.auth,
       config.collections,
+      config.aggregates,
+      domainExecutor,
+      commandStore,
+      mappingStore,
     )
     syncManagerRef = syncManager
     this.syncManager = syncManager
@@ -239,8 +261,10 @@ export class WorkerOrchestrator<
     cacheManager.setCommandQueue(commandQueue)
     commandQueue.setCacheManager(cacheManager)
 
+    await commandQueue.initialize()
+
     // 14. Register RPC methods for all components
-    registerCommandQueueMethods(this.messageHandler, commandQueue)
+    registerCommandQueueMethods(this.messageHandler, commandQueue, eventBus)
     registerQueryManagerMethods(this.messageHandler, queryManager)
     registerCacheManagerMethods(this.messageHandler, cacheManager)
     registerSyncManagerMethods(this.messageHandler, syncManager, sessionManager)
@@ -302,6 +326,8 @@ export class WorkerOrchestrator<
     await this.syncManager?.destroy()
     await this.queryManager?.destroy()
     await this.commandQueue?.destroy()
+    await this.commandStore?.destroy()
+    await this.mappingStore?.destroy()
     this.eventBroadcastSub?.unsubscribe()
     this.eventBus?.complete()
     await this.storage?.close()

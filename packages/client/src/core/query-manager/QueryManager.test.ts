@@ -10,6 +10,7 @@ import { createTestWriteQueue } from '../../testing/createTestWriteQueue.js'
 import { EnqueueCommand } from '../../types/index.js'
 import { deriveScopeKey } from '../cache-manager/CacheKey.js'
 import { CacheManager } from '../cache-manager/CacheManager.js'
+import { CommandIdMappingStore } from '../command-id-mapping-store/CommandIdMappingStore.js'
 import { EventBus } from '../events/EventBus.js'
 import { ReadModelStore } from '../read-model-store/ReadModelStore.js'
 import { QueryManager } from './QueryManager.js'
@@ -45,9 +46,11 @@ describe('QueryManager', () => {
     await storage.initialize()
     eventBus = new EventBus()
     const writeQueue = createTestWriteQueue(eventBus, cleanup, ['flush-cache-keys'])
-    cacheManager = new CacheManager(storage, eventBus)
+    cacheManager = new CacheManager(eventBus, storage)
     cacheManager.setWriteQueue(writeQueue)
-    readModelStore = new ReadModelStore(storage)
+    const mappingStore = new CommandIdMappingStore(storage)
+    await mappingStore.initialize()
+    readModelStore = new ReadModelStore(eventBus, storage, mappingStore)
     queryManager = new QueryManager(eventBus, cacheManager, readModelStore)
     cleanup.push(() => queryManager.destroy())
     facade = new QueryManagerFacade(queryManager, WINDOW_ID)
@@ -182,6 +185,29 @@ describe('QueryManager', () => {
     })
   })
 
+  describe('getLocallyById', () => {
+    it('returns the data for an existing entity', async () => {
+      const data = await queryManager.getLocallyById<Todo>('todos', 'todo-1')
+      expect(data).toMatchObject({ id: 'todo-1', title: 'First' })
+    })
+
+    it('returns the effective (local-change) data when present', async () => {
+      const data = await queryManager.getLocallyById<Todo>('todos', 'todo-2')
+      expect(data).toMatchObject({ id: 'todo-2', title: 'Second Modified' })
+    })
+
+    it('returns undefined for a missing entity', async () => {
+      const data = await queryManager.getLocallyById<Todo>('todos', 'non-existent')
+      expect(data).toBeUndefined()
+    })
+
+    it('does not create a cache key', async () => {
+      await queryManager.getLocallyById<Todo>('todos', 'todo-1')
+      const cacheKeyExists = await cacheManager.exists(TODOS_CACHE_KEY.key)
+      expect(cacheKeyExists).toBe(false)
+    })
+  })
+
   describe('exists', () => {
     it('returns true for existing entity', async () => {
       expect(await queryManager.exists('todos', 'todo-1')).toBe(true)
@@ -207,7 +233,7 @@ describe('QueryManager', () => {
         signals.push(signal)
       })
 
-      eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'] })
+      eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'], commandIds: [] })
 
       await new Promise((r) => setTimeout(r, 10))
 
@@ -222,8 +248,8 @@ describe('QueryManager', () => {
         signals.push(signal)
       })
 
-      eventBus.emit('readmodel:updated', { collection: 'users', ids: ['user-1'] })
-      eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'] })
+      eventBus.emit('readmodel:updated', { collection: 'users', ids: ['user-1'], commandIds: [] })
+      eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'], commandIds: [] })
 
       await new Promise((r) => setTimeout(r, 10))
 
@@ -308,7 +334,7 @@ describe('QueryManager', () => {
       })
 
       // Emit update notification
-      eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'] })
+      eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'], commandIds: [] })
 
       await new Promise((r) => setTimeout(r, 10))
 
@@ -368,7 +394,7 @@ describe('QueryManager', () => {
         position: null,
         _clientMetadata: null,
       })
-      eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'] })
+      eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'], commandIds: [] })
 
       // Second update — triggers call 3 (fast, resolves before call 2)
       await storage.saveReadModel({
@@ -383,7 +409,7 @@ describe('QueryManager', () => {
         position: null,
         _clientMetadata: null,
       })
-      eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'] })
+      eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'], commandIds: [] })
 
       // Let the fast call (3) resolve
       await new Promise((r) => setTimeout(r, 10))
@@ -420,7 +446,7 @@ describe('QueryManager', () => {
       sub.unsubscribe()
 
       // Emit update after unsubscribe
-      eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'] })
+      eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'], commandIds: [] })
 
       await new Promise((r) => setTimeout(r, 10))
 

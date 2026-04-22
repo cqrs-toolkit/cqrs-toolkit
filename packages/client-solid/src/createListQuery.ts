@@ -2,16 +2,12 @@
  * SolidJS reactive primitive for list queries.
  */
 
-import type {
-  CacheKeyIdentity,
-  CollectionSignal,
-  IQueryManager,
-  ListParams,
-} from '@cqrs-toolkit/client'
+import type { CacheKeyIdentity, CollectionSignal, ListParams } from '@cqrs-toolkit/client'
 import { entityIdToString } from '@cqrs-toolkit/client'
 import type { Link } from '@meticoeus/ddd-es'
 import { createComputed, onCleanup } from 'solid-js'
 import { createStore, reconcile } from 'solid-js/store'
+import { useClient } from './context.js'
 import type {
   Identifiable,
   ListQueryParams,
@@ -50,14 +46,16 @@ interface Session {
  * the query re-subscribes when the cache key identity changes — releasing
  * the old key and resetting to loading state.
  *
- * @param queryManager - The query manager (should be StableRefQueryManager-wrapped for best results)
+ * Uses the CQRS client from context (via `useClient()`).
+ *
  * @param params - Query parameters (collection, cacheKey, limit, offset)
  * @returns Reactive store with items, loading, total, hasLocalChanges, state, reconciled
  */
 export function createListQuery<TLink extends Link, T extends Identifiable>(
-  queryManager: IQueryManager<TLink>,
   params: ListQueryParams<TLink>,
 ): ListQueryState<T> {
+  const client = useClient<TLink>()
+  const queryManager = client.queryManager
   const initialState: ListQueryStore<T> = {
     items: [],
     loading: true,

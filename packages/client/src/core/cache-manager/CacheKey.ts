@@ -13,6 +13,7 @@ import { stableStringify } from '#utils'
 import type { Link } from '@meticoeus/ddd-es'
 import { v5 as uuidv5 } from 'uuid'
 import type { CacheKeyRecord } from '../../storage/IStorage.js'
+import type { JSONPathExpression } from '../../types/json-path.js'
 
 /**
  * Namespace UUID for cache key derivation.
@@ -109,7 +110,7 @@ export interface ScopeCacheKeyTemplate {
    *
    * @example ['$.filter.orgId', '$.items[*].parentId']
    */
-  entityRefPaths?: string[]
+  entityRefPaths?: JSONPathExpression[]
 }
 
 /**

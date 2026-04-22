@@ -15,7 +15,7 @@ export const todosCollection: Collection<ServiceLink> = {
     cacheKey: TODO_SEED_KEY,
     topics: ['Todo:*'],
   },
-  matchesStream: (streamId) => streamId.startsWith('Todo-'),
+  matchesStream: (streamId) => streamId.startsWith('nb.Todo-'),
   fetchSeedRecords: ({ ctx, cursor, limit }) => fetchSeedRecordPage(ctx, '/todos', cursor, limit),
   fetchStreamEvents: ({ ctx, streamId, afterRevision }) =>
     fetchStreamEventsAfter(ctx, `/todos/${aggregateId(streamId)}/events`, afterRevision),

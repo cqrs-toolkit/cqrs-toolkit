@@ -4,16 +4,20 @@
 
 import type {
   CollectionSignal,
+  CqrsClient,
+  EnqueueCommand,
   GetByIdParams,
   IQueryManager,
+  LibraryEvent,
   QueryResult,
   ScopeCacheKey,
 } from '@cqrs-toolkit/client'
 import { deriveScopeKey } from '@cqrs-toolkit/client'
 import { ServiceLink } from '@meticoeus/ddd-es'
-import { Subject } from 'rxjs'
-import { createRoot, createSignal } from 'solid-js'
+import { Observable, Subject } from 'rxjs'
+import { createComponent, createRoot, createSignal } from 'solid-js'
 import { describe, expect, it, vi } from 'vitest'
+import { CqrsContext } from './context.js'
 import { createItemQuery } from './createItemQuery.js'
 
 interface Todo {
@@ -55,6 +59,9 @@ function createMockQueryManager() {
     watchById() {
       throw new Error('Not used in item tests')
     },
+    async getLocallyById() {
+      return undefined
+    },
     async exists() {
       return true
     },
@@ -80,6 +87,36 @@ function createMockQueryManager() {
   }
 }
 
+type TClient = CqrsClient<ServiceLink, EnqueueCommand>
+
+function createMockClient(
+  qm: IQueryManager<ServiceLink>,
+  events$?: Observable<LibraryEvent<ServiceLink>>,
+): TClient {
+  return {
+    queryManager: qm,
+    events$: events$ ?? new Subject<LibraryEvent<ServiceLink>>().asObservable(),
+  } as unknown as TClient
+}
+
+/**
+ * Run a test body inside a SolidJS root with CqrsProvider context.
+ * The callback is executed as children of the Provider so `useClient()` works.
+ */
+function withContext(client: TClient, fn: (dispose: () => void) => Promise<void>): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    createRoot((dispose) => {
+      createComponent(CqrsContext.Provider, {
+        value: client,
+        get children() {
+          fn(dispose).then(resolve, reject)
+          return undefined
+        },
+      })
+    })
+  })
+}
+
 function tick(): Promise<void> {
   return new Promise((r) => setTimeout(r, 0))
 }
@@ -95,8 +132,8 @@ describe('createItemQuery', () => {
       cacheKey: scopeKey('ck-todos-1'),
     })
 
-    await createRoot(async (dispose) => {
-      const state = createItemQuery<ServiceLink, Todo>(qm, {
+    await withContext(createMockClient(qm), async (dispose) => {
+      const state = createItemQuery<ServiceLink, Todo>({
         collection: 'todos',
         id: () => '1',
         cacheKey: TODOS_CACHE_KEY,
@@ -127,8 +164,8 @@ describe('createItemQuery', () => {
       cacheKey: scopeKey('ck-todos-1'),
     })
 
-    await createRoot(async (dispose) => {
-      const state = createItemQuery<ServiceLink, Todo>(qm, {
+    await withContext(createMockClient(qm), async (dispose) => {
+      const state = createItemQuery<ServiceLink, Todo>({
         collection: 'todos',
         id: '1',
         cacheKey: TODOS_CACHE_KEY,
@@ -157,8 +194,8 @@ describe('createItemQuery', () => {
       cacheKey: scopeKey('ck-todos-missing'),
     })
 
-    await createRoot(async (dispose) => {
-      const state = createItemQuery<ServiceLink, Todo>(qm, {
+    await withContext(createMockClient(qm), async (dispose) => {
+      const state = createItemQuery<ServiceLink, Todo>({
         collection: 'todos',
         id: () => 'missing',
         cacheKey: TODOS_CACHE_KEY,
@@ -182,8 +219,8 @@ describe('createItemQuery', () => {
       cacheKey: scopeKey('ck-todos-1'),
     })
 
-    await createRoot(async (dispose) => {
-      const state = createItemQuery<ServiceLink, Todo>(qm, {
+    await withContext(createMockClient(qm), async (dispose) => {
+      const state = createItemQuery<ServiceLink, Todo>({
         collection: 'todos',
         id: () => '1',
         cacheKey: TODOS_CACHE_KEY,
@@ -219,8 +256,8 @@ describe('createItemQuery', () => {
       cacheKey: scopeKey('ck-todos-1'),
     })
 
-    await createRoot(async (dispose) => {
-      createItemQuery<ServiceLink, Todo>(qm, {
+    await withContext(createMockClient(qm), async (dispose) => {
+      createItemQuery<ServiceLink, Todo>({
         collection: 'todos',
         id: () => '1',
         cacheKey: TODOS_CACHE_KEY,
@@ -250,9 +287,9 @@ describe('createItemQuery', () => {
       cacheKey: scopeKey('ck-todos-1'),
     })
 
-    await createRoot(async (dispose) => {
+    await withContext(createMockClient(qm), async (dispose) => {
       const [id, setId] = createSignal('1')
-      const state = createItemQuery<ServiceLink, Todo>(qm, {
+      const state = createItemQuery<ServiceLink, Todo>({
         collection: 'todos',
         id,
         cacheKey: TODOS_CACHE_KEY,
@@ -294,9 +331,9 @@ describe('createItemQuery', () => {
       cacheKey: scopeKey('ck-todos-1'),
     })
 
-    await createRoot(async (dispose) => {
+    await withContext(createMockClient(qm), async (dispose) => {
       const [id, setId] = createSignal('1')
-      const state = createItemQuery<ServiceLink, Todo>(qm, {
+      const state = createItemQuery<ServiceLink, Todo>({
         collection: 'todos',
         id,
         cacheKey: TODOS_CACHE_KEY,
@@ -343,8 +380,8 @@ describe('createItemQuery', () => {
     const testError = new Error('Network failure')
     qm.getById = () => Promise.reject(testError)
 
-    await createRoot(async (dispose) => {
-      const state = createItemQuery<ServiceLink, Todo>(qm, {
+    await withContext(createMockClient(qm), async (dispose) => {
+      const state = createItemQuery<ServiceLink, Todo>({
         collection: 'todos',
         id: () => '1',
         cacheKey: TODOS_CACHE_KEY,
@@ -368,8 +405,8 @@ describe('createItemQuery', () => {
       cacheKey: scopeKey('ck-todos-1'),
     })
 
-    await createRoot(async (dispose) => {
-      createItemQuery<ServiceLink, Todo>(qm, {
+    await withContext(createMockClient(qm), async (dispose) => {
+      createItemQuery<ServiceLink, Todo>({
         collection: 'todos',
         id: () => '1',
         cacheKey: TODOS_CACHE_KEY,
@@ -394,8 +431,8 @@ describe('createItemQuery', () => {
       cacheKey: scopeKey('ck-todos-1'),
     })
 
-    await createRoot(async (dispose) => {
-      createItemQuery<ServiceLink, Todo>(qm, {
+    await withContext(createMockClient(qm), async (dispose) => {
+      createItemQuery<ServiceLink, Todo>({
         collection: 'todos',
         id: () => '1',
         cacheKey: TODOS_CACHE_KEY,
@@ -421,9 +458,9 @@ describe('createItemQuery', () => {
       })
     }
 
-    await createRoot(async (dispose) => {
+    await withContext(createMockClient(qm), async (dispose) => {
       const [id, setId] = createSignal('1')
-      const state = createItemQuery<ServiceLink, Todo>(qm, {
+      const state = createItemQuery<ServiceLink, Todo>({
         collection: 'todos',
         id,
         cacheKey: TODOS_CACHE_KEY,
@@ -471,8 +508,8 @@ describe('createItemQuery', () => {
       cacheKey: scopeKey('ck-todos-1'),
     })
 
-    await createRoot(async (dispose) => {
-      createItemQuery<ServiceLink, Todo>(qm, {
+    await withContext(createMockClient(qm), async (dispose) => {
+      createItemQuery<ServiceLink, Todo>({
         collection: 'todos',
         id: () => '1',
         cacheKey: TODOS_CACHE_KEY,

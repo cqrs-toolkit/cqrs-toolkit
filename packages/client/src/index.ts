@@ -68,19 +68,25 @@ export type {
   ScopeCacheKeyTemplate,
   ScopeKeyMatcher,
 } from './core/cache-manager/index.js'
+export { CommandIdMappingStore } from './core/command-id-mapping-store/index.js'
+export type {
+  CommandIdMappingStoreConfig,
+  ICommandIdMappingStore,
+} from './core/command-id-mapping-store/index.js'
 export { CommandQueue, CommandSendException } from './core/command-queue/index.js'
 export type {
   CommandQueueConfig,
   ICommandQueue,
   ICommandSender,
 } from './core/command-queue/index.js'
+export { CommandStore } from './core/command-store/index.js'
+export type { CommandStoreConfig, ICommandStore } from './core/command-store/index.js'
 export { EventCache, GapBuffer } from './core/event-cache/index.js'
 export type { CacheEventOptions, EventGap } from './core/event-cache/index.js'
 export { EventProcessorRegistry, EventProcessorRunner } from './core/event-processor/index.js'
 export type {
   EventProcessor,
   InvalidateSignal,
-  ParsedEvent,
   ProcessEventResult,
   ProcessorContext,
   ProcessorRegistration,
@@ -158,6 +164,3 @@ export {
   shouldRetry,
   sleep,
 } from './utils/index.js'
-
-// Testing utilities (separate export for tree-shaking)
-export * as testing from './testing/index.js'

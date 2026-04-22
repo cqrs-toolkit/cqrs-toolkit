@@ -10,7 +10,7 @@ import { addRevision } from '../utils/processors.js'
 export const fileObjectProcessors: ProcessorRegistration[] = [
   {
     eventTypes: 'FileObjectCreated',
-    processor: (data: FileObjectCreatedEvent['data'], ctx) => ({
+    processor: (data: FileObjectCreatedEvent['data'], _state, ctx) => ({
       collection: FILE_OBJECTS_COLLECTION_NAME,
       id: data.id,
       update: {

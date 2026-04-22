@@ -14,16 +14,8 @@ type PanelState = 'loading' | 'ready' | 'error'
 
 export default function DashboardPage() {
   const client = useClient<ServiceLink>()
-  const todosQuery = appCreateListQuery<Todo>(
-    client.queryManager,
-    'todos',
-    deriveScopeKey({ scopeType: 'todos' }),
-  )
-  const notebooksQuery = appCreateListQuery<Notebook>(
-    client.queryManager,
-    'notebooks',
-    NOTEBOOK_SEED_KEY,
-  )
+  const todosQuery = appCreateListQuery<Todo>('todos', deriveScopeKey({ scopeType: 'todos' }))
+  const notebooksQuery = appCreateListQuery<Notebook>('notebooks', NOTEBOOK_SEED_KEY)
   const [todosState, setTodosState] = createSignal<PanelState>('loading')
   const [notebooksState, setNotebooksState] = createSignal<PanelState>('loading')
   const [todosSync, setTodosSync] = createSignal<CollectionSyncStatus>()
@@ -49,14 +41,18 @@ export default function DashboardPage() {
   }
 
   function recentIncompleteTodos(): Todo[] {
-    return todosQuery.items
+    return [...todosQuery.items]
       .filter((t) => t.status !== 'completed')
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
       .slice(-5)
       .reverse()
   }
 
   function recentNotebooks(): Notebook[] {
-    return notebooksQuery.items.slice(-5).reverse()
+    return [...notebooksQuery.items]
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .slice(-5)
+      .reverse()
   }
 
   function syncLabel(status: CollectionSyncStatus | undefined): string {

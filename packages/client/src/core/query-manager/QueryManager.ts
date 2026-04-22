@@ -21,6 +21,8 @@ import {
   switchMap,
   takeUntil,
 } from 'rxjs'
+import type { EntityId } from '../../types/entities.js'
+import { entityIdToString } from '../../types/entities.js'
 import { EnqueueCommand } from '../../types/index.js'
 import type { CacheKeyIdentity } from '../cache-manager/CacheKey.js'
 import type { ICacheManagerInternal } from '../cache-manager/types.js'
@@ -104,8 +106,9 @@ export class QueryManager<
     const results = new Map<string, QueryResult<TLink, T>>()
 
     for (const id of params.ids) {
-      const model = models.get(id)
-      results.set(id, {
+      const stringId = entityIdToString(id)
+      const model = models.get(stringId)
+      results.set(stringId, {
         data: model?.data,
         meta: model
           ? { id: model.id, updatedAt: model.updatedAt, clientId: model._clientMetadata?.clientId }
@@ -187,7 +190,8 @@ export class QueryManager<
     return this.eventBus.on('readmodel:updated').pipe(
       filter(
         (event) =>
-          event.data.collection === params.collection && event.data.ids.includes(params.id),
+          event.data.collection === params.collection &&
+          event.data.ids.includes(entityIdToString(params.id)),
       ),
       startWith(undefined),
       switchMap(() =>
@@ -208,13 +212,24 @@ export class QueryManager<
   }
 
   /**
+   * Read a locally-cached read model by ID without triggering any client-side effects.
+   *
+   * No cache key is acquired, no hold is registered, no events are emitted.
+   * Returns `undefined` if the entity is not present in the local store.
+   */
+  async getLocallyById<T>(collection: string, id: EntityId): Promise<T | undefined> {
+    const model = await this.readModelStore.getById<T>(collection, id)
+    return model?.data
+  }
+
+  /**
    * Check if an entity exists.
    *
    * @param collection - Collection name
    * @param id - Entity ID
    * @returns Whether the entity exists
    */
-  async exists(collection: string, id: string): Promise<boolean> {
+  async exists(collection: string, id: EntityId): Promise<boolean> {
     return this.readModelStore.exists(collection, id)
   }
 

@@ -221,7 +221,7 @@ describe('WebSocket integration', () => {
     expect(eventMsg.type).toBe('event')
     expect(eventMsg.topics).toEqual([`Todo:${body.id}`])
     expect(eventMsg.service).toBe('demo')
-    expect(eventMsg.aggregateType).toBe('Todo')
+    expect(eventMsg.aggregateType).toBe('nb.Todo')
     expect(eventMsg.event.type).toBe('TodoCreated')
     expect(eventMsg.event.data).toMatchObject({ content: 'WebSocket test' })
   })

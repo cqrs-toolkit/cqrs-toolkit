@@ -151,7 +151,7 @@ export function fileObjectRoutes(
 
         const events = eventStore
           .getGlobalEvents(afterPosition, limit + 1)
-          .filter((e) => e.streamId.startsWith('FileObject-'))
+          .filter((e) => e.streamId.startsWith('storage.FileObject-'))
 
         const items = events.slice(0, limit)
         const hasMore = events.length > limit

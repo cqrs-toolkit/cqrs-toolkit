@@ -14,4 +14,4 @@ export type {
 
 export { EventProcessorRegistry } from './EventProcessorRegistry.js'
 export { EventProcessorRunner } from './EventProcessorRunner.js'
-export type { ParsedEvent, ProcessEventResult } from './EventProcessorRunner.js'
+export type { ProcessEventResult } from './EventProcessorRunner.js'

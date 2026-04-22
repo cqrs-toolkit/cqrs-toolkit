@@ -57,7 +57,7 @@ Tracks navigator.onLine status and API reachability via health checks.
 
 ### checkTimer
 
-> `protected` **checkTimer**: `number` \| `undefined`
+> `protected` **checkTimer**: `Timeout` \| `undefined`
 
 #### Inherited from
 

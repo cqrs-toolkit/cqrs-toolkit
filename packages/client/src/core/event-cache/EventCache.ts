@@ -15,8 +15,6 @@ import type { CachedEventRecord, IStorage } from '../../storage/IStorage.js'
 import type { AnticipatedEvent } from '../../types/events.js'
 import { normalizeEventPersistence } from '../../types/events.js'
 import { EnqueueCommand } from '../../types/index.js'
-import type { ParsedEvent } from '../event-processor/EventProcessorRunner.js'
-import type { EventBus } from '../events/EventBus.js'
 import { GapBuffer, type EventGap } from './GapDetector.js'
 
 /**
@@ -27,6 +25,16 @@ export interface CacheEventOptions {
   cacheKeys: string[]
   /** For anticipated events, the command ID */
   commandId?: string
+}
+
+/**
+ * Entry shape for {@link EventCache.cacheServerEventsWithKeys}. Each entry
+ * carries its own cacheKeys, so the batch may mix events whose cacheKey
+ * sets differ.
+ */
+export interface CacheServerEventEntry {
+  event: IPersistedEvent
+  cacheKeys: readonly string[]
 }
 
 /**
@@ -44,10 +52,7 @@ export class EventCache<TLink extends Link, TCommand extends EnqueueCommand> {
   /** Periodic cleanup timer for processed events. */
   private cleanupTimer: ReturnType<typeof setInterval> | undefined
 
-  constructor(
-    private readonly storage: IStorage<TLink, TCommand>,
-    private readonly eventBus: EventBus<TLink>,
-  ) {
+  constructor(private readonly storage: IStorage<TLink, TCommand>) {
     this.gapBuffer = new GapBuffer<IPersistedEvent>()
   }
 
@@ -74,7 +79,7 @@ export class EventCache<TLink extends Link, TCommand extends EnqueueCommand> {
       data: JSON.stringify(event.data),
       position: event.position.toString(),
       revision: event.revision.toString(),
-      commandId: null,
+      commandId: extractCommandId(event),
       cacheKeys: options.cacheKeys,
       createdAt: new Date(event.created).getTime(),
       processedAt: null,
@@ -96,18 +101,17 @@ export class EventCache<TLink extends Link, TCommand extends EnqueueCommand> {
   }
 
   /**
-   * Cache multiple persisted events in batch.
+   * Cache multiple persisted events in a single storage round-trip. Each
+   * entry carries its own cacheKeys, so a batch may mix events whose
+   * cacheKey sets differ.
    *
    * Duplicates are silently ignored by the storage layer (INSERT OR IGNORE).
    *
-   * @param events - Events to cache
-   * @param options - Cache options
-   * @returns Number of events submitted (duplicates are silently skipped by storage)
+   * @param entries - Events to cache, each with its own cacheKeys
+   * @returns Number of entries submitted (duplicates silently skipped by storage)
    */
-  async cacheServerEvents(events: IPersistedEvent[], options: CacheEventOptions): Promise<number> {
-    if (events.length === 0) return 0
-
-    const records: CachedEventRecord[] = events.map((event) => ({
+  async cacheServerEventsWithKeys(entries: readonly CacheServerEventEntry[]): Promise<number> {
+    const records: CachedEventRecord[] = entries.map(({ event, cacheKeys }) => ({
       id: event.id,
       type: event.type,
       streamId: event.streamId,
@@ -115,27 +119,25 @@ export class EventCache<TLink extends Link, TCommand extends EnqueueCommand> {
       data: JSON.stringify(event.data),
       position: event.position.toString(),
       revision: event.revision.toString(),
-      commandId: null,
-      cacheKeys: options.cacheKeys,
+      commandId: extractCommandId(event),
+      cacheKeys: [...cacheKeys],
       createdAt: new Date(event.created).getTime(),
       processedAt: null,
     }))
 
     await this.storage.saveCachedEvents(records)
 
-    for (const event of events) {
-      // Track cacheKey → streamId index
-      for (const cacheKey of options.cacheKeys) {
+    for (const { event, cacheKeys } of entries) {
+      for (const cacheKey of cacheKeys) {
         this.trackCacheKeyStream(cacheKey, event.streamId)
       }
 
-      // Track for gap detection (use revision, not position — revision is per-stream sequential)
       if (normalizeEventPersistence(event) === 'Permanent') {
         this.gapBuffer.add(event.streamId, event.revision, event)
       }
     }
 
-    return events.length
+    return entries.length
   }
 
   /**
@@ -222,6 +224,18 @@ export class EventCache<TLink extends Link, TCommand extends EnqueueCommand> {
   }
 
   /**
+   * Bulk existence check — returns the subset of ids that are already
+   * stored in the cache. Used by the WS drain dedup pass to partition a
+   * batch into "new" vs "already-seen" without N round-trips.
+   *
+   * @param ids - Candidate event IDs
+   * @returns Set of ids that are already present
+   */
+  async getExistingEventIds(ids: readonly string[]): Promise<Set<string>> {
+    return this.storage.getExistingCachedEventIds(ids)
+  }
+
+  /**
    * Get all events for a cache key.
    *
    * @param cacheKey - Cache key identifier
@@ -252,6 +266,14 @@ export class EventCache<TLink extends Link, TCommand extends EnqueueCommand> {
   }
 
   /**
+   * Get all anticipated events across every pending command.
+   * Used by reconciliation to bulk-load optimistic overlays in a single query.
+   */
+  async getAllAnticipatedEvents(): Promise<CachedEventRecord[]> {
+    return this.storage.getAllAnticipatedEvents()
+  }
+
+  /**
    * Delete anticipated events for a command.
    * Called when command succeeds/fails and anticipated events should be removed.
    *
@@ -259,6 +281,16 @@ export class EventCache<TLink extends Link, TCommand extends EnqueueCommand> {
    */
   async deleteAnticipatedEvents(commandId: string): Promise<void> {
     await this.storage.deleteAnticipatedEventsByCommand(commandId)
+  }
+
+  /**
+   * Delete anticipated events for multiple commands in a single storage
+   * round-trip. Used by the applied-batch cleanup path in the sync pipeline.
+   *
+   * @param commandIds - Command identifiers whose anticipated events should be removed
+   */
+  async deleteAnticipatedEventsForCommands(commandIds: readonly string[]): Promise<void> {
+    await this.storage.deleteAnticipatedEventsByCommands(commandIds)
   }
 
   /**
@@ -345,14 +377,20 @@ export class EventCache<TLink extends Link, TCommand extends EnqueueCommand> {
    * @returns Array of streamIds that were cleared
    */
   /**
-   * Add cache key associations to an existing event.
-   * Used when a duplicate WS event is relevant to additional active cache keys.
+   * Add cache-key associations to multiple already-cached events in a single
+   * storage round-trip. Used when a WS drain batch contains events that
+   * were previously cached under a different active cache-key set.
+   *
+   * Each entry carries the full event because the in-memory
+   * {@link trackCacheKeyStream} index needs `streamId` alongside the id —
+   * passing the event avoids a re-fetch round-trip the caller already has
+   * the data to avoid.
    */
-  async addCacheKeysToEvent(eventId: string, cacheKeys: string[]): Promise<void> {
-    await this.storage.addCacheKeysToEvent(eventId, cacheKeys)
-    // Update in-memory cacheKeyStreams index
-    const event = await this.storage.getCachedEvent(eventId)
-    if (event) {
+  async addCacheKeysToEvents(entries: readonly CacheServerEventEntry[]): Promise<void> {
+    await this.storage.addCacheKeysToEvents(
+      entries.map(({ event, cacheKeys }) => ({ eventId: event.id, cacheKeys })),
+    )
+    for (const { event, cacheKeys } of entries) {
       for (const cacheKey of cacheKeys) {
         this.trackCacheKeyStream(cacheKey, event.streamId)
       }
@@ -375,42 +413,6 @@ export class EventCache<TLink extends Link, TCommand extends EnqueueCommand> {
     return cleared
   }
 
-  /**
-   * Cache a command response event for WS dedup and immediate processing.
-   * Constructs a CachedEventRecord from a ParsedEvent, saves to storage (INSERT OR IGNORE),
-   * and adds to gap buffer for Permanent events.
-   *
-   * @param event - Parsed event from command response
-   */
-  async cacheResponseEvent(event: ParsedEvent): Promise<void> {
-    const record: CachedEventRecord = {
-      id: event.id,
-      type: event.type,
-      streamId: event.streamId,
-      persistence: event.persistence,
-      data: JSON.stringify(event.data),
-      position: event.position !== undefined ? event.position.toString() : null,
-      revision: event.revision !== undefined ? event.revision.toString() : null,
-      commandId: event.commandId ?? null,
-      cacheKeys: [event.cacheKey],
-      createdAt: Date.now(),
-      processedAt: null,
-    }
-
-    await this.storage.saveCachedEvent(record)
-
-    // Track cacheKey → streamId index
-    this.trackCacheKeyStream(event.cacheKey, event.streamId)
-
-    // Add to gap buffer for Permanent events
-    if (event.persistence === 'Permanent' && event.revision !== undefined) {
-      this.gapBuffer.add(event.streamId, event.revision, toDummyPersistedEvent(event))
-    }
-  }
-
-  /**
-   * Destroy the event cache. Completes subscriptions and clears in-memory state.
-   */
   /**
    * Mark events as processed. Sets processedAt timestamp for TTL-based cleanup.
    */
@@ -459,21 +461,10 @@ export class EventCache<TLink extends Link, TCommand extends EnqueueCommand> {
   }
 }
 
-/**
- * Create a minimal IPersistedEvent for gap buffer tracking from a ParsedEvent.
- * The gap buffer only uses streamId, revision, and position — other fields
- * are placeholders. The cast is necessary because ParsedEvent.data is `unknown`
- * while IPersistedEvent requires DataType (which demands an `id` field).
- */
-function toDummyPersistedEvent(event: ParsedEvent): IPersistedEvent {
-  return {
-    id: event.id,
-    type: event.type,
-    streamId: event.streamId,
-    data: event.data as IPersistedEvent['data'],
-    metadata: { correlationId: event.commandId ?? event.id },
-    created: new Date().toISOString(),
-    revision: event.revision ?? 0n,
-    position: event.position ?? 0n,
+function extractCommandId(event: IPersistedEvent): string | null {
+  const metadata = event.metadata
+  if ('commandId' in metadata && typeof metadata.commandId === 'string') {
+    return metadata.commandId
   }
+  return null
 }

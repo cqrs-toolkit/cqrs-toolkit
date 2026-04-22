@@ -63,7 +63,7 @@ export class ElectronAdapter<
   private _syncManager: SyncManagerProxy<TLink> | undefined
   private _events$: Observable<LibraryEvent<TLink>> | undefined
 
-  private channel: protocol.WorkerMessageChannel | undefined
+  private _channel: protocol.WorkerMessageChannel | undefined
 
   constructor(config: ElectronAdapterConfig) {
     this.config = config
@@ -76,6 +76,11 @@ export class ElectronAdapter<
   get events$(): Observable<LibraryEvent<TLink>> {
     assert(this._events$, 'Adapter not initialized')
     return this._events$
+  }
+
+  get channel(): protocol.WorkerMessageChannel {
+    assert(this._channel, 'Adapter not initialized')
+    return this._channel
   }
 
   get commandQueue(): ICommandQueue<TLink, TCommand> {
@@ -99,13 +104,13 @@ export class ElectronAdapter<
   }
 
   async enableDebug(): Promise<void> {
-    assert(this.channel, 'Adapter not initialized')
-    await this.channel.request('debug.enable')
+    assert(this._channel, 'Adapter not initialized')
+    await this._channel.request('debug.enable')
   }
 
   async debugQuery<T>(method: string, args?: unknown[]): Promise<T> {
-    assert(this.channel, 'Adapter not initialized')
-    return this.channel.request(method, args) as Promise<T>
+    assert(this._channel, 'Adapter not initialized')
+    return this._channel.request(method, args) as Promise<T>
   }
 
   async initialize(): Promise<void> {
@@ -116,14 +121,14 @@ export class ElectronAdapter<
       const port = this.config.port
 
       // Create message channel targeting the port
-      this.channel = new protocol.WorkerMessageChannel(port, {
+      this._channel = new protocol.WorkerMessageChannel(port, {
         requestTimeout: this.config.requestTimeout,
       })
-      this.channel.connect(port)
+      this._channel.connect(port)
       port.start()
 
       // Build shared broadcast observable for proxies
-      const broadcastEvents$ = this.channel.libraryEvents$.pipe(share(), takeUntil(this.destroy$))
+      const broadcastEvents$ = this._channel.libraryEvents$.pipe(share(), takeUntil(this.destroy$))
 
       // Build events$ observable for consumers
       this._events$ = broadcastEvents$.pipe(
@@ -138,15 +143,15 @@ export class ElectronAdapter<
       )
 
       // Trigger utility-process-side orchestrator initialization
-      await this.channel.request('orchestrator.initialize')
+      await this._channel.request('orchestrator.initialize')
 
       // Create proxy objects
-      const fileStore = new ElectronCommandFileStore(this.channel)
-      this._commandQueue = new CommandQueueProxy(this.channel, fileStore, broadcastEvents$)
+      const fileStore = new ElectronCommandFileStore(this._channel)
+      this._commandQueue = new CommandQueueProxy(this._channel, fileStore, broadcastEvents$)
       const windowId = crypto.randomUUID()
-      this._queryManager = new QueryManagerProxy<TLink>(this.channel, broadcastEvents$, windowId)
-      this._cacheManager = new CacheManagerProxy<TLink>(this.channel, windowId)
-      this._syncManager = new SyncManagerProxy<TLink>(this.channel, broadcastEvents$)
+      this._queryManager = new QueryManagerProxy<TLink>(this._channel, broadcastEvents$, windowId)
+      this._cacheManager = new CacheManagerProxy<TLink>(this._channel, windowId)
+      this._syncManager = new SyncManagerProxy<TLink>(this._channel, broadcastEvents$)
 
       // Sync connectivity state from the worker
       await this._syncManager.syncState()
@@ -162,14 +167,14 @@ export class ElectronAdapter<
     if (this._status === 'closed') return
 
     // Tell the utility process to close the orchestrator
-    if (this.channel) {
+    if (this._channel) {
       try {
-        await this.channel.request('orchestrator.close')
+        await this._channel.request('orchestrator.close')
       } catch {
         // Utility process may already be dead
       }
-      this.channel.destroy()
-      this.channel = undefined
+      this._channel.destroy()
+      this._channel = undefined
     }
 
     // Destroy proxies

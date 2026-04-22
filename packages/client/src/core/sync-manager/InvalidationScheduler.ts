@@ -9,13 +9,39 @@
 
 import { Link, logProvider, Result } from '@meticoeus/ddd-es'
 import type { Collection, FetchContext } from '../../types/config.js'
-import { EnqueueCommand } from '../../types/index.js'
 import { type CacheKeyIdentity, hydrateCacheKeyIdentity } from '../cache-manager/CacheKey.js'
 import type { ICacheManagerInternal } from '../cache-manager/types.js'
 import type { EventBus } from '../events/EventBus.js'
 import { WriteQueueException } from '../write-queue/IWriteQueue.js'
 import type { SeedStatusIndex } from './SeedStatusIndex.js'
 import { resolveTopicsForKey } from './SyncManagerUtils.js'
+
+/**
+ * Reason a command success path is asking an aggregate to be invalidated.
+ *
+ * - `'event-less-response'`: the server response carried no events, so the
+ *   pipeline will never deliver rule-1 coverage for the command's anticipated
+ *   streams. Fire a refetch for each affected aggregate so server data fills in.
+ * - `'no-expected-revision'`: an affected aggregate could not be paired with a
+ *   parsable expected revision from the merged `responseIdReferences` /
+ *   `responseIdMapping` config. The pipeline has no way to cover that
+ *   aggregate via rule 2a, so fall back to invalidation + auto-cover.
+ */
+export type InvalidateAggregateReason = 'event-less-response' | 'no-expected-revision'
+
+export interface InvalidateAggregateParams<TLink extends Link> {
+  /** Canonical stream id of the aggregate to invalidate. */
+  streamId: string
+  /** Cache key that owns the aggregate's data scope — passed through to the scheduler. */
+  cacheKey: string
+  /** Originating command id, for logging/telemetry. */
+  commandId: string
+  /** Why the invalidation is being fired (for logging/future routing). */
+  reason: InvalidateAggregateReason
+  // Reserved for future use: `TLink` is carried on the interface for
+  // collections and future wrappers that need the client's link type.
+  readonly _link?: TLink
+}
 
 export interface InvalidationSchedulerConfig<TLink extends Link> {
   getFetchContext: () => Promise<FetchContext>
@@ -28,7 +54,7 @@ export interface InvalidationSchedulerConfig<TLink extends Link> {
   debounceMs?: number
 }
 
-export class InvalidationScheduler<TLink extends Link, TCommand extends EnqueueCommand> {
+export class InvalidationScheduler<TLink extends Link> {
   private readonly getFetchContext: () => Promise<FetchContext>
   private readonly onRefetch: InvalidationSchedulerConfig<TLink>['onRefetch']
   private readonly debounceMs: number
@@ -47,12 +73,27 @@ export class InvalidationScheduler<TLink extends Link, TCommand extends EnqueueC
     this.debounceMs = config.debounceMs ?? 500
   }
 
+  public invalidateAggregate(params: InvalidateAggregateParams<TLink>): void {
+    const { streamId, cacheKey, commandId, reason } = params
+
+    const collection = this.collections.find((c) => c.matchesStream(streamId))
+    if (!collection) {
+      logProvider.log.warn(
+        { streamId, commandId, reason },
+        'InvalidationScheduler: no collection matched streamId; dropping invalidation',
+      )
+      return
+    }
+
+    this.schedule(collection.name, [cacheKey])
+  }
+
   /**
    * Handle an invalidation signal for a collection.
    * Intersects the event's cache keys with actively tracked keys,
    * then schedules a debounced refetch for each match.
    */
-  schedule(collectionName: string, eventCacheKeys: string[]): void {
+  public schedule(collectionName: string, eventCacheKeys: string[]): void {
     const keysToRefetch = this.intersectActiveCacheKeys(collectionName, eventCacheKeys)
     for (const cacheKey of keysToRefetch) {
       this.scheduleCollectionRefetch(collectionName, cacheKey)
@@ -62,14 +103,14 @@ export class InvalidationScheduler<TLink extends Link, TCommand extends EnqueueC
   /**
    * Whether a debounced refetch is pending for the given (collection, cacheKey) pair.
    */
-  hasPending(collectionName: string, cacheKeyId: string): boolean {
+  public hasPending(collectionName: string, cacheKeyId: string): boolean {
     return this.pendingRefetches.has(`${collectionName}:${cacheKeyId}`)
   }
 
   /**
    * Cancel all pending refetch timers.
    */
-  cancelAll(): void {
+  public cancelAll(): void {
     for (const timer of this.pendingRefetches.values()) clearTimeout(timer)
     this.pendingRefetches.clear()
   }

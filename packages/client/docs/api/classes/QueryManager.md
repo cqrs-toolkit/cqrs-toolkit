@@ -106,7 +106,7 @@ Collection name
 
 ##### id
 
-`string`
+[`EntityId`](../type-aliases/EntityId.md)
 
 Entity ID
 
@@ -179,6 +179,41 @@ Map of ID to query result
 #### Implementation of
 
 `IQueryManagerInternal.getByIds`
+
+---
+
+### getLocallyById()
+
+> **getLocallyById**\<`T`\>(`collection`, `id`): `Promise`\<`T` \| `undefined`\>
+
+Read a locally-cached read model by ID without triggering any client-side effects.
+
+No cache key is acquired, no hold is registered, no events are emitted.
+Returns `undefined` if the entity is not present in the local store.
+
+#### Type Parameters
+
+##### T
+
+`T`
+
+#### Parameters
+
+##### collection
+
+`string`
+
+##### id
+
+[`EntityId`](../type-aliases/EntityId.md)
+
+#### Returns
+
+`Promise`\<`T` \| `undefined`\>
+
+#### Implementation of
+
+`IQueryManagerInternal.getLocallyById`
 
 ---
 

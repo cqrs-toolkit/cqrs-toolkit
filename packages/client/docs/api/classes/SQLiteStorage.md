@@ -40,22 +40,19 @@ SQLite storage implementation.
 
 ## Methods
 
-### addCacheKeysToEvent()
+### addCacheKeysToEvents()
 
-> **addCacheKeysToEvent**(`eventId`, `cacheKeys`): `Promise`\<`void`\>
+> **addCacheKeysToEvents**(`entries`): `Promise`\<`void`\>
 
-Add cache key associations to an existing event.
-Used when a WS event is relevant to additional active cache keys.
+Add cache-key associations to multiple existing events in a single
+storage round-trip. Used when a WS drain batch contains events that
+were already cached but under a different active cache-key set.
 
 #### Parameters
 
-##### eventId
+##### entries
 
-`string`
-
-##### cacheKeys
-
-`string`[]
+readonly `AddCacheKeysToEventEntry`[]
 
 #### Returns
 
@@ -63,7 +60,7 @@ Used when a WS event is relevant to additional active cache keys.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`addCacheKeysToEvent`](../interfaces/IStorage.md#addcachekeystoevent)
+[`IStorage`](../interfaces/IStorage.md).[`addCacheKeysToEvents`](../interfaces/IStorage.md#addcachekeystoevents)
 
 ---
 
@@ -95,6 +92,30 @@ Used when a read model is relevant to additional active cache keys.
 #### Implementation of
 
 [`IStorage`](../interfaces/IStorage.md).[`addCacheKeysToReadModel`](../interfaces/IStorage.md#addcachekeystoreadmodel)
+
+---
+
+### addCacheKeysToReadModels()
+
+> **addCacheKeysToReadModels**(`entries`): `Promise`\<`void`\>
+
+Add cache-key associations to multiple existing read models in a single
+storage round-trip. Entries may span different collections; each
+collection's junction table is written with its subset of rows.
+
+#### Parameters
+
+##### entries
+
+readonly `AddCacheKeysToReadModelEntry`[]
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`addCacheKeysToReadModels`](../interfaces/IStorage.md#addcachekeystoreadmodels)
 
 ---
 
@@ -207,6 +228,30 @@ Delete all anticipated events for a command.
 #### Implementation of
 
 [`IStorage`](../interfaces/IStorage.md).[`deleteAnticipatedEventsByCommand`](../interfaces/IStorage.md#deleteanticipatedeventsbycommand)
+
+---
+
+### deleteAnticipatedEventsByCommands()
+
+> **deleteAnticipatedEventsByCommands**(`commandIds`): `Promise`\<`void`\>
+
+Delete all anticipated events for a set of commands in a single call.
+Used by reconcile to clear stale overlays for every re-run command in
+one storage round-trip.
+
+#### Parameters
+
+##### commandIds
+
+readonly `string`[]
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`deleteAnticipatedEventsByCommands`](../interfaces/IStorage.md#deleteanticipatedeventsbycommands)
 
 ---
 
@@ -370,6 +415,30 @@ Delete a read model record.
 
 ---
 
+### deleteReadModels()
+
+> **deleteReadModels**(`entries`): `Promise`\<`void`\>
+
+Delete multiple read model records in a single storage round-trip.
+Entries may span different collections; each collection's data table
+and cache-key junction table are deleted together.
+
+#### Parameters
+
+##### entries
+
+readonly `DeleteReadModelEntry`[]
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`deleteReadModels`](../interfaces/IStorage.md#deletereadmodels)
+
+---
+
 ### deleteReadModelsByCollection()
 
 > **deleteReadModelsByCollection**(`collection`): `Promise`\<`void`\>
@@ -427,6 +496,24 @@ Filter an array of cache key strings to only those that exist in storage.
 #### Implementation of
 
 [`IStorage`](../interfaces/IStorage.md).[`filterExistingCacheKeys`](../interfaces/IStorage.md#filterexistingcachekeys)
+
+---
+
+### getAllAnticipatedEvents()
+
+> **getAllAnticipatedEvents**(): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md)[]\>
+
+Get every cached event with `persistence === 'Anticipated'`. Used by
+reconciliation to bulk-load all pending optimistic overlays in a single
+query rather than N per-command queries.
+
+#### Returns
+
+`Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md)[]\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`getAllAnticipatedEvents`](../interfaces/IStorage.md#getallanticipatedevents)
 
 ---
 
@@ -688,6 +775,32 @@ Get commands blocked by a specific command.
 
 ---
 
+### getCommandsByIds()
+
+> **getCommandsByIds**(`commandIds`): `Promise`\<`Map`\<`string`, [`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>\>\>
+
+Batch-fetch commands by ID. Returns a `Map` keyed by commandId; absent
+keys mean the command is not in storage. Callers relying on batch
+semantics (e.g. CommandStore's `getByIds`) must prefer this over
+iterated [getCommand](../interfaces/IStorage.md#getcommand) calls — SQLite runs a single
+`WHERE command_id IN (...)` query.
+
+#### Parameters
+
+##### commandIds
+
+readonly `string`[]
+
+#### Returns
+
+`Promise`\<`Map`\<`string`, [`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>\>\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`getCommandsByIds`](../interfaces/IStorage.md#getcommandsbyids)
+
+---
+
 ### getCommandsByStatus()
 
 > **getCommandsByStatus**(`status`): `Promise`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>[]\>
@@ -710,6 +823,26 @@ Get commands by status.
 
 ---
 
+### getCommandSequence()
+
+> **getCommandSequence**(): `Promise`\<`number`\>
+
+Get the current command sequence number. Used by CommandStore to initialize
+its local sequence counter so new commands get monotonically increasing seq values.
+
+- SQLiteStorage: reads MAX(seq) from the commands table (TODO: use sqlite_sequence for accuracy after deletes).
+- InMemoryStorage: always returns 0 (nothing to load on startup).
+
+#### Returns
+
+`Promise`\<`number`\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`getCommandSequence`](../interfaces/IStorage.md#getcommandsequence)
+
+---
+
 ### getEvictableCacheKeys()
 
 > **getEvictableCacheKeys**(`limit`): `Promise`\<[`CacheKeyRecord`](../interfaces/CacheKeyRecord.md)[]\>
@@ -729,6 +862,32 @@ Get cache keys eligible for eviction (leaf keys with holdCount = 0, not frozen o
 #### Implementation of
 
 [`IStorage`](../interfaces/IStorage.md).[`getEvictableCacheKeys`](../interfaces/IStorage.md#getevictablecachekeys)
+
+---
+
+### getExistingCachedEventIds()
+
+> **getExistingCachedEventIds**(`ids`): `Promise`\<`Set`\<`string`\>\>
+
+Partition a batch of event IDs by whether they already exist in the
+cache. Returns the subset of ids that are already stored. Used by the
+WS drain dedup pass to split a batch into "new" (continue processing)
+and "already-seen" (just add cache-key associations and skip) without
+hitting the store N times.
+
+#### Parameters
+
+##### ids
+
+readonly `string`[]
+
+#### Returns
+
+`Promise`\<`Set`\<`string`\>\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`getExistingCachedEventIds`](../interfaces/IStorage.md#getexistingcachedeventids)
 
 ---
 
@@ -794,6 +953,36 @@ Used by SyncManager to restore knownRevisions on startup.
 #### Implementation of
 
 [`IStorage`](../interfaces/IStorage.md).[`getReadModelRevisions`](../interfaces/IStorage.md#getreadmodelrevisions)
+
+---
+
+### getReadModels()
+
+> **getReadModels**(`pairs`): `Promise`\<`Map`\<`string`, [`ReadModelRecord`](../interfaces/ReadModelRecord.md)\>\>
+
+Batch-fetch read model records for a set of `(collection, id)` pairs.
+Returns a `Map` keyed by `${collection}:${id}`; missing rows are absent
+from the map. Callers relying on batch semantics (e.g. the sync pipeline
+and the CommandQueue success path) must prefer this over iterated
+[getReadModel](../interfaces/IStorage.md#getreadmodel) calls.
+
+TODO(batch): SQLite implementation should group by collection and run
+one `WHERE id IN (...)` per collection. The in-memory implementation
+remains a straight filter over its map.
+
+#### Parameters
+
+##### pairs
+
+`Iterable`\<\{ `collection`: `string`; `id`: `string`; \}\>
+
+#### Returns
+
+`Promise`\<`Map`\<`string`, [`ReadModelRecord`](../interfaces/ReadModelRecord.md)\>\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`getReadModels`](../interfaces/IStorage.md#getreadmodels)
 
 ---
 
@@ -900,6 +1089,33 @@ For SQLite, this creates tables and runs migrations.
 
 ---
 
+### loadAndPurgeCommandIdMappings()
+
+> **loadAndPurgeCommandIdMappings**(`purgeOlderThan`): `Promise`\<`CommandIdMappingRecord`[]\>
+
+Purge expired mappings and return all remaining mappings in a single
+transaction. Used by `CommandIdMappingStore.initialize()` to hydrate its
+in-memory state while also enforcing the TTL, without a second round trip.
+
+Implementations execute (in order): delete WHERE created_at < `purgeOlderThan`,
+then select all remaining records.
+
+#### Parameters
+
+##### purgeOlderThan
+
+`number`
+
+#### Returns
+
+`Promise`\<`CommandIdMappingRecord`[]\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`loadAndPurgeCommandIdMappings`](../interfaces/IStorage.md#loadandpurgecommandidmappings)
+
+---
+
 ### markCachedEventsProcessed()
 
 > **markCachedEventsProcessed**(`ids`): `Promise`\<`void`\>
@@ -919,6 +1135,38 @@ Mark cached events as processed by setting processed_at timestamp.
 #### Implementation of
 
 [`IStorage`](../interfaces/IStorage.md).[`markCachedEventsProcessed`](../interfaces/IStorage.md#markcachedeventsprocessed)
+
+---
+
+### migrateReadModelIds()
+
+> **migrateReadModelIds**(`batch`): `Promise`\<`void`\>
+
+Rewrite a read-model row's primary key from `fromId` to `toId` and
+update its data columns in the same operation. Also remaps any cache-key
+junction entries so associations survive the id change.
+
+The library's source of truth for "where data lives" is `(collection, id)`,
+so an id migration is a primary-key change — not an insert-new + delete-old.
+Implementations should perform the update in place (single `UPDATE` per
+backing table) rather than copy + delete, to avoid transient missing rows
+and to keep the round-trip count minimal.
+
+No-op when no row exists at `(collection, fromId)`.
+
+#### Parameters
+
+##### batch
+
+`MigrateReadModelIdParams`[]
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`migrateReadModelIds`](../interfaces/IStorage.md#migratereadmodelids)
 
 ---
 
@@ -1123,6 +1371,29 @@ Save a command ID mapping.
 
 ---
 
+### saveCommandIdMappings()
+
+> **saveCommandIdMappings**(`records`): `Promise`\<`void`\>
+
+Save multiple command ID mappings in a single call.
+Used by reconcile to persist the full idMap from a single WS batch.
+
+#### Parameters
+
+##### records
+
+readonly `CommandIdMappingRecord`[]
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`saveCommandIdMappings`](../interfaces/IStorage.md#savecommandidmappings)
+
+---
+
 ### saveReadModel()
 
 > **saveReadModel**(`record`): `Promise`\<`void`\>
@@ -1250,3 +1521,28 @@ Update an existing command.
 #### Implementation of
 
 [`IStorage`](../interfaces/IStorage.md).[`updateCommand`](../interfaces/IStorage.md#updatecommand)
+
+---
+
+### updateCommands()
+
+> **updateCommands**(`updates`): `Promise`\<`void`\>
+
+Apply multiple command updates in a single call.
+Each entry is applied independently — partial updates to `CommandRecord`
+keyed by `commandId`. Used by reconcile workflows that need to save N
+rewritten commands without N round-trips.
+
+#### Parameters
+
+##### updates
+
+readonly `UpdateCommandsEntry`\<`TLink`, `TCommand`\>[]
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+[`IStorage`](../interfaces/IStorage.md).[`updateCommands`](../interfaces/IStorage.md#updatecommands)

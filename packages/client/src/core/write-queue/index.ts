@@ -13,7 +13,6 @@ export type {
   ApplyGapRepairOp,
   ApplyRecordsOp,
   ApplySeedEventsOp,
-  ApplyWsEventOp,
   EvictCacheKeyOp,
   WriteQueueOp,
 } from './operations.js'

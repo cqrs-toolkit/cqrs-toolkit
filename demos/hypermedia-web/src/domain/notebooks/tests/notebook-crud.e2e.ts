@@ -1,5 +1,7 @@
+import { expect, setupTestDiagnostics, test, url } from '#e2e-fixtures'
 import { addNotebook } from '@cqrs-toolkit/hypermedia-base/e2e-helpers'
-import { expect, test, url } from '../../../e2e-fixtures.js'
+
+setupTestDiagnostics()
 
 test.beforeEach(async ({ request }) => {
   await request.post('http://localhost:3002/api/test/reset')

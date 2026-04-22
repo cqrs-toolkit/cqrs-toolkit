@@ -18,15 +18,10 @@ type PanelState = 'loading' | 'ready' | 'error'
 export default function DashboardPage() {
   const client = useClient()
   const todosQuery = appCreateListQuery<Todo>(
-    client.queryManager,
     TODOS_COLLECTION_NAME,
     deriveScopeKey({ scopeType: 'todos' }),
   )
-  const notebooksQuery = appCreateListQuery<Notebook>(
-    client.queryManager,
-    NOTEBOOKS_COLLECTION_NAME,
-    NOTEBOOK_SEED_KEY,
-  )
+  const notebooksQuery = appCreateListQuery<Notebook>(NOTEBOOKS_COLLECTION_NAME, NOTEBOOK_SEED_KEY)
   const [todosState, setTodosState] = createSignal<PanelState>('loading')
   const [notebooksState, setNotebooksState] = createSignal<PanelState>('loading')
   const [todosSync, setTodosSync] = createSignal<CollectionSyncStatus>()
@@ -52,14 +47,18 @@ export default function DashboardPage() {
   }
 
   function recentIncompleteTodos(): Todo[] {
-    return todosQuery.items
+    return [...todosQuery.items]
       .filter((t) => t.status !== 'completed')
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
       .slice(-5)
       .reverse()
   }
 
   function recentNotebooks(): Notebook[] {
-    return notebooksQuery.items.slice(-5).reverse()
+    return [...notebooksQuery.items]
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .slice(-5)
+      .reverse()
   }
 
   function syncLabel(status: CollectionSyncStatus | undefined): string {

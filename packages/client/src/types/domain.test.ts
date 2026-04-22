@@ -2,6 +2,7 @@ import { Err, Ok, ServiceLink } from '@meticoeus/ddd-es'
 import { describe, expect, it } from 'vitest'
 import type { IAnticipatedEvent } from '../core/command-lifecycle/AnticipatedEventShape.js'
 import type { IQueryManager } from '../core/query-manager/types.js'
+import { ItemAggregate, TodoAggregate } from '../testing/aggregates.js'
 import type { EnqueueCommand } from './commands.js'
 import type { CommandHandlerRegistration, HandlerContext } from './domain.js'
 import {
@@ -44,6 +45,8 @@ describe('createDomainExecutor', () => {
   const registrations: TestRegistration[] = [
     {
       commandType: 'CreateTodo',
+      aggregate: TodoAggregate,
+      commandIdReferences: [],
       handler(command, _state, context) {
         const id = createEntityId(context)
         return domainSuccess([
@@ -57,8 +60,10 @@ describe('createDomainExecutor', () => {
     },
     {
       commandType: 'DeleteTodo',
+      aggregate: TodoAggregate,
+      commandIdReferences: [{ aggregate: TodoAggregate, path: '$.path.id' }],
       handler(command, _state, _context) {
-        const { id } = command.path
+        const { id } = command.path as { id: string }
         return domainSuccess([{ type: 'TodoDeleted', data: { id }, streamId: `Todo-${id}` }])
       },
     },
@@ -67,7 +72,11 @@ describe('createDomainExecutor', () => {
   it('dispatches to the correct handler by command type', () => {
     const executor = createDomainExecutor(registrations)
 
-    const result = executor.handle({ type: 'CreateTodo', data: { content: 'test' } }, undefined, INITIALIZING)
+    const result = executor.handle(
+      { type: 'CreateTodo', data: { content: 'test' } },
+      undefined,
+      INITIALIZING,
+    )
 
     expect(result.ok).toBe(true)
     if (result.ok) {
@@ -84,6 +93,8 @@ describe('createDomainExecutor', () => {
     const executor = createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>([
       {
         commandType: 'CreateNamed',
+        aggregate: ItemAggregate,
+        commandIdReferences: [],
         handler(command, _state, context) {
           receivedContext = context
           const id = createEntityId(context)
@@ -119,6 +130,8 @@ describe('createDomainExecutor', () => {
     const executor = createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>([
       {
         commandType: 'UpdateEntity',
+        aggregate: ItemAggregate,
+        commandIdReferences: [{ aggregate: ItemAggregate, path: '$.data.id' }],
         handler(_command, _state, context) {
           receivedContext = context
           const id = createEntityId(context)
@@ -157,6 +170,8 @@ describe('createDomainExecutor', () => {
     const duplicates: TestRegistration[] = [
       {
         commandType: 'CreateTodo',
+        aggregate: TodoAggregate,
+        commandIdReferences: [],
         handler(_command, _state, context) {
           const id = createEntityId(context)
           return domainSuccess([{ type: 'TodoCreated', data: { id }, streamId: `Todo-${id}` }])
@@ -164,6 +179,8 @@ describe('createDomainExecutor', () => {
       },
       {
         commandType: 'CreateTodo',
+        aggregate: TodoAggregate,
+        commandIdReferences: [],
         handler(_command, _state, context) {
           const id = createEntityId(context)
           return domainSuccess([{ type: 'TodoCreated', data: { id }, streamId: `Todo-${id}` }])
@@ -180,6 +197,8 @@ describe('createDomainExecutor', () => {
     const executor = createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>([
       {
         commandType: 'ValidateOnly',
+        aggregate: ItemAggregate,
+        commandIdReferences: [],
         handler() {
           return domainFailure([
             { path: 'name', code: 'required', message: 'name must not be empty', params: {} },
@@ -207,6 +226,8 @@ describe('createDomainExecutor', () => {
       [
         {
           commandType: 'UpdateEntity',
+          aggregate: ItemAggregate,
+          commandIdReferences: [{ aggregate: ItemAggregate, path: '$.data.id' }],
           validate() {
             validateCalled = true
             return Ok({ validated: true })
@@ -242,6 +263,8 @@ describe('createDomainExecutor', () => {
       [
         {
           commandType: 'CreateNamed',
+          aggregate: ItemAggregate,
+          commandIdReferences: [],
           async validateAsync() {
             return Err(
               new ValidationException([
@@ -282,6 +305,8 @@ describe('createDomainExecutor', () => {
       [
         {
           commandType: 'EnrichData',
+          aggregate: ItemAggregate,
+          commandIdReferences: [],
           async validateAsync(command) {
             return Ok({ ...command.data, enriched: true })
           },
@@ -317,12 +342,14 @@ describe('createDomainExecutor', () => {
       [
         {
           commandType: 'UpdateEntity',
+          aggregate: ItemAggregate,
+          commandIdReferences: [{ aggregate: ItemAggregate, path: '$.path.id' }],
           async validateAsync(command) {
             receivedPath = command.path
             return Ok(command.data)
           },
           handler(command, _state, _context) {
-            const { id } = command.path
+            const { id } = command.path as { id: string }
             return domainSuccess([
               { type: 'EntityUpdated', data: { id }, streamId: `Entity-${id}` },
             ])
@@ -335,5 +362,97 @@ describe('createDomainExecutor', () => {
     await executor.validate({ type: 'UpdateEntity', data: {}, path: { id: 'abc-123' } }, undefined)
 
     expect(receivedPath).toEqual({ id: 'abc-123' })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// commandIdReferences path validation
+// ---------------------------------------------------------------------------
+
+function registrationWithPaths(
+  ...paths: string[]
+): CommandHandlerRegistration<ServiceLink, TestCommand> {
+  return {
+    commandType: 'CreateTodo',
+    aggregate: TodoAggregate,
+    handler: (_cmd, _state, ctx) => {
+      const id = createEntityId(ctx)
+      return domainSuccess([{ type: 'TodoCreated', data: { id }, streamId: `Todo-${id}` }])
+    },
+    commandIdReferences: paths.map((path) => ({ aggregate: TodoAggregate, path })),
+  }
+}
+
+describe('commandIdReferences path validation', () => {
+  it('accepts $.data.* paths', () => {
+    expect(() =>
+      createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>(
+        [registrationWithPaths('$.data.notebookId')],
+        { queryManager: mockQueryManager },
+      ),
+    ).not.toThrow()
+  })
+
+  it('accepts $.path.* paths', () => {
+    expect(() =>
+      createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>(
+        [registrationWithPaths('$.path.id')],
+        { queryManager: mockQueryManager },
+      ),
+    ).not.toThrow()
+  })
+
+  it('accepts bracket form $["data"].x', () => {
+    expect(() =>
+      createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>(
+        [registrationWithPaths('$["data"].x')],
+        { queryManager: mockQueryManager },
+      ),
+    ).not.toThrow()
+  })
+
+  it('accepts wildcard-after-root $.data[*].id', () => {
+    expect(() =>
+      createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>(
+        [registrationWithPaths('$.data[*].id')],
+        { queryManager: mockQueryManager },
+      ),
+    ).not.toThrow()
+  })
+
+  it('rejects unrooted $.notebookId', () => {
+    expect(() =>
+      createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>(
+        [registrationWithPaths('$.notebookId')],
+        { queryManager: mockQueryManager },
+      ),
+    ).toThrow(/root segment must be "data" or "path"/)
+  })
+
+  it('rejects unknown root $.foo.bar', () => {
+    expect(() =>
+      createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>(
+        [registrationWithPaths('$.foo.bar')],
+        { queryManager: mockQueryManager },
+      ),
+    ).toThrow(/root segment must be "data" or "path"/)
+  })
+
+  it('includes command type in error message', () => {
+    expect(() =>
+      createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>(
+        [registrationWithPaths('$.notebookId')],
+        { queryManager: mockQueryManager },
+      ),
+    ).toThrow(/Command "CreateTodo"/)
+  })
+
+  it('validates all paths in a registration', () => {
+    expect(() =>
+      createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>(
+        [registrationWithPaths('$.data.ok', '$.bad')],
+        { queryManager: mockQueryManager },
+      ),
+    ).toThrow(/root segment must be "data" or "path"/)
   })
 })

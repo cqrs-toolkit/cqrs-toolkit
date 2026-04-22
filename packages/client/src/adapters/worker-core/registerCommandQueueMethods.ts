@@ -6,9 +6,10 @@
  * reconstructed on the main thread from broadcast events.
  */
 
-import type { Link } from '@meticoeus/ddd-es'
+import { type Link, logProvider } from '@meticoeus/ddd-es'
 import type { IAnticipatedEvent } from '../../core/command-lifecycle/AnticipatedEventShape.js'
 import type { CommandQueue } from '../../core/command-queue/CommandQueue.js'
+import type { EventBus } from '../../core/events/EventBus.js'
 import type { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
 import { CommandFilter, EnqueueCommand, EnqueueParams } from '../../types/commands.js'
 
@@ -20,6 +21,7 @@ export function registerCommandQueueMethods<
 >(
   handler: WorkerMessageHandler,
   commandQueue: CommandQueue<TLink, TCommand, TSchema, TEvent>,
+  eventBus: EventBus<TLink>,
 ): void {
   handler.registerMethod('commandQueue.enqueue', async (args) => {
     const params = args[0] as EnqueueParams<TLink>
@@ -27,7 +29,15 @@ export function registerCommandQueueMethods<
   })
 
   handler.registerMethod('commandQueue.getCommand', async (args) => {
-    return commandQueue.getCommand(args[0] as string)
+    const commandId = args[0] as string
+    eventBus.emitDebug('debug:log', { label: 'rpc:getCommand:enter', commandId })
+    const result = await commandQueue.getCommand(commandId)
+    eventBus.emitDebug('debug:log', {
+      label: 'rpc:getCommand:result',
+      commandId,
+      status: result?.status,
+    })
+    return result
   })
 
   handler.registerMethod('commandQueue.listCommands', async (args) => {
@@ -47,11 +57,20 @@ export function registerCommandQueueMethods<
   })
 
   handler.registerMethod('commandQueue.pause', async () => {
-    commandQueue.pause()
+    // RPC acknowledges receipt immediately. Settlement is signalled via the
+    // 'commandqueue:paused' broadcast; the proxy subscribes before sending
+    // this request and awaits that event.
+    commandQueue.pause().catch((err) => {
+      logProvider.log.error({ err }, 'Command queue pause failed')
+    })
   })
 
   handler.registerMethod('commandQueue.resume', async () => {
-    commandQueue.resume()
+    // Same fire-and-forget pattern as pause — settlement arrives via
+    // 'commandqueue:resumed' broadcast.
+    commandQueue.resume().catch((err) => {
+      logProvider.log.error({ err }, 'Command queue resume failed')
+    })
   })
 
   handler.registerMethod('commandQueue.isPaused', async () => {

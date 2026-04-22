@@ -6,14 +6,19 @@
 import type { Link } from '@meticoeus/ddd-es'
 import { CommandFilter, CommandRecord, CommandStatus, EnqueueCommand } from '../types/commands.js'
 import { EntityId, entityIdToString } from '../types/index.js'
-import type {
+import {
+  AddCacheKeysToEventEntry,
+  AddCacheKeysToReadModelEntry,
   CacheKeyRecord,
   CachedEventRecord,
   CommandIdMappingRecord,
+  DeleteReadModelEntry,
   IStorage,
   IStorageQueryOptions,
+  MigrateReadModelIdParams,
   ReadModelRecord,
   SessionRecord,
+  UpdateCommandsEntry,
 } from './IStorage.js'
 
 /**
@@ -170,8 +175,27 @@ export class InMemoryStorage<
 
   // Command operations
 
+  async getCommandSequence(): Promise<number> {
+    let max = 0
+    for (const cmd of this.commands.values()) {
+      if (cmd.seq > max) max = cmd.seq
+    }
+    return max
+  }
+
   async getCommand(commandId: string): Promise<CommandRecord<TLink, TCommand> | undefined> {
     return this.commands.get(commandId)
+  }
+
+  async getCommandsByIds(
+    commandIds: readonly string[],
+  ): Promise<Map<string, CommandRecord<TLink, TCommand>>> {
+    const result = new Map<string, CommandRecord<TLink, TCommand>>()
+    for (const id of commandIds) {
+      const command = this.commands.get(id)
+      if (command) result.set(id, command)
+    }
+    return result
   }
 
   async getCommands(filter?: CommandFilter): Promise<CommandRecord<TLink, TCommand>[]> {
@@ -196,8 +220,8 @@ export class InMemoryStorage<
         commands = commands.filter((cmd) => cmd.createdAt < filter.createdBefore!)
       }
 
-      // Sort by createdAt ascending
-      commands.sort((a, b) => a.createdAt - b.createdAt)
+      // Sort by seq ascending (submit order)
+      commands.sort((a, b) => a.seq - b.seq)
 
       if (filter.offset !== undefined) {
         commands = commands.slice(filter.offset)
@@ -234,6 +258,16 @@ export class InMemoryStorage<
     }
   }
 
+  async updateCommands(updates: readonly UpdateCommandsEntry<TLink, TCommand>[]): Promise<void> {
+    const now = Date.now()
+    for (const { commandId, updates: patch } of updates) {
+      const existing = this.commands.get(commandId)
+      if (existing) {
+        this.commands.set(commandId, { ...existing, ...patch, updatedAt: now })
+      }
+    }
+  }
+
   async deleteCommand(commandId: string): Promise<void> {
     this.commands.delete(commandId)
     // Delete associated anticipated events
@@ -254,6 +288,14 @@ export class InMemoryStorage<
 
   async getCachedEvent(id: string): Promise<CachedEventRecord | undefined> {
     return this.cachedEvents.get(id)
+  }
+
+  async getExistingCachedEventIds(ids: readonly string[]): Promise<Set<string>> {
+    const existing = new Set<string>()
+    for (const id of ids) {
+      if (this.cachedEvents.has(id)) existing.add(id)
+    }
+    return existing
   }
 
   async getCachedEventsByCacheKey(cacheKey: string): Promise<CachedEventRecord[]> {
@@ -277,6 +319,12 @@ export class InMemoryStorage<
   async getAnticipatedEventsByCommand(commandId: string): Promise<CachedEventRecord[]> {
     return Array.from(this.cachedEvents.values()).filter(
       (event) => event.persistence === 'Anticipated' && event.commandId === commandId,
+    )
+  }
+
+  async getAllAnticipatedEvents(): Promise<CachedEventRecord[]> {
+    return Array.from(this.cachedEvents.values()).filter(
+      (event) => event.persistence === 'Anticipated',
     )
   }
 
@@ -319,6 +367,16 @@ export class InMemoryStorage<
     return this.deleteAnticipatedEventsByCommandInteral(commandId)
   }
 
+  async deleteAnticipatedEventsByCommands(commandIds: readonly string[]): Promise<void> {
+    const idSet = new Set(commandIds)
+    if (idSet.size === 0) return
+    for (const event of this.cachedEvents.values()) {
+      if (event.persistence === 'Anticipated' && event.commandId && idSet.has(event.commandId)) {
+        this.cachedEvents.delete(event.id)
+      }
+    }
+  }
+
   private deleteAnticipatedEventsByCommandInteral(commandId: string): void {
     for (const event of this.cachedEvents.values()) {
       if (event.persistence === 'Anticipated' && event.commandId === commandId) {
@@ -346,14 +404,16 @@ export class InMemoryStorage<
     return deletedIds
   }
 
-  async addCacheKeysToEvent(eventId: string, cacheKeys: string[]): Promise<void> {
-    const event = this.cachedEvents.get(eventId)
-    if (!event) return
-    const merged = new Set(event.cacheKeys)
-    for (const key of cacheKeys) {
-      merged.add(key)
+  async addCacheKeysToEvents(entries: readonly AddCacheKeysToEventEntry[]): Promise<void> {
+    for (const { eventId, cacheKeys } of entries) {
+      const event = this.cachedEvents.get(eventId)
+      if (!event) continue
+      const merged = new Set(event.cacheKeys)
+      for (const key of cacheKeys) {
+        merged.add(key)
+      }
+      this.cachedEvents.set(eventId, { ...event, cacheKeys: Array.from(merged) })
     }
-    this.cachedEvents.set(eventId, { ...event, cacheKeys: Array.from(merged) })
   }
 
   // Read model operations
@@ -432,6 +492,46 @@ export class InMemoryStorage<
     this.readModels.delete(this.getReadModelKey(collection, id))
   }
 
+  async deleteReadModels(entries: readonly DeleteReadModelEntry[]): Promise<void> {
+    for (const { collection, id } of entries) {
+      this.readModels.delete(this.getReadModelKey(collection, id))
+    }
+  }
+
+  async getReadModels(
+    pairs: Iterable<{ collection: string; id: string }>,
+  ): Promise<Map<string, ReadModelRecord>> {
+    const result = new Map<string, ReadModelRecord>()
+    for (const { collection, id } of pairs) {
+      const record = this.readModels.get(this.getReadModelKey(collection, id))
+      if (record) result.set(`${collection}:${id}`, record)
+    }
+    return result
+  }
+
+  async migrateReadModelIds(batch: MigrateReadModelIdParams[]): Promise<void> {
+    for (const params of batch) {
+      const { collection, fromId, toId } = params
+      const fromKey = this.getReadModelKey(collection, fromId)
+      const existing = this.readModels.get(fromKey)
+      if (!existing) continue
+      const toKey = this.getReadModelKey(collection, toId)
+      this.readModels.set(toKey, {
+        ...existing,
+        id: toId,
+        effectiveData: params.effectiveData,
+        serverData: params.serverData,
+        hasLocalChanges: params.hasLocalChanges,
+        updatedAt: params.updatedAt,
+      })
+      // When `fromId === toId` the row IS the row we just updated; only
+      // delete when we actually moved to a new primary key.
+      if (fromKey !== toKey) {
+        this.readModels.delete(fromKey)
+      }
+    }
+  }
+
   async removeCacheKeyFromReadModels(cacheKey: string): Promise<void> {
     return this.removeCacheKeyFromReadModelsInternal(cacheKey)
   }
@@ -463,6 +563,19 @@ export class InMemoryStorage<
       ...record,
       cacheKeys: Array.from(merged),
     })
+  }
+
+  async addCacheKeysToReadModels(entries: readonly AddCacheKeysToReadModelEntry[]): Promise<void> {
+    for (const { collection, id, cacheKeys } of entries) {
+      const key = this.getReadModelKey(collection, id)
+      const record = this.readModels.get(key)
+      if (!record) continue
+      const merged = new Set(record.cacheKeys)
+      for (const cacheKey of cacheKeys) {
+        merged.add(cacheKey)
+      }
+      this.readModels.set(key, { ...record, cacheKeys: Array.from(merged) })
+    }
   }
 
   async deleteReadModelsByCollection(collection: string): Promise<void> {
@@ -506,6 +619,13 @@ export class InMemoryStorage<
     this.commandIdMappingsByServerId.set(record.serverId, record)
   }
 
+  async saveCommandIdMappings(records: readonly CommandIdMappingRecord[]): Promise<void> {
+    for (const record of records) {
+      this.commandIdMappingsByClientId.set(record.clientId, record)
+      this.commandIdMappingsByServerId.set(record.serverId, record)
+    }
+  }
+
   async deleteCommandIdMappingsOlderThan(timestamp: number): Promise<void> {
     for (const [key, record] of this.commandIdMappingsByClientId) {
       if (record.createdAt < timestamp) {
@@ -513,6 +633,11 @@ export class InMemoryStorage<
         this.commandIdMappingsByServerId.delete(record.serverId)
       }
     }
+  }
+
+  async loadAndPurgeCommandIdMappings(purgeOlderThan: number): Promise<CommandIdMappingRecord[]> {
+    await this.deleteCommandIdMappingsOlderThan(purgeOlderThan)
+    return Array.from(this.commandIdMappingsByClientId.values())
   }
 
   async deleteAllCommandIdMappings(): Promise<void> {

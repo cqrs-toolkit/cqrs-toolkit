@@ -13,6 +13,9 @@
     "client:peer": "vite --port 5176",
     "compile": "tsc -p tsconfig.json --noEmit"
   },
+  "imports": {
+    "#e2e-fixtures": "./src/e2e-fixtures.ts"
+  },
   "dependencies": {
     "@cqrs-toolkit/client": "*",
     "@cqrs-toolkit/client-solid": "*",

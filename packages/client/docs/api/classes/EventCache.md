@@ -22,7 +22,7 @@ Event cache implementation.
 
 ### Constructor
 
-> **new EventCache**\<`TLink`, `TCommand`\>(`storage`, `eventBus`): `EventCache`\<`TLink`, `TCommand`\>
+> **new EventCache**\<`TLink`, `TCommand`\>(`storage`): `EventCache`\<`TLink`, `TCommand`\>
 
 #### Parameters
 
@@ -30,32 +30,30 @@ Event cache implementation.
 
 [`IStorage`](../interfaces/IStorage.md)\<`TLink`, `TCommand`\>
 
-##### eventBus
-
-[`EventBus`](EventBus.md)\<`TLink`\>
-
 #### Returns
 
 `EventCache`\<`TLink`, `TCommand`\>
 
 ## Methods
 
-### addCacheKeysToEvent()
+### addCacheKeysToEvents()
 
-> **addCacheKeysToEvent**(`eventId`, `cacheKeys`): `Promise`\<`void`\>
+> **addCacheKeysToEvents**(`entries`): `Promise`\<`void`\>
 
-Add cache key associations to an existing event.
-Used when a duplicate WS event is relevant to additional active cache keys.
+Add cache-key associations to multiple already-cached events in a single
+storage round-trip. Used when a WS drain batch contains events that
+were previously cached under a different active cache-key set.
+
+Each entry carries the full event because the in-memory
+trackCacheKeyStream index needs `streamId` alongside the id —
+passing the event avoids a re-fetch round-trip the caller already has
+the data to avoid.
 
 #### Parameters
 
-##### eventId
+##### entries
 
-`string`
-
-##### cacheKeys
-
-`string`[]
+readonly `CacheServerEventEntry`[]
 
 #### Returns
 
@@ -113,7 +111,7 @@ Cache multiple anticipated events for a command.
 
 ##### events
 
-`Omit`\<[`AnticipatedEvent`](../interfaces/AnticipatedEvent.md)\<`T`\>, `"id"` \| `"createdAt"` \| `"persistence"`\>[]
+`Omit`\<[`AnticipatedEvent`](../interfaces/AnticipatedEvent.md)\<`T`\>, `"id"` \| `"persistence"` \| `"createdAt"`\>[]
 
 Events to cache
 
@@ -128,28 +126,6 @@ Cache options (must include commandId)
 `Promise`\<`string`[]\>
 
 Generated event IDs
-
----
-
-### cacheResponseEvent()
-
-> **cacheResponseEvent**(`event`): `Promise`\<`void`\>
-
-Cache a command response event for WS dedup and immediate processing.
-Constructs a CachedEventRecord from a ParsedEvent, saves to storage (INSERT OR IGNORE),
-and adds to gap buffer for Permanent events.
-
-#### Parameters
-
-##### event
-
-[`ParsedEvent`](../interfaces/ParsedEvent.md)
-
-Parsed event from command response
-
-#### Returns
-
-`Promise`\<`void`\>
 
 ---
 
@@ -181,33 +157,29 @@ Whether the event was cached (false if duplicate)
 
 ---
 
-### cacheServerEvents()
+### cacheServerEventsWithKeys()
 
-> **cacheServerEvents**(`events`, `options`): `Promise`\<`number`\>
+> **cacheServerEventsWithKeys**(`entries`): `Promise`\<`number`\>
 
-Cache multiple persisted events in batch.
+Cache multiple persisted events in a single storage round-trip. Each
+entry carries its own cacheKeys, so a batch may mix events whose
+cacheKey sets differ.
 
 Duplicates are silently ignored by the storage layer (INSERT OR IGNORE).
 
 #### Parameters
 
-##### events
+##### entries
 
-[`IPersistedEvent`](../type-aliases/IPersistedEvent.md)[]
+readonly `CacheServerEventEntry`[]
 
-Events to cache
-
-##### options
-
-[`CacheEventOptions`](../interfaces/CacheEventOptions.md)
-
-Cache options
+Events to cache, each with its own cacheKeys
 
 #### Returns
 
 `Promise`\<`number`\>
 
-Number of events submitted (duplicates are silently skipped by storage)
+Number of entries submitted (duplicates silently skipped by storage)
 
 ---
 
@@ -277,6 +249,27 @@ Command identifier
 
 ---
 
+### deleteAnticipatedEventsForCommands()
+
+> **deleteAnticipatedEventsForCommands**(`commandIds`): `Promise`\<`void`\>
+
+Delete anticipated events for multiple commands in a single storage
+round-trip. Used by the applied-batch cleanup path in the sync pipeline.
+
+#### Parameters
+
+##### commandIds
+
+readonly `string`[]
+
+Command identifiers whose anticipated events should be removed
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
 ### destroy()
 
 > **destroy**(): `void`
@@ -284,6 +277,19 @@ Command identifier
 #### Returns
 
 `void`
+
+---
+
+### getAllAnticipatedEvents()
+
+> **getAllAnticipatedEvents**(): `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md)[]\>
+
+Get all anticipated events across every pending command.
+Used by reconciliation to bulk-load optimistic overlays in a single query.
+
+#### Returns
+
+`Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md)[]\>
 
 ---
 
@@ -395,6 +401,30 @@ Stream identifier
 `Promise`\<[`CachedEventRecord`](../interfaces/CachedEventRecord.md)[]\>
 
 Cached events in order
+
+---
+
+### getExistingEventIds()
+
+> **getExistingEventIds**(`ids`): `Promise`\<`Set`\<`string`\>\>
+
+Bulk existence check — returns the subset of ids that are already
+stored in the cache. Used by the WS drain dedup pass to partition a
+batch into "new" vs "already-seen" without N round-trips.
+
+#### Parameters
+
+##### ids
+
+readonly `string`[]
+
+Candidate event IDs
+
+#### Returns
+
+`Promise`\<`Set`\<`string`\>\>
+
+Set of ids that are already present
 
 ---
 

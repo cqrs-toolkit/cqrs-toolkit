@@ -6,7 +6,7 @@
 
 # Function: createListQuery()
 
-> **createListQuery**\<`TLink`, `T`\>(`queryManager`, `params`): [`ListQueryState`](../interfaces/ListQueryState.md)\<`T`\>
+> **createListQuery**\<`TLink`, `T`\>(`params`): [`ListQueryState`](../interfaces/ListQueryState.md)\<`T`\>
 
 Create a reactive list query that subscribes to collection changes.
 
@@ -24,6 +24,8 @@ The `cacheKey` parameter is required. When it is a reactive accessor,
 the query re-subscribes when the cache key identity changes — releasing
 the old key and resetting to loading state.
 
+Uses the CQRS client from context (via `useClient()`).
+
 ## Type Parameters
 
 ### TLink
@@ -35,12 +37,6 @@ the old key and resetting to loading state.
 `T` _extends_ [`Identifiable`](../interfaces/Identifiable.md)
 
 ## Parameters
-
-### queryManager
-
-`IQueryManager`\<`TLink`\>
-
-The query manager (should be StableRefQueryManager-wrapped for best results)
 
 ### params
 

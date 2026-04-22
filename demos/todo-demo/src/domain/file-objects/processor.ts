@@ -15,7 +15,7 @@ export const fileObjectCommandEndpoints: Record<string, string> = {
 export const fileObjectProcessors: ProcessorRegistration[] = [
   {
     eventTypes: 'FileObjectCreated',
-    processor: (data: FileObjectCreatedEvent['data'], ctx) => ({
+    processor: (data: FileObjectCreatedEvent['data'], _state, ctx) => ({
       collection: fileObjectsCollection.name,
       id: data.id,
       update: {

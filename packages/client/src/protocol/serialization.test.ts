@@ -75,6 +75,53 @@ describe('serialization', () => {
       expect(() => serialize(obj)).toThrow('Circular reference')
     })
 
+    it('throws on deeply nested circular references', () => {
+      const a: Record<string, unknown> = { name: 'a' }
+      const b: Record<string, unknown> = { name: 'b', parent: a }
+      a.child = b
+
+      expect(() => serialize(a)).toThrow('Circular reference')
+    })
+
+    it('throws on circular references through arrays', () => {
+      const obj: Record<string, unknown> = { name: 'test' }
+      obj.items = [obj]
+
+      expect(() => serialize(obj)).toThrow('Circular reference')
+    })
+
+    it('allows shared references (diamond shape)', () => {
+      const shared = { id: 'shared-1', value: 42 }
+      const obj = { a: shared, b: shared }
+
+      const result = deserialize<typeof obj>(serialize(obj))
+      expect(result.a).toEqual({ id: 'shared-1', value: 42 })
+      expect(result.b).toEqual({ id: 'shared-1', value: 42 })
+    })
+
+    it('allows shared references across object and array', () => {
+      const shared = { id: 'ref-1' }
+      const obj = {
+        command: { affectedAggregates: [{ link: shared }] },
+        events: [{ data: shared }],
+      }
+
+      const result = deserialize<typeof obj>(serialize(obj))
+      expect(result.command.affectedAggregates[0]?.link).toEqual({ id: 'ref-1' })
+      expect(result.events[0]?.data).toEqual({ id: 'ref-1' })
+    })
+
+    it('allows the same object referenced in sibling array entries', () => {
+      const shared = { value: 'same' }
+      const arr = [shared, shared, shared]
+
+      const result = deserialize<typeof arr>(serialize(arr))
+      expect(result).toHaveLength(3)
+      expect(result[0]).toEqual({ value: 'same' })
+      expect(result[1]).toEqual({ value: 'same' })
+      expect(result[2]).toEqual({ value: 'same' })
+    })
+
     it('throws on functions', () => {
       const obj = { fn: () => {} }
       expect(() => serialize(obj)).toThrow('Cannot serialize function')

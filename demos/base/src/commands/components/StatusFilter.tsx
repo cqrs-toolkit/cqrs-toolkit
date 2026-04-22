@@ -6,6 +6,7 @@ const ALL_STATUSES: CommandStatus[] = [
   'blocked',
   'sending',
   'succeeded',
+  'applied',
   'failed',
   'cancelled',
 ]
@@ -15,6 +16,7 @@ const STATUS_COLORS: Record<CommandStatus, string> = {
   blocked: 'bg-purple-400',
   sending: 'bg-blue-400',
   succeeded: 'bg-green-400',
+  applied: 'bg-emerald-400',
   failed: 'bg-red-400',
   cancelled: 'bg-neutral-400',
 }

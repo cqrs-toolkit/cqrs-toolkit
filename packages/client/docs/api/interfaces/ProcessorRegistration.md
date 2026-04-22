@@ -42,7 +42,7 @@ Optional: Only process certain persistence types
 
 ### processor()
 
-> **processor**(`event`, `context`): [`ProcessorReturn`](../type-aliases/ProcessorReturn.md)\<`TModel`\> \| `Promise`\<[`ProcessorReturn`](../type-aliases/ProcessorReturn.md)\<`TModel`\>\>
+> **processor**(`event`, `state`, `context`): [`ProcessorReturn`](../type-aliases/ProcessorReturn.md)\<`TModel`\>
 
 The processor function
 
@@ -52,10 +52,14 @@ The processor function
 
 `TEvent`
 
+##### state
+
+`TModel` | `undefined`
+
 ##### context
 
 [`ProcessorContext`](ProcessorContext.md)
 
 #### Returns
 
-[`ProcessorReturn`](../type-aliases/ProcessorReturn.md)\<`TModel`\> \| `Promise`\<[`ProcessorReturn`](../type-aliases/ProcessorReturn.md)\<`TModel`\>\>
+[`ProcessorReturn`](../type-aliases/ProcessorReturn.md)\<`TModel`\>

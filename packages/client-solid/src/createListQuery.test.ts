@@ -4,7 +4,10 @@
 
 import type {
   CollectionSignal,
+  CqrsClient,
+  EnqueueCommand,
   IQueryManager,
+  LibraryEvent,
   ListParams,
   ListQueryResult,
   ScopeCacheKey,
@@ -12,8 +15,9 @@ import type {
 import { deriveScopeKey } from '@cqrs-toolkit/client'
 import { ServiceLink } from '@meticoeus/ddd-es'
 import { Subject } from 'rxjs'
-import { createRoot, createSignal } from 'solid-js'
+import { createComponent, createRoot, createSignal } from 'solid-js'
 import { describe, expect, it, vi } from 'vitest'
+import { CqrsContext } from './context.js'
 import { createListQuery } from './createListQuery.js'
 
 interface Todo {
@@ -53,6 +57,9 @@ function createMockQueryManager() {
     watchById() {
       throw new Error('Not used in list tests')
     },
+    async getLocallyById() {
+      return undefined
+    },
     async exists() {
       return true
     },
@@ -78,6 +85,29 @@ function createMockQueryManager() {
   }
 }
 
+type TClient = CqrsClient<ServiceLink, EnqueueCommand>
+
+function createMockClient(qm: IQueryManager<ServiceLink>): TClient {
+  return {
+    queryManager: qm,
+    events$: new Subject<LibraryEvent<ServiceLink>>().asObservable(),
+  } as unknown as TClient
+}
+
+function withContext(client: TClient, fn: (dispose: () => void) => Promise<void>): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    createRoot((dispose) => {
+      createComponent(CqrsContext.Provider, {
+        value: client,
+        get children() {
+          fn(dispose).then(resolve, reject)
+          return undefined
+        },
+      })
+    })
+  })
+}
+
 function tick(): Promise<void> {
   return new Promise((r) => setTimeout(r, 0))
 }
@@ -99,8 +129,8 @@ describe('createListQuery', () => {
       cacheKey: scopeKey('ck-todos'),
     })
 
-    await createRoot(async (dispose) => {
-      const state = createListQuery<ServiceLink, Todo>(qm, {
+    await withContext(createMockClient(qm), async (dispose) => {
+      const state = createListQuery<ServiceLink, Todo>({
         collection: 'todos',
         cacheKey: TODOS_KEY,
       })
@@ -133,8 +163,8 @@ describe('createListQuery', () => {
       cacheKey: scopeKey('ck-todos'),
     })
 
-    await createRoot(async (dispose) => {
-      const state = createListQuery<ServiceLink, Todo>(qm, {
+    await withContext(createMockClient(qm), async (dispose) => {
+      const state = createListQuery<ServiceLink, Todo>({
         collection: 'todos',
         cacheKey: TODOS_KEY,
       })
@@ -175,8 +205,8 @@ describe('createListQuery', () => {
       cacheKey: scopeKey('ck-todos'),
     })
 
-    await createRoot(async (dispose) => {
-      const state = createListQuery<ServiceLink, Todo>(qm, {
+    await withContext(createMockClient(qm), async (dispose) => {
+      const state = createListQuery<ServiceLink, Todo>({
         collection: 'todos',
         cacheKey: TODOS_KEY,
       })
@@ -219,8 +249,8 @@ describe('createListQuery', () => {
       cacheKey: scopeKey('ck-todos'),
     })
 
-    await createRoot(async (dispose) => {
-      createListQuery<ServiceLink, Todo>(qm, {
+    await withContext(createMockClient(qm), async (dispose) => {
+      createListQuery<ServiceLink, Todo>({
         collection: 'todos',
         cacheKey: TODOS_KEY,
       })
@@ -245,8 +275,8 @@ describe('createListQuery', () => {
       cacheKey: scopeKey('ck-todos'),
     })
 
-    await createRoot(async (dispose) => {
-      createListQuery<ServiceLink, Todo>(qm, {
+    await withContext(createMockClient(qm), async (dispose) => {
+      createListQuery<ServiceLink, Todo>({
         collection: 'todos',
         cacheKey: TODOS_KEY,
       })
@@ -274,8 +304,8 @@ describe('createListQuery', () => {
       })
     }
 
-    await createRoot(async (dispose) => {
-      const state = createListQuery<ServiceLink, Todo>(qm, {
+    await withContext(createMockClient(qm), async (dispose) => {
+      const state = createListQuery<ServiceLink, Todo>({
         collection: 'todos',
         cacheKey: TODOS_KEY,
       })
@@ -326,8 +356,8 @@ describe('createListQuery', () => {
 
     qm.list = () => Promise.reject(new Error('Network failure'))
 
-    await createRoot(async (dispose) => {
-      const state = createListQuery<ServiceLink, Todo>(qm, {
+    await withContext(createMockClient(qm), async (dispose) => {
+      const state = createListQuery<ServiceLink, Todo>({
         collection: 'todos',
         cacheKey: TODOS_KEY,
       })
@@ -345,8 +375,8 @@ describe('createListQuery', () => {
 
     qm.list = () => Promise.reject(new Error('Network failure'))
 
-    await createRoot(async (dispose) => {
-      const state = createListQuery<ServiceLink, Todo>(qm, {
+    await withContext(createMockClient(qm), async (dispose) => {
+      const state = createListQuery<ServiceLink, Todo>({
         collection: 'todos',
         cacheKey: TODOS_KEY,
       })
@@ -385,8 +415,8 @@ describe('createListQuery', () => {
       cacheKey: scopeKey('ck-todos'),
     })
 
-    await createRoot(async (dispose) => {
-      createListQuery<ServiceLink, Todo>(qm, {
+    await withContext(createMockClient(qm), async (dispose) => {
+      createListQuery<ServiceLink, Todo>({
         collection: 'todos',
         cacheKey: TODOS_KEY,
         limit: 10,
@@ -420,9 +450,9 @@ describe('createListQuery', () => {
       cacheKey: keyA,
     })
 
-    await createRoot(async (dispose) => {
+    await withContext(createMockClient(qm), async (dispose) => {
       const [key, setKey] = createSignal<ScopeCacheKey>(keyA)
-      const state = createListQuery<ServiceLink, Todo>(qm, {
+      const state = createListQuery<ServiceLink, Todo>({
         collection: 'todos',
         cacheKey: key,
       })
@@ -468,9 +498,9 @@ describe('createListQuery', () => {
       cacheKey: TODOS_KEY,
     })
 
-    await createRoot(async (dispose) => {
+    await withContext(createMockClient(qm), async (dispose) => {
       const [key, setKey] = createSignal<ScopeCacheKey | undefined>(undefined)
-      const state = createListQuery<ServiceLink, Todo>(qm, {
+      const state = createListQuery<ServiceLink, Todo>({
         collection: 'todos',
         cacheKey: key,
       })

@@ -1,4 +1,5 @@
 import type { ExecutionMode } from '@cqrs-toolkit/client'
+import { formatEventBusTimeline } from '@cqrs-toolkit/client/fixtures'
 import { test as base, type TestInfo } from '@playwright/test'
 ;(BigInt.prototype as any)['toJSON'] = function () {
   return this.toString()
@@ -12,38 +13,27 @@ export const test = base.extend<ModeFixtures>({
   mode: ['online-only', { option: true }],
 })
 
-test.afterEach(async ({ page, request }, testInfo) => {
-  if (testInfo.status !== testInfo.expectedStatus) {
-    await dumpCqrsEvents(page, testInfo)
-  }
-  try {
-    await request.post('http://localhost:3001/api/test/ws-resume')
-  } catch {
-    // Best-effort: don't let cleanup failures crash the test runner.
-  }
-})
+export function setupTestDiagnostics() {
+  test.afterEach(async ({ page, request }, testInfo) => {
+    if (testInfo.status !== testInfo.expectedStatus) {
+      await dumpCqrsEvents(page, testInfo)
+    }
+    try {
+      await request.post('http://localhost:3001/api/test/ws-resume')
+    } catch {
+      // Best-effort: don't let cleanup failures crash the test runner.
+    }
+  })
+}
 
-async function dumpCqrsEvents(page: import('@playwright/test').Page, testInfo: TestInfo) {
+export async function dumpCqrsEvents(page: import('@playwright/test').Page, testInfo: TestInfo) {
   try {
-    const events = await page.evaluate(() =>
-      window.__CQRS_EVENTS__?.map((e) => ({
-        type: e.type,
-        data: e.data,
-        ...(e.debug ? { debug: true } : {}),
-      })),
-    )
+    const events = await page.evaluate(() => window.__CQRS_EVENTS__)
     if (!events?.length) {
       process.stderr.write('CQRS Event Log: no events captured\n')
       return
     }
-
-    const lines = events.map((e, i) => {
-      const tag = e.debug ? ' [debug]' : ''
-      const data = JSON.stringify(e.data, null, 2).replace(/\n/g, '\n    ')
-      return `  ${String(i + 1).padStart(3)}. ${e.type}${tag}\n    ${data}`
-    })
-
-    const output = `CQRS Event Log (${events.length} events):\n${lines.join('\n')}\n`
+    const output = formatEventBusTimeline(events)
     await testInfo.attach('cqrs-events', { body: output, contentType: 'text/plain' })
     process.stderr.write(output)
   } catch (err) {

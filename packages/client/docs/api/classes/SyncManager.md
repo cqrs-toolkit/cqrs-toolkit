@@ -30,7 +30,7 @@ Sync manager.
 
 ### Constructor
 
-> **new SyncManager**\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>(`eventBus`, `sessionManager`, `commandQueue`, `eventCache`, `cacheManager`, `eventProcessor`, `readModelStore`, `queryManager`, `writeQueue`, `connectivity`, `networkConfig`, `auth`, `collections`): `SyncManager`\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
+> **new SyncManager**\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>(`eventBus`, `storage`, `sessionManager`, `anticipatedEventHandler`, `commandQueue`, `eventCache`, `cacheManager`, `eventProcessorRegistry`, `eventProcessor`, `readModelStore`, `queryManager`, `writeQueue`, `connectivity`, `networkConfig`, `auth`, `collections`, `clientAggregates`, `domainExecutor`, `commandStore`, `mappingStore`): `SyncManager`\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 #### Parameters
 
@@ -38,13 +38,21 @@ Sync manager.
 
 [`EventBus`](EventBus.md)\<`TLink`\>
 
+##### storage
+
+[`IStorage`](../interfaces/IStorage.md)\<`TLink`, `TCommand`\>
+
 ##### sessionManager
 
 [`SessionManager`](SessionManager.md)\<`TLink`, `TCommand`\>
 
+##### anticipatedEventHandler
+
+`IAnticipatedEventHandler`\<`TLink`, `TCommand`\>
+
 ##### commandQueue
 
-`ICommandQueueInternal`\<`TLink`, `TCommand`\>
+[`CommandQueue`](CommandQueue.md)\<`TLink`, `TCommand`, `any`, `any`\>
 
 ##### eventCache
 
@@ -53,6 +61,10 @@ Sync manager.
 ##### cacheManager
 
 `ICacheManagerInternal`\<`TLink`\>
+
+##### eventProcessorRegistry
+
+[`EventProcessorRegistry`](EventProcessorRegistry.md)
 
 ##### eventProcessor
 
@@ -68,7 +80,7 @@ Sync manager.
 
 ##### writeQueue
 
-`IWriteQueue`\<`TLink`\>
+`IWriteQueue`\<`TLink`, `TCommand`\>
 
 ##### connectivity
 
@@ -86,23 +98,50 @@ Sync manager.
 
 [`Collection`](../interfaces/Collection.md)\<`TLink`\>[]
 
+##### clientAggregates
+
+`IClientAggregates`\<`TLink`\>
+
+##### domainExecutor
+
+[`IDomainExecutor`](../interfaces/IDomainExecutor.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\> | `undefined`
+
+##### commandStore
+
+[`ICommandStore`](../interfaces/ICommandStore.md)\<`TLink`, `TCommand`\>
+
+##### mappingStore
+
+[`ICommandIdMappingStore`](../interfaces/ICommandIdMappingStore.md)
+
 #### Returns
 
 `SyncManager`\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 ## Properties
 
-### invalidationScheduler
-
-> `protected` `readonly` **invalidationScheduler**: `InvalidationScheduler`\<`TLink`, `TCommand`\>
-
----
-
 ### knownRevisions
 
 > `protected` `readonly` **knownRevisions**: `Map`\<`string`, `bigint`\>
 
 Highest applied revision per stream. Initialized during seeding, advanced on happy-path processing.
+
+---
+
+### pendingWsEvents
+
+> `protected` **pendingWsEvents**: `PendingWsEventEntry`\<`TLink`\>[] = `[]`
+
+In-memory queue of incoming WS events awaiting batched reconcile.
+Drained by `onReconcileWsEventsOp` via a reference swap: the op handler
+captures the current array by reference and installs a fresh empty array
+in one synchronous step, so new events arriving during the async drain
+accumulate into the next batch without touching the in-flight one.
+
+Protected so test subclasses can push directly and bypass the WriteQueue
+scheduling race that happens when `handleNewWsEvent` is called in a
+test that also wants to drive the drain synchronously. Production code
+should go through `handleNewWsEvent`.
 
 ## Methods
 
@@ -150,6 +189,58 @@ Calls stop(), then destroys the connectivity manager.
 #### Returns
 
 `Promise`\<`void`\>
+
+---
+
+### evaluateCoverageForBatch()
+
+> `protected` **evaluateCoverageForBatch**(`succeededCommands`, `commandIdsWithDrainedEvents`): `object`
+
+Evaluate the `'succeeded' → 'applied'` coverage for every in-scope
+succeeded command in this batch.
+
+Produces:
+
+- `applied`: commands fully covered this batch — pipeline writes
+  `status: 'applied'` + clears `pendingAggregateCoverage`.
+- `updated`: commands whose coverage record shrank but is still
+  non-empty — pipeline re-persists the smaller record, status stays
+  `'succeeded'`. Unchanged commands are not returned at all.
+
+Coverage rules:
+
+- **Rule 1** — `pendingAggregateCoverage === 'events'` and the command's
+  id was observed in any `event.metadata.commandId` this batch → applied.
+- **Rule 2a** — for each streamId in a coverage record, post-batch
+  `knownRevisions[streamId] >= expectedRevision` → stream covered.
+- **Rule 2b** — the command's cache key is no longer present in the
+  cache manager (evicted or never acquired) → every stream covered.
+
+Edge case: streams whose stored revision does not parse as a bigint are
+treated as covered (same treatment as `'no-expected-revision'` at the
+success-path site — auto-cover with an invalidation already fired).
+
+#### Parameters
+
+##### succeededCommands
+
+readonly [`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>[]
+
+##### commandIdsWithDrainedEvents
+
+`Set`\<`string`\>
+
+#### Returns
+
+`object`
+
+##### applied
+
+> **applied**: [`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>[]
+
+##### updated
+
+> **updated**: [`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>[]
 
 ---
 
@@ -222,18 +313,107 @@ Checks all collections whose keyTypes match the identity.
 
 ---
 
-### onApplyWsEventOp()
+### handleCommandResponseEvents()
 
-> `protected` **onApplyWsEventOp**(`op`): `Promise`\<`void`\>
+> **handleCommandResponseEvents**(`events`, `cacheKey`): `void`
 
-Handle a WebSocket event with pre-resolved cache keys.
-Per-stream gap detection: check AFTER caching, repair inline when gaps exist.
+Network boundary: events arriving via a command response envelope.
+
+Fire-and-forget: pushes each event into the same `pendingWsEvents`
+queue the WS path uses and schedules the `reconcile-ws-events` op.
+Does NOT return a promise tied to event processing — command
+lifecycle resolution is driven by `response.id` and
+`response.nextExpectedRevision` in `CommandQueue`, not by whether
+these events have been applied.
+
+Drop rule: if the command's cacheKey is no longer registered in
+`CacheManager` (UI released it between send and response), drop
+the batch entirely. The WS path has an implicit version of this
+drop because topic subscriptions are managed per held cacheKey —
+the response path needs an explicit check because the command's
+cacheKey was captured at enqueue time, not at response time.
+
+Gap detection inside the drain handles the "events ahead of
+`knownRevisions`" case (e.g. the response is the first thing the
+client sees for this stream after a session restart) — the gap
+pass kicks repair, which eventually fills the missing revisions.
 
 #### Parameters
 
-##### op
+##### events
 
-`ApplyWsEventOp`\<`TLink`\>
+readonly [`IPersistedEvent`](../type-aliases/IPersistedEvent.md)[]
+
+##### cacheKey
+
+[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
+#### Returns
+
+`void`
+
+---
+
+### handleNewWsEvent()
+
+> `protected` **handleNewWsEvent**(`event`, `cacheKeys`): `void`
+
+Network boundary: WebSocket event arrival.
+
+Synchronous capture + deferred process. Called for every incoming WS event
+(once the WS message has been parsed and cache keys resolved). Pushes the
+event into the in-memory `pendingWsEvents` queue and schedules a single
+`reconcile-ws-events` op via the WriteQueue — subsequent events arriving
+before the op runs accumulate into the same batch without re-enqueueing.
+
+No async work is done here: everything the drain needs must be present
+on `event` and `cacheKeys` at call time.
+
+#### Parameters
+
+##### event
+
+[`IPersistedEvent`](../type-aliases/IPersistedEvent.md)
+
+##### cacheKeys
+
+[`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>[]
+
+#### Returns
+
+`void`
+
+---
+
+### onReconcileWsEventsOp()
+
+> `protected` **onReconcileWsEventsOp**(`_op`): `Promise`\<`void`\>
+
+Drain handler for `reconcile-ws-events`.
+
+Runs inside the WriteQueue's serialized processing loop. Snapshots the
+pending events into a local batch and clears the in-memory queue so new
+events can accumulate into the next batch independently.
+
+Split into two blocks with distinct responsibilities:
+
+SETUP — dedup against EventCache, then bulk-load read model records
+for every event target in the filtered batch and lazily populate
+`knownRevisions` for any stream whose baseline revision is not yet
+in memory. Must run before gap detection so the gap check reads a
+correct baseline. Gap repair MUST NOT fire from this block.
+
+HANDLE UPDATES — gap detection (may schedule gap repair or
+invalidation), reconcile (applies server events, re-runs dirtied
+commands, persists read model mutations), post-reconcile
+bookkeeping (seed status positions, markProcessed, debug emits).
+All side effects that react to the batch's contents live here.
+
+#### Parameters
+
+##### \_op
+
+`ReconcileWsEventsOp`
 
 #### Returns
 
@@ -248,27 +428,6 @@ Per-stream gap detection: check AFTER caching, repair inline when gaps exist.
 Handle session destroyed (logout).
 Cleans up sync state while keeping connectivity monitoring alive
 so we're ready when a new session starts.
-
-#### Returns
-
-`Promise`\<`void`\>
-
----
-
-### processResponseEvents()
-
-> **processResponseEvents**(`events`): `Promise`\<`void`\>
-
-Process command response events.
-Events are processed immediately for fast UI feedback. If a gap is detected
-(response revision > expected), a collection refetch is scheduled to fill in
-missing events asynchronously.
-
-#### Parameters
-
-##### events
-
-[`ParsedEvent`](../interfaces/ParsedEvent.md)[]
 
 #### Returns
 

@@ -2,23 +2,32 @@
  * Unit tests for SyncManager — session cascade and response event processing.
  */
 
-import type { IPersistedEvent, Result, ServiceLink } from '@meticoeus/ddd-es'
+import type { Result, ServiceLink } from '@meticoeus/ddd-es'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import { createTestWriteQueue } from '../../testing/createTestWriteQueue.js'
-import { NoteAggregate, NotebookAggregate, TodoAggregate } from '../../testing/index.js'
+import { itemDomainExecutor } from '../../testing/domainExecutor.js'
+import {
+  NoteAggregate,
+  NotebookAggregate,
+  parseTestStreamId,
+  TodoAggregate,
+} from '../../testing/index.js'
+import { IClientAggregates } from '../../types/aggregates.js'
+import type { CommandRecord } from '../../types/commands.js'
 import { Collection, FetchSeedRecordOptions, SeedRecordPage } from '../../types/config.js'
-import { EnqueueCommand } from '../../types/index.js'
+import { EnqueueCommand, IDomainExecutor } from '../../types/index.js'
 import { cookieAuthStrategy } from '../auth.js'
 import { type CacheKeyIdentity, deriveScopeKey } from '../cache-manager/CacheKey.js'
 import { CacheManager } from '../cache-manager/CacheManager.js'
+import { CommandIdMappingStore } from '../command-id-mapping-store/CommandIdMappingStore.js'
 import { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventShape.js'
-import type { IAnticipatedEventHandler } from '../command-queue/CommandQueue.js'
+import type { IAnticipatedEventHandler } from '../command-lifecycle/IAnticipatedEventHandler.js'
 import { CommandQueue } from '../command-queue/CommandQueue.js'
 import { InMemoryCommandFileStore } from '../command-queue/file-store/InMemoryCommandFileStore.js'
+import { CommandStore } from '../command-store/CommandStore.js'
 import { EventCache } from '../event-cache/EventCache.js'
 import { EventProcessorRegistry } from '../event-processor/EventProcessorRegistry.js'
-import type { ParsedEvent } from '../event-processor/EventProcessorRunner.js'
 import { EventProcessorRunner } from '../event-processor/EventProcessorRunner.js'
 import { ProcessorRegistration } from '../event-processor/index.js'
 import { EventBus } from '../events/EventBus.js'
@@ -40,15 +49,6 @@ class TestSyncManager extends SyncManager<ServiceLink, EnqueueCommand, unknown, 
     return this.knownRevisions
   }
 
-  getInvalidationScheduler() {
-    return this.invalidationScheduler
-  }
-
-  async testHandleWebSocketEvent(event: IPersistedEvent, topics: string[] = []): Promise<void> {
-    const cacheKeys = this.resolveCacheKeysFromTopics(event.streamId, topics)
-    return this.onApplyWsEventOp({ type: 'apply-ws-event', event, cacheKeys })
-  }
-
   async testSeedOneCollection(
     collection: Collection<ServiceLink>,
     cacheKey: CacheKeyIdentity<ServiceLink>,
@@ -56,6 +56,16 @@ class TestSyncManager extends SyncManager<ServiceLink, EnqueueCommand, unknown, 
   ): Promise<Result<{ seeded: boolean; recordCount: number }, WriteQueueException>> {
     const ctx = await this.buildFetchContext()
     return this.seedOneCollection({ collection, cacheKey, topics, ctx })
+  }
+
+  testEvaluateCoverageForBatch(
+    succeededCommands: readonly CommandRecord<ServiceLink, EnqueueCommand>[],
+    commandIdsWithDrainedEvents: Set<string>,
+  ): {
+    applied: CommandRecord<ServiceLink, EnqueueCommand>[]
+    updated: CommandRecord<ServiceLink, EnqueueCommand>[]
+  } {
+    return this.evaluateCoverageForBatch(succeededCommands, commandIdsWithDrainedEvents)
   }
 }
 
@@ -70,6 +80,7 @@ describe('SyncManager', () => {
   interface BootstrapParams {
     collections?: Collection<ServiceLink>[]
     processors?: ProcessorRegistration<unknown, Record<string, unknown>>[]
+    domainExecutor?: IDomainExecutor<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>
   }
 
   interface BootstrapResult {
@@ -80,12 +91,13 @@ describe('SyncManager', () => {
     readModelStore: ReadModelStore<ServiceLink, EnqueueCommand>
     registry: EventProcessorRegistry
     eventProcessorRunner: EventProcessorRunner<ServiceLink, EnqueueCommand>
-    anticipatedEventHandler: IAnticipatedEventHandler
+    anticipatedEventHandler: IAnticipatedEventHandler<ServiceLink, EnqueueCommand>
+    aggregates: IClientAggregates<ServiceLink>
     commandQueue: CommandQueue<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>
     queryManager: QueryManager<ServiceLink, EnqueueCommand>
     todosCollection: Collection<ServiceLink>
     sessionManager: SessionManager<ServiceLink, EnqueueCommand>
-    writeQueue: WriteQueue<ServiceLink>
+    writeQueue: WriteQueue<ServiceLink, EnqueueCommand>
     connectivity: ConnectivityManager<ServiceLink>
   }
 
@@ -102,37 +114,58 @@ describe('SyncManager', () => {
     await storage.initialize()
     const eventBus = new EventBus<ServiceLink>()
 
-    const cacheManager = new CacheManager<ServiceLink, EnqueueCommand>(storage, eventBus)
+    const cacheManager = new CacheManager<ServiceLink, EnqueueCommand>(eventBus, storage)
     await cacheManager.initialize()
 
-    const eventCache = new EventCache<ServiceLink, EnqueueCommand>(storage, eventBus)
-    const readModelStore = new ReadModelStore<ServiceLink, EnqueueCommand>(storage)
+    const eventCache = new EventCache<ServiceLink, EnqueueCommand>(storage)
+    const mappingStore = new CommandIdMappingStore<ServiceLink, EnqueueCommand>(storage)
+    await mappingStore.initialize()
+    const readModelStore = new ReadModelStore<ServiceLink, EnqueueCommand>(
+      eventBus,
+      storage,
+      mappingStore,
+    )
 
     const registry = new EventProcessorRegistry()
     for (const p of params?.processors ?? []) {
       registry.register(p)
     }
     const eventProcessorRunner = new EventProcessorRunner<ServiceLink, EnqueueCommand>(
-      readModelStore,
       eventBus,
       registry,
+      readModelStore,
     )
 
-    const anticipatedEventHandler: IAnticipatedEventHandler = {
+    const anticipatedEventHandler: IAnticipatedEventHandler<ServiceLink, EnqueueCommand> = {
       cache: vi.fn().mockResolvedValue(undefined),
-      cleanup: vi.fn().mockResolvedValue(undefined),
+      cleanupOnSucceeded: vi.fn().mockResolvedValue(undefined),
+      cleanupOnAppliedBatch: vi.fn().mockResolvedValue(undefined),
+      cleanupOnFailure: vi.fn().mockResolvedValue(undefined),
       regenerate: vi.fn().mockResolvedValue(undefined),
       getTrackedEntries: vi.fn().mockReturnValue(undefined),
-      getAnticipatedEventsForStream: vi.fn().mockResolvedValue([]),
+      setTrackedEntries: vi.fn(),
       clearAll: vi.fn().mockResolvedValue(undefined),
     }
 
     const fileStore = new InMemoryCommandFileStore()
+
+    const aggregates: IClientAggregates<ServiceLink> = {
+      aggregates: [TodoAggregate, NoteAggregate, NotebookAggregate],
+      parseStreamId: parseTestStreamId,
+    }
+
+    const commandStore = new CommandStore(storage)
+    await commandStore.initialize()
+
     const commandQueue = new CommandQueue<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>(
-      storage,
       eventBus,
+      storage,
       fileStore,
       anticipatedEventHandler,
+      aggregates,
+      readModelStore,
+      commandStore,
+      mappingStore,
     )
 
     const queryManager = new QueryManager<ServiceLink, EnqueueCommand>(
@@ -157,8 +190,8 @@ describe('SyncManager', () => {
       [
         'apply-records',
         'apply-seed-events',
-        'apply-ws-event',
         'apply-gap-repair',
+        'reconcile-ws-events',
         'evict-cache-key',
       ],
       {
@@ -171,10 +204,13 @@ describe('SyncManager', () => {
       ? undefined
       : new TestSyncManager(
           eventBus,
+          storage,
           sessionManager,
+          anticipatedEventHandler,
           commandQueue,
           eventCache,
           cacheManager,
+          registry,
           eventProcessorRunner,
           readModelStore,
           queryManager,
@@ -183,6 +219,10 @@ describe('SyncManager', () => {
           DUMMY_NETWORK,
           cookieAuthStrategy,
           params?.collections ?? [todosCollection],
+          aggregates,
+          params?.domainExecutor ?? itemDomainExecutor,
+          commandStore,
+          mappingStore,
         )
 
     return {
@@ -194,6 +234,7 @@ describe('SyncManager', () => {
       registry,
       eventProcessorRunner,
       anticipatedEventHandler,
+      aggregates,
       commandQueue,
       queryManager,
       todosCollection,
@@ -245,99 +286,6 @@ describe('SyncManager', () => {
     })
   })
 
-  describe('processResponseEvents', () => {
-    it('caches events and processes them through event processor', async () => {
-      const { eventProcessorRunner, eventCache, syncManager } = await bootstrap()
-      const processEventSpy = vi.spyOn(eventProcessorRunner, 'processEvent')
-
-      const events: ParsedEvent[] = [
-        {
-          id: 'evt-1',
-          type: 'TodoCreated',
-          streamId: TodoAggregate.getStreamId('todo-1'),
-          persistence: 'Permanent',
-          data: { id: 'todo-1', title: 'Test' },
-          revision: 0n,
-          position: 100n,
-          cacheKey: 'cache-1',
-        },
-      ]
-
-      await syncManager.processResponseEvents(events)
-
-      // Event should be cached for WS dedup
-      const cached = await eventCache.getEvent('evt-1')
-      expect(cached).toBeDefined()
-
-      // Event should have been processed
-      expect(processEventSpy).toHaveBeenCalledTimes(1)
-    })
-
-    it('advances known revisions on happy path', async () => {
-      const { eventCache, syncManager } = await bootstrap()
-
-      const events: ParsedEvent[] = [
-        {
-          id: 'evt-1',
-          type: 'TodoCreated',
-          streamId: TodoAggregate.getStreamId('todo-1'),
-          persistence: 'Permanent',
-          data: { id: 'todo-1', title: 'Test' },
-          revision: 0n,
-          position: 100n,
-          cacheKey: 'cache-1',
-        },
-        {
-          id: 'evt-2',
-          type: 'TodoUpdated',
-          streamId: TodoAggregate.getStreamId('todo-1'),
-          persistence: 'Permanent',
-          data: { id: 'todo-1', title: 'Updated' },
-          revision: 1n,
-          position: 101n,
-          cacheKey: 'cache-1',
-        },
-      ]
-
-      await syncManager.processResponseEvents(events)
-
-      // Both events should be cached
-      expect(await eventCache.getEvent('evt-1')).toBeDefined()
-      expect(await eventCache.getEvent('evt-2')).toBeDefined()
-    })
-
-    it('schedules refetch when gap is detected', async () => {
-      const { syncManager } = await bootstrap()
-      // Set known revision so there is a gap
-      syncManager.getKnownRevisions().set('todo-1', 0n)
-
-      // Skip revision 1 — go straight to 2, using the actual seed cache key
-      const events: ParsedEvent[] = [
-        {
-          id: 'evt-3',
-          type: 'TodoUpdated',
-          streamId: TodoAggregate.getStreamId('todo-1'),
-          persistence: 'Permanent',
-          data: { id: 'todo-1', title: 'Gap' },
-          revision: 2n,
-          position: 200n,
-          cacheKey: TODO_CACHE_KEY.key,
-        },
-      ]
-
-      await syncManager.processResponseEvents(events)
-
-      // A refetch should have been scheduled for the (collection, cacheKey) pair
-
-      expect(syncManager.getInvalidationScheduler().hasPending('todos', TODO_CACHE_KEY.key)).toBe(
-        true,
-      )
-
-      // Clean up timers
-      syncManager.getInvalidationScheduler().cancelAll()
-    })
-  })
-
   describe('clearKnownRevisions', () => {
     it('removes specified streamIds from known revisions', async () => {
       const { syncManager } = await bootstrap()
@@ -357,19 +305,6 @@ describe('SyncManager', () => {
 
   describe('seedForKey', () => {
     it('seeds matching collections under the provided cache key', async () => {
-      const {
-        cacheManager,
-        commandQueue,
-        eventBus,
-        eventCache,
-        eventProcessorRunner,
-        queryManager,
-        readModelStore,
-        sessionManager,
-        writeQueue,
-        connectivity,
-      } = await bootstrap({ customSyncManager: true })
-
       const fetchSeedRecords = vi.fn().mockResolvedValue({
         records: [{ id: 'note-1', data: { id: 'note-1', title: 'Hello' } }],
         nextCursor: null,
@@ -389,22 +324,9 @@ describe('SyncManager', () => {
         fetchSeedRecords,
       }
 
-      // Create a SyncManager with the notes collection
-      const syncManager = new SyncManager<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>(
-        eventBus,
-        sessionManager,
-        commandQueue,
-        eventCache,
-        cacheManager,
-        eventProcessorRunner,
-        readModelStore,
-        queryManager,
-        writeQueue,
-        connectivity,
-        DUMMY_NETWORK,
-        cookieAuthStrategy,
-        [notesCollection],
-      )
+      const { cacheManager, readModelStore, syncManager } = await bootstrap({
+        collections: [notesCollection],
+      })
 
       const cacheKey = deriveScopeKey({
         scopeType: 'notebook-notes',
@@ -427,19 +349,6 @@ describe('SyncManager', () => {
     })
 
     it('is idempotent — does not re-seed an already seeded (collection, cacheKey) pair', async () => {
-      const {
-        cacheManager,
-        commandQueue,
-        eventBus,
-        eventCache,
-        eventProcessorRunner,
-        queryManager,
-        readModelStore,
-        sessionManager,
-        writeQueue,
-        connectivity,
-      } = await bootstrap({ customSyncManager: true })
-
       const fetchSeedRecords = vi.fn().mockResolvedValue({
         records: [{ id: 'note-1', data: { id: 'note-1', title: 'Hello' } }],
         nextCursor: null,
@@ -459,21 +368,7 @@ describe('SyncManager', () => {
         fetchSeedRecords,
       }
 
-      const syncManager = new SyncManager<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>(
-        eventBus,
-        sessionManager,
-        commandQueue,
-        eventCache,
-        cacheManager,
-        eventProcessorRunner,
-        readModelStore,
-        queryManager,
-        writeQueue,
-        connectivity,
-        DUMMY_NETWORK,
-        cookieAuthStrategy,
-        [notesCollection],
-      )
+      const { cacheManager, syncManager } = await bootstrap({ collections: [notesCollection] })
 
       const cacheKey = deriveScopeKey({
         scopeType: 'notebook-notes',
@@ -493,19 +388,6 @@ describe('SyncManager', () => {
     })
 
     it('does not seed collections that do not match keyTypes', async () => {
-      const {
-        cacheManager,
-        commandQueue,
-        eventBus,
-        eventCache,
-        eventProcessorRunner,
-        queryManager,
-        readModelStore,
-        sessionManager,
-        writeQueue,
-        connectivity,
-      } = await bootstrap({ customSyncManager: true })
-
       const fetchSeedRecords = vi.fn()
 
       const todosCollection: Collection<ServiceLink> = {
@@ -522,21 +404,7 @@ describe('SyncManager', () => {
         fetchSeedRecords,
       }
 
-      const syncManager = new SyncManager<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>(
-        eventBus,
-        sessionManager,
-        commandQueue,
-        eventCache,
-        cacheManager,
-        eventProcessorRunner,
-        readModelStore,
-        queryManager,
-        writeQueue,
-        connectivity,
-        DUMMY_NETWORK,
-        cookieAuthStrategy,
-        [todosCollection],
-      )
+      const { syncManager } = await bootstrap({ collections: [todosCollection] })
 
       // Seed with a key type that doesn't match todos
       const cacheKey = deriveScopeKey({ scopeType: 'notebook-notes' })
@@ -547,14 +415,18 @@ describe('SyncManager', () => {
 
     it('session reset during seed discards pending apply-records ops', async () => {
       const {
+        aggregates,
         cacheManager,
+        anticipatedEventHandler,
         commandQueue,
         eventBus,
         eventCache,
+        registry,
         eventProcessorRunner,
         queryManager,
         readModelStore,
         sessionManager,
+        storage,
         writeQueue,
         connectivity,
       } = await bootstrap({ customSyncManager: true })
@@ -589,12 +461,20 @@ describe('SyncManager', () => {
         fetchSeedRecords,
       }
 
+      const blockingCommandStore = new CommandStore(storage)
+      await blockingCommandStore.initialize()
+      const blockingMappingStore = new CommandIdMappingStore<ServiceLink, EnqueueCommand>(storage)
+      await blockingMappingStore.initialize()
+
       const syncManager = new BlockingResetSyncManager(
         eventBus,
+        storage,
         sessionManager,
+        anticipatedEventHandler,
         commandQueue,
         eventCache,
         cacheManager,
+        registry,
         eventProcessorRunner,
         readModelStore,
         queryManager,
@@ -603,6 +483,10 @@ describe('SyncManager', () => {
         DUMMY_NETWORK,
         cookieAuthStrategy,
         [notesCollection],
+        aggregates,
+        itemDomainExecutor,
+        blockingCommandStore,
+        blockingMappingStore,
       )
 
       const cacheKey = deriveScopeKey({ scopeType: 'notebook-notes' })
@@ -639,39 +523,14 @@ describe('SyncManager', () => {
 
   describe('seed (full lifecycle)', () => {
     it('resolves immediately when already seeded', async () => {
-      const {
-        cacheManager,
-        commandQueue,
-        eventBus,
-        eventCache,
-        eventProcessorRunner,
-        queryManager,
-        readModelStore,
-        sessionManager,
-        writeQueue,
-        connectivity,
-      } = await bootstrap({ customSyncManager: true })
-
       const fetchSeedRecords = vi.fn().mockResolvedValue({
         records: [{ id: 'note-1', data: { id: 'note-1' } }],
         nextCursor: null,
       } satisfies SeedRecordPage)
 
-      const syncManager = new SyncManager<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>(
-        eventBus,
-        sessionManager,
-        commandQueue,
-        eventCache,
-        cacheManager,
-        eventProcessorRunner,
-        readModelStore,
-        queryManager,
-        writeQueue,
-        connectivity,
-        DUMMY_NETWORK,
-        cookieAuthStrategy,
-        [createNotesCollection(fetchSeedRecords)],
-      )
+      const { syncManager } = await bootstrap({
+        collections: [createNotesCollection(fetchSeedRecords)],
+      })
       await syncManager.start()
 
       const cacheKey = deriveScopeKey({ scopeType: 'notebook-notes' })
@@ -689,14 +548,18 @@ describe('SyncManager', () => {
 
     it('acquires key and waits for settlement when unseeded', async () => {
       const {
+        aggregates,
         cacheManager,
+        anticipatedEventHandler,
         commandQueue,
         eventBus,
         eventCache,
+        registry,
         eventProcessorRunner,
         queryManager,
         readModelStore,
         sessionManager,
+        storage,
         writeQueue,
         connectivity,
       } = await bootstrap({ customSyncManager: true })
@@ -706,12 +569,20 @@ describe('SyncManager', () => {
         nextCursor: null,
       } satisfies SeedRecordPage)
 
+      const seedCommandStore = new CommandStore(storage)
+      await seedCommandStore.initialize()
+      const seedMappingStore = new CommandIdMappingStore<ServiceLink, EnqueueCommand>(storage)
+      await seedMappingStore.initialize()
+
       const syncManager = new SyncManager<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>(
         eventBus,
+        storage,
         sessionManager,
+        anticipatedEventHandler,
         commandQueue,
         eventCache,
         cacheManager,
+        registry,
         eventProcessorRunner,
         readModelStore,
         queryManager,
@@ -720,6 +591,10 @@ describe('SyncManager', () => {
         DUMMY_NETWORK,
         cookieAuthStrategy,
         [createNotesCollection(fetchSeedRecords)],
+        aggregates,
+        itemDomainExecutor,
+        seedCommandStore,
+        seedMappingStore,
       )
       await syncManager.start()
 
@@ -737,39 +612,14 @@ describe('SyncManager', () => {
     })
 
     it('emits cache:seed-settled with correct payload', async () => {
-      const {
-        cacheManager,
-        commandQueue,
-        eventBus,
-        eventCache,
-        eventProcessorRunner,
-        queryManager,
-        readModelStore,
-        sessionManager,
-        writeQueue,
-        connectivity,
-      } = await bootstrap({ customSyncManager: true })
-
       const fetchSeedRecords = vi.fn().mockResolvedValue({
         records: [{ id: 'note-1', data: { id: 'note-1' } }],
         nextCursor: null,
       } satisfies SeedRecordPage)
 
-      const syncManager = new SyncManager<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>(
-        eventBus,
-        sessionManager,
-        commandQueue,
-        eventCache,
-        cacheManager,
-        eventProcessorRunner,
-        readModelStore,
-        queryManager,
-        writeQueue,
-        connectivity,
-        DUMMY_NETWORK,
-        cookieAuthStrategy,
-        [createNotesCollection(fetchSeedRecords)],
-      )
+      const { eventBus, syncManager } = await bootstrap({
+        collections: [createNotesCollection(fetchSeedRecords)],
+      })
       await syncManager.start()
 
       const events: unknown[] = []
@@ -811,19 +661,6 @@ describe('SyncManager', () => {
 
   describe('cache key lifecycle events', () => {
     it('auto-seeds on cache:key-added when keyTypes match', async () => {
-      const {
-        cacheManager,
-        commandQueue,
-        eventBus,
-        eventCache,
-        eventProcessorRunner,
-        queryManager,
-        readModelStore,
-        sessionManager,
-        writeQueue,
-        connectivity,
-      } = await bootstrap({ customSyncManager: true })
-
       const fetchSeedRecords = vi.fn().mockResolvedValue({
         records: [{ id: 'note-1', data: { id: 'note-1', title: 'Hello' } }],
         nextCursor: null,
@@ -843,22 +680,7 @@ describe('SyncManager', () => {
         fetchSeedRecords,
       }
 
-      const syncManager = new SyncManager<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>(
-        eventBus,
-        sessionManager,
-        commandQueue,
-        eventCache,
-        cacheManager,
-        eventProcessorRunner,
-        readModelStore,
-        queryManager,
-        writeQueue,
-        connectivity,
-        DUMMY_NETWORK,
-        cookieAuthStrategy,
-        [notesCollection],
-      )
-
+      const { cacheManager, syncManager } = await bootstrap({ collections: [notesCollection] })
       await syncManager.start()
 
       // Acquiring a matching key should trigger auto-seed via cache:key-added
@@ -877,19 +699,6 @@ describe('SyncManager', () => {
     })
 
     it('does not auto-seed when keyTypes do not match', async () => {
-      const {
-        cacheManager,
-        commandQueue,
-        eventBus,
-        eventCache,
-        eventProcessorRunner,
-        queryManager,
-        readModelStore,
-        sessionManager,
-        writeQueue,
-        connectivity,
-      } = await bootstrap({ customSyncManager: true })
-
       const fetchSeedRecords = vi.fn()
 
       const todosCollection: Collection<ServiceLink> = {
@@ -906,22 +715,7 @@ describe('SyncManager', () => {
         fetchSeedRecords,
       }
 
-      const syncManager = new SyncManager<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>(
-        eventBus,
-        sessionManager,
-        commandQueue,
-        eventCache,
-        cacheManager,
-        eventProcessorRunner,
-        readModelStore,
-        queryManager,
-        writeQueue,
-        connectivity,
-        DUMMY_NETWORK,
-        cookieAuthStrategy,
-        [todosCollection],
-      )
-
+      const { cacheManager, syncManager } = await bootstrap({ collections: [todosCollection] })
       await syncManager.start()
 
       // Acquire a key that doesn't match todos
@@ -935,19 +729,6 @@ describe('SyncManager', () => {
     })
 
     it('cleans up seed status on cache:evicted', async () => {
-      const {
-        cacheManager,
-        commandQueue,
-        eventBus,
-        eventCache,
-        eventProcessorRunner,
-        queryManager,
-        readModelStore,
-        sessionManager,
-        writeQueue,
-        connectivity,
-      } = await bootstrap({ customSyncManager: true })
-
       const notesCollection: Collection<ServiceLink> = {
         name: 'notes',
         aggregate: NoteAggregate,
@@ -965,22 +746,9 @@ describe('SyncManager', () => {
         } satisfies SeedRecordPage),
       }
 
-      const syncManager = new SyncManager<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>(
-        eventBus,
-        sessionManager,
-        commandQueue,
-        eventCache,
-        cacheManager,
-        eventProcessorRunner,
-        readModelStore,
-        queryManager,
-        writeQueue,
-        connectivity,
-        DUMMY_NETWORK,
-        cookieAuthStrategy,
-        [notesCollection],
-      )
-
+      const { cacheManager, readModelStore, syncManager } = await bootstrap({
+        collections: [notesCollection],
+      })
       await syncManager.start()
 
       const cacheKey = deriveScopeKey({ scopeType: 'notebook-notes' })
@@ -1006,288 +774,276 @@ describe('SyncManager', () => {
     })
   })
 
-  describe('WS event routing (handleWebSocketEvent)', () => {
-    function createPersistedEvent(overrides: Partial<IPersistedEvent> = {}): IPersistedEvent {
+  // WS event routing tests have been migrated to the batched-drain
+  // integration tests in pipeline.integration.test.ts. The old per-event
+  // `onApplyWsEventOp` path is dead code; these tests exercised it via
+  // `testHandleWebSocketEvent`. Coverage equivalence:
+  //   - multi-cacheKey routing → pipeline.integration.test.ts "event routed to multiple cache keys"
+  //   - duplicate dedup → pipeline.integration.test.ts "duplicate event in a single batch is deduped"
+  //   - no-active-keys drop → drain dedup pass drops entries with empty cacheKeys
+  //   - gap repair after seeding → pipeline.integration.test.ts "out-of-order event is dropped"
+
+  // ---------------------------------------------------------------------
+  // Coverage evaluator — `evaluateCoverageForBatch`
+  //
+  // Drives the `'succeeded' → 'applied'` transition inside the sync pipeline.
+  // Exercised here as a pure function of its inputs (succeeded commands with
+  // pre-parsed `pendingAggregateCoverage`, the batch's drained commandIds,
+  // `knownRevisions`, and `cacheManager.existsSync`) — the surrounding
+  // pipeline integration is covered in `pipeline.integration.test.ts`.
+  // ---------------------------------------------------------------------
+  describe('evaluateCoverageForBatch', () => {
+    const TEST_CACHE_KEY = deriveScopeKey({ scopeType: 'evaluate-coverage-test' })
+
+    function succeededCommand(
+      overrides: Partial<CommandRecord<ServiceLink, EnqueueCommand>> & {
+        commandId: string
+        pendingAggregateCoverage: string | undefined
+      },
+    ): CommandRecord<ServiceLink, EnqueueCommand> {
+      const { commandId, pendingAggregateCoverage, cacheKey, ...rest } = overrides
       return {
-        id: 'event-1',
-        type: 'NoteCreated',
-        streamId: NoteAggregate.getStreamId('note-1'),
-        data: { id: 'note-1', title: 'Hello' },
-        metadata: { correlationId: 'test' },
-        created: new Date().toISOString(),
-        revision: 0n,
-        position: 100n,
-        ...overrides,
+        commandId,
+        cacheKey: cacheKey ?? TEST_CACHE_KEY,
+        service: 'default',
+        type: 'TestCommand',
+        data: {},
+        status: 'succeeded',
+        dependsOn: [],
+        blockedBy: [],
+        attempts: 1,
+        serverResponse: { id: commandId },
+        pendingAggregateCoverage,
+        seq: 0,
+        createdAt: 1000,
+        updatedAt: 1000,
+        ...rest,
       }
     }
 
-    it('processes WS event for all active cache keys', async () => {
-      const notesCollection: Collection<ServiceLink> = {
-        name: 'notes',
-        aggregate: NoteAggregate,
-        cacheKeysFromTopics: (topics) =>
-          topics
-            .filter((t) => t.startsWith('Notebook:'))
-            .map((t) =>
-              deriveScopeKey({
-                scopeType: 'notebook-notes',
-                scopeParams: { nb: t.split(':')[1] },
-              }),
-            ),
-        seedOnDemand: {
-          keyTypes: [{ kind: 'scope', scopeType: 'notebook-notes' }],
-          subscribeTopics: () => [],
-        },
-        matchesStream: (s) => s.startsWith('nb.Note-'),
-        fetchSeedRecords: vi.fn().mockResolvedValue({ records: [], nextCursor: null }),
-      } satisfies Collection<ServiceLink>
+    describe('rule 1 — events marker', () => {
+      it('transitions to applied when commandId is in the drained set', async () => {
+        const { syncManager, cacheManager } = await bootstrap()
+        await cacheManager.acquire(TEST_CACHE_KEY)
 
-      const { cacheManager, readModelStore, storage, syncManager } = await bootstrap({
-        collections: [notesCollection],
-        processors: [
-          {
-            eventTypes: 'NoteCreated',
-            processor: (data: { id: string }) => ({
-              collection: 'notes',
-              id: data.id,
-              update: { type: 'set', data },
-              isServerUpdate: true,
-            }),
-          },
-        ],
+        const command = succeededCommand({
+          commandId: 'cmd-rule1',
+          pendingAggregateCoverage: JSON.stringify('events'),
+        })
+
+        const result = syncManager.testEvaluateCoverageForBatch([command], new Set(['cmd-rule1']))
+
+        expect(result.applied).toEqual([command])
+        expect(result.updated).toEqual([])
       })
 
-      // Seed two different cache keys for the same collection
-      const keyA = deriveScopeKey({ scopeType: 'notebook-notes', scopeParams: { nb: 'a' } })
-      const keyB = deriveScopeKey({ scopeType: 'notebook-notes', scopeParams: { nb: 'b' } })
-      await cacheManager.acquireKey(keyA)
-      await cacheManager.acquireKey(keyB)
-      await syncManager.seedForKey(keyA)
-      await syncManager.seedForKey(keyB)
+      it('does not transition when the command has no response events drained this batch', async () => {
+        const { syncManager, cacheManager } = await bootstrap()
+        await cacheManager.acquire(TEST_CACHE_KEY)
 
-      // Process a WS event with topics for both notebooks
-      await syncManager.testHandleWebSocketEvent(createPersistedEvent(), [
-        'Notebook:a',
-        'Notebook:b',
-      ])
+        const command = succeededCommand({
+          commandId: 'cmd-rule1-unmatched',
+          pendingAggregateCoverage: JSON.stringify('events'),
+        })
 
-      // Verify the event was cached with both cache key associations
-      const cachedEvent = await storage.getCachedEvent('event-1')
-      expect(cachedEvent?.cacheKeys).toContain(keyA.key)
-      expect(cachedEvent?.cacheKeys).toContain(keyB.key)
+        const result = syncManager.testEvaluateCoverageForBatch([command], new Set())
 
-      // Read model exists (last write wins — both keys process, second overwrites first)
-      // TODO: read model junction table needed for true per-key read model records
-      const allModels = await readModelStore.list('notes')
-      expect(allModels).toHaveLength(1)
-      expect(allModels[0]?.data).toMatchObject({ id: 'note-1' })
+        expect(result.applied).toEqual([])
+        expect(result.updated).toEqual([])
+      })
     })
 
-    it('skips WS event when no active keys for collection', async () => {
-      const notesCollection: Collection<ServiceLink> = {
-        name: 'notes',
-        aggregate: NoteAggregate,
-        cacheKeysFromTopics(topics: readonly string[]) {
-          return []
-        },
-        seedOnDemand: {
-          keyTypes: [{ kind: 'scope', scopeType: 'notebook-notes' }],
-          subscribeTopics: () => [],
-        },
-        matchesStream: (s) => s.startsWith('nb.Note-'),
-      }
+    describe('rule 2a — revision advance', () => {
+      it('shrinks the record when one stream is covered by knownRevisions', async () => {
+        const { syncManager, cacheManager } = await bootstrap()
+        await cacheManager.acquire(TEST_CACHE_KEY)
+        syncManager.getKnownRevisions().set('nb.Todo-todo-a', 5n)
 
-      const { cacheManager, readModelStore, storage, syncManager } = await bootstrap({
-        collections: [notesCollection],
-        processors: [
-          {
-            eventTypes: 'NoteCreated',
-            processor: (data: { id: string }) => ({
-              collection: 'notes',
-              id: data.id,
-              update: { type: 'set', data },
-              isServerUpdate: true,
-            }),
-          },
-        ],
+        const command = succeededCommand({
+          commandId: 'cmd-rule2a-partial',
+          pendingAggregateCoverage: JSON.stringify({
+            'nb.Todo-todo-a': '5',
+            'nb.Todo-todo-b': '10',
+          }),
+        })
+
+        const result = syncManager.testEvaluateCoverageForBatch([command], new Set())
+
+        expect(result.applied).toEqual([])
+        expect(result.updated).toHaveLength(1)
+        expect(JSON.parse(result.updated[0]!.pendingAggregateCoverage!)).toEqual({
+          'nb.Todo-todo-b': '10',
+        })
       })
 
-      // No keys seeded — event should be dropped
-      await syncManager.testHandleWebSocketEvent(createPersistedEvent())
+      it('transitions to applied when every stream is covered', async () => {
+        const { syncManager, cacheManager } = await bootstrap()
+        await cacheManager.acquire(TEST_CACHE_KEY)
+        syncManager.getKnownRevisions().set('nb.Todo-todo-a', 5n)
+        syncManager.getKnownRevisions().set('nb.Todo-todo-b', 10n)
 
-      // No read models should exist
-      const models = await readModelStore.list('notes')
-      expect(models).toHaveLength(0)
+        const command = succeededCommand({
+          commandId: 'cmd-rule2a-full',
+          pendingAggregateCoverage: JSON.stringify({
+            'nb.Todo-todo-a': '5',
+            'nb.Todo-todo-b': '10',
+          }),
+        })
+
+        const result = syncManager.testEvaluateCoverageForBatch([command], new Set())
+
+        expect(result.applied).toHaveLength(1)
+        expect(result.applied[0]!.commandId).toBe('cmd-rule2a-full')
+        expect(result.updated).toEqual([])
+      })
+
+      it('accepts knownRevisions strictly greater than expected', async () => {
+        const { syncManager, cacheManager } = await bootstrap()
+        await cacheManager.acquire(TEST_CACHE_KEY)
+        syncManager.getKnownRevisions().set('nb.Todo-todo-a', 100n)
+
+        const command = succeededCommand({
+          commandId: 'cmd-rule2a-gt',
+          pendingAggregateCoverage: JSON.stringify({ 'nb.Todo-todo-a': '5' }),
+        })
+
+        const result = syncManager.testEvaluateCoverageForBatch([command], new Set())
+        expect(result.applied).toHaveLength(1)
+      })
+
+      it('leaves record unchanged when no stream has advanced far enough', async () => {
+        const { syncManager, cacheManager } = await bootstrap()
+        await cacheManager.acquire(TEST_CACHE_KEY)
+        syncManager.getKnownRevisions().set('nb.Todo-todo-a', 2n)
+
+        const command = succeededCommand({
+          commandId: 'cmd-rule2a-noop',
+          pendingAggregateCoverage: JSON.stringify({ 'nb.Todo-todo-a': '5' }),
+        })
+
+        const result = syncManager.testEvaluateCoverageForBatch([command], new Set())
+        expect(result.applied).toEqual([])
+        expect(result.updated).toEqual([])
+      })
     })
 
-    it('adds cache key associations for duplicate WS events', async () => {
-      const notesCollection: Collection<ServiceLink> = {
-        name: 'notes',
-        aggregate: NoteAggregate,
-        cacheKeysFromTopics: (topics) =>
-          topics
-            .filter((t) => t.startsWith('Notebook:'))
-            .map((t) =>
-              deriveScopeKey({
-                scopeType: 'notebook-notes',
-                scopeParams: { nb: t.split(':')[1] },
-              }),
-            ),
-        seedOnDemand: {
-          keyTypes: [{ kind: 'scope', scopeType: 'notebook-notes' }],
-          subscribeTopics: () => [],
-        },
-        matchesStream: (s) => s.startsWith('nb.Note-'),
-        fetchSeedRecords: vi.fn().mockResolvedValue({ records: [], nextCursor: null }),
-      }
+    describe('rule 2b — cache key evicted', () => {
+      it('transitions to applied when the command\u2019s cache key is absent', async () => {
+        const { syncManager } = await bootstrap()
+        // Do NOT acquire TEST_CACHE_KEY — it is absent from the cache manager.
 
-      const { cacheManager, readModelStore, storage, syncManager } = await bootstrap({
-        collections: [notesCollection],
-        processors: [
-          {
-            eventTypes: 'NoteCreated',
-            processor: (data: { id: string }) => ({
-              collection: 'notes',
-              id: data.id,
-              update: { type: 'set', data },
-              isServerUpdate: true,
-            }),
-          },
-        ],
+        const command = succeededCommand({
+          commandId: 'cmd-rule2b',
+          pendingAggregateCoverage: JSON.stringify({
+            'nb.Todo-todo-a': '5',
+            'nb.Todo-todo-b': '10',
+          }),
+        })
+
+        const result = syncManager.testEvaluateCoverageForBatch([command], new Set())
+
+        expect(result.applied).toHaveLength(1)
+        expect(result.applied[0]!.commandId).toBe('cmd-rule2b')
+        expect(result.updated).toEqual([])
       })
-
-      // Seed first key and process event with topic for notebook A
-      const keyA = deriveScopeKey({ scopeType: 'notebook-notes', scopeParams: { nb: 'a' } })
-      await cacheManager.acquireKey(keyA)
-      await syncManager.seedForKey(keyA)
-      await syncManager.testHandleWebSocketEvent(createPersistedEvent(), ['Notebook:a'])
-
-      // Seed second key and process same event again with topic for notebook B (duplicate event)
-      const keyB = deriveScopeKey({ scopeType: 'notebook-notes', scopeParams: { nb: 'b' } })
-      await cacheManager.acquireKey(keyB)
-      await syncManager.seedForKey(keyB)
-      await syncManager.testHandleWebSocketEvent(createPersistedEvent(), ['Notebook:b'])
-
-      // Event should have both cache key associations
-      const event = await storage.getCachedEvent('event-1')
-      expect(event?.cacheKeys).toContain(keyA.key)
-      expect(event?.cacheKeys).toContain(keyB.key)
     })
 
-    it('repairs gap when WS event arrives after record-based seeding', async () => {
-      const fetchStreamEvents = vi.fn().mockResolvedValue([
-        {
-          id: 'missed-event',
-          type: 'NotebookNameUpdated',
-          streamId: NotebookAggregate.getStreamId('nb-1'),
-          data: { id: 'nb-1', name: 'Updated', updatedAt: new Date().toISOString() },
-          metadata: { correlationId: 'test' },
-          created: new Date().toISOString(),
-          revision: 1n,
-          position: 201n,
-        },
-      ])
+    describe('edge cases', () => {
+      it('treats unparsable bigint revisions as covered (auto-drop)', async () => {
+        const { syncManager, cacheManager } = await bootstrap()
+        await cacheManager.acquire(TEST_CACHE_KEY)
 
-      const notebooksCollection = {
-        name: 'notebooks',
-        aggregate: NotebookAggregate,
-        cacheKeysFromTopics(topics: readonly string[]) {
-          return [deriveScopeKey({ scopeType: 'notebooks' })]
-        },
-        seedOnInit: {
-          cacheKey: deriveScopeKey({ scopeType: 'notebooks' }),
-          topics: ['Notebook:*'],
-        },
-        matchesStream: (s) => s.startsWith('nb.Notebook-'),
-        fetchSeedRecords: vi.fn().mockResolvedValue({
-          records: [
-            {
-              id: 'nb-1',
-              data: { id: 'nb-1', name: 'Original', tags: [], createdAt: new Date().toISOString() },
-              revision: '0',
-            },
-          ],
-          nextCursor: null,
-        }),
-        fetchStreamEvents: ({ afterRevision }) => {
-          // Only return the missed event when asked for events after revision 0
-          if (afterRevision === 0n) return fetchStreamEvents()
-          return Promise.resolve([])
-        },
-      } satisfies Collection<ServiceLink>
+        const command = succeededCommand({
+          commandId: 'cmd-unparsable',
+          pendingAggregateCoverage: JSON.stringify({ 'nb.Todo-todo-a': 'not-a-bigint' }),
+        })
 
-      const { cacheManager, readModelStore, storage, syncManager } = await bootstrap({
-        collections: [notebooksCollection],
-        processors: [
-          {
-            eventTypes: 'NotebookNameUpdated',
-            processor: (data: { id: string; name: string }) => ({
-              collection: 'notebooks',
-              id: data.id,
-              update: { type: 'merge', data: { name: data.name } },
-              isServerUpdate: true,
-            }),
-          },
-          {
-            eventTypes: 'NotebookTagAdded',
-            processor: (data: { id: string; tag: string }) => ({
-              collection: 'notebooks',
-              id: data.id,
-              update: { type: 'merge', data: { tag: data.tag } },
-              isServerUpdate: true,
-            }),
-          },
-        ],
+        const result = syncManager.testEvaluateCoverageForBatch([command], new Set())
+        expect(result.applied).toHaveLength(1)
       })
 
-      await syncManager.start()
+      it('applies empty records immediately', async () => {
+        const { syncManager, cacheManager } = await bootstrap()
+        await cacheManager.acquire(TEST_CACHE_KEY)
 
-      // Seed the collection directly (simulates what doStartSync does after auth)
-      await cacheManager.acquireKey(notebooksCollection.seedOnInit.cacheKey)
-      await syncManager.testSeedOneCollection(
-        notebooksCollection,
-        notebooksCollection.seedOnInit.cacheKey,
-        notebooksCollection.seedOnInit.topics,
-      )
+        const command = succeededCommand({
+          commandId: 'cmd-empty',
+          pendingAggregateCoverage: JSON.stringify({}),
+        })
 
-      // Verify seed populated read model and knownRevisions
-      const seededModels = await readModelStore.list('notebooks', {
-        cacheKey: notebooksCollection.seedOnInit.cacheKey.key,
+        const result = syncManager.testEvaluateCoverageForBatch([command], new Set())
+        expect(result.applied).toHaveLength(1)
+        expect(result.updated).toEqual([])
       })
-      expect(seededModels).toHaveLength(1)
-      expect(seededModels[0]?.data).toMatchObject({ name: 'Original' })
 
-      // Simulate WS event at revision 2, skipping revision 1 (the rename)
-      await syncManager.testHandleWebSocketEvent(
-        {
-          id: 'ws-event',
-          type: 'NotebookTagAdded',
-          streamId: NotebookAggregate.getStreamId('nb-1'),
-          data: { id: 'nb-1', tag: 'trigger-tag' },
-          metadata: { correlationId: 'test' },
-          created: new Date().toISOString(),
-          revision: 2n,
-          position: 202n,
-        },
-        ['Notebook:nb-1'],
-      )
+      it('skips commands with missing pendingAggregateCoverage', async () => {
+        const { syncManager, cacheManager } = await bootstrap()
+        await cacheManager.acquire(TEST_CACHE_KEY)
 
-      // Allow async gap repair to complete
-      await new Promise((r) => setTimeout(r, 100))
+        const command = succeededCommand({
+          commandId: 'cmd-missing',
+          pendingAggregateCoverage: undefined as unknown as string,
+        })
 
-      // Gap repair should have fetched the missed event (revision 1)
-      expect(fetchStreamEvents).toHaveBeenCalled()
-
-      // Both events should have been processed:
-      // - revision 1 (NotebookNameUpdated → name: 'Updated')
-      // - revision 2 (NotebookTagAdded → tag: 'trigger-tag')
-      const models = await readModelStore.list('notebooks', {
-        cacheKey: notebooksCollection.seedOnInit.cacheKey.key,
+        const result = syncManager.testEvaluateCoverageForBatch([command], new Set())
+        expect(result.applied).toEqual([])
+        expect(result.updated).toEqual([])
       })
-      expect(models).toHaveLength(1)
-      expect(models[0]?.data).toMatchObject({ name: 'Updated' })
 
-      await syncManager.destroy()
+      it('skips commands with unparsable pendingAggregateCoverage JSON', async () => {
+        const { syncManager, cacheManager } = await bootstrap()
+        await cacheManager.acquire(TEST_CACHE_KEY)
+
+        const command = succeededCommand({
+          commandId: 'cmd-bad-json',
+          pendingAggregateCoverage: 'not json',
+        })
+
+        const result = syncManager.testEvaluateCoverageForBatch([command], new Set())
+        expect(result.applied).toEqual([])
+        expect(result.updated).toEqual([])
+      })
+
+      it('processes a mixed batch independently per command', async () => {
+        const { syncManager, cacheManager } = await bootstrap()
+        await cacheManager.acquire(TEST_CACHE_KEY)
+        syncManager.getKnownRevisions().set('nb.Todo-todo-x', 7n)
+
+        const ruleOneApplied = succeededCommand({
+          commandId: 'cmd-r1-applied',
+          pendingAggregateCoverage: JSON.stringify('events'),
+        })
+        const ruleOneStillSucceeded = succeededCommand({
+          commandId: 'cmd-r1-still-succeeded',
+          pendingAggregateCoverage: JSON.stringify('events'),
+        })
+        const ruleTwoAApplied = succeededCommand({
+          commandId: 'cmd-r2a-applied',
+          pendingAggregateCoverage: JSON.stringify({ 'nb.Todo-todo-x': '7' }),
+        })
+        const ruleTwoAUpdated = succeededCommand({
+          commandId: 'cmd-r2a-updated',
+          pendingAggregateCoverage: JSON.stringify({
+            'nb.Todo-todo-x': '7',
+            'nb.Todo-todo-y': '9',
+          }),
+        })
+
+        const result = syncManager.testEvaluateCoverageForBatch(
+          [ruleOneApplied, ruleOneStillSucceeded, ruleTwoAApplied, ruleTwoAUpdated],
+          new Set(['cmd-r1-applied']),
+        )
+
+        expect(result.applied.map((c) => c.commandId).sort()).toEqual([
+          'cmd-r1-applied',
+          'cmd-r2a-applied',
+        ])
+        expect(result.updated).toHaveLength(1)
+        expect(result.updated[0]!.commandId).toBe('cmd-r2a-updated')
+        expect(JSON.parse(result.updated[0]!.pendingAggregateCoverage!)).toEqual({
+          'nb.Todo-todo-y': '9',
+        })
+      })
     })
   })
 })

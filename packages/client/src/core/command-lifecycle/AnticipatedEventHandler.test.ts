@@ -3,8 +3,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import { createTestWriteQueue } from '../../testing/createTestWriteQueue.js'
 import { TodoAggregate } from '../../testing/index.js'
+import type { CommandRecord } from '../../types/commands.js'
 import type { Collection } from '../../types/config.js'
 import { EnqueueCommand } from '../../types/index.js'
+import { deriveScopeKey } from '../cache-manager/CacheKey.js'
+import { CommandIdMappingStore } from '../command-id-mapping-store/CommandIdMappingStore.js'
 import { EventCache } from '../event-cache/EventCache.js'
 import { EventProcessorRegistry } from '../event-processor/EventProcessorRegistry.js'
 import { EventProcessorRunner } from '../event-processor/EventProcessorRunner.js'
@@ -21,16 +24,36 @@ type TodoCreatedEvent = IAnticipatedEvent<
 type UnknownEvent = IAnticipatedEvent<'UnknownEvent', { readonly id: string }>
 type TestEvent = TodoCreatedEvent | UnknownEvent
 
-const CACHE_KEY = 'ck-todos'
+const TODO_CACHE_KEY = deriveScopeKey({ scopeType: 'todos' })
 
 const COLLECTIONS: Collection<ServiceLink>[] = [
   {
     name: 'todos',
     aggregate: TodoAggregate,
-    matchesStream: (s) => s.startsWith('Todo-'),
+    matchesStream: (s) => s.startsWith('nb.Todo-'),
     cacheKeysFromTopics: () => [],
   },
 ]
+
+function mockCommand(
+  overrides: Partial<CommandRecord<ServiceLink, EnqueueCommand>> = {},
+): CommandRecord<ServiceLink, EnqueueCommand> {
+  return {
+    commandId: 'cmd-1',
+    cacheKey: TODO_CACHE_KEY,
+    service: 'default',
+    type: 'CreateTodo',
+    data: {},
+    status: 'pending',
+    dependsOn: [],
+    blockedBy: [],
+    attempts: 0,
+    seq: 0,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    ...overrides,
+  }
+}
 
 describe('AnticipatedEventHandler', () => {
   let cleanup: (() => void)[] = []
@@ -52,44 +75,44 @@ describe('AnticipatedEventHandler', () => {
     const storage = new InMemoryStorage<ServiceLink, EnqueueCommand>()
     await storage.initialize()
     const eventBus = new EventBus<ServiceLink>()
-    const eventCache = new EventCache<ServiceLink, EnqueueCommand>(storage, eventBus)
-    const readModelStore = new ReadModelStore<ServiceLink, EnqueueCommand>(storage)
+    const eventCache = new EventCache<ServiceLink, EnqueueCommand>(storage)
+    const mappingStore = new CommandIdMappingStore<ServiceLink, EnqueueCommand>(storage)
+    await mappingStore.initialize()
+    const readModelStore = new ReadModelStore<ServiceLink, EnqueueCommand>(
+      eventBus,
+      storage,
+      mappingStore,
+    )
 
     const registry = new EventProcessorRegistry()
     registry.register(todoProcessor())
-    const runner = new EventProcessorRunner(readModelStore, eventBus, registry)
+    const runner = new EventProcessorRunner(eventBus, registry, readModelStore)
 
     const wq = createTestWriteQueue(eventBus, cleanup, ['apply-anticipated'])
     const handler = new AnticipatedEventHandler<ServiceLink, EnqueueCommand>(
+      eventBus,
       eventCache,
-      runner,
+      registry,
       readModelStore,
       COLLECTIONS,
       wq,
     )
 
-    return {
-      storage,
-      eventBus,
-      eventCache,
-      readModelStore,
-      handler,
-    }
+    return { storage, eventBus, eventCache, readModelStore, handler }
   }
 
   describe('cache', () => {
     it('caches anticipated events and processes them into read models', async () => {
       const { handler, readModelStore } = await bootstrap()
       await handler.cache<TestEvent>({
-        commandId: 'cmd-1',
+        command: mockCommand(),
         events: [
           {
             type: 'TodoCreated',
             data: { id: 'todo-1', title: 'Buy milk' },
-            streamId: 'Todo-todo-1',
+            streamId: 'nb.Todo-todo-1',
           },
         ],
-        cacheKey: CACHE_KEY,
       })
 
       const models = await readModelStore.list('todos')
@@ -100,15 +123,14 @@ describe('AnticipatedEventHandler', () => {
     it('tracks updated entity IDs per command', async () => {
       const { handler } = await bootstrap()
       await handler.cache({
-        commandId: 'cmd-1',
+        command: mockCommand(),
         events: [
           {
             type: 'TodoCreated',
             data: { id: 'todo-1', title: 'Buy milk' },
-            streamId: 'Todo-todo-1',
+            streamId: 'nb.Todo-todo-1',
           },
         ],
-        cacheKey: CACHE_KEY,
       })
 
       expect(handler.getTrackedEntries('cmd-1')).toEqual(['todos:todo-1'])
@@ -117,9 +139,8 @@ describe('AnticipatedEventHandler', () => {
     it('skips events that do not match any collection', async () => {
       const { handler } = await bootstrap()
       await handler.cache({
-        commandId: 'cmd-1',
+        command: mockCommand(),
         events: [{ type: 'UnknownEvent', data: { id: 'x' }, streamId: 'Unknown-x' }],
-        cacheKey: CACHE_KEY,
       })
 
       expect(handler.getTrackedEntries('cmd-1')).toBeUndefined()
@@ -128,16 +149,15 @@ describe('AnticipatedEventHandler', () => {
     it('sets _clientMetadata when clientId is provided', async () => {
       const { handler, readModelStore } = await bootstrap()
       await handler.cache({
-        commandId: 'cmd-1',
+        command: mockCommand(),
         events: [
           {
             type: 'TodoCreated',
             data: { id: 'todo-1', title: 'Buy milk' },
-            streamId: 'Todo-todo-1',
+            streamId: 'nb.Todo-todo-1',
           },
         ],
         clientId: 'client-abc',
-        cacheKey: CACHE_KEY,
       })
 
       const model = await readModelStore.getById('todos', 'todo-1')
@@ -147,99 +167,260 @@ describe('AnticipatedEventHandler', () => {
     it('caches the event in EventCache', async () => {
       const { eventCache, handler } = await bootstrap()
       await handler.cache({
-        commandId: 'cmd-1',
+        command: mockCommand(),
         events: [
           {
             type: 'TodoCreated',
             data: { id: 'todo-1', title: 'Buy milk' },
-            streamId: 'Todo-todo-1',
+            streamId: 'nb.Todo-todo-1',
           },
         ],
-        cacheKey: CACHE_KEY,
       })
 
       const events = await eventCache.getAnticipatedEventsByCommand('cmd-1')
       expect(events).toHaveLength(1)
       expect(events[0]?.type).toBe('TodoCreated')
     })
-  })
 
-  describe('cleanup', () => {
-    it('deletes anticipated events from cache on any terminal status', async () => {
-      const { eventCache, handler } = await bootstrap()
+    it('emits readmodel:updated with commandIds', async () => {
+      const { eventBus, handler } = await bootstrap()
+      const emissions: Array<{ collection: string; commandIds?: string[] }> = []
+      eventBus.on('readmodel:updated').subscribe((e) => emissions.push(e.data))
+
       await handler.cache({
-        commandId: 'cmd-1',
+        command: mockCommand(),
         events: [
           {
             type: 'TodoCreated',
             data: { id: 'todo-1', title: 'Buy milk' },
-            streamId: 'Todo-todo-1',
+            streamId: 'nb.Todo-todo-1',
           },
         ],
-        cacheKey: CACHE_KEY,
       })
 
-      await handler.cleanup('cmd-1', 'succeeded')
+      expect(emissions).toHaveLength(1)
+      expect(emissions[0]?.collection).toBe('todos')
+      expect(emissions[0]?.commandIds).toEqual(['cmd-1'])
+    })
+  })
+
+  describe('cleanupOnSucceeded', () => {
+    it('deletes anticipated events from cache', async () => {
+      const { eventCache, handler } = await bootstrap()
+      await handler.cache({
+        command: mockCommand(),
+        events: [
+          {
+            type: 'TodoCreated',
+            data: { id: 'todo-1', title: 'Buy milk' },
+            streamId: 'nb.Todo-todo-1',
+          },
+        ],
+      })
+
+      await handler.cleanupOnSucceeded('cmd-1')
 
       const events = await eventCache.getAnticipatedEventsByCommand('cmd-1')
       expect(events).toHaveLength(0)
     })
 
-    it('retains tracking entries on success for getCommandEntities', async () => {
+    it('retains tracking entries for later applied transition', async () => {
       const { handler } = await bootstrap()
       await handler.cache({
-        commandId: 'cmd-1',
+        command: mockCommand(),
         events: [
           {
             type: 'TodoCreated',
             data: { id: 'todo-1', title: 'Buy milk' },
-            streamId: 'Todo-todo-1',
+            streamId: 'nb.Todo-todo-1',
           },
         ],
-        cacheKey: CACHE_KEY,
       })
 
-      await handler.cleanup('cmd-1', 'succeeded')
+      await handler.cleanupOnSucceeded('cmd-1')
 
       expect(handler.getTrackedEntries('cmd-1')).toEqual(['todos:todo-1'])
     })
 
-    it('deletes tracking entries on failure', async () => {
-      const { handler, readModelStore } = await bootstrap()
-      await handler.cache({
-        commandId: 'cmd-1',
-        events: [
-          {
-            type: 'TodoCreated',
-            data: { id: 'todo-1', title: 'Buy milk' },
-            streamId: 'Todo-todo-1',
-          },
-        ],
-        cacheKey: CACHE_KEY,
-      })
-
-      await handler.cleanup('cmd-1', 'failed')
-
-      expect(handler.getTrackedEntries('cmd-1')).toBeUndefined()
-    })
-
-    it('clears local changes for tracked entities', async () => {
+    it('does not clear local changes — overlay is preserved for the pipeline to supersede', async () => {
       const { handler, readModelStore } = await bootstrap()
       const clearSpy = vi.spyOn(readModelStore, 'clearLocalChanges')
 
       await handler.cache({
-        commandId: 'cmd-1',
+        command: mockCommand(),
         events: [
           {
             type: 'TodoCreated',
             data: { id: 'todo-1', title: 'Buy milk' },
-            streamId: 'Todo-todo-1',
+            streamId: 'nb.Todo-todo-1',
           },
         ],
-        cacheKey: CACHE_KEY,
       })
 
-      await handler.cleanup('cmd-1', 'failed')
+      await handler.cleanupOnSucceeded('cmd-1')
+
+      expect(clearSpy).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('cleanupOnAppliedBatch', () => {
+    it('deletes anticipated events from cache for every command in the batch', async () => {
+      const { eventCache, handler } = await bootstrap()
+      await handler.cache({
+        command: mockCommand({ commandId: 'cmd-1' }),
+        events: [
+          {
+            type: 'TodoCreated',
+            data: { id: 'todo-1', title: 'A' },
+            streamId: 'nb.Todo-todo-1',
+          },
+        ],
+      })
+      await handler.cache({
+        command: mockCommand({ commandId: 'cmd-2' }),
+        events: [
+          {
+            type: 'TodoCreated',
+            data: { id: 'todo-2', title: 'B' },
+            streamId: 'nb.Todo-todo-2',
+          },
+        ],
+      })
+
+      await handler.cleanupOnAppliedBatch(['cmd-1', 'cmd-2'])
+
+      expect(await eventCache.getAnticipatedEventsByCommand('cmd-1')).toHaveLength(0)
+      expect(await eventCache.getAnticipatedEventsByCommand('cmd-2')).toHaveLength(0)
+    })
+
+    it('drops tracking entries for every command in the batch', async () => {
+      const { handler } = await bootstrap()
+      await handler.cache({
+        command: mockCommand({ commandId: 'cmd-1' }),
+        events: [
+          {
+            type: 'TodoCreated',
+            data: { id: 'todo-1', title: 'A' },
+            streamId: 'nb.Todo-todo-1',
+          },
+        ],
+      })
+      await handler.cache({
+        command: mockCommand({ commandId: 'cmd-2' }),
+        events: [
+          {
+            type: 'TodoCreated',
+            data: { id: 'todo-2', title: 'B' },
+            streamId: 'nb.Todo-todo-2',
+          },
+        ],
+      })
+
+      await handler.cleanupOnAppliedBatch(['cmd-1', 'cmd-2'])
+
+      expect(handler.getTrackedEntries('cmd-1')).toBeUndefined()
+      expect(handler.getTrackedEntries('cmd-2')).toBeUndefined()
+    })
+
+    it('does not call clearLocalChanges — server data has already superseded overlays', async () => {
+      const { handler, readModelStore } = await bootstrap()
+      const clearSpy = vi.spyOn(readModelStore, 'clearLocalChanges')
+
+      await handler.cache({
+        command: mockCommand(),
+        events: [
+          {
+            type: 'TodoCreated',
+            data: { id: 'todo-1', title: 'Buy milk' },
+            streamId: 'nb.Todo-todo-1',
+          },
+        ],
+      })
+
+      await handler.cleanupOnAppliedBatch(['cmd-1'])
+
+      expect(clearSpy).not.toHaveBeenCalled()
+    })
+
+    it('accepts arbitrary iterables', async () => {
+      const { handler } = await bootstrap()
+      await handler.cache({
+        command: mockCommand(),
+        events: [
+          {
+            type: 'TodoCreated',
+            data: { id: 'todo-1', title: 'A' },
+            streamId: 'nb.Todo-todo-1',
+          },
+        ],
+      })
+
+      const ids = new Set(['cmd-1'])
+      await handler.cleanupOnAppliedBatch(ids)
+
+      expect(handler.getTrackedEntries('cmd-1')).toBeUndefined()
+    })
+
+    it('handles unknown command ids as a no-op', async () => {
+      const { handler } = await bootstrap()
+      await expect(handler.cleanupOnAppliedBatch(['nonexistent'])).resolves.toBeUndefined()
+    })
+  })
+
+  describe('cleanupOnFailure', () => {
+    it('deletes anticipated events from cache', async () => {
+      const { eventCache, handler } = await bootstrap()
+      await handler.cache({
+        command: mockCommand(),
+        events: [
+          {
+            type: 'TodoCreated',
+            data: { id: 'todo-1', title: 'Buy milk' },
+            streamId: 'nb.Todo-todo-1',
+          },
+        ],
+      })
+
+      await handler.cleanupOnFailure('cmd-1')
+
+      const events = await eventCache.getAnticipatedEventsByCommand('cmd-1')
+      expect(events).toHaveLength(0)
+    })
+
+    it('deletes tracking entries', async () => {
+      const { handler } = await bootstrap()
+      await handler.cache({
+        command: mockCommand(),
+        events: [
+          {
+            type: 'TodoCreated',
+            data: { id: 'todo-1', title: 'Buy milk' },
+            streamId: 'nb.Todo-todo-1',
+          },
+        ],
+      })
+
+      await handler.cleanupOnFailure('cmd-1')
+
+      expect(handler.getTrackedEntries('cmd-1')).toBeUndefined()
+    })
+
+    it('clears local changes for tracked entities (reverts optimistic overlay)', async () => {
+      const { handler, readModelStore } = await bootstrap()
+      const clearSpy = vi.spyOn(readModelStore, 'clearLocalChanges')
+
+      await handler.cache({
+        command: mockCommand(),
+        events: [
+          {
+            type: 'TodoCreated',
+            data: { id: 'todo-1', title: 'Buy milk' },
+            streamId: 'nb.Todo-todo-1',
+          },
+        ],
+      })
+
+      await handler.cleanupOnFailure('cmd-1')
 
       expect(clearSpy).toHaveBeenCalledWith('todos', 'todo-1')
     })
@@ -248,29 +429,25 @@ describe('AnticipatedEventHandler', () => {
   describe('regenerate', () => {
     it('replaces anticipated events with new ones', async () => {
       const { handler, readModelStore } = await bootstrap()
+      const cmd = mockCommand()
       await handler.cache({
-        commandId: 'cmd-1',
+        command: cmd,
         events: [
           {
             type: 'TodoCreated',
             data: { id: 'todo-1', title: 'Original' },
-            streamId: 'Todo-todo-1',
+            streamId: 'nb.Todo-todo-1',
           },
         ],
-        cacheKey: CACHE_KEY,
       })
 
-      await handler.regenerate<TestEvent>(
-        'cmd-1',
-        [
-          {
-            type: 'TodoCreated',
-            data: { id: 'todo-1', title: 'Regenerated' },
-            streamId: 'Todo-todo-1',
-          },
-        ],
-        CACHE_KEY,
-      )
+      await handler.regenerate<TestEvent>(cmd, [
+        {
+          type: 'TodoCreated',
+          data: { id: 'todo-1', title: 'Regenerated' },
+          streamId: 'nb.Todo-todo-1',
+        },
+      ])
 
       const model = await readModelStore.getById('todos', 'todo-1')
       expect(model?.data).toMatchObject({ title: 'Regenerated' })
@@ -279,28 +456,24 @@ describe('AnticipatedEventHandler', () => {
     it('clears old tracking and creates new tracking entries', async () => {
       const { handler, readModelStore } = await bootstrap()
       const clearSpy = vi.spyOn(readModelStore, 'clearLocalChanges')
+      const cmd = mockCommand()
 
       await handler.cache({
-        commandId: 'cmd-1',
+        command: cmd,
         events: [
           {
             type: 'TodoCreated',
             data: { id: 'todo-1', title: 'Original' },
-            streamId: 'Todo-todo-1',
+            streamId: 'nb.Todo-todo-1',
           },
         ],
-        cacheKey: CACHE_KEY,
       })
 
-      await handler.regenerate(
-        'cmd-1',
-        [{ type: 'TodoCreated', data: { id: 'todo-2', title: 'New' }, streamId: 'Todo-todo-2' }],
-        CACHE_KEY,
-      )
+      await handler.regenerate(cmd, [
+        { type: 'TodoCreated', data: { id: 'todo-2', title: 'New' }, streamId: 'nb.Todo-todo-2' },
+      ])
 
-      // Old entry was cleared
       expect(clearSpy).toHaveBeenCalledWith('todos', 'todo-1')
-      // New entry is tracked
       expect(handler.getTrackedEntries('cmd-1')).toEqual(['todos:todo-2'])
     })
   })
@@ -312,50 +485,18 @@ describe('AnticipatedEventHandler', () => {
     })
   })
 
-  describe('getAnticipatedEventsForStream', () => {
-    it('returns anticipated events for stream excluding a command', async () => {
-      const { handler } = await bootstrap()
-      await handler.cache({
-        commandId: 'cmd-1',
-        events: [
-          { type: 'TodoCreated', data: { id: 'todo-1', title: 'First' }, streamId: 'Todo-todo-1' },
-        ],
-        cacheKey: CACHE_KEY,
-      })
-      await handler.cache({
-        commandId: 'cmd-2',
-        events: [
-          { type: 'TodoCreated', data: { id: 'todo-1', title: 'Second' }, streamId: 'Todo-todo-1' },
-        ],
-        cacheKey: CACHE_KEY,
-      })
-
-      const events = await handler.getAnticipatedEventsForStream('Todo-todo-1', 'cmd-1')
-
-      expect(events).toHaveLength(1)
-      expect(events[0]?.commandId).toBe('cmd-2')
-    })
-
-    it('returns empty array when no matching events', async () => {
-      const { handler } = await bootstrap()
-      const events = await handler.getAnticipatedEventsForStream('Todo-todo-1', 'cmd-1')
-      expect(events).toEqual([])
-    })
-  })
-
   describe('clearAll', () => {
     it('clears all in-memory tracking state', async () => {
       const { handler } = await bootstrap()
       await handler.cache({
-        commandId: 'cmd-1',
+        command: mockCommand(),
         events: [
           {
             type: 'TodoCreated',
             data: { id: 'todo-1', title: 'Buy milk' },
-            streamId: 'Todo-todo-1',
+            streamId: 'nb.Todo-todo-1',
           },
         ],
-        cacheKey: CACHE_KEY,
       })
 
       await handler.clearAll()

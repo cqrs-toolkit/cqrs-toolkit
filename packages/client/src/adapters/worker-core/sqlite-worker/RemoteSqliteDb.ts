@@ -11,7 +11,7 @@
  * layers (storage retries) handle re-issuing.
  */
 
-import type { ISqliteDb, SqliteBatchStatement } from '../../../storage/ISqliteDb.js'
+import type { BatchResult, ISqliteDb, SqliteBatchStatement } from '../../../storage/ISqliteDb.js'
 import type { VfsType } from '../../../storage/LocalSqliteDb.js'
 import type { SqliteRequest, SqliteResponse } from './protocol.js'
 
@@ -61,7 +61,10 @@ export class RemoteSqliteDb implements ISqliteDb {
     return returnRows ? result : undefined
   }
 
-  async execBatch(statements: SqliteBatchStatement[]): Promise<unknown[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- matches ISqliteDb.execBatch signature exactly; T is a phantom type on SqliteBatchStatement used only for BatchResult inference
+  async execBatch<const T extends readonly SqliteBatchStatement<any>[]>(
+    statements: T,
+  ): Promise<BatchResult<T>> {
     const result = await this.send({
       type: 'sqlite:batch',
       requestId: this.nextId(),
@@ -71,7 +74,9 @@ export class RemoteSqliteDb implements ISqliteDb {
         returnRows: s.returnRows ?? false,
       })),
     })
-    return result as unknown[]
+    // Tuple slots are correlated to statements positionally; TypeScript cannot
+    // express that through the postMessage boundary without a cast here.
+    return result as BatchResult<T>
   }
 
   async close(): Promise<void> {

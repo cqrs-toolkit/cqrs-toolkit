@@ -51,6 +51,8 @@ async function checkNameUniqueness(
 export const notebookHandlers: AppCommandHandlerRegistration[] = [
   {
     commandType: 'CreateNotebook',
+    aggregate: NotebookAggregate,
+    commandIdReferences: [],
     schema: createNotebookPayloadSchema,
     creates: { eventType: 'NotebookCreated', idStrategy: 'temporary' },
     async validateAsync(command, _state, context) {
@@ -74,6 +76,8 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
   },
   {
     commandType: 'UpdateNotebookName',
+    aggregate: NotebookAggregate,
+    commandIdReferences: [{ aggregate: NotebookAggregate, path: '$.data.id' }],
     schema: updateNotebookNamePayloadSchema,
     async validateAsync(command, _state, context) {
       const { id, name } = command.data as { id: string; name: string }
@@ -94,6 +98,8 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
   },
   {
     commandType: 'DeleteNotebook',
+    aggregate: NotebookAggregate,
+    commandIdReferences: [{ aggregate: NotebookAggregate, path: '$.data.id' }],
     schema: deleteNotebookPayloadSchema,
     handler(command) {
       const { id } = command.data as { id: string }
@@ -108,6 +114,8 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
   },
   {
     commandType: 'AddNotebookTag',
+    aggregate: NotebookAggregate,
+    commandIdReferences: [{ aggregate: NotebookAggregate, path: '$.data.id' }],
     schema: addNotebookTagPayloadSchema,
     handler(command) {
       const { id, tag } = command.data as { id: string; tag: string }
@@ -122,6 +130,8 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
   },
   {
     commandType: 'RemoveNotebookTag',
+    aggregate: NotebookAggregate,
+    commandIdReferences: [{ aggregate: NotebookAggregate, path: '$.data.id' }],
     schema: removeNotebookTagPayloadSchema,
     handler(command) {
       const { id, tag } = command.data as { id: string; tag: string }

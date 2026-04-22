@@ -1,4 +1,4 @@
-import { expect, test, url } from '../../../e2e-fixtures.js'
+import { expect, setupTestDiagnostics, test, url } from '#e2e-fixtures'
 import {
   addNotebook,
   addTodo,
@@ -12,6 +12,8 @@ import {
 import { testNavigator } from '../../../e2e-nav.js'
 
 const { Dashboard, Notes } = testNavigator
+
+setupTestDiagnostics()
 
 test.beforeEach(async ({ request }) => {
   await request.post('http://localhost:3001/api/test/reset')

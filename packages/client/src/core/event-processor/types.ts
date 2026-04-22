@@ -3,6 +3,7 @@
  * Event processors transform events into read model updates.
  */
 
+import type { EntityId } from '../../types/entities.js'
 import type { EventPersistence } from '../../types/events.js'
 
 /**
@@ -30,7 +31,7 @@ export interface ProcessorResult<T extends object = Record<string, unknown>> {
   /** Collection to update */
   collection: string
   /** Entity ID to update */
-  id: string
+  id: EntityId
   /** Update operation */
   update: UpdateOperation<T>
   /** Whether this is a server baseline update (vs optimistic) */
@@ -60,8 +61,9 @@ export type ProcessorReturn<TModel extends object = Record<string, unknown>> =
  */
 export type EventProcessor<TEvent = unknown, TModel extends object = Record<string, unknown>> = (
   event: TEvent,
+  state: TModel | undefined,
   context: ProcessorContext,
-) => ProcessorReturn<TModel> | Promise<ProcessorReturn<TModel>>
+) => ProcessorReturn<TModel>
 
 /**
  * Context passed to event processors.
@@ -79,8 +81,6 @@ export interface ProcessorContext {
   streamId: string
   /** Unique event ID */
   eventId: string
-  /** Get current read model state (may not exist) */
-  getCurrentState: <T>(collection: string, id: string) => Promise<T | undefined>
 }
 
 /**
@@ -96,8 +96,9 @@ export interface ProcessorRegistration<TEvent = unknown, TModel extends object =
   /** The processor function */
   processor(
     event: TEvent,
+    state: TModel | undefined,
     context: ProcessorContext,
-  ): ProcessorReturn<TModel> | Promise<ProcessorReturn<TModel>>
+  ): ProcessorReturn<TModel>
   /** Optional: Only process certain persistence types */
   persistenceTypes?: EventPersistence[]
 }

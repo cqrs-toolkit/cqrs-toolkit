@@ -142,6 +142,7 @@ export function createCommandsStore<TLink extends Link>(): CommandsStore {
               dependsOn: [],
               blockedBy: [],
               attempts: 0,
+              seq: 0,
               createdAt: event.timestamp,
               updatedAt: event.timestamp,
             }

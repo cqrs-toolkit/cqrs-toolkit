@@ -18,7 +18,7 @@ export const fileObjectsCollection: Collection<ServiceLink> = {
     { path: '$.notebookId', aggregate: NotebookAggregate },
   ],
   cacheKeysFromTopics,
-  matchesStream: (streamId) => streamId.startsWith('FileObject-'),
+  matchesStream: (streamId) => streamId.startsWith('storage.FileObject-'),
   seedOnDemand: {
     keyTypes: [{ kind: 'entity', link: { service: 'nb', type: 'Notebook' } }],
     subscribeTopics,

@@ -15,7 +15,7 @@ export const notesCollection: Collection<ServiceLink> = {
   aggregate: NoteAggregate,
   idReferences: [{ path: '$.notebookId', aggregate: NotebookAggregate }],
   cacheKeysFromTopics,
-  matchesStream: (streamId) => streamId.startsWith('Note-'),
+  matchesStream: (streamId) => streamId.startsWith('nb.Note-'),
   seedOnDemand: {
     keyTypes: [{ kind: 'entity', link: { service: 'nb', type: 'Notebook' } }],
     subscribeTopics,

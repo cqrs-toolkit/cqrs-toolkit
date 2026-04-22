@@ -85,7 +85,7 @@ getting — not a speculative cast.
 
 ### execBatch()
 
-> **execBatch**(`statements`): `Promise`\<`unknown`[]\>
+> **execBatch**\<`T`\>(`statements`): `Promise`\<`BatchResult`\<`T`\>\>
 
 Execute multiple statements inside a single transaction.
 
@@ -97,12 +97,18 @@ Returns one result slot per input statement in the same order:
 - `undefined` when `returnRows` was false/omitted
 - the row-object array when `returnRows` was true
 
+#### Type Parameters
+
+##### T
+
+`T` _extends_ readonly `SqliteBatchStatement`\<`any`\>[]
+
 #### Parameters
 
 ##### statements
 
-`SqliteBatchStatement`[]
+`T`
 
 #### Returns
 
-`Promise`\<`unknown`[]\>
+`Promise`\<`BatchResult`\<`T`\>\>

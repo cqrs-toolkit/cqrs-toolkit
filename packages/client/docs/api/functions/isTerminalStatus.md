@@ -10,6 +10,9 @@
 
 Check if command is in a terminal state.
 
+'applied' is questionable and needs to be handled carefully by callers.
+The normal lifecycle is 'succeeded' -> 'applied' so naive treatment can double-effect.
+
 ## Parameters
 
 ### status

@@ -31,6 +31,8 @@ import type {
 } from '../../core/query-manager/types.js'
 import type { WorkerMessageChannel } from '../../protocol/MessageChannel.js'
 import type { EventMessage } from '../../protocol/messages.js'
+import type { EntityId } from '../../types/entities.js'
+import { entityIdToString } from '../../types/entities.js'
 
 /**
  * Main-thread proxy for the worker-side QueryManager.
@@ -108,7 +110,7 @@ export class QueryManagerProxy<TLink extends Link> implements IQueryManager<TLin
   watchById<T>(params: GetByIdParams<TLink>): Observable<T | undefined> {
     const { collection, id } = params
     return this.watchCollection(collection).pipe(
-      filter((signal) => signal.type === 'updated' && signal.ids.includes(id)),
+      filter((signal) => signal.type === 'updated' && signal.ids.includes(entityIdToString(id))),
       startWith(undefined),
       switchMap(() =>
         from(this.getById<T>(params)).pipe(
@@ -124,7 +126,11 @@ export class QueryManagerProxy<TLink extends Link> implements IQueryManager<TLin
     )
   }
 
-  async exists(collection: string, id: string): Promise<boolean> {
+  async getLocallyById<T>(collection: string, id: EntityId): Promise<T | undefined> {
+    return this.channel.request<T | undefined>('queryManager.getLocallyById', [collection, id])
+  }
+
+  async exists(collection: string, id: EntityId): Promise<boolean> {
     return this.channel.request<boolean>('queryManager.exists', [collection, id])
   }
 

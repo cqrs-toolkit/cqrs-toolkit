@@ -35,7 +35,7 @@ export class SubscriptionRegistry {
   private readonly topicToClients = new Map<string, Set<WebSocket>>()
   private readonly clientToTopics = new Map<WebSocket, Set<string>>()
 
-  subscribe(socket: WebSocket, topics: ReadonlyArray<string>): void {
+  subscribe(socket: WebSocket, topics: readonly string[]): void {
     let clientTopics = this.clientToTopics.get(socket)
     if (!clientTopics) {
       clientTopics = new Set()
@@ -54,7 +54,7 @@ export class SubscriptionRegistry {
     }
   }
 
-  unsubscribe(socket: WebSocket, topics: ReadonlyArray<string>): void {
+  unsubscribe(socket: WebSocket, topics: readonly string[]): void {
     const clientTopics = this.clientToTopics.get(socket)
     if (!clientTopics) return
 

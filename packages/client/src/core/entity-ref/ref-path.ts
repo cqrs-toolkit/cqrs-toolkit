@@ -12,8 +12,6 @@ import type { EntityRef } from '../../types/entities.js'
 import { isEntityRef } from '../../types/entities.js'
 import { JSONPathExpression } from '../../types/index.js'
 
-// TODO: review which remaining `string`s here should be `JSONPathExpression` instead
-
 /** A single segment in a parsed path. */
 type PathSegment =
   | { type: 'member'; name: string }
@@ -209,9 +207,9 @@ function setAtSegments(
  * A leaf match returned by {@link findMatchingPaths}.
  * `path` is a concrete (wildcard-expanded) JSONPath suitable for {@link setAtPath}.
  */
-export interface PathMatch {
+export interface PathMatch<T = unknown> {
   path: JSONPathExpression
-  value: unknown
+  value: T
 }
 
 /**
@@ -221,20 +219,31 @@ export interface PathMatch {
  * The returned paths are concrete — they can be passed directly to
  * {@link setAtPath} to write replacement values.
  *
- * Used by read-model reconciliation to enumerate matching ID locations
- * across array structures.
+ * When the predicate is a type guard (`v is T`), matched values are narrowed
+ * to `T` on the result. Plain boolean predicates fall into the second
+ * overload and produce `PathMatch<unknown>[]`.
  *
  * @param data - Root data structure to walk
  * @param pattern - JSONPath expression, may contain `[*]` wildcards
- * @param predicate - Returns true for leaf values that should be collected
+ * @param predicate - Type guard or boolean test for leaf values
  */
+export function findMatchingPaths<T>(
+  data: unknown,
+  pattern: JSONPathExpression,
+  predicate: (value: unknown) => value is T,
+): PathMatch<T>[]
 export function findMatchingPaths(
   data: unknown,
   pattern: JSONPathExpression,
   predicate: (value: unknown) => boolean,
-): PathMatch[] {
+): PathMatch<unknown>[]
+export function findMatchingPaths(
+  data: unknown,
+  pattern: JSONPathExpression,
+  predicate: (value: unknown) => boolean,
+): PathMatch<unknown>[] {
   const segments = parsePath(pattern)
-  const result: PathMatch[] = []
+  const result: PathMatch<unknown>[] = []
   walkSegments(data, segments, 0, [], predicate, result)
   return result
 }
@@ -243,13 +252,15 @@ export function findMatchingPaths(
  * Resolve declaration paths (which may contain [*] wildcards) against data.
  * Returns a map of concrete paths to EntityRef values found at those paths.
  */
-export function resolveRefPaths(data: unknown, patterns: string[]): Record<string, EntityRef> {
-  const result: Record<string, EntityRef> = {}
+export function resolveRefPaths(
+  data: unknown,
+  patterns: readonly JSONPathExpression[],
+): Record<JSONPathExpression, EntityRef> {
+  const result: Record<JSONPathExpression, EntityRef> = {}
 
   for (const pattern of patterns) {
     for (const match of findMatchingPaths(data, pattern, isEntityRef)) {
-      // Predicate guarantees value is an EntityRef
-      result[match.path] = match.value as EntityRef
+      result[match.path] = match.value
     }
   }
 
@@ -262,7 +273,7 @@ function walkSegments(
   index: number,
   concretePath: PathSegment[],
   predicate: (value: unknown) => boolean,
-  result: PathMatch[],
+  result: PathMatch<unknown>[],
 ): void {
   if (index === segments.length) {
     // Skip leaves that don't exist in the data — the predicate is only called
@@ -312,8 +323,8 @@ function walkSegments(
  * Extract all EntityRef values from top-level fields of a data object.
  * Returns a map of `$.fieldName` paths to EntityRef values.
  */
-export function extractTopLevelEntityRefs(data: unknown): Record<string, EntityRef> {
-  const result: Record<string, EntityRef> = {}
+export function extractTopLevelEntityRefs(data: unknown): Record<JSONPathExpression, EntityRef> {
+  const result: Record<JSONPathExpression, EntityRef> = {}
   if (typeof data !== 'object' || data === null) return result
 
   for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
@@ -326,12 +337,28 @@ export function extractTopLevelEntityRefs(data: unknown): Record<string, EntityR
 }
 
 /**
+ * Extract EntityRef values from a command's `data` and `path` surfaces using
+ * the declared `commandIdReferences` paths. Paths are rooted at the command
+ * view `{ data, path }` — e.g. `$.data.foo`, `$.path.bar`.
+ */
+export function extractCommandIdPaths(
+  command: { data: unknown; path?: unknown },
+  commandIdReferencePaths: readonly JSONPathExpression[],
+): Record<JSONPathExpression, EntityRef> {
+  const commandView = { data: command.data, path: command.path }
+  return resolveRefPaths(commandView, commandIdReferencePaths)
+}
+
+/**
  * Replace EntityRef values at the given paths with their plain entityId strings.
  * Returns a shallow clone of the data with replacements applied.
  */
-export function stripEntityRefs(data: unknown, entityRefData: Record<string, EntityRef>): unknown {
+export function stripEntityRefs<T = unknown>(
+  data: T,
+  commandIdPaths: Record<JSONPathExpression, EntityRef>,
+): T {
   let result = data
-  for (const [path, ref] of Object.entries(entityRefData)) {
+  for (const [path, ref] of Object.entries(commandIdPaths)) {
     result = setAtPath(result, path, ref.entityId)
   }
   return result
@@ -341,12 +368,12 @@ export function stripEntityRefs(data: unknown, entityRefData: Record<string, Ent
  * Restore EntityRef values at the given paths (inverse of stripEntityRefs).
  * Returns a clone of the data with EntityRef values re-injected at their original paths.
  */
-export function restoreEntityRefs(
-  data: unknown,
-  entityRefData: Record<string, EntityRef>,
-): unknown {
+export function restoreEntityRefs<T = unknown>(
+  data: T,
+  commandIdPaths: Record<JSONPathExpression, EntityRef>,
+): T {
   let result = data
-  for (const [path, ref] of Object.entries(entityRefData)) {
+  for (const [path, ref] of Object.entries(commandIdPaths)) {
     result = setAtPath(result, path, ref)
   }
   return result

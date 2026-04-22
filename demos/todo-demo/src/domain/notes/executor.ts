@@ -3,6 +3,7 @@
  */
 
 import { createEntityId, domainSuccess } from '@cqrs-toolkit/client'
+import { NotebookAggregate } from '@cqrs-toolkit/demo-base/notebooks/domain'
 import { NoteAggregate } from '@cqrs-toolkit/demo-base/notes/domain'
 import {
   createNotePayloadSchema,
@@ -15,9 +16,10 @@ import type { AppCommandHandlerRegistration } from '../utils/executors.js'
 export const noteHandlers: AppCommandHandlerRegistration[] = [
   {
     commandType: 'CreateNote',
+    aggregate: NoteAggregate,
+    commandIdReferences: [{ aggregate: NotebookAggregate, path: '$.data.notebookId' }],
     schema: createNotePayloadSchema,
     creates: { eventType: 'NoteCreated', idStrategy: 'temporary' },
-    parentRef: [{ field: 'notebookId', fromCommand: 'CreateNotebook' }],
     handler(command, _state, context) {
       const { notebookId, title, body } = command.data as {
         notebookId: string
@@ -37,6 +39,8 @@ export const noteHandlers: AppCommandHandlerRegistration[] = [
   },
   {
     commandType: 'UpdateNoteTitle',
+    aggregate: NoteAggregate,
+    commandIdReferences: [{ aggregate: NoteAggregate, path: '$.data.id' }],
     schema: updateNoteTitlePayloadSchema,
     handler(command) {
       const { id, title } = command.data as { id: string; title: string }
@@ -51,6 +55,8 @@ export const noteHandlers: AppCommandHandlerRegistration[] = [
   },
   {
     commandType: 'UpdateNoteBody',
+    aggregate: NoteAggregate,
+    commandIdReferences: [{ aggregate: NoteAggregate, path: '$.data.id' }],
     schema: updateNoteBodyPayloadSchema,
     handler(command) {
       const { id, body } = command.data as { id: string; body: string }
@@ -65,6 +71,8 @@ export const noteHandlers: AppCommandHandlerRegistration[] = [
   },
   {
     commandType: 'DeleteNote',
+    aggregate: NoteAggregate,
+    commandIdReferences: [{ aggregate: NoteAggregate, path: '$.data.id' }],
     schema: deleteNotePayloadSchema,
     handler(command) {
       const { id } = command.data as { id: string }

@@ -6,7 +6,7 @@
 
 # Interface: CollectionWithSeedOnDemand\<TLink\>
 
-A synchronized event collection.
+A synchronized event collection backed by exactly one primary aggregate.
 
 Collections define how the library discovers, fetches, and routes events.
 Consumer code implements the fetch methods to control HTTP conventions.
@@ -14,8 +14,10 @@ Consumer code implements the fetch methods to control HTTP conventions.
 Parameterized on `TLink` so multi-service apps using `ServiceLink`
 get typed entity cache keys with required `service` field.
 
-This currently operates one-to-one with Aggregate.
-Support for composite collections that are built from multiple aggregates are being considered for a future release.
+The 1-to-1 relationship with an aggregate is enforced by the required
+`aggregate` field. A separate `CompositeCollection` type built from multiple
+aggregates is future work, pending a strong example case to design against —
+it will not be a variant of this interface.
 
 ## Extends
 
@@ -31,7 +33,10 @@ Support for composite collections that are built from multiple aggregates are be
 
 ### aggregate
 
-> **aggregate**: [`AggregateConfig`](../type-aliases/AggregateConfig.md)\<`TLink`\>
+> `readonly` **aggregate**: [`AggregateConfig`](AggregateConfig.md)\<`TLink`\>
+
+The primary aggregate this collection tracks.
+Provides stream ID derivation and aggregate identity (type, service for ServiceLink).
 
 #### Inherited from
 
@@ -41,7 +46,19 @@ Support for composite collections that are built from multiple aggregates are be
 
 ### idReferences?
 
-> `optional` **idReferences**: `IdReference`\<`TLink`\>[]
+> `readonly` `optional` **idReferences**: readonly [`IdReference`](../type-aliases/IdReference.md)\<`TLink`\>[]
+
+Declares which paths in this collection's read model data contain references
+to aggregate IDs or links. Used by the event processor for overlay event reconciliation
+when an anticipated create resolves to a server ID.
+
+Each entry is either a [DirectIdReference](DirectIdReference.md) (path points at a plain string ID)
+or a [LinkIdReference](LinkIdReference.md) (path points at a `Link` object whose `type`/`service`
+are validated against the declared aggregates before its `id` is rewritten).
+
+The self-ID at `$.id` is injected automatically by `resolveConfig` using this
+collection's `aggregate` — no need to declare it manually. You must declare all other
+references to an aggregate id/link (e.g. `notebookId` on a Note pointing at the Notebook aggregate).
 
 #### Inherited from
 
@@ -56,6 +73,25 @@ Support for composite collections that are built from multiple aggregates are be
 #### Inherited from
 
 [`Collection`](Collection.md).[`name`](Collection.md#name)
+
+---
+
+### revisionPath?
+
+> `readonly` `optional` **revisionPath**: `string`
+
+JSONPath into the read model data where the aggregate's stream revision lives.
+Used to advance `AggregateChain.lastKnownRevision` when server data arrives via
+seed, refetch, or snapshot — so subsequent AutoRevision commands resolve against
+the latest confirmed revision, not a stale command-success value.
+
+Examples: `'$.revision'`, `'$.latestRevision'`.
+Absent means chain revision is not updated from read model records (only from
+WS events and command responses).
+
+#### Inherited from
+
+[`Collection`](Collection.md).[`revisionPath`](Collection.md#revisionpath)
 
 ---
 

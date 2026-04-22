@@ -8,6 +8,17 @@
 
 Message channel for window-to-worker communication.
 
+Also acts as an IEventSink for this thread. `emit`/`emitDebug`
+push library events straight into the local `events$` subject — they
+never cross `postMessage` — so any main-thread producer (logger,
+future local-only announcers, etc.) can surface events on
+`libraryEvents$` alongside events forwarded from the worker. One
+stream, one source of truth per thread, regardless of event origin.
+
+## Implements
+
+- `IEventSink`\<`any`\>
+
 ## Constructors
 
 ### Constructor
@@ -103,6 +114,66 @@ Stop listening for messages.
 #### Returns
 
 `void`
+
+---
+
+### emit()
+
+> **emit**\<`T`\>(`type`, `data`): `void`
+
+#### Type Parameters
+
+##### T
+
+`T` _extends_ [`LibraryEventType`](../../../../type-aliases/LibraryEventType.md)
+
+#### Parameters
+
+##### type
+
+`T`
+
+##### data
+
+[`LibraryEventData`](../../../../interfaces/LibraryEventData.md)\<`any`\>\[`T`\]
+
+#### Returns
+
+`void`
+
+#### Implementation of
+
+`IEventSink.emit`
+
+---
+
+### emitDebug()
+
+> **emitDebug**\<`T`\>(`type`, `data`): `void`
+
+#### Type Parameters
+
+##### T
+
+`T` _extends_ [`LibraryEventType`](../../../../type-aliases/LibraryEventType.md)
+
+#### Parameters
+
+##### type
+
+`T`
+
+##### data
+
+[`LibraryEventData`](../../../../interfaces/LibraryEventData.md)\<`any`\>\[`T`\]
+
+#### Returns
+
+`void`
+
+#### Implementation of
+
+`IEventSink.emitDebug`
 
 ---
 

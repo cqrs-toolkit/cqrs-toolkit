@@ -1,10 +1,13 @@
-import { expect, test, url } from '../../../e2e-fixtures.js'
+import { dumpCqrsEvents, expect, setupTestDiagnostics, test, url } from '#e2e-fixtures'
+import { Page } from '@playwright/test'
 import {
   addTodo,
   gotoWithWsSubscribed,
   waitForTodoContent,
   waitForTodoCount,
 } from '../../../e2e-helpers.js'
+
+setupTestDiagnostics()
 
 test.beforeEach(async ({ request }) => {
   await request.post('http://localhost:3001/api/test/reset')
@@ -28,10 +31,11 @@ test('propagates created todo', async ({ page, browser, mode }) => {
   }
 })
 
-test('propagates edited content', async ({ page, browser, mode }) => {
+test('propagates edited content', async ({ page, browser, mode }, testInfo) => {
   const context2 = await browser.newContext()
+  let pageB: Page | undefined
   try {
-    const pageB = await context2.newPage()
+    pageB = await context2.newPage()
 
     await gotoWithWsSubscribed(pageB, url('/todos', { mode, ws: true, session: 'b' }))
     await gotoWithWsSubscribed(page, url('/todos', { mode, ws: true }))
@@ -47,6 +51,14 @@ test('propagates edited content', async ({ page, browser, mode }) => {
 
     await expect(page.locator('.todo-content').first()).toHaveText('Updated')
     await waitForTodoContent(pageB, 'Updated')
+  } catch (e) {
+    if (pageB) {
+      console.log('Dumping page B')
+      await dumpCqrsEvents(pageB, testInfo)
+    } else {
+      console.log('Test failed before page B created')
+    }
+    throw e
   } finally {
     await context2.close()
   }

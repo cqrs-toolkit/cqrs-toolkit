@@ -17,6 +17,7 @@ import {
   map,
   race,
   share,
+  take,
   takeUntil,
   timer,
 } from 'rxjs'
@@ -41,6 +42,7 @@ import {
   InvalidCommandStatusException,
   WaitOptions,
   isCommandFailed,
+  isTerminalCommandEvent,
   isTerminalStatus,
 } from '../../types/commands.js'
 
@@ -55,6 +57,8 @@ export class CommandQueueProxy<
 > implements ICommandQueue<TLink, TCommand> {
   private readonly destroy$ = new Subject<void>()
   private readonly commandEvents = new Subject<CommandEvent>()
+  private readonly pausedEvents$: Observable<EventMessage>
+  private readonly resumedEvents$: Observable<EventMessage>
 
   readonly events$: Observable<CommandEvent>
 
@@ -70,6 +74,17 @@ export class CommandQueueProxy<
         this.commandEvents.next(commandEvent)
       }
     })
+
+    this.pausedEvents$ = broadcastEvents$.pipe(
+      filter((event) => event.eventName === 'commandqueue:paused'),
+      share(),
+      takeUntil(this.destroy$),
+    )
+    this.resumedEvents$ = broadcastEvents$.pipe(
+      filter((event) => event.eventName === 'commandqueue:resumed'),
+      share(),
+      takeUntil(this.destroy$),
+    )
 
     this.events$ = this.commandEvents.asObservable().pipe(share(), takeUntil(this.destroy$))
   }
@@ -106,27 +121,42 @@ export class CommandQueueProxy<
   ): Promise<Result<unknown, CommandCompletionError>> {
     const timeout = options?.timeout ?? DEFAULT_WAIT_TIMEOUT
 
+    // Subscribe eagerly BEFORE the RPC check so no broadcast is missed
+    // between the caller's enqueue/RPC and this method's observable subscription.
+    // The promise resolves on the first terminal event or timeout.
+    let resolveCompletion: (value: Result<unknown, CommandCompletionError>) => void
+    const completionPromise = new Promise<Result<unknown, CommandCompletionError>>((resolve) => {
+      resolveCompletion = resolve
+    })
+
+    const subscription = race(
+      this.commandEvents$(commandId).pipe(
+        filter(isTerminalCommandEvent),
+        map((event) => eventToCompletionResult(event)),
+      ),
+      timer(timeout).pipe(
+        map((): Result<unknown, CommandCompletionError> => Err(new CommandTimeoutException())),
+      ),
+    ).subscribe((result) => {
+      resolveCompletion(result)
+    })
+
     // Check if command is already in terminal state
     const command = await this.getCommand(commandId)
+
     if (!command) {
+      subscription.unsubscribe()
       return Err(new CommandFailedException('local', `Command not found: ${commandId}`))
     }
 
     if (isTerminalStatus(command.status)) {
+      subscription.unsubscribe()
       return toCompletionResult(command)
     }
 
-    // Wait for terminal state via broadcast events
-    const terminalEvent$ = this.commandEvents$(commandId).pipe(
-      filter((event) => isTerminalStatus(event.status)),
-      map((event) => eventToCompletionResult(event)),
-    )
-
-    const timeout$ = timer(timeout).pipe(
-      map((): Result<unknown, CommandCompletionError> => Err(new CommandTimeoutException())),
-    )
-
-    return firstValueFrom(race(terminalEvent$, timeout$))
+    const result = await completionPromise
+    subscription.unsubscribe()
+    return result
   }
 
   async enqueueAndWait<TData, TEvent, TResponse>(
@@ -184,16 +214,19 @@ export class CommandQueueProxy<
     return this.channel.request<void>('commandQueue.processPendingCommands')
   }
 
-  pause(): void {
-    this.channel.request<void>('commandQueue.pause').catch(() => {
-      // Fire-and-forget — pause is best-effort from main thread
-    })
+  async pause(): Promise<void> {
+    // Subscribe BEFORE sending the RPC so a fast settlement broadcast isn't
+    // missed. The RPC acknowledges receipt; the broadcast signals drain.
+    const settled = firstValueFrom(this.pausedEvents$.pipe(take(1)))
+    await this.channel.request<void>('commandQueue.pause')
+    await settled
   }
 
-  resume(): void {
-    this.channel.request<void>('commandQueue.resume').catch(() => {
-      // Fire-and-forget — resume is best-effort from main thread
-    })
+  async resume(): Promise<void> {
+    // Same subscribe-first pattern as pause.
+    const settled = firstValueFrom(this.resumedEvents$.pipe(take(1)))
+    await this.channel.request<void>('commandQueue.resume')
+    await settled
   }
 
   isPaused(): boolean {
@@ -263,6 +296,14 @@ function broadcastToCommandEvent<TLink extends Link, TCommand extends EnqueueCom
         error: data.error as IException | undefined,
         timestamp: Date.now(),
       }
+    case 'command:cancelled':
+      return {
+        eventType: 'cancelled',
+        commandId: data.commandId as string,
+        type: data.type as string,
+        status: 'cancelled',
+        timestamp: Date.now(),
+      }
     default:
       return undefined
   }
@@ -273,6 +314,7 @@ function toCompletionResult<TLink extends Link, TCommand extends EnqueueCommand>
 ): Result<unknown, CommandCompletionError> {
   switch (command.status) {
     case 'succeeded':
+    case 'applied':
       return Ok(command.serverResponse)
     case 'failed': {
       const error = command.error
@@ -289,6 +331,7 @@ function toCompletionResult<TLink extends Link, TCommand extends EnqueueCommand>
 function eventToCompletionResult(event: CommandEvent): Result<unknown, CommandCompletionError> {
   switch (event.status) {
     case 'succeeded':
+    case 'applied':
       return Ok(event.response)
     case 'failed': {
       const error = event.error

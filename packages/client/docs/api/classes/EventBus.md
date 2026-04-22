@@ -15,6 +15,10 @@ All components can emit events, and consumers can subscribe to specific event ty
 
 `TLink` _extends_ `Link`
 
+## Implements
+
+- `IEventSink`\<`TLink`\>
+
 ## Constructors
 
 ### Constructor
@@ -88,6 +92,10 @@ Event data
 
 `void`
 
+#### Implementation of
+
+`IEventSink.emit`
+
 ---
 
 ### emitDebug()
@@ -121,6 +129,10 @@ Event data
 #### Returns
 
 `void`
+
+#### Implementation of
+
+`IEventSink.emitDebug`
 
 ---
 

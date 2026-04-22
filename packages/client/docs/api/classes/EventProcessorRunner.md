@@ -22,13 +22,9 @@ Event processor runner.
 
 ### Constructor
 
-> **new EventProcessorRunner**\<`TLink`, `TCommand`\>(`readModelStore`, `eventBus`, `registry`, `anticipatedEventHandler?`): `EventProcessorRunner`\<`TLink`, `TCommand`\>
+> **new EventProcessorRunner**\<`TLink`, `TCommand`\>(`eventBus`, `registry`, `readModelStore`, `anticipatedEventHandler?`): `EventProcessorRunner`\<`TLink`, `TCommand`\>
 
 #### Parameters
-
-##### readModelStore
-
-[`ReadModelStore`](ReadModelStore.md)\<`TLink`, `TCommand`\>
 
 ##### eventBus
 
@@ -38,9 +34,13 @@ Event processor runner.
 
 [`EventProcessorRegistry`](EventProcessorRegistry.md)
 
+##### readModelStore
+
+[`ReadModelStore`](ReadModelStore.md)\<`TLink`, `TCommand`\>
+
 ##### anticipatedEventHandler?
 
-`IAnticipatedEventHandler`
+`IAnticipatedEventHandler`\<`TLink`, `TCommand`\>
 
 Anticipated event handler for create reconciliation. Optional — only needed with command handlers.
 
@@ -49,50 +49,6 @@ Anticipated event handler for create reconciliation. Optional — only needed wi
 `EventProcessorRunner`\<`TLink`, `TCommand`\>
 
 ## Methods
-
-### processEvent()
-
-> **processEvent**(`event`): `Promise`\<[`ProcessEventResult`](../interfaces/ProcessEventResult.md)\>
-
-Process an event and apply updates to the read model store.
-
-#### Parameters
-
-##### event
-
-[`ParsedEvent`](../interfaces/ParsedEvent.md)
-
-Parsed event to process
-
-#### Returns
-
-`Promise`\<[`ProcessEventResult`](../interfaces/ProcessEventResult.md)\>
-
-IDs of updated read models and whether any processor signalled invalidation
-
----
-
-### processEvents()
-
-> **processEvents**(`events`): `Promise`\<[`ProcessEventResult`](../interfaces/ProcessEventResult.md)\>
-
-Process multiple events in order.
-
-#### Parameters
-
-##### events
-
-[`ParsedEvent`](../interfaces/ParsedEvent.md)[]
-
-Events to process
-
-#### Returns
-
-`Promise`\<[`ProcessEventResult`](../interfaces/ProcessEventResult.md)\>
-
-Aggregated result across all events
-
----
 
 ### setAnticipatedEventHandler()
 
@@ -105,7 +61,7 @@ when the handler needs the runner and the runner needs the handler).
 
 ##### handler
 
-`IAnticipatedEventHandler`
+`IAnticipatedEventHandler`\<`TLink`, `TCommand`\>
 
 #### Returns
 

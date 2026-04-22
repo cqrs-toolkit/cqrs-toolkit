@@ -314,8 +314,8 @@ Explicit `dependsOn` for parent references is unnecessary.
 
 ### 15.6.2 Automatic field rewriting
 
-The field rewriting system uses `entityRefData` to determine exactly which fields are entity references — the keys in `entityRefData`.
-No field scanning, `parentRef` config lookup, or `fromCommand` type-matching is needed.
+The field rewriting system walks each command's declared `commandIdReferences` paths, matching resolved client IDs to server IDs from the idMap.
+The `commandId` on the original `EntityRef` is the direct link to the producing create command — no separate config for cross-aggregate parent references or `fromCommand` type-matching is needed.
 
 ---
 

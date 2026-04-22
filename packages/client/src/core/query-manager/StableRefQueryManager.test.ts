@@ -5,6 +5,7 @@
 import { ServiceLink } from '@meticoeus/ddd-es'
 import { firstValueFrom, Subject, timeout } from 'rxjs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { entityIdToString } from '../../types/entities.js'
 import type { CacheKeyIdentity } from '../cache-manager/CacheKey.js'
 import { deriveScopeKey } from '../cache-manager/index.js'
 import { StableRefQueryManager } from './StableRefQueryManager.js'
@@ -67,19 +68,19 @@ describe('StableRefQueryManager', () => {
       ): Promise<Map<string, QueryResult<ServiceLink, T>>> {
         const results = new Map<string, QueryResult<ServiceLink, T>>()
         for (const id of params.ids) {
-          // For simplicity, build a result from the list result
-          const idx = listResult.data.findIndex((d) => d.id === id)
+          const stringId = entityIdToString(id)
+          const idx = listResult.data.findIndex((d) => d.id === stringId)
           if (idx !== -1) {
             const item = listResult.data[idx]
             const meta = listResult.meta[idx]
-            results.set(id, {
+            results.set(stringId, {
               data: item as unknown as T,
               meta,
               hasLocalChanges: false,
               cacheKey: deriveScopeKey({ scopeType: 'ck' }),
             })
           } else {
-            results.set(id, {
+            results.set(stringId, {
               data: undefined,
               meta: undefined,
               hasLocalChanges: false,
@@ -97,6 +98,9 @@ describe('StableRefQueryManager', () => {
       },
       watchById() {
         throw new Error('Should not be called on inner — StableRefQueryManager overrides this')
+      },
+      async getLocallyById() {
+        return undefined
       },
       async exists() {
         return true

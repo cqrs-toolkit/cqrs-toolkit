@@ -77,9 +77,10 @@ Global position of the last event that updated this read model (bigint as string
 Stream revision of the last event that updated this read model (bigint as string).
 Null for locally-created entries.
 
-#### See
-
-Collection.getStreamId for the 1:1 aggregate assumption this relies on.
+A scalar revision is sufficient because each [Collection](Collection.md) tracks exactly
+one aggregate via its required `aggregate` field — the revision is that aggregate's
+stream position. A future `CompositeCollection` type built from multiple aggregates
+would need a per-aggregate revision map instead.
 
 ---
 

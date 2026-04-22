@@ -14,6 +14,9 @@
     "compile": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit",
     "test:extension": "playwright test --config playwright.extension.config.ts"
   },
+  "imports": {
+    "#e2e-fixtures": "./src/e2e-fixtures.ts"
+  },
   "dependencies": {
     "@cqrs-toolkit/client": "*",
     "@cqrs-toolkit/client-solid": "*",

@@ -2,11 +2,12 @@
  * SolidJS reactive primitive for single-item queries.
  */
 
-import type { IQueryManager } from '@cqrs-toolkit/client'
-import { entityIdToString, isEntityRef } from '@cqrs-toolkit/client'
+import { entityIdToString, isEntityRef, type LibraryEvent } from '@cqrs-toolkit/client'
 import type { Link } from '@meticoeus/ddd-es'
+import { filter, map, merge } from 'rxjs'
 import { createComputed, onCleanup } from 'solid-js'
 import { createStore, reconcile } from 'solid-js/store'
+import { useClient } from './context.js'
 import type { Identifiable, ItemQueryParams, ItemQueryState, ReconciledId } from './types.js'
 
 interface ItemQueryStore<T extends Identifiable> {
@@ -33,14 +34,16 @@ interface Session {
  * by a server-assigned ID, the query follows the new ID automatically and exposes
  * the mapping via `reconciledId`.
  *
- * @param queryManager - The query manager
+ * Uses the CQRS client from context (via `useClient()`).
+ *
  * @param params - Query parameters (collection, id, cacheKey)
  * @returns Reactive store with data, loading, hasLocalChanges, error, reconciledId
  */
 export function createItemQuery<TLink extends Link, T extends Identifiable>(
-  queryManager: IQueryManager<TLink>,
   params: ItemQueryParams<TLink>,
 ): ItemQueryState<T> {
+  const client = useClient<TLink>()
+  const queryManager = client.queryManager
   const initialState: ItemQueryStore<T> = {
     data: undefined,
     loading: true,
@@ -154,10 +157,28 @@ export function createItemQuery<TLink extends Link, T extends Identifiable>(
 
     void fetch()
 
-    const subscription = queryManager.watchCollection(params.collection).subscribe((signal) => {
-      if (signal.type === 'updated' && signal.ids.includes(trackingId)) {
-        void fetch()
-      }
+    // Merge collection updates and ID reconciliation into a single stream.
+    // Collection updates trigger a refetch when the tracked ID is in the changed set.
+    // ID reconciliation updates the tracking ID and triggers a refetch so the query
+    // follows temp ID → server ID transitions without missing events.
+    const collectionUpdates$ = queryManager.watchCollection(params.collection).pipe(
+      filter((signal) => signal.type === 'updated' && signal.ids.includes(trackingId)),
+      map(() => 'refetch' as const),
+    )
+    type IdReconciledEvent = LibraryEvent<TLink, 'readmodel:id-reconciled'>
+    const idReconciled$ = client.events$.pipe(
+      filter((e): e is IdReconciledEvent => e.type === 'readmodel:id-reconciled'),
+      filter((e) => e.data.collection === params.collection && e.data.clientId === trackingId),
+      map((e) => {
+        trackingId = e.data.serverId
+        effectiveTrackingId = e.data.serverId
+        setStore('reconciledId', { clientId: initialId, serverId: e.data.serverId })
+        return 'refetch' as const
+      }),
+    )
+
+    const subscription = merge(collectionUpdates$, idReconciled$).subscribe(() => {
+      void fetch()
     })
 
     return {

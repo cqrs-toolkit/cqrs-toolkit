@@ -43,7 +43,8 @@ CREATE INDEX idx_cache_keys_access ON cache_keys (last_accessed_at)`
 
 const COMMANDS_TABLE = `
 CREATE TABLE commands (
-  command_id TEXT PRIMARY KEY,
+  seq INTEGER PRIMARY KEY AUTOINCREMENT,
+  command_id TEXT NOT NULL UNIQUE,
   cache_key TEXT NOT NULL,
   service TEXT NOT NULL,
   type TEXT NOT NULL,
@@ -60,7 +61,9 @@ CREATE TABLE commands (
   revision TEXT,
   path TEXT,
   file_refs TEXT,
-  entity_ref_data TEXT,
+  command_id_paths TEXT,
+  affected_aggregates TEXT,
+  pending_aggregate_coverage TEXT,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 )`
@@ -105,7 +108,6 @@ const COMMAND_ID_MAPPINGS_TABLE = `
 CREATE TABLE command_id_mappings (
   client_id TEXT PRIMARY KEY,
   server_id TEXT NOT NULL,
-  data TEXT NOT NULL,
   created_at INTEGER NOT NULL
 )`
 

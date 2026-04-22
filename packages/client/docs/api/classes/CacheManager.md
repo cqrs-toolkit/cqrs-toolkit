@@ -26,17 +26,17 @@ Cache manager implementation.
 
 ### Constructor
 
-> **new CacheManager**\<`TLink`, `TCommand`\>(`storage`, `eventBus`, `config?`): `CacheManager`\<`TLink`, `TCommand`\>
+> **new CacheManager**\<`TLink`, `TCommand`\>(`eventBus`, `storage`, `config?`): `CacheManager`\<`TLink`, `TCommand`\>
 
 #### Parameters
-
-##### storage
-
-[`IStorage`](../interfaces/IStorage.md)\<`TLink`, `TCommand`\>
 
 ##### eventBus
 
 [`EventBus`](EventBus.md)\<`TLink`\>
+
+##### storage
+
+[`IStorage`](../interfaces/IStorage.md)\<`TLink`, `TCommand`\>
 
 ##### config?
 
@@ -207,6 +207,32 @@ Whether the cache key exists
 #### Implementation of
 
 `ICacheManagerInternal.exists`
+
+---
+
+### existsSync()
+
+> **existsSync**(`key`): `boolean`
+
+Check if a cache key exists.
+
+#### Parameters
+
+##### key
+
+`string`
+
+Cache key UUID
+
+#### Returns
+
+`boolean`
+
+Whether the cache key exists
+
+#### Implementation of
+
+`ICacheManagerInternal.existsSync`
 
 ---
 
@@ -603,9 +629,9 @@ The succeeded command's ID
 
 ##### idMap
 
-`Record`\<`string`, \{ `commandType`: `string`; `serverId`: `string`; \}\>
+`Record`\<`string`, \{ `serverId`: `string`; \}\>
 
-clientId → { serverId, commandType } mappings
+clientId → serverId mappings
 
 ##### resolveCacheKey?
 
@@ -653,7 +679,7 @@ Called after construction by the orchestrator.
 
 ##### writeQueue
 
-`IWriteQueue`\<`TLink`\>
+`IWriteQueue`\<`TLink`, `TCommand`\>
 
 #### Returns
 

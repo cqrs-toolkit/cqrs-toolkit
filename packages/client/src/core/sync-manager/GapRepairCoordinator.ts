@@ -8,18 +8,23 @@ import {
   isCollectionWithFetchStreamEvents,
 } from '../../types/config.js'
 import { EnqueueCommand } from '../../types/index.js'
+import type { CacheKeyIdentity } from '../cache-manager/CacheKey.js'
 import type { EventCache } from '../event-cache/EventCache.js'
-import type { EventProcessorRunner } from '../event-processor/index.js'
 import type { EventBus } from '../events/EventBus.js'
 import type { ReadModelStore } from '../read-model-store/ReadModelStore.js'
 import type { IWriteQueue } from '../write-queue/IWriteQueue.js'
 import type { ApplyGapRepairOp } from '../write-queue/operations.js'
 import type { IConnectivityManager } from './IConnectivityManager.js'
-import { toParsedEvent } from './SyncManagerUtils.js'
+
+export interface GapRepairEntry<TLink extends Link> {
+  event: IPersistedEvent
+  cacheKeys: CacheKeyIdentity<TLink>[]
+}
 
 export interface GapRepairCoordinatorConfig<TLink extends Link> {
   getFetchContext: () => Promise<FetchContext>
   onInvalidated: (collectionName: string, cacheKeys: string[]) => void
+  onProcessGapEvents: (entries: readonly GapRepairEntry<TLink>[]) => Promise<void>
 }
 
 /**
@@ -31,6 +36,7 @@ export interface GapRepairCoordinatorConfig<TLink extends Link> {
 export class GapRepairCoordinator<TLink extends Link, TCommand extends EnqueueCommand> {
   private readonly getFetchContext: () => Promise<FetchContext>
   private readonly onInvalidated: (collectionName: string, cacheKeys: string[]) => void
+  private readonly onProcessGapEvents: (entries: readonly GapRepairEntry<TLink>[]) => Promise<void>
 
   private readonly repairing = new Set<string>()
 
@@ -38,15 +44,15 @@ export class GapRepairCoordinator<TLink extends Link, TCommand extends EnqueueCo
     private readonly knownRevisions: Map<string, bigint>,
     private readonly eventBus: EventBus<TLink>,
     private readonly eventCache: EventCache<TLink, TCommand>,
-    private readonly eventProcessor: EventProcessorRunner<TLink, TCommand>,
     private readonly readModelStore: ReadModelStore<TLink, TCommand>,
     private readonly collections: Collection<TLink>[],
     private readonly connectivity: IConnectivityManager<TLink>,
-    private readonly writeQueue: IWriteQueue<TLink>,
+    private readonly writeQueue: IWriteQueue<TLink, TCommand>,
     config: GapRepairCoordinatorConfig<TLink>,
   ) {
     this.getFetchContext = config.getFetchContext
     this.onInvalidated = config.onInvalidated
+    this.onProcessGapEvents = config.onProcessGapEvents
 
     this.writeQueue.register('apply-gap-repair', this.onApplyGapRepair.bind(this))
     this.writeQueue.registerEviction('apply-gap-repair', this.onApplyGapRepairEviction.bind(this))
@@ -58,7 +64,6 @@ export class GapRepairCoordinator<TLink extends Link, TCommand extends EnqueueCo
    */
   async restoreKnownRevisions(): Promise<void> {
     for (const collection of this.collections) {
-      if (!collection.aggregate.getStreamId) continue
       const entries = await this.readModelStore.getRevisionMap(collection.name)
       for (const entry of entries) {
         const streamId = collection.aggregate.getStreamId(entry.id)
@@ -80,7 +85,7 @@ export class GapRepairCoordinator<TLink extends Link, TCommand extends EnqueueCo
   checkAndRepairGap(
     event: IPersistedEvent,
     collectionName: string,
-    cacheKeys: string[],
+    cacheKeys: CacheKeyIdentity<TLink>[],
   ): 'no-gap' | 'has-gap' | 'invalidated' {
     // Default -1n represents "no stream" — the state before the first event (revision 0).
     const knownRevision = this.knownRevisions.get(event.streamId) ?? -1n
@@ -117,7 +122,7 @@ export class GapRepairCoordinator<TLink extends Link, TCommand extends EnqueueCo
     collection: CollectionWithFetchStreamEvents<TLink>,
     streamId: string,
     fromRevision: bigint,
-    cacheKeys: string[],
+    cacheKeys: CacheKeyIdentity<TLink>[],
   ): Promise<void> {
     this.repairing.add(streamId)
     this.eventBus.emitDebug('sync:gap-repair-started', { streamId, fromRevision })
@@ -152,14 +157,39 @@ export class GapRepairCoordinator<TLink extends Link, TCommand extends EnqueueCo
    * Drains the gap buffer for a stream, processing events through EventProcessorRunner.
    * Clears the repairing guard on completion (including errors) so the next WS event can retry.
    */
-  private async onApplyGapRepair(op: ApplyGapRepairOp): Promise<void> {
+  private async onApplyGapRepair(op: ApplyGapRepairOp<TLink>): Promise<void> {
     const { streamId, cacheKeys, events } = op
     try {
       // Cache fetched events with all active keys
-      await this.eventCache.cacheServerEvents(events, { cacheKeys })
+      const sharedCacheKeys = cacheKeys.map((ck) => ck.key)
+      await this.eventCache.cacheServerEventsWithKeys(
+        events.map((event) => ({ event, cacheKeys: sharedCacheKeys })),
+      )
 
-      // Process all buffered events for this stream, for each active cache key
-      await this.processBufferedEventsForStream(streamId, cacheKeys)
+      // Read the gap buffer for this stream — includes both the fetched
+      // fill events (just cached above) and the original out-of-order
+      // events that were cached by the WS drain's dedup pass when they
+      // first arrived. The buffer is sorted by revision ascending.
+      const buffered = this.eventCache.getBufferedEvents(streamId)
+      if (buffered.length === 0) return
+
+      // Route through the reconcile pipeline via the SyncManager callback.
+      // The events are already cached; the reconcile's dedup pass will see
+      // them as duplicates — the callback is responsible for bypassing
+      // dedup (it calls reconcileFromWsEvents directly, not through
+      // onReconcileWsEventsOp).
+      const entries: GapRepairEntry<TLink>[] = buffered.map((entry) => ({
+        event: entry.event,
+        cacheKeys,
+      }))
+      await this.onProcessGapEvents(entries)
+
+      const last = buffered[buffered.length - 1]
+      if (last) {
+        this.eventCache.clearGapBuffer(streamId, last.position)
+        this.eventCache.setKnownPosition(streamId, last.position)
+        this.knownRevisions.set(streamId, last.event.revision)
+      }
 
       this.eventBus.emitDebug('sync:gap-repair-completed', {
         streamId,
@@ -170,44 +200,7 @@ export class GapRepairCoordinator<TLink extends Link, TCommand extends EnqueueCo
     }
   }
 
-  private async onApplyGapRepairEviction(op: ApplyGapRepairOp): Promise<void> {
+  private async onApplyGapRepairEviction(op: ApplyGapRepairOp<TLink>): Promise<void> {
     this.repairing.delete(op.streamId)
-  }
-
-  /**
-   * Process all buffered events for a stream in revision order, for each active cache key.
-   */
-  private async processBufferedEventsForStream(
-    streamId: string,
-    cacheKeys: string[],
-  ): Promise<void> {
-    const buffered = this.eventCache.getBufferedEvents(streamId)
-    let anyInvalidated = false
-
-    for (const entry of buffered) {
-      for (const cacheKey of cacheKeys) {
-        const parsed = toParsedEvent(entry.event, cacheKey)
-        const result = await this.eventProcessor.processEvent(parsed)
-        if (result.invalidated) {
-          anyInvalidated = true
-        }
-      }
-    }
-
-    const last = buffered[buffered.length - 1]
-    if (last) {
-      this.eventCache.clearGapBuffer(streamId, last.position)
-      this.eventCache.setKnownPosition(streamId, last.position)
-
-      // Update known revision from the last buffered event's revision
-      this.knownRevisions.set(streamId, last.event.revision)
-    }
-
-    if (anyInvalidated) {
-      const matchingCollections = this.collections.filter((c) => c.matchesStream(streamId))
-      for (const collection of matchingCollections) {
-        this.onInvalidated(collection.name, cacheKeys)
-      }
-    }
   }
 }

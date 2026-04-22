@@ -11,6 +11,7 @@ const ALL_STATUSES = new Set<CommandStatus>([
   'blocked',
   'sending',
   'succeeded',
+  'applied',
   'failed',
   'cancelled',
 ])

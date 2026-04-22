@@ -21,6 +21,14 @@
       "types": "./dist/src/internals.d.ts",
       "import": "./dist/src/internals.js"
     },
+    "./fixtures": {
+      "types": "./dist/src/testing/fixtures/index.d.ts",
+      "import": "./dist/src/testing/fixtures/index.js"
+    },
+    "./testing": {
+      "types": "./dist/src/testing/index.d.ts",
+      "import": "./dist/src/testing/index.js"
+    },
     "./utils": {
       "types": "./dist/src/utils/index.d.ts",
       "import": "./dist/src/utils/index.js"

@@ -8,6 +8,8 @@
 import { generateId } from '#utils'
 import { logProvider } from '@meticoeus/ddd-es'
 import { Observable, Subject, filter, firstValueFrom, take, timeout } from 'rxjs'
+import type { IEventSink } from '../core/events/EventBus.js'
+import type { LibraryEventData, LibraryEventType } from '../types/events.js'
 
 /**
  * Error thrown when an RPC request to the worker fails.
@@ -49,6 +51,13 @@ export interface MessageChannelConfig {
   requestTimeout?: number
   /** Whether to serialize messages (default: true) */
   serializeMessages?: boolean
+  /**
+   * Whether debug-only emissions via {@link WorkerMessageChannel.emitDebug}
+   * should fire. Mirrors {@link EventBus.debug} semantics: when `false`,
+   * `emitDebug` is a no-op so callers can emit unconditionally without
+   * producing noise in non-debug runs. Defaults to `false`.
+   */
+  debug?: boolean
 }
 
 const DEFAULT_REQUEST_TIMEOUT = 30000
@@ -69,8 +78,15 @@ export interface MessageTarget {
 
 /**
  * Message channel for window-to-worker communication.
+ *
+ * Also acts as an {@link IEventSink} for this thread. `emit`/`emitDebug`
+ * push library events straight into the local `events$` subject — they
+ * never cross `postMessage` — so any main-thread producer (logger,
+ * future local-only announcers, etc.) can surface events on
+ * `libraryEvents$` alongside events forwarded from the worker. One
+ * stream, one source of truth per thread, regardless of event origin.
  */
-export class WorkerMessageChannel {
+export class WorkerMessageChannel implements IEventSink<any> {
   private readonly target: MessageTarget
   private readonly config: Required<MessageChannelConfig>
 
@@ -85,7 +101,17 @@ export class WorkerMessageChannel {
     this.config = {
       requestTimeout: config.requestTimeout ?? DEFAULT_REQUEST_TIMEOUT,
       serializeMessages: config.serializeMessages ?? true,
+      debug: config.debug ?? false,
     }
+  }
+
+  emit<T extends LibraryEventType>(type: T, data: LibraryEventData<any>[T]): void {
+    this.events$.next({ type: 'event', eventName: type, data })
+  }
+
+  emitDebug<T extends LibraryEventType>(type: T, data: LibraryEventData<any>[T]): void {
+    if (!this.config.debug) return
+    this.events$.next({ type: 'event', eventName: type, data, debug: true })
   }
 
   /**
@@ -97,9 +123,18 @@ export class WorkerMessageChannel {
     }
 
     this.messageListener = (event: MessageEvent) => {
-      const data = this.config.serializeMessages
-        ? deserialize<WorkerMessage>(event.data)
-        : (event.data as WorkerMessage)
+      let data: WorkerMessage
+      try {
+        data = this.config.serializeMessages
+          ? deserialize<WorkerMessage>(event.data)
+          : (event.data as WorkerMessage)
+      } catch (err) {
+        logProvider.log.error('Message deserialization failed', {
+          err,
+          raw: String(event.data).slice(0, 200),
+        })
+        return
+      }
 
       if (isEventMessage(data)) {
         this.events$.next(data)
@@ -331,6 +366,7 @@ export class WorkerMessageHandler {
     this.config = {
       requestTimeout: config.requestTimeout ?? DEFAULT_REQUEST_TIMEOUT,
       serializeMessages: config.serializeMessages ?? true,
+      debug: config.debug ?? false,
     }
   }
 
@@ -661,11 +697,24 @@ export class WorkerMessageHandler {
         }
       }
 
+      logProvider.log.debug({
+        label: 'rpc:handler-done',
+        method: data.method,
+        requestId: data.requestId,
+        success: response.success,
+      })
+
       if (port) {
         this.sendToPort(port, response)
       } else {
         this.sendResponse(response)
       }
+
+      logProvider.log.debug({
+        label: 'rpc:response-sent',
+        method: data.method,
+        requestId: data.requestId,
+      })
     } catch (err) {
       logProvider.log.error(
         { err, method: data.method, requestId: data.requestId },

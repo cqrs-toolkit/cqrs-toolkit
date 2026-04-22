@@ -21,22 +21,19 @@ All methods are async to support both sync (in-memory) and async (SQLite) backen
 
 ## Methods
 
-### addCacheKeysToEvent()
+### addCacheKeysToEvents()
 
-> **addCacheKeysToEvent**(`eventId`, `cacheKeys`): `Promise`\<`void`\>
+> **addCacheKeysToEvents**(`entries`): `Promise`\<`void`\>
 
-Add cache key associations to an existing event.
-Used when a WS event is relevant to additional active cache keys.
+Add cache-key associations to multiple existing events in a single
+storage round-trip. Used when a WS drain batch contains events that
+were already cached but under a different active cache-key set.
 
 #### Parameters
 
-##### eventId
+##### entries
 
-`string`
-
-##### cacheKeys
-
-`string`[]
+readonly `AddCacheKeysToEventEntry`[]
 
 #### Returns
 
@@ -64,6 +61,26 @@ Used when a read model is relevant to additional active cache keys.
 ##### cacheKeys
 
 `string`[]
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
+### addCacheKeysToReadModels()
+
+> **addCacheKeysToReadModels**(`entries`): `Promise`\<`void`\>
+
+Add cache-key associations to multiple existing read models in a single
+storage round-trip. Entries may span different collections; each
+collection's junction table is written with its subset of rows.
+
+#### Parameters
+
+##### entries
+
+readonly `AddCacheKeysToReadModelEntry`[]
 
 #### Returns
 
@@ -183,6 +200,26 @@ Delete all anticipated events for a command.
 ##### commandId
 
 `string`
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
+### deleteAnticipatedEventsByCommands()
+
+> **deleteAnticipatedEventsByCommands**(`commandIds`): `Promise`\<`void`\>
+
+Delete all anticipated events for a set of commands in a single call.
+Used by reconcile to clear stale overlays for every re-run command in
+one storage round-trip.
+
+#### Parameters
+
+##### commandIds
+
+readonly `string`[]
 
 #### Returns
 
@@ -322,6 +359,26 @@ Delete a read model record.
 
 ---
 
+### deleteReadModels()
+
+> **deleteReadModels**(`entries`): `Promise`\<`void`\>
+
+Delete multiple read model records in a single storage round-trip.
+Entries may span different collections; each collection's data table
+and cache-key junction table are deleted together.
+
+#### Parameters
+
+##### entries
+
+readonly `DeleteReadModelEntry`[]
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
 ### deleteReadModelsByCollection()
 
 > **deleteReadModelsByCollection**(`collection`): `Promise`\<`void`\>
@@ -367,6 +424,20 @@ Filter an array of cache key strings to only those that exist in storage.
 #### Returns
 
 `Promise`\<`string`[]\>
+
+---
+
+### getAllAnticipatedEvents()
+
+> **getAllAnticipatedEvents**(): `Promise`\<[`CachedEventRecord`](CachedEventRecord.md)[]\>
+
+Get every cached event with `persistence === 'Anticipated'`. Used by
+reconciliation to bulk-load all pending optimistic overlays in a single
+query rather than N per-command queries.
+
+#### Returns
+
+`Promise`\<[`CachedEventRecord`](CachedEventRecord.md)[]\>
 
 ---
 
@@ -580,6 +651,28 @@ Get commands blocked by a specific command.
 
 ---
 
+### getCommandsByIds()
+
+> **getCommandsByIds**(`commandIds`): `Promise`\<`Map`\<`string`, [`CommandRecord`](CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>\>\>
+
+Batch-fetch commands by ID. Returns a `Map` keyed by commandId; absent
+keys mean the command is not in storage. Callers relying on batch
+semantics (e.g. CommandStore's `getByIds`) must prefer this over
+iterated [getCommand](#getcommand) calls — SQLite runs a single
+`WHERE command_id IN (...)` query.
+
+#### Parameters
+
+##### commandIds
+
+readonly `string`[]
+
+#### Returns
+
+`Promise`\<`Map`\<`string`, [`CommandRecord`](CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>\>\>
+
+---
+
 ### getCommandsByStatus()
 
 > **getCommandsByStatus**(`status`): `Promise`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>[]\>
@@ -598,6 +691,22 @@ Get commands by status.
 
 ---
 
+### getCommandSequence()
+
+> **getCommandSequence**(): `Promise`\<`number`\>
+
+Get the current command sequence number. Used by CommandStore to initialize
+its local sequence counter so new commands get monotonically increasing seq values.
+
+- SQLiteStorage: reads MAX(seq) from the commands table (TODO: use sqlite_sequence for accuracy after deletes).
+- InMemoryStorage: always returns 0 (nothing to load on startup).
+
+#### Returns
+
+`Promise`\<`number`\>
+
+---
+
 ### getEvictableCacheKeys()
 
 > **getEvictableCacheKeys**(`limit`): `Promise`\<[`CacheKeyRecord`](CacheKeyRecord.md)[]\>
@@ -613,6 +722,28 @@ Get cache keys eligible for eviction (leaf keys with holdCount = 0, not frozen o
 #### Returns
 
 `Promise`\<[`CacheKeyRecord`](CacheKeyRecord.md)[]\>
+
+---
+
+### getExistingCachedEventIds()
+
+> **getExistingCachedEventIds**(`ids`): `Promise`\<`Set`\<`string`\>\>
+
+Partition a batch of event IDs by whether they already exist in the
+cache. Returns the subset of ids that are already stored. Used by the
+WS drain dedup pass to split a batch into "new" (continue processing)
+and "already-seen" (just add cache-key associations and skip) without
+hitting the store N times.
+
+#### Parameters
+
+##### ids
+
+readonly `string`[]
+
+#### Returns
+
+`Promise`\<`Set`\<`string`\>\>
 
 ---
 
@@ -666,6 +797,32 @@ Used by SyncManager to restore knownRevisions on startup.
 #### Returns
 
 `Promise`\<`object`[]\>
+
+---
+
+### getReadModels()
+
+> **getReadModels**(`pairs`): `Promise`\<`Map`\<`string`, [`ReadModelRecord`](ReadModelRecord.md)\>\>
+
+Batch-fetch read model records for a set of `(collection, id)` pairs.
+Returns a `Map` keyed by `${collection}:${id}`; missing rows are absent
+from the map. Callers relying on batch semantics (e.g. the sync pipeline
+and the CommandQueue success path) must prefer this over iterated
+[getReadModel](#getreadmodel) calls.
+
+TODO(batch): SQLite implementation should group by collection and run
+one `WHERE id IN (...)` per collection. The in-memory implementation
+remains a straight filter over its map.
+
+#### Parameters
+
+##### pairs
+
+`Iterable`\<\{ `collection`: `string`; `id`: `string`; \}\>
+
+#### Returns
+
+`Promise`\<`Map`\<`string`, [`ReadModelRecord`](ReadModelRecord.md)\>\>
 
 ---
 
@@ -752,6 +909,29 @@ For SQLite, this creates tables and runs migrations.
 
 ---
 
+### loadAndPurgeCommandIdMappings()
+
+> **loadAndPurgeCommandIdMappings**(`purgeOlderThan`): `Promise`\<`CommandIdMappingRecord`[]\>
+
+Purge expired mappings and return all remaining mappings in a single
+transaction. Used by `CommandIdMappingStore.initialize()` to hydrate its
+in-memory state while also enforcing the TTL, without a second round trip.
+
+Implementations execute (in order): delete WHERE created_at < `purgeOlderThan`,
+then select all remaining records.
+
+#### Parameters
+
+##### purgeOlderThan
+
+`number`
+
+#### Returns
+
+`Promise`\<`CommandIdMappingRecord`[]\>
+
+---
+
 ### markCachedEventsProcessed()
 
 > **markCachedEventsProcessed**(`ids`): `Promise`\<`void`\>
@@ -763,6 +943,34 @@ Mark cached events as processed by setting processed_at timestamp.
 ##### ids
 
 `string`[]
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
+### migrateReadModelIds()
+
+> **migrateReadModelIds**(`batch`): `Promise`\<`void`\>
+
+Rewrite a read-model row's primary key from `fromId` to `toId` and
+update its data columns in the same operation. Also remaps any cache-key
+junction entries so associations survive the id change.
+
+The library's source of truth for "where data lives" is `(collection, id)`,
+so an id migration is a primary-key change — not an insert-new + delete-old.
+Implementations should perform the update in place (single `UPDATE` per
+backing table) rather than copy + delete, to avoid transient missing rows
+and to keep the round-trip count minimal.
+
+No-op when no row exists at `(collection, fromId)`.
+
+#### Parameters
+
+##### batch
+
+`MigrateReadModelIdParams`[]
 
 #### Returns
 
@@ -953,6 +1161,25 @@ Save a command ID mapping.
 
 ---
 
+### saveCommandIdMappings()
+
+> **saveCommandIdMappings**(`records`): `Promise`\<`void`\>
+
+Save multiple command ID mappings in a single call.
+Used by reconcile to persist the full idMap from a single WS batch.
+
+#### Parameters
+
+##### records
+
+readonly `CommandIdMappingRecord`[]
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
 ### saveReadModel()
 
 > **saveReadModel**(`record`): `Promise`\<`void`\>
@@ -1052,6 +1279,27 @@ Update an existing command.
 ##### updates
 
 `Partial`\<[`CommandRecord`](CommandRecord.md)\<`TLink`, `TCommand`\>\>
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
+### updateCommands()
+
+> **updateCommands**(`updates`): `Promise`\<`void`\>
+
+Apply multiple command updates in a single call.
+Each entry is applied independently — partial updates to `CommandRecord`
+keyed by `commandId`. Used by reconcile workflows that need to save N
+rewritten commands without N round-trips.
+
+#### Parameters
+
+##### updates
+
+readonly `UpdateCommandsEntry`\<`TLink`, `TCommand`\>[]
 
 #### Returns
 

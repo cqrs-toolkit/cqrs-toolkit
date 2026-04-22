@@ -8,7 +8,7 @@ export const todosCollection = appCreateCollection({
   aggregate: TodoAggregate,
   representation: representations['nb:Todo'],
   cacheKeysFromTopics: () => [TODO_SEED_KEY],
-  matchesStream: (streamId) => streamId.startsWith('Todo-'),
+  matchesStream: (streamId) => streamId.startsWith('nb.Todo-'),
   seedOnInit: {
     cacheKey: deriveScopeKey({ scopeType: 'todos' }),
     topics: ['Todo:*'],

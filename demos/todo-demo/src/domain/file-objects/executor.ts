@@ -3,7 +3,10 @@
  */
 
 import { createEntityId, domainSuccess } from '@cqrs-toolkit/client'
+import { assert } from '@cqrs-toolkit/client/utils'
 import { FileObjectAggregate } from '@cqrs-toolkit/demo-base/file-objects/domain'
+import { NoteAggregate } from '@cqrs-toolkit/demo-base/notes/domain'
+import { logProvider } from '@meticoeus/ddd-es'
 import {
   createFileObjectPayloadSchema,
   deleteFileObjectPayloadSchema,
@@ -13,11 +16,18 @@ import type { AppCommandHandlerRegistration } from '../utils/executors.js'
 export const fileObjectHandlers: AppCommandHandlerRegistration[] = [
   {
     commandType: 'CreateFileObject',
+    aggregate: FileObjectAggregate,
+    commandIdReferences: [{ aggregate: NoteAggregate, path: '$.data.noteId' }],
     schema: createFileObjectPayloadSchema,
     creates: { eventType: 'FileObjectCreated', idStrategy: 'temporary' },
-    parentRef: [{ field: 'noteId', fromCommand: 'CreateNote' }],
     handler(command, _state, context) {
       const { noteId } = command.data as { noteId: string }
+      const file = command.fileRefs?.[0]
+      logProvider.log.debug(
+        { fileRefs: command.fileRefs },
+        'CreateFileObject handler received fileRefs',
+      )
+      assert(file, 'CreateFileObject requires a file attachment')
       const id = createEntityId(context)
       const now = new Date().toISOString()
       return domainSuccess([
@@ -26,10 +36,10 @@ export const fileObjectHandlers: AppCommandHandlerRegistration[] = [
           data: {
             id,
             noteId,
-            name: '',
-            contentType: '',
+            name: file.filename,
+            contentType: file.mimeType,
             resource: '',
-            size: 0,
+            size: file.sizeBytes,
             createdAt: now,
           },
           streamId: FileObjectAggregate.getStreamId(id),
@@ -39,6 +49,8 @@ export const fileObjectHandlers: AppCommandHandlerRegistration[] = [
   },
   {
     commandType: 'DeleteFileObject',
+    aggregate: FileObjectAggregate,
+    commandIdReferences: [{ aggregate: FileObjectAggregate, path: '$.data.id' }],
     schema: deleteFileObjectPayloadSchema,
     handler(command) {
       const { id } = command.data as { id: string }

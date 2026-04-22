@@ -20,6 +20,7 @@ import type { EventBus } from '../../core/events/EventBus.js'
 import type { IQueryManager } from '../../core/query-manager/types.js'
 import type { SessionManager } from '../../core/session/SessionManager.js'
 import type { CqrsClientSyncManager } from '../../createCqrsClient.js'
+import type { WorkerMessageChannel } from '../../protocol/MessageChannel.js'
 import type { IStorage } from '../../storage/IStorage.js'
 import type { LibraryEvent } from '../../types/events.js'
 import { EnqueueCommand } from '../../types/index.js'
@@ -95,6 +96,15 @@ export interface IWorkerAdapter<
   readonly queryManager: IQueryManager<TLink>
   readonly cacheManager: ICacheManager<TLink>
   readonly syncManager: CqrsClientSyncManager<TLink>
+
+  /**
+   * Transport channel to the worker. Exposed so the bootstrap can treat it
+   * as the main-thread {@link IEventSink} for local events (log emissions,
+   * etc.) — events pushed through `channel.emit`/`emitDebug` surface on
+   * {@link events$} alongside events forwarded from the worker without
+   * crossing `postMessage`.
+   */
+  readonly channel: WorkerMessageChannel
 
   /**
    * Enable debug mode in the worker.

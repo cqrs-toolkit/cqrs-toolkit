@@ -180,6 +180,14 @@ export interface ICacheManagerInternal<TLink extends Link> extends ICacheManager
   /** Initialize the cache manager. Resets hold counts, evicts stale ephemeral keys. */
   initialize(): Promise<void>
 
+  /**
+   * Check if a cache key exists.
+   *
+   * @param key - Cache key UUID
+   * @returns Whether the cache key exists
+   */
+  existsSync(key: string): boolean
+
   /** Clean up cache state when the session is destroyed (user changed, logout). */
   onSessionDestroyed(): Promise<void>
 
@@ -223,7 +231,7 @@ export interface ICacheManagerInternal<TLink extends Link> extends ICacheManager
    */
   resolvePendingKeys(
     commandId: string,
-    idMap: Record<string, { serverId: string; commandType: string }>,
+    idMap: Record<string, { serverId: string }>,
     resolveCacheKey?: (cacheKey: CacheKeyIdentity<TLink>) => CacheKeyIdentity<TLink>,
   ): void
 }

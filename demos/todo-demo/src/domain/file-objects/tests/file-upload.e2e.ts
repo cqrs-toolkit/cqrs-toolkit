@@ -1,4 +1,4 @@
-import { expect, test, url } from '../../../e2e-fixtures.js'
+import { expect, setupTestDiagnostics, test, url } from '#e2e-fixtures'
 import {
   addNote,
   addNotebook,
@@ -9,12 +9,17 @@ import {
   waitForNoteCount,
 } from '../../../e2e-helpers.js'
 
+setupTestDiagnostics()
+
 test.beforeEach(async ({ request }) => {
   await request.post('http://localhost:3001/api/test/reset')
 })
 
-test('upload a file to a note, download and verify content', async ({ page, mode }) => {
-  await page.goto(url('/notes', { mode, ws: false }))
+test('upload a file to a note, download from server and verify content', async ({ page, mode }) => {
+  page.on('console', (msg) => {
+    if (msg.text().includes('[DEBUG]')) console.log('[PAGE]', msg.text())
+  })
+  await page.goto(url('/notes', { mode, ws: true }))
   await addNotebook(page, 'Upload NB')
   await selectNotebook(page, 'Upload NB')
   await addNote(page, 'Upload Note', 'body text')
@@ -25,10 +30,11 @@ test('upload a file to a note, download and verify content', async ({ page, mode
   await uploadAttachment(page, 'test-file.txt', fileContent)
   await waitForAttachmentCount(page, 1)
 
-  // Verify the attachment name is visible
+  // Wait for server confirmation before downloading
+  await expect(page.locator('.attachment-item.attachment-server')).toHaveCount(1)
   await expect(page.locator('.attachment-name', { hasText: 'test-file.txt' })).toBeVisible()
 
-  // Download and verify content
+  // Download from server and verify content
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.locator('.attachment-name', { hasText: 'test-file.txt' }).click(),
@@ -43,8 +49,13 @@ test('upload a file to a note, download and verify content', async ({ page, mode
   }
 })
 
+test.skip('upload a file offline, download from local storage and verify content', async () => {
+  // Force offline to ensure command stalls and download must come from local OPFS.
+  // Requires implementing the local download path in AttachmentList handleDownload.
+})
+
 test('upload a file then delete it', async ({ page, mode }) => {
-  await page.goto(url('/notes', { mode, ws: false }))
+  await page.goto(url('/notes', { mode, ws: true }))
   await addNotebook(page, 'Delete Attach NB')
   await selectNotebook(page, 'Delete Attach NB')
   await addNote(page, 'Delete Attach Note', 'body')

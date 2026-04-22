@@ -6,6 +6,7 @@
  * the Electron renderer — shared e2e-helpers from hypermedia-base work unchanged.
  */
 
+import { formatEventBusTimeline } from '@cqrs-toolkit/client/fixtures'
 import {
   test as base,
   _electron as electron,
@@ -70,25 +71,16 @@ test.afterEach(async ({ page, request }, testInfo) => {
 async function dumpCqrsEvents(page: Page, testInfo: TestInfo) {
   try {
     const events = await page.evaluate(() => {
+      // Convert any bigints to string before crossing the Playwright boundary
+      // (page.evaluate JSON-serializes the return value and bigints throw).
       const replacer = (_k: string, v: unknown) => (typeof v === 'bigint' ? `${v}n` : v)
-      return window.__CQRS_EVENTS__?.map((e) => ({
-        type: e.type,
-        data: JSON.parse(JSON.stringify(e.data, replacer)) as unknown,
-        ...(e.debug ? { debug: true } : {}),
-      }))
+      return window.__CQRS_EVENTS__?.map((e) => JSON.parse(JSON.stringify(e, replacer)) as typeof e)
     })
     if (!events?.length) {
       process.stderr.write('CQRS Event Log: no events captured\n')
       return
     }
-
-    const lines = events.map((e, i) => {
-      const tag = e.debug ? ' [debug]' : ''
-      const data = JSON.stringify(e.data, null, 2).replace(/\n/g, '\n    ')
-      return `  ${String(i + 1).padStart(3)}. ${e.type}${tag}\n    ${data}`
-    })
-
-    const output = `CQRS Event Log (${events.length} events):\n${lines.join('\n')}\n`
+    const output = formatEventBusTimeline(events)
     await testInfo.attach('cqrs-events', { body: output, contentType: 'text/plain' })
     process.stderr.write(output)
   } catch (err) {

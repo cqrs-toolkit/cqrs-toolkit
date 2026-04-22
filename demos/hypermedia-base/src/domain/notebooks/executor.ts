@@ -47,6 +47,8 @@ async function checkNameUniqueness(
 export const notebookHandlers: AppCommandHandlerRegistration[] = [
   {
     commandType: 'nb.CreateNotebook',
+    aggregate: NotebookAggregate,
+    commandIdReferences: [],
     creates: { eventType: 'NotebookCreated', idStrategy: 'temporary' },
     async validateAsync(command, _state, context) {
       const { name } = command.data as { name: string }
@@ -69,6 +71,8 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
   },
   {
     commandType: 'nb.UpdateNotebookName',
+    aggregate: NotebookAggregate,
+    commandIdReferences: [{ aggregate: NotebookAggregate, path: '$.path.id' }],
     async validateAsync(command, _state, context) {
       const { name } = command.data as { name: string }
       // TODO(command-types): Figure out how we can fix this
@@ -92,6 +96,8 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
   },
   {
     commandType: 'nb.DeleteNotebook',
+    aggregate: NotebookAggregate,
+    commandIdReferences: [{ aggregate: NotebookAggregate, path: '$.path.id' }],
     handler(command) {
       // TODO(command-types): Figure out how we can fix this
       const { id } = command.path as { id: string }
@@ -102,6 +108,8 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
   },
   {
     commandType: 'nb.AddNotebookTag',
+    aggregate: NotebookAggregate,
+    commandIdReferences: [{ aggregate: NotebookAggregate, path: '$.path.id' }],
     handler(command) {
       const { tag } = command.data as { tag: string }
       // TODO(command-types): Figure out how we can fix this
@@ -117,6 +125,8 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
   },
   {
     commandType: 'nb.RemoveNotebookTag',
+    aggregate: NotebookAggregate,
+    commandIdReferences: [{ aggregate: NotebookAggregate, path: '$.path.id' }],
     handler(command) {
       const { tag } = command.data as { tag: string }
       // TODO(command-types): Figure out how we can fix this

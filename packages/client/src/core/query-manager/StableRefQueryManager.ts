@@ -21,6 +21,8 @@ import {
   switchMap,
   takeUntil,
 } from 'rxjs'
+import type { EntityId } from '../../types/entities.js'
+import { entityIdToString } from '../../types/entities.js'
 import type { CacheKeyIdentity } from '../cache-manager/CacheKey.js'
 import type {
   CollectionSignal,
@@ -152,7 +154,7 @@ export class StableRefQueryManager<TLink extends Link> implements IQueryManager<
     // reference is what distinctUntilChanged sees.
     const { collection, id } = params
     return this.inner.watchCollection(params.collection).pipe(
-      filter((signal) => signal.type === 'updated' && signal.ids.includes(id)),
+      filter((signal) => signal.type === 'updated' && signal.ids.includes(entityIdToString(id))),
       startWith(undefined),
       switchMap(() =>
         from(this.getById<T>(params)).pipe(
@@ -168,7 +170,11 @@ export class StableRefQueryManager<TLink extends Link> implements IQueryManager<
     )
   }
 
-  async exists(collection: string, id: string): Promise<boolean> {
+  async getLocallyById<T>(collection: string, id: EntityId): Promise<T | undefined> {
+    return this.inner.getLocallyById<T>(collection, id)
+  }
+
+  async exists(collection: string, id: EntityId): Promise<boolean> {
     return this.inner.exists(collection, id)
   }
 

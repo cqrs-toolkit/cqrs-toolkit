@@ -52,7 +52,7 @@ Event ID
 
 ### persistence
 
-> **persistence**: `"Permanent"` \| `"Stateful"` \| `"Anticipated"`
+> **persistence**: [`EventPersistence`](../type-aliases/EventPersistence.md)
 
 Event persistence type
 

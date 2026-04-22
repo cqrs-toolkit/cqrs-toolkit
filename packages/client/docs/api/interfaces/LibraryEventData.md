@@ -7,6 +7,7 @@
 # Interface: LibraryEventData\<TLink\>
 
 Library event data types.
+Grouped by namespace, ordered to match [LibraryEventType](../type-aliases/LibraryEventType.md).
 
 ## Type Parameters
 
@@ -26,7 +27,7 @@ Library event data types.
 
 #### reason
 
-> **reason**: `"explicit"` \| `"lru"` \| `"expired"` \| `"session-change"`
+> **reason**: `"lru"` \| `"explicit"` \| `"expired"` \| `"session-change"`
 
 ---
 
@@ -172,6 +173,24 @@ Library event data types.
 
 ---
 
+### command:cancelled
+
+> **command:cancelled**: `object`
+
+#### cacheKey
+
+> **cacheKey**: [`CacheKeyIdentity`](../type-aliases/CacheKeyIdentity.md)\<`TLink`\>
+
+#### commandId
+
+> **commandId**: `string`
+
+#### type
+
+> **type**: `string`
+
+---
+
 ### command:completed
 
 > **command:completed**: `object`
@@ -296,6 +315,18 @@ Library event data types.
 
 ---
 
+### commandqueue:paused
+
+> **commandqueue:paused**: `object`
+
+---
+
+### commandqueue:resumed
+
+> **commandqueue:resumed**: `object`
+
+---
+
 ### connectivity:changed
 
 > **connectivity:changed**: `object`
@@ -303,6 +334,12 @@ Library event data types.
 #### online
 
 > **online**: `boolean`
+
+---
+
+### debug:log
+
+> **debug:log**: `any`
 
 ---
 
@@ -334,6 +371,28 @@ Library event data types.
 
 ---
 
+### readmodel:id-reconciled
+
+> **readmodel:id-reconciled**: `object`
+
+Emitted after a read model row is migrated from a client-generated temp ID
+to the server-assigned ID. Fired once per collection per migration, after
+the row is durably renamed in storage.
+
+#### clientId
+
+> **clientId**: `string`
+
+#### collection
+
+> **collection**: `string`
+
+#### serverId
+
+> **serverId**: `string`
+
+---
+
 ### readmodel:updated
 
 > **readmodel:updated**: `object`
@@ -341,6 +400,10 @@ Library event data types.
 #### collection
 
 > **collection**: `string`
+
+#### commandIds
+
+> **commandIds**: `string`[]
 
 #### ids
 
@@ -368,7 +431,7 @@ Library event data types.
 
 #### reason
 
-> **reason**: `"user-changed"` \| `"explicit"` \| `"storage-error"`
+> **reason**: `"explicit"` \| `"user-changed"` \| `"storage-error"`
 
 ---
 
@@ -439,6 +502,35 @@ Library event data types.
 #### fromRevision
 
 > **fromRevision**: `bigint`
+
+#### streamId
+
+> **streamId**: `string`
+
+---
+
+### sync:invalidate-requested
+
+> **sync:invalidate-requested**: `object`
+
+Fire-and-forget signal that an aggregate's server state should be
+refetched. Emitted by the CommandQueue success path when the sync
+pipeline cannot confirm the aggregate from events (event-less response,
+or uncovered expected revision). Consumed by `InvalidationScheduler`,
+which resolves `streamId → collection` and schedules the debounced
+refetch — no direct scheduler reference on the emitter side.
+
+#### cacheKey
+
+> **cacheKey**: `string`
+
+#### commandId
+
+> **commandId**: `string`
+
+#### reason
+
+> **reason**: `"event-less-response"` \| `"no-expected-revision"`
 
 #### streamId
 

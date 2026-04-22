@@ -13,14 +13,19 @@ import { Link } from '@meticoeus/ddd-es'
 import { CommandFilter, CommandRecord, CommandStatus, EnqueueCommand } from '../types/commands.js'
 import type { SchemaMigration } from '../types/config.js'
 import { EntityId, entityIdToString } from '../types/index.js'
-import type { ISqliteDb, SqliteBatchStatement } from './ISqliteDb.js'
-import type {
-  CacheKeyRecord,
+import { execStmt, ISqliteDb, queryStmt, SqliteBatchStatement } from './ISqliteDb.js'
+import {
+  AddCacheKeysToEventEntry,
+  AddCacheKeysToReadModelEntry,
   CachedEventRecord,
+  CacheKeyRecord,
+  DeleteReadModelEntry,
   IStorage,
   IStorageQueryOptions,
+  MigrateReadModelIdParams,
   ReadModelRecord,
   SessionRecord,
+  UpdateCommandsEntry,
 } from './IStorage.js'
 import { getCollectionNames, getSqlForStep, validateSchemaMigrations } from './schema/rm-schema.js'
 
@@ -111,8 +116,12 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
   async saveSession(session: SessionRecord): Promise<void> {
     this.assertInitialized()
     await this.exec(
-      `INSERT OR REPLACE INTO session (id, user_id, created_at, last_seen_at)
-       VALUES (1, ?, ?, ?)`,
+      `INSERT INTO session (id, user_id, created_at, last_seen_at)
+VALUES (1, ?, ?, ?)
+ON CONFLICT(id) DO UPDATE SET
+  user_id=excluded.user_id,
+  created_at=excluded.created_at,
+  last_seen_at=excluded.last_seen_at`,
       [session.userId, session.createdAt, session.lastSeenAt],
     )
   }
@@ -159,9 +168,28 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
   async saveCacheKey(record: CacheKeyRecord): Promise<void> {
     this.assertInitialized()
     await this.exec(
-      `INSERT OR REPLACE INTO cache_keys
-       (key, kind, link_service, link_type, link_id, service, scope_type, scope_params, parent_key, eviction_policy, frozen, frozen_at, inherited_frozen, last_accessed_at, expires_at, created_at, hold_count, estimated_size_bytes, pending_id_mappings)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO cache_keys
+(key, kind, link_service, link_type, link_id, service, scope_type, scope_params, parent_key, eviction_policy, frozen, frozen_at, inherited_frozen, last_accessed_at, expires_at, created_at, hold_count, estimated_size_bytes, pending_id_mappings)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(key) DO UPDATE SET
+  kind=excluded.kind,
+  link_service=excluded.link_service,
+  link_type=excluded.link_type,
+  link_id=excluded.link_id,
+  service=excluded.service,
+  scope_type=excluded.scope_type,
+  scope_params=excluded.scope_params,
+  parent_key=excluded.parent_key,
+  eviction_policy=excluded.eviction_policy,
+  frozen=excluded.frozen,
+  frozen_at=excluded.frozen_at,
+  inherited_frozen=excluded.inherited_frozen,
+  last_accessed_at=excluded.last_accessed_at,
+  expires_at=excluded.expires_at,
+  created_at=excluded.created_at,
+  hold_count=excluded.hold_count,
+  estimated_size_bytes=excluded.estimated_size_bytes,
+  pending_id_mappings=excluded.pending_id_mappings`,
       [
         record.key,
         record.kind,
@@ -212,9 +240,28 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
     if (records.length === 0) return
     this.assertInitialized()
     const statements: SqliteBatchStatement[] = records.map((record) => ({
-      sql: `INSERT OR REPLACE INTO cache_keys
-       (key, kind, link_service, link_type, link_id, service, scope_type, scope_params, parent_key, eviction_policy, frozen, frozen_at, inherited_frozen, last_accessed_at, expires_at, created_at, hold_count, estimated_size_bytes, pending_id_mappings)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO cache_keys
+(key, kind, link_service, link_type, link_id, service, scope_type, scope_params, parent_key, eviction_policy, frozen, frozen_at, inherited_frozen, last_accessed_at, expires_at, created_at, hold_count, estimated_size_bytes, pending_id_mappings)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(key) DO UPDATE SET
+  kind=excluded.kind,
+  link_service=excluded.link_service,
+  link_type=excluded.link_type,
+  link_id=excluded.link_id,
+  service=excluded.service,
+  scope_type=excluded.scope_type,
+  scope_params=excluded.scope_params,
+  parent_key=excluded.parent_key,
+  eviction_policy=excluded.eviction_policy,
+  frozen=excluded.frozen,
+  frozen_at=excluded.frozen_at,
+  inherited_frozen=excluded.inherited_frozen,
+  last_accessed_at=excluded.last_accessed_at,
+  expires_at=excluded.expires_at,
+  created_at=excluded.created_at,
+  hold_count=excluded.hold_count,
+  estimated_size_bytes=excluded.estimated_size_bytes,
+  pending_id_mappings=excluded.pending_id_mappings`,
       bind: [
         record.key,
         record.kind,
@@ -293,6 +340,17 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
 
   // Command operations
 
+  async getCommandSequence(): Promise<number> {
+    this.assertInitialized()
+    // Read from sqlite_sequence so deleted tail rows don't cause the counter
+    // to regress. sqlite_sequence only has a row for `commands` once at least
+    // one row has been inserted; before that we fall back to 0.
+    const row = await this.queryOne<{ seq: number }>(
+      "SELECT seq FROM sqlite_sequence WHERE name = 'commands'",
+    )
+    return row?.seq ?? 0
+  }
+
   async getCommand(commandId: string): Promise<CommandRecord<TLink, TCommand> | undefined> {
     this.assertInitialized()
     const row = await this.queryOne<CommandRow>('SELECT * FROM commands WHERE command_id = ?', [
@@ -302,6 +360,24 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
     if (!row) return undefined
 
     return this.rowToCommand(row)
+  }
+
+  async getCommandsByIds(
+    commandIds: readonly string[],
+  ): Promise<Map<string, CommandRecord<TLink, TCommand>>> {
+    this.assertInitialized()
+    const result = new Map<string, CommandRecord<TLink, TCommand>>()
+    if (commandIds.length === 0) return result
+    const placeholders = commandIds.map(() => '?').join(',')
+    const rows = await this.query<CommandRow>(
+      `SELECT * FROM commands WHERE command_id IN (${placeholders})`,
+      [...commandIds],
+    )
+    for (const row of rows) {
+      const command = this.rowToCommand(row)
+      result.set(command.commandId, command)
+    }
+    return result
   }
 
   async getCommands(filter?: CommandFilter): Promise<CommandRecord<TLink, TCommand>[]> {
@@ -336,7 +412,7 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
       params.push(filter.createdBefore)
     }
 
-    sql += ' ORDER BY created_at ASC'
+    sql += ' ORDER BY seq ASC'
 
     if (filter?.limit !== undefined) {
       sql += ' LIMIT ?'
@@ -369,35 +445,8 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
 
   async saveCommand(command: CommandRecord<TLink, TCommand>): Promise<void> {
     this.assertInitialized()
-    await this.exec(
-      `INSERT OR REPLACE INTO commands
-       (command_id, cache_key, service, type, data, status, depends_on, blocked_by, attempts,
-        last_attempt_at, error, server_response, post_process, creates, revision,
-        path, file_refs, entity_ref_data, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        command.commandId,
-        JSON.stringify(command.cacheKey),
-        command.service,
-        command.type,
-        JSON.stringify(command.data),
-        command.status,
-        JSON.stringify(command.dependsOn),
-        JSON.stringify(command.blockedBy),
-        command.attempts,
-        command.lastAttemptAt ?? null,
-        command.error ? JSON.stringify(command.error) : null,
-        command.serverResponse !== undefined ? JSON.stringify(command.serverResponse) : null,
-        command.postProcess ? JSON.stringify(command.postProcess) : null,
-        command.creates ? JSON.stringify(command.creates) : null,
-        command.revision !== undefined ? JSON.stringify(command.revision) : null,
-        command.path !== undefined ? JSON.stringify(command.path) : null,
-        command.fileRefs ? JSON.stringify(command.fileRefs) : null,
-        command.entityRefData ? JSON.stringify(command.entityRefData) : null,
-        command.createdAt,
-        command.updatedAt,
-      ],
-    )
+    const stmt = this.buildSaveCommandStatement(command)
+    await this.exec(stmt.sql, stmt.bind)
   }
 
   async updateCommand(
@@ -410,6 +459,29 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
 
     const updated = { ...current, ...updates, updatedAt: Date.now() }
     await this.saveCommand(updated)
+  }
+
+  async updateCommands(updates: readonly UpdateCommandsEntry<TLink, TCommand>[]): Promise<void> {
+    this.assertInitialized()
+    if (updates.length === 0) return
+
+    // Two round-trips regardless of batch size: one bulk read, one bulk write.
+    // Patches carry different column subsets per row, so the write can't be
+    // a single multi-row UPDATE. Instead we issue N per-row upsert statements
+    // inside one `execBatch` round-trip — each statement's SQL is identical
+    // (reused from `saveCommand`), only the bindings differ.
+    const ids = updates.map(({ commandId }) => commandId)
+    const current = await this.getCommandsByIds(ids)
+    const now = Date.now()
+
+    const statements: SqliteBatchStatement[] = []
+    for (const { commandId, updates: patch } of updates) {
+      const existing = current.get(commandId)
+      if (!existing) continue
+      statements.push(this.buildSaveCommandStatement({ ...existing, ...patch, updatedAt: now }))
+    }
+    if (statements.length === 0) return
+    await this.db.execBatch(statements)
   }
 
   async deleteCommand(commandId: string): Promise<void> {
@@ -448,6 +520,17 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
     if (!row) return undefined
 
     return this.rowToEvent(row)
+  }
+
+  async getExistingCachedEventIds(ids: readonly string[]): Promise<Set<string>> {
+    this.assertInitialized()
+    if (ids.length === 0) return new Set()
+    const placeholders = ids.map(() => '?').join(', ')
+    const rows = await this.query<{ id: string }>(
+      `SELECT id FROM cached_events WHERE id IN (${placeholders})`,
+      [...ids],
+    )
+    return new Set(rows.map((row) => row.id))
   }
 
   async getCachedEventsByCacheKey(cacheKey: string): Promise<CachedEventRecord[]> {
@@ -504,13 +587,39 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
     return rows.map((row) => this.rowToEvent(row))
   }
 
+  async getAllAnticipatedEvents(): Promise<CachedEventRecord[]> {
+    this.assertInitialized()
+    const ck = joinCacheKeys({
+      srcAlias: 'ce',
+      junctionTable: 'cached_event_cache_keys',
+      fk: 'event_id',
+    })
+    const rows = await this.query<EventRowWithCacheKeys>(
+      `SELECT ce.*, ${ck.column} FROM cached_events ce
+       ${ck.join}
+       WHERE ce.persistence = 'Anticipated'
+       ${ck.groupBy}`,
+    )
+    return rows.map((row) => this.rowToEvent(row))
+  }
+
   async saveCachedEvent(event: CachedEventRecord): Promise<void> {
     this.assertInitialized()
     const statements: SqliteBatchStatement[] = [
       {
-        sql: `INSERT OR REPLACE INTO cached_events
-         (id, type, stream_id, persistence, data, position, revision, command_id, created_at, processed_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        sql: `INSERT INTO cached_events
+(id, type, stream_id, persistence, data, position, revision, command_id, created_at, processed_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(id) DO UPDATE SET
+  type=excluded.type,
+  stream_id=excluded.stream_id,
+  persistence=excluded.persistence,
+  data=excluded.data,
+  position=excluded.position,
+  revision=excluded.revision,
+  command_id=excluded.command_id,
+  created_at=excluded.created_at,
+  processed_at=excluded.processed_at`,
         bind: [
           event.id,
           event.type,
@@ -602,21 +711,19 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
   async deleteProcessedCachedEvents(olderThan: number): Promise<number> {
     this.assertInitialized()
     const results = await this.db.execBatch([
-      {
-        sql: 'SELECT COUNT(*) as count FROM cached_events WHERE processed_at IS NOT NULL AND processed_at < ?',
-        bind: [olderThan],
-        returnRows: true,
-      },
-      {
-        sql: 'DELETE FROM cached_event_cache_keys WHERE event_id IN (SELECT id FROM cached_events WHERE processed_at IS NOT NULL AND processed_at < ?)',
-        bind: [olderThan],
-      },
-      {
-        sql: 'DELETE FROM cached_events WHERE processed_at IS NOT NULL AND processed_at < ?',
-        bind: [olderThan],
-      },
+      queryStmt<{ count: number }>(
+        'SELECT COUNT(*) as count FROM cached_events WHERE processed_at IS NOT NULL AND processed_at < ?',
+        [olderThan],
+      ),
+      execStmt(
+        'DELETE FROM cached_event_cache_keys WHERE event_id IN (SELECT id FROM cached_events WHERE processed_at IS NOT NULL AND processed_at < ?)',
+        [olderThan],
+      ),
+      execStmt('DELETE FROM cached_events WHERE processed_at IS NOT NULL AND processed_at < ?', [
+        olderThan,
+      ]),
     ])
-    const rows = (results[0] ?? []) as Array<{ count: number }>
+    const rows = results[0] ?? []
     return rows[0]?.count ?? 0
   }
 
@@ -634,18 +741,34 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
     ])
   }
 
+  async deleteAnticipatedEventsByCommands(commandIds: readonly string[]): Promise<void> {
+    this.assertInitialized()
+    if (commandIds.length === 0) return
+    const placeholders = commandIds.map(() => '?').join(', ')
+    await this.db.execBatch([
+      {
+        sql: `DELETE FROM cached_event_cache_keys WHERE event_id IN (SELECT id FROM cached_events WHERE persistence = 'Anticipated' AND command_id IN (${placeholders}))`,
+        bind: [...commandIds],
+      },
+      {
+        sql: `DELETE FROM cached_events WHERE persistence = 'Anticipated' AND command_id IN (${placeholders})`,
+        bind: [...commandIds],
+      },
+    ])
+  }
+
   async removeCacheKeyFromEvents(cacheKey: string): Promise<string[]> {
     this.assertInitialized()
     const statements = this.buildRemoveCacheKeyFromEvents(cacheKey, true)
     const results = await this.db.execBatch(statements)
-    const orphanRows = (results[1] ?? []) as Array<{ id: string }>
+    const orphanRows = results[1] ?? []
     return orphanRows.map((row) => row.id)
   }
 
   private buildRemoveCacheKeyFromEvents(
     cacheKey: string,
     returnDeleted = false,
-  ): SqliteBatchStatement[] {
+  ): [SqliteBatchStatement, SqliteBatchStatement<{ id: string }>, SqliteBatchStatement] {
     return [
       { sql: 'DELETE FROM cached_event_cache_keys WHERE cache_key = ?', bind: [cacheKey] },
       {
@@ -658,13 +781,15 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
     ]
   }
 
-  async addCacheKeysToEvent(eventId: string, cacheKeys: string[]): Promise<void> {
+  async addCacheKeysToEvents(entries: readonly AddCacheKeysToEventEntry[]): Promise<void> {
     this.assertInitialized()
-    await this.insertJunctionRows(
-      'cached_event_cache_keys',
-      '(event_id, cache_key)',
-      cacheKeys.map((cacheKey) => [eventId, cacheKey]),
-    )
+    const rows: unknown[][] = []
+    for (const { eventId, cacheKeys } of entries) {
+      for (const cacheKey of cacheKeys) {
+        rows.push([eventId, cacheKey])
+      }
+    }
+    await this.insertJunctionRows('cached_event_cache_keys', '(event_id, cache_key)', rows)
   }
 
   // Read model operations
@@ -674,7 +799,7 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
     const table = this.rmTable(collection)
     const ck = joinCacheKeys({
       srcAlias: 'rm',
-      junctionTable: `rm_${collection}_cache_keys`,
+      junctionTable: this.rmCacheKeyTable(collection),
       fk: 'entity_id',
     })
     const row = await this.queryOne<ReadModelRowWithCacheKeys>(
@@ -690,6 +815,48 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
     return this.rowToReadModel(row)
   }
 
+  async getReadModels(
+    pairs: Iterable<{ collection: string; id: string }>,
+  ): Promise<Map<string, ReadModelRecord>> {
+    this.assertInitialized()
+    // Group the requested ids by collection so we can run one
+    // `WHERE id IN (...)` per collection rather than one SELECT per pair.
+    const idsByCollection = new Map<string, Set<string>>()
+    for (const { collection, id } of pairs) {
+      let set = idsByCollection.get(collection)
+      if (!set) {
+        set = new Set<string>()
+        idsByCollection.set(collection, set)
+      }
+      set.add(id)
+    }
+
+    const result = new Map<string, ReadModelRecord>()
+    for (const [collection, ids] of idsByCollection) {
+      if (ids.size === 0) continue
+      const table = this.rmTable(collection)
+      const ck = joinCacheKeys({
+        srcAlias: 'rm',
+        junctionTable: this.rmCacheKeyTable(collection),
+        fk: 'entity_id',
+      })
+      const idList = Array.from(ids)
+      const placeholders = idList.map(() => '?').join(', ')
+      const rows = await this.query<ReadModelRowWithCacheKeys>(
+        `SELECT rm.*, '${collection}' as collection, ${ck.column} FROM ${table} rm
+         ${ck.join}
+         WHERE rm.id IN (${placeholders})
+         ${ck.groupBy}`,
+        idList,
+      )
+      for (const row of rows) {
+        const record = this.rowToReadModel(row)
+        result.set(`${collection}:${record.id}`, record)
+      }
+    }
+    return result
+  }
+
   async getReadModelsByCollection(
     collection: string,
     options?: IStorageQueryOptions,
@@ -698,7 +865,7 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
     const table = this.rmTable(collection)
     const ck = joinCacheKeys({
       srcAlias: 'rm',
-      junctionTable: `rm_${collection}_cache_keys`,
+      junctionTable: this.rmCacheKeyTable(collection),
       fk: 'entity_id',
     })
     let sql = `SELECT rm.*, '${collection}' as collection, ${ck.column} FROM ${table} rm ${ck.join}`
@@ -730,33 +897,36 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
     if (this.collections.size === 0) return []
 
     const allRecords: ReadModelRecord[] = []
-    for (const name of this.collections) {
-      const table = this.rmTable(name)
+    for (const collection of this.collections) {
+      const table = this.rmTable(collection)
+      const cachKeyTable = this.rmCacheKeyTable(collection)
       const ck = joinCacheKeys({
         srcAlias: 'rm',
-        junctionTable: `rm_${name}_cache_keys`,
+        junctionTable: cachKeyTable,
         fk: 'entity_id',
       })
       const rows = await this.query<ReadModelRowWithCacheKeys>(
-        `SELECT rm.*, '${name}' as collection, ${ck.column} FROM ${table} rm
-         INNER JOIN rm_${name}_cache_keys filter_ck ON filter_ck.entity_id = rm.id
+        `SELECT rm.*, '${collection}' as collection, ${ck.column} FROM ${table} rm
+         INNER JOIN ${cachKeyTable} filter_ck ON filter_ck.entity_id = rm.id
          ${ck.join}
          WHERE filter_ck.cache_key = ?
          ${ck.groupBy}
-         ORDER BY rm.updated_at ASC`,
+         ORDER BY rm.updated_at ASC, rm.id ASC`,
         [cacheKey],
       )
       allRecords.push(...rows.map((row) => this.rowToReadModel(row)))
     }
+    allRecords.sort((a, b) => a.updatedAt - b.updatedAt || a.id.localeCompare(b.id))
     return allRecords
   }
 
   async countReadModels(collection: string, cacheKey?: string): Promise<number> {
     this.assertInitialized()
     const table = this.rmTable(collection)
+    const cacheKeyTable = this.rmCacheKeyTable(collection)
     if (cacheKey) {
       const rows = await this.query<{ cnt: number }>(
-        `SELECT COUNT(*) as cnt FROM ${table} rm JOIN rm_${collection}_cache_keys j ON rm.id = j.entity_id WHERE j.cache_key = ?`,
+        `SELECT COUNT(*) as cnt FROM ${table} rm JOIN ${cacheKeyTable} j ON rm.id = j.entity_id WHERE j.cache_key = ?`,
         [cacheKey],
       )
       return rows[0]?.cnt ?? 0
@@ -770,9 +940,18 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
     const table = this.rmTable(record.collection)
     const statements: SqliteBatchStatement[] = [
       {
-        sql: `INSERT OR REPLACE INTO ${table}
-         (id, _server_data, _effective_data, _has_local_changes, _revision, _position, updated_at, __client_id, __reconciled_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        sql: `INSERT INTO ${table}
+(id, _server_data, _effective_data, _has_local_changes, _revision, _position, updated_at, __client_id, __reconciled_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(id) DO UPDATE SET
+  _server_data=excluded._server_data,
+  _effective_data=excluded._effective_data,
+  _has_local_changes=excluded._has_local_changes,
+  _revision=excluded._revision,
+  _position=excluded._position,
+  updated_at=excluded.updated_at,
+  __client_id=excluded.__client_id,
+  __reconciled_at=excluded.__reconciled_at`,
         bind: [
           record.id,
           record.serverData,
@@ -787,7 +966,7 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
       },
     ]
     const junction = this.buildJunctionInsert(
-      `rm_${record.collection}_cache_keys`,
+      this.rmCacheKeyTable(record.collection),
       '(entity_id, cache_key)',
       record.cacheKeys.map((cacheKey) => [record.id, cacheKey]),
     )
@@ -834,7 +1013,16 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
       }
 
       statements.push({
-        sql: `INSERT OR REPLACE INTO ${table} ${columns} VALUES ${placeholders}`,
+        sql: `INSERT INTO ${table} ${columns} VALUES ${placeholders}
+ON CONFLICT(id) DO UPDATE SET
+  _server_data=excluded._server_data,
+  _effective_data=excluded._effective_data,
+  _has_local_changes=excluded._has_local_changes,
+  _revision=excluded._revision,
+  _position=excluded._position,
+  updated_at=excluded.updated_at,
+  __client_id=excluded.__client_id,
+  __reconciled_at=excluded.__reconciled_at`,
         bind: params,
       })
 
@@ -845,7 +1033,7 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
         }
       }
       const junction = this.buildJunctionInsert(
-        `rm_${collection}_cache_keys`,
+        this.rmCacheKeyTable(collection),
         '(entity_id, cache_key)',
         junctionRows,
       )
@@ -857,10 +1045,123 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
   async deleteReadModel(collection: string, id: string): Promise<void> {
     this.assertInitialized()
     const table = this.rmTable(collection)
+    const cacheKeyTable = this.rmCacheKeyTable(collection)
     await this.db.execBatch([
-      { sql: `DELETE FROM rm_${collection}_cache_keys WHERE entity_id = ?`, bind: [id] },
+      { sql: `DELETE FROM ${cacheKeyTable} WHERE entity_id = ?`, bind: [id] },
       { sql: `DELETE FROM ${table} WHERE id = ?`, bind: [id] },
     ])
+  }
+
+  async deleteReadModels(entries: readonly DeleteReadModelEntry[]): Promise<void> {
+    this.assertInitialized()
+    if (entries.length === 0) return
+
+    const idsByCollection = new Map<string, string[]>()
+    for (const { collection, id } of entries) {
+      this.rmTable(collection) // validates collection name
+      let ids = idsByCollection.get(collection)
+      if (!ids) {
+        ids = []
+        idsByCollection.set(collection, ids)
+      }
+      ids.push(id)
+    }
+
+    const statements: SqliteBatchStatement[] = []
+    for (const [collection, ids] of idsByCollection) {
+      const placeholders = ids.map(() => '?').join(', ')
+      const table = this.rmTable(collection)
+      const cacheKeyTable = this.rmCacheKeyTable(collection)
+      statements.push({
+        sql: `DELETE FROM ${cacheKeyTable} WHERE entity_id IN (${placeholders})`,
+        bind: [...ids],
+      })
+      statements.push({
+        sql: `DELETE FROM ${table} WHERE id IN (${placeholders})`,
+        bind: [...ids],
+      })
+    }
+    await this.db.execBatch(statements)
+  }
+
+  async migrateReadModelIds(batch: MigrateReadModelIdParams[]): Promise<void> {
+    this.assertInitialized()
+    if (batch.length === 0) return
+
+    // Group by collection so each backing table takes exactly two statements
+    // (one for the data row, one for the cache-key junction) regardless of
+    // how many id migrations fall into that collection. Entries where
+    // `fromId === toId` are still included — the SET clause rewrites the
+    // other columns and the `id = new.new_id` assignment is a self-no-op.
+    const byCollection = new Map<string, MigrateReadModelIdParams[]>()
+    for (const params of batch) {
+      this.rmTable(params.collection)
+      let group = byCollection.get(params.collection)
+      if (!group) {
+        group = []
+        byCollection.set(params.collection, group)
+      }
+      group.push(params)
+    }
+    if (byCollection.size === 0) return
+
+    const statements: SqliteBatchStatement[] = []
+    for (const [collection, entries] of byCollection) {
+      const table = `rm_${collection}`
+      const junctionTable = `rm_${collection}_cache_keys`
+
+      // One JSON-driven UPDATE per backing table per collection. The batch is
+      // passed as a single JSON array parameter and unpacked via json_each() +
+      // json_extract(), avoiding dynamic placeholder generation.
+      const rowJson = JSON.stringify(
+        entries.map((e) => ({
+          oldId: e.fromId,
+          newId: e.toId,
+          serverData: e.serverData,
+          effectiveData: e.effectiveData,
+          hasLocalChanges: e.hasLocalChanges ? 1 : 0,
+          updatedAt: e.updatedAt,
+        })),
+      )
+      statements.push({
+        sql: `WITH new AS (
+                SELECT
+                  json_extract(value, '$.oldId') AS old_id,
+                  json_extract(value, '$.newId') AS new_id,
+                  json_extract(value, '$.serverData') AS server_data,
+                  json_extract(value, '$.effectiveData') AS effective_data,
+                  json_extract(value, '$.hasLocalChanges') AS has_local_changes,
+                  json_extract(value, '$.updatedAt') AS updated_at
+                FROM json_each(?)
+              )
+              UPDATE ${table}
+              SET id = new.new_id,
+                  _server_data = new.server_data,
+                  _effective_data = new.effective_data,
+                  _has_local_changes = new.has_local_changes,
+                  updated_at = new.updated_at
+              FROM new
+              WHERE ${table}.id = new.old_id`,
+        bind: [rowJson],
+      })
+
+      const junctionJson = JSON.stringify(entries.map((e) => ({ oldId: e.fromId, newId: e.toId })))
+      statements.push({
+        sql: `WITH new AS (
+                SELECT
+                  json_extract(value, '$.oldId') AS old_id,
+                  json_extract(value, '$.newId') AS new_id
+                FROM json_each(?)
+              )
+              UPDATE ${junctionTable}
+              SET entity_id = new.new_id
+              FROM new
+              WHERE ${junctionTable}.entity_id = new.old_id`,
+        bind: [junctionJson],
+      })
+    }
+
+    await this.db.execBatch(statements)
   }
 
   async removeCacheKeyFromReadModels(cacheKey: string): Promise<void> {
@@ -873,13 +1174,15 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
 
   private buildRemoveCacheKeyFromReadModels(cacheKey: string): SqliteBatchStatement[] {
     const statements: SqliteBatchStatement[] = []
-    for (const name of this.collections) {
+    for (const collection of this.collections) {
+      const table = this.rmTable(collection)
+      const cacheKeyTable = this.rmCacheKeyTable(collection)
       statements.push({
-        sql: `DELETE FROM rm_${name}_cache_keys WHERE cache_key = ?`,
+        sql: `DELETE FROM ${cacheKeyTable} WHERE cache_key = ?`,
         bind: [cacheKey],
       })
       statements.push({
-        sql: `DELETE FROM ${this.rmTable(name)} WHERE id NOT IN (SELECT entity_id FROM rm_${name}_cache_keys)`,
+        sql: `DELETE FROM ${table} WHERE id NOT IN (SELECT entity_id FROM ${cacheKeyTable})`,
       })
     }
     return statements
@@ -891,19 +1194,49 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
     cacheKeys: string[],
   ): Promise<void> {
     this.assertInitialized()
-    this.rmTable(collection) // validate collection name
     await this.insertJunctionRows(
-      `rm_${collection}_cache_keys`,
+      this.rmCacheKeyTable(collection),
       '(entity_id, cache_key)',
       cacheKeys.map((cacheKey) => [id, cacheKey]),
     )
   }
 
+  async addCacheKeysToReadModels(entries: readonly AddCacheKeysToReadModelEntry[]): Promise<void> {
+    this.assertInitialized()
+    if (entries.length === 0) return
+
+    const rowsByCollection = new Map<string, unknown[][]>()
+    for (const { collection, id, cacheKeys } of entries) {
+      let rows = rowsByCollection.get(collection)
+      if (!rows) {
+        rows = []
+        rowsByCollection.set(collection, rows)
+      }
+      for (const cacheKey of cacheKeys) {
+        rows.push([id, cacheKey])
+      }
+    }
+
+    const statements: SqliteBatchStatement[] = []
+    for (const [collection, rows] of rowsByCollection) {
+      const stmt = this.buildJunctionInsert(
+        this.rmCacheKeyTable(collection),
+        '(entity_id, cache_key)',
+        rows,
+      )
+      if (stmt) statements.push(stmt)
+    }
+    if (statements.length > 0) {
+      await this.db.execBatch(statements)
+    }
+  }
+
   async deleteReadModelsByCollection(collection: string): Promise<void> {
     this.assertInitialized()
     const table = this.rmTable(collection)
+    const cacheKeyTable = this.rmCacheKeyTable(collection)
     await this.db.execBatch([
-      { sql: `DELETE FROM rm_${collection}_cache_keys` },
+      { sql: `DELETE FROM ${cacheKeyTable}` },
       { sql: `DELETE FROM ${table}` },
     ])
   }
@@ -949,7 +1282,6 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
     return {
       clientId: row.client_id,
       serverId: row.server_id,
-      data: row.data,
       createdAt: row.created_at,
     }
   }
@@ -966,7 +1298,6 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
     return {
       clientId: row.client_id,
       serverId: row.server_id,
-      data: row.data,
       createdAt: row.created_at,
     }
   }
@@ -976,15 +1307,50 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
   ): Promise<void> {
     this.assertInitialized()
     await this.exec(
-      `INSERT OR REPLACE INTO command_id_mappings (client_id, server_id, data, created_at)
-       VALUES (?, ?, ?, ?)`,
-      [record.clientId, record.serverId, record.data, record.createdAt],
+      `INSERT INTO command_id_mappings (client_id, server_id, created_at)
+VALUES (?, ?, ?)
+ON CONFLICT(client_id) DO UPDATE SET
+  server_id=excluded.server_id,
+  created_at=excluded.created_at`,
+      [record.clientId, record.serverId, record.createdAt],
     )
+  }
+
+  async saveCommandIdMappings(
+    records: readonly import('./IStorage.js').CommandIdMappingRecord[],
+  ): Promise<void> {
+    this.assertInitialized()
+    if (records.length === 0) return
+    const statements = records.map((record) => ({
+      sql: `INSERT INTO command_id_mappings (client_id, server_id, created_at)
+VALUES (?, ?, ?)
+ON CONFLICT(client_id) DO UPDATE SET
+  server_id=excluded.server_id,
+  created_at=excluded.created_at`,
+      bind: [record.clientId, record.serverId, record.createdAt] as unknown[],
+    }))
+    await this.db.execBatch(statements)
   }
 
   async deleteCommandIdMappingsOlderThan(timestamp: number): Promise<void> {
     this.assertInitialized()
     await this.exec('DELETE FROM command_id_mappings WHERE created_at < ?', [timestamp])
+  }
+
+  async loadAndPurgeCommandIdMappings(
+    purgeOlderThan: number,
+  ): Promise<import('./IStorage.js').CommandIdMappingRecord[]> {
+    this.assertInitialized()
+    const results = await this.db.execBatch([
+      execStmt('DELETE FROM command_id_mappings WHERE created_at < ?', [purgeOlderThan]),
+      queryStmt<CommandIdMappingRow>('SELECT * FROM command_id_mappings'),
+    ])
+    const rows = results[1]
+    return rows.map((row) => ({
+      clientId: row.client_id,
+      serverId: row.server_id,
+      createdAt: row.created_at,
+    }))
   }
 
   async deleteAllCommandIdMappings(): Promise<void> {
@@ -997,6 +1363,11 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
   private rmTable(collection: string): string {
     assert(this.collections.has(collection), `Unknown collection '${collection}'`)
     return `rm_${collection}`
+  }
+
+  private rmCacheKeyTable(collection: string): string {
+    assert(this.collections.has(collection), `Unknown collection '${collection}'`)
+    return `rm_${collection}_cache_keys`
   }
 
   private async runMigrations(): Promise<void> {
@@ -1034,6 +1405,62 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
 
   private async exec(sql: string, params?: unknown[]): Promise<void> {
     await this.db.exec(sql, { bind: params })
+  }
+
+  private buildSaveCommandStatement(command: CommandRecord<TLink, TCommand>): SqliteBatchStatement {
+    return {
+      sql: `INSERT INTO commands
+(command_id, cache_key, service, type, data, status, depends_on, blocked_by, attempts,
+  last_attempt_at, error, server_response, post_process, creates, revision,
+  path, file_refs, command_id_paths, affected_aggregates, pending_aggregate_coverage, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(command_id) DO UPDATE SET
+  cache_key=excluded.cache_key,
+  service=excluded.service,
+  type=excluded.type,
+  data=excluded.data,
+  status=excluded.status,
+  depends_on=excluded.depends_on,
+  blocked_by=excluded.blocked_by,
+  attempts=excluded.attempts,
+  last_attempt_at=excluded.last_attempt_at,
+  error=excluded.error,
+  server_response=excluded.server_response,
+  post_process=excluded.post_process,
+  creates=excluded.creates,
+  revision=excluded.revision,
+  path=excluded.path,
+  file_refs=excluded.file_refs,
+  command_id_paths=excluded.command_id_paths,
+  affected_aggregates=excluded.affected_aggregates,
+  pending_aggregate_coverage=excluded.pending_aggregate_coverage,
+  created_at=excluded.created_at,
+  updated_at=excluded.updated_at`,
+      bind: [
+        command.commandId,
+        JSON.stringify(command.cacheKey),
+        command.service,
+        command.type,
+        JSON.stringify(command.data),
+        command.status,
+        JSON.stringify(command.dependsOn),
+        JSON.stringify(command.blockedBy),
+        command.attempts,
+        command.lastAttemptAt ?? null,
+        command.error ? JSON.stringify(command.error) : null,
+        command.serverResponse !== undefined ? JSON.stringify(command.serverResponse) : null,
+        command.postProcess ? JSON.stringify(command.postProcess) : null,
+        command.creates ? JSON.stringify(command.creates) : null,
+        command.revision !== undefined ? JSON.stringify(command.revision) : null,
+        command.path !== undefined ? JSON.stringify(command.path) : null,
+        command.fileRefs ? JSON.stringify(command.fileRefs) : null,
+        command.commandIdPaths ? JSON.stringify(command.commandIdPaths) : null,
+        command.affectedAggregates ? JSON.stringify(command.affectedAggregates) : null,
+        command.pendingAggregateCoverage ?? null,
+        command.createdAt,
+        command.updatedAt,
+      ],
+    }
   }
 
   private buildJunctionInsert(
@@ -1082,6 +1509,7 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
   private rowToCommand(row: CommandRow): CommandRecord<TLink, TCommand> {
     return {
       commandId: row.command_id,
+      seq: row.seq,
       cacheKey: JSON.parse(row.cache_key),
       service: row.service,
       type: row.type,
@@ -1098,7 +1526,9 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
       revision: row.revision ? JSON.parse(row.revision) : undefined,
       path: row.path ? JSON.parse(row.path) : undefined,
       fileRefs: row.file_refs ? JSON.parse(row.file_refs) : undefined,
-      entityRefData: row.entity_ref_data ? JSON.parse(row.entity_ref_data) : undefined,
+      commandIdPaths: row.command_id_paths ? JSON.parse(row.command_id_paths) : undefined,
+      affectedAggregates: row.affected_aggregates ? JSON.parse(row.affected_aggregates) : undefined,
+      pendingAggregateCoverage: row.pending_aggregate_coverage ?? undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }
@@ -1187,6 +1617,7 @@ interface CacheKeyRow {
 }
 
 interface CommandRow {
+  seq: number
   command_id: string
   cache_key: string
   service: string
@@ -1204,7 +1635,9 @@ interface CommandRow {
   revision: string | null
   path: string | null
   file_refs: string | null
-  entity_ref_data: string | null
+  command_id_paths: string | null
+  affected_aggregates: string | null
+  pending_aggregate_coverage: string | null
   created_at: number
   updated_at: number
 }
@@ -1225,7 +1658,6 @@ interface EventRow {
 interface CommandIdMappingRow {
   client_id: string
   server_id: string
-  data: string
   created_at: number
 }
 

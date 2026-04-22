@@ -46,6 +46,10 @@ export class QueryManagerFacade<TLink extends Link> implements IQueryManager<TLi
     return this.inner.watchById(params)
   }
 
+  getLocallyById<T>(collection: string, id: string): Promise<T | undefined> {
+    return this.inner.getLocallyById<T>(collection, id)
+  }
+
   exists(collection: string, id: string): Promise<boolean> {
     return this.inner.exists(collection, id)
   }

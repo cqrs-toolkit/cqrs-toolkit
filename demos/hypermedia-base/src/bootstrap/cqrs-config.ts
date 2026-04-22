@@ -14,13 +14,20 @@ import {
   type CqrsConfig,
   type IAnticipatedEvent,
 } from '@cqrs-toolkit/client'
-import { FILE_OBJECTS_COLLECTION_NAME } from '@cqrs-toolkit/demo-base/file-objects/domain'
+import { parseStreamId } from '@cqrs-toolkit/demo-base/common/domain'
+import {
+  FILE_OBJECTS_COLLECTION_NAME,
+  FileObjectAggregate,
+} from '@cqrs-toolkit/demo-base/file-objects/domain'
+import { NotebookAggregate } from '@cqrs-toolkit/demo-base/notebooks/domain'
+import { NoteAggregate } from '@cqrs-toolkit/demo-base/notes/domain'
+import { TodoAggregate } from '@cqrs-toolkit/demo-base/todos/domain'
 import {
   createAjvSchemaValidator,
   createHypermediaCommandSender,
   withSchemaRegistry,
 } from '@cqrs-toolkit/hypermedia-client'
-import type { ServiceLink } from '@meticoeus/ddd-es'
+import { ServiceLink } from '@meticoeus/ddd-es'
 import type { JSONSchema7 } from 'json-schema'
 import { type AppCommand, commands } from '../cqrs/commands.js'
 import { schemas } from '../cqrs/schemas.js'
@@ -62,6 +69,10 @@ export function createCqrsConfig(
           ],
         },
       ],
+    },
+    aggregates: {
+      parseStreamId,
+      aggregates: [TodoAggregate, NotebookAggregate, NoteAggregate, FileObjectAggregate],
     },
     collections: [todosCollection, notebooksCollection, notesCollection, fileObjectsCollection],
     processors: [

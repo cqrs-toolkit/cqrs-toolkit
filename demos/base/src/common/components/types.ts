@@ -1,4 +1,4 @@
-import { type CacheKeyIdentity, type EntityId, IQueryManager } from '@cqrs-toolkit/client'
+import { type CacheKeyIdentity, type EntityId } from '@cqrs-toolkit/client'
 import {
   createItemQuery,
   createListQuery,
@@ -11,7 +11,6 @@ import {
 import { ServiceLink } from '@meticoeus/ddd-es'
 
 export function appCreateListQuery<T extends Identifiable>(
-  queryManager: IQueryManager<ServiceLink>,
   collection: string,
   cacheKey: CacheKeyIdentity<ServiceLink> | (() => CacheKeyIdentity<ServiceLink> | undefined),
   options?: { limit?: number; offset?: number },
@@ -21,11 +20,10 @@ export function appCreateListQuery<T extends Identifiable>(
     cacheKey,
     ...options,
   }
-  return createListQuery<ServiceLink, T>(queryManager, params)
+  return createListQuery<ServiceLink, T>(params)
 }
 
 export function appCreateItemQuery<T extends Identifiable>(
-  queryManager: IQueryManager<ServiceLink>,
   collection: string,
   id: EntityId | (() => EntityId),
   cacheKey: CacheKeyIdentity<ServiceLink> | (() => CacheKeyIdentity<ServiceLink> | undefined),
@@ -35,5 +33,5 @@ export function appCreateItemQuery<T extends Identifiable>(
     id,
     cacheKey,
   }
-  return createItemQuery<ServiceLink, T>(queryManager, params)
+  return createItemQuery<ServiceLink, T>(params)
 }

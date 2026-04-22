@@ -1,21 +1,26 @@
 import { noop } from '#utils'
-import { type Link, logProvider, type Result } from '@meticoeus/ddd-es'
-import { EnqueueCommand, TerminalCommandStatus } from '../../types/commands.js'
+import type { Result } from '@meticoeus/ddd-es'
+import { type Link, logProvider } from '@meticoeus/ddd-es'
+import { type CommandRecord, EnqueueCommand } from '../../types/commands.js'
 import type { Collection } from '../../types/config.js'
-import type { IAnticipatedEventHandler } from '../command-queue/CommandQueue.js'
+import type { EntityId } from '../../types/entities.js'
+import { entityIdToString } from '../../types/entities.js'
 import type { EventCache } from '../event-cache/EventCache.js'
-import type { EventProcessorRunner, ParsedEvent } from '../event-processor/EventProcessorRunner.js'
+import type { EventProcessorRegistry } from '../event-processor/EventProcessorRegistry.js'
+import type { ProcessorContext, ProcessorResult } from '../event-processor/types.js'
+import type { EventBus } from '../events/EventBus.js'
 import type { ReadModelStore } from '../read-model-store/ReadModelStore.js'
-import { ApplyAnticipatedOp } from '../write-queue/index.js'
-import { IWriteQueue, WriteQueueException } from '../write-queue/IWriteQueue.js'
+import { type IWriteQueue, type WriteQueueException } from '../write-queue/IWriteQueue.js'
+import type { ApplyAnticipatedOp } from '../write-queue/index.js'
 import { type IAnticipatedEvent, isAnticipatedEvent } from './AnticipatedEventShape.js'
+import type { IAnticipatedEventHandler } from './IAnticipatedEventHandler.js'
 
 /**
  * Handles anticipated (optimistic) events for in-flight commands.
  *
  * For each valid anticipated event, finds the matching collection via matchesStream,
- * acquires a cache key, stores via EventCache, then sends through the event processor
- * pipeline with `persistence: 'Anticipated'`.
+ * caches via EventCache, then runs processors inline and writes results to the
+ * read model store as local overlays (`isServerUpdate: false`).
  *
  * Tracks which entities were updated by each command's anticipated events. On failure
  * or cancellation, reverts those read models to their server baseline.
@@ -23,44 +28,44 @@ import { type IAnticipatedEvent, isAnticipatedEvent } from './AnticipatedEventSh
 export class AnticipatedEventHandler<
   TLink extends Link,
   TCommand extends EnqueueCommand,
-> implements IAnticipatedEventHandler {
-  /** commandId → ["collection:id", ...] tracking which entities were optimistically updated. */
-  private anticipatedUpdates = new Map<string, string[]>()
+> implements IAnticipatedEventHandler<TLink, TCommand> {
+  private readonly anticipatedUpdates = new Map<string, string[]>()
 
   constructor(
+    private readonly eventBus: EventBus<TLink>,
     private readonly eventCache: EventCache<TLink, TCommand>,
-    private readonly eventProcessorRunner: EventProcessorRunner<TLink, TCommand>,
+    private readonly eventProcessorRegistry: EventProcessorRegistry,
     private readonly readModelStore: ReadModelStore<TLink, TCommand>,
     private readonly collections: Collection<TLink>[],
-    private readonly writeQueue: IWriteQueue<TLink>,
+    private readonly writeQueue: IWriteQueue<TLink, TCommand>,
   ) {
     this.writeQueue.register('apply-anticipated', this.onApplyAnticipatedOp.bind(this))
     this.writeQueue.registerEviction('apply-anticipated', noop)
   }
 
   async cache<TEvent extends IAnticipatedEvent>(params: {
-    commandId: string
+    command: CommandRecord<TLink, TCommand>
     events: TEvent[]
     clientId?: string
-    cacheKey: string
   }): Promise<Result<void, WriteQueueException>> {
     return this.writeQueue.enqueue({
       type: 'apply-anticipated',
-      commandId: params.commandId,
+      command: params.command,
       events: params.events,
-      cacheKey: params.cacheKey,
       clientId: params.clientId,
     })
   }
 
-  private async onApplyAnticipatedOp(op: ApplyAnticipatedOp): Promise<void> {
-    const { commandId, events, clientId, cacheKey } = op
+  private async onApplyAnticipatedOp(op: ApplyAnticipatedOp<TLink, TCommand>): Promise<void> {
+    const { command, events, clientId } = op
+    const { commandId } = command
+    const cacheKey = command.cacheKey.key
     const updatedIds: string[] = []
+    const modifiedByCollection = new Map<string, Set<string>>()
 
     for (const raw of events) {
       if (!isAnticipatedEvent(raw)) continue
 
-      // Dev mode: warn if streamId was constructed from an EntityRef without entityIdToString
       if (raw.streamId.includes('[object Object]')) {
         logProvider.log.warn(
           { streamId: raw.streamId, type: raw.type, commandId },
@@ -77,126 +82,157 @@ export class AnticipatedEventHandler<
         continue
       }
 
-      const eventId = await this.eventCache.cacheAnticipatedEvent(
+      await this.eventCache.cacheAnticipatedEvent(
         { type: raw.type, data: raw.data, streamId: raw.streamId, commandId },
         { cacheKeys: [cacheKey], commandId },
       )
 
-      const parsed: ParsedEvent = {
-        id: eventId,
-        type: raw.type,
-        streamId: raw.streamId,
+      const context: ProcessorContext = {
         persistence: 'Anticipated',
-        data: raw.data,
         commandId,
-        cacheKey,
+        streamId: raw.streamId,
+        eventId: '',
       }
 
-      const result = await this.eventProcessorRunner.processEvent(parsed)
-      updatedIds.push(...result.updatedIds)
+      // TODO(error-handling): processor calls are unprotected — a throwing processor
+      // will fail the entire apply-anticipated op. Same gap exists in Phase 3 of
+      // reconcileFromWsEvents. Both need try/catch with logging + continue.
+      const processors = this.eventProcessorRegistry.getProcessors(raw.type, 'Anticipated')
+      for (const processor of processors) {
+        // TODO(types): modelState is `unknown` on CommandRecord, processor expects `TModel | undefined`.
+        // These are incompatible — needs a proper solution for typing model state through the command lifecycle.
+        const result = processor(raw.data, command.modelState as any, context)
+        if (!result) continue
+        if ('invalidate' in result) continue
+        const results: ProcessorResult[] = Array.isArray(result) ? result : [result]
+
+        for (const r of results) {
+          const rowKey = entityIdToString(r.id as unknown as EntityId)
+          if (typeof rowKey !== 'string') continue
+
+          await this.applyLocalResult(r, cacheKey)
+
+          const entryKey = `${r.collection}:${rowKey}`
+          updatedIds.push(entryKey)
+
+          let ids = modifiedByCollection.get(r.collection)
+          if (!ids) {
+            ids = new Set()
+            modifiedByCollection.set(r.collection, ids)
+          }
+          ids.add(rowKey)
+        }
+      }
     }
 
     if (updatedIds.length > 0) {
       this.anticipatedUpdates.set(commandId, updatedIds)
     }
 
-    // Set _clientMetadata on read model entries created by temp-ID creates.
-    // This allows the query primitive to maintain stable identity when the
-    // server assigns a different permanent ID during reconciliation.
+    for (const [collection, ids] of modifiedByCollection) {
+      this.eventBus.emit('readmodel:updated', {
+        collection,
+        ids: Array.from(ids),
+        commandIds: [commandId],
+      })
+    }
+
     if (typeof clientId === 'string') {
       for (const key of updatedIds) {
         const separatorIndex = key.indexOf(':')
         if (separatorIndex === -1) continue
-        const collection = key.substring(0, separatorIndex)
+        const col = key.substring(0, separatorIndex)
         const id = key.substring(separatorIndex + 1)
-        await this.readModelStore.setClientMetadata(collection, id, { clientId })
+        await this.readModelStore.setClientMetadata(col, id, { clientId })
       }
     }
   }
 
-  async cleanup(commandId: string, terminalStatus: TerminalCommandStatus): Promise<void> {
+  private async applyLocalResult(result: ProcessorResult, cacheKey: string): Promise<void> {
+    const { collection, update } = result
+    const rowKey = entityIdToString(result.id as unknown as EntityId)
+    if (typeof rowKey !== 'string') return
+
+    if (update.type === 'delete') {
+      await this.readModelStore.delete(collection, rowKey)
+      return
+    }
+    if (update.type === 'set') {
+      await this.readModelStore.setLocalData(collection, rowKey, update.data, cacheKey)
+      return
+    }
+    if (update.type === 'merge') {
+      await this.readModelStore.applyLocalChanges(collection, rowKey, update.data, cacheKey)
+    }
+  }
+
+  async cleanupOnSucceeded(commandId: string): Promise<void> {
+    // Prune EventCache anticipated entries for the command. The optimistic
+    // read-model overlay stays in place — it will be replaced by server
+    // data when the sync pipeline drains the command's response events,
+    // or evicted when its cache key goes away. `anticipatedUpdates` also
+    // stays so the pipeline can migrate the tracked set to `'applied'`.
+    await this.eventCache.deleteAnticipatedEvents(commandId)
+  }
+
+  async cleanupOnAppliedBatch(commandIds: Iterable<string>): Promise<void> {
+    const ids = Array.from(commandIds)
+    await this.eventCache.deleteAnticipatedEventsForCommands(ids)
+    for (const commandId of ids) {
+      this.anticipatedUpdates.delete(commandId)
+    }
+  }
+
+  async cleanupOnFailure(commandId: string): Promise<void> {
     await this.eventCache.deleteAnticipatedEvents(commandId)
 
     const tracked = this.anticipatedUpdates.get(commandId)
+    this.anticipatedUpdates.delete(commandId)
+    if (!tracked) return
 
-    // On success, keep anticipatedUpdates entries so getCommandEntities() can
-    // resolve them after submit() returns. Consumers need this to discover
-    // what entities a command created (e.g., to select a newly created note).
-    // Entries are cleaned up on session change (clearAll).
-    // On failure/cancellation, delete immediately — the entries are stale.
-    if (terminalStatus !== 'succeeded') {
-      this.anticipatedUpdates.delete(commandId)
-    }
-
-    // Clear local changes for all tracked entities on any terminal state.
-    // - Failure/cancellation: reverts optimistic updates to server baseline,
-    //   or deletes entries with no server baseline.
-    // - Success (update commands): setServerData already cleared hasLocalChanges
-    //   via three-way merge, so clearLocalChanges is a no-op.
-    // - Success (create commands with client-generated IDs): the anticipated
-    //   event created a read model with a client ID that differs from the
-    //   server-assigned ID. The entry has serverData === null, so
-    //   clearLocalChanges deletes the orphan.
-    if (tracked) {
-      for (const key of tracked) {
-        const separatorIndex = key.indexOf(':')
-        if (separatorIndex === -1) continue
-        const collection = key.substring(0, separatorIndex)
-        const id = key.substring(separatorIndex + 1)
-        await this.readModelStore.clearLocalChanges(collection, id)
-      }
+    for (const key of tracked) {
+      const { collection, id } = parseTrackedKey(key)
+      if (!collection || !id) continue
+      await this.readModelStore.clearLocalChanges(collection, id)
     }
   }
 
   async regenerate<TEvent extends IAnticipatedEvent>(
-    commandId: string,
+    command: CommandRecord<TLink, TCommand>,
     newEvents: TEvent[],
-    cacheKey: string,
   ): Promise<void> {
+    const { commandId } = command
     await this.eventCache.deleteAnticipatedEvents(commandId)
     const tracked = this.anticipatedUpdates.get(commandId)
     this.anticipatedUpdates.delete(commandId)
     if (tracked) {
       for (const key of tracked) {
-        const separatorIndex = key.indexOf(':')
-        if (separatorIndex === -1) continue
-        const collection = key.substring(0, separatorIndex)
-        const id = key.substring(separatorIndex + 1)
+        const { collection, id } = parseTrackedKey(key)
+        if (!collection || !id) continue
         await this.readModelStore.clearLocalChanges(collection, id)
       }
     }
-    await this.cache({ commandId, events: newEvents, cacheKey })
+    await this.cache({ command, events: newEvents })
   }
 
   getTrackedEntries(commandId: string): string[] | undefined {
     return this.anticipatedUpdates.get(commandId)
   }
 
-  async getAnticipatedEventsForStream(
-    streamId: string,
-    excludeCommandId: string,
-  ): Promise<ParsedEvent[]> {
-    const allEvents = await this.eventCache.getEventsByStream(streamId)
-    const parsed: ParsedEvent[] = []
-    for (const record of allEvents) {
-      if (record.persistence !== 'Anticipated') continue
-      if (record.commandId === excludeCommandId) continue
-      const cacheKey = record.cacheKeys[0]
-      if (!cacheKey) continue
-      parsed.push({
-        id: record.id,
-        type: record.type,
-        streamId: record.streamId,
-        persistence: 'Anticipated',
-        data: typeof record.data === 'string' ? JSON.parse(record.data) : record.data,
-        commandId: record.commandId ?? undefined,
-        cacheKey,
-      })
-    }
-    return parsed
+  setTrackedEntries(commandId: string, entries: string[]): void {
+    this.anticipatedUpdates.set(commandId, entries)
   }
 
   async clearAll(): Promise<void> {
     this.anticipatedUpdates.clear()
+  }
+}
+
+function parseTrackedKey(key: string): { collection: string | undefined; id: string | undefined } {
+  const separatorIndex = key.indexOf(':')
+  if (separatorIndex === -1) return { collection: undefined, id: undefined }
+  return {
+    collection: key.substring(0, separatorIndex),
+    id: key.substring(separatorIndex + 1),
   }
 }

@@ -11,7 +11,7 @@ export const notebooksCollection = appCreateCollection({
   aggregate: NotebookAggregate,
   representation: representations['nb:Notebook'],
   cacheKeysFromTopics: () => [NOTEBOOK_SEED_KEY],
-  matchesStream: (streamId) => streamId.startsWith('Notebook-'),
+  matchesStream: (streamId) => streamId.startsWith('nb.Notebook-'),
   seedOnInit: {
     cacheKey: NOTEBOOK_SEED_KEY,
     topics: ['Notebook:*'],

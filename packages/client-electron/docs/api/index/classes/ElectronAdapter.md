@@ -86,6 +86,28 @@ Role of this client instance.
 
 ---
 
+### channel
+
+#### Get Signature
+
+> **get** **channel**(): `WorkerMessageChannel`
+
+Transport channel to the worker. Exposed so the bootstrap can treat it
+as the main-thread IEventSink for local events (log emissions,
+etc.) — events pushed through `channel.emit`/`emitDebug` surface on
+[events$](#events) alongside events forwarded from the worker without
+crossing `postMessage`.
+
+##### Returns
+
+`WorkerMessageChannel`
+
+#### Implementation of
+
+`IWorkerAdapter.channel`
+
+---
+
 ### commandQueue
 
 #### Get Signature

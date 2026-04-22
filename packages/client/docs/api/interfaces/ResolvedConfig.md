@@ -10,7 +10,7 @@ Resolved shared configuration with all defaults applied.
 
 ## Extends
 
-- `Required`\<`Omit`\<[`CqrsConfig`](CqrsConfig.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>, `"commandHandlers"` \| `"commandSender"` \| `"schemaValidator"` \| `"workerSetup"` \| `"collections"` \| `"processors"`\>\>
+- `Required`\<`Omit`\<[`CqrsConfig`](CqrsConfig.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>, `"commandHandlers"` \| `"commandSender"` \| `"schemaValidator"` \| `"workerSetup"` \| `"collections"` \| `"processors"` \| `"logger"`\>\>
 
 ## Type Parameters
 
@@ -31,6 +31,18 @@ Resolved shared configuration with all defaults applied.
 `TEvent` _extends_ [`IAnticipatedEvent`](IAnticipatedEvent.md)
 
 ## Properties
+
+### aggregates
+
+> **aggregates**: [`ClientAggregatesConfig`](../type-aliases/ClientAggregatesConfig.md)\<`TLink`\>
+
+Aggregate registry and stream ID parser.
+
+#### Inherited from
+
+`Required.aggregates`
+
+---
 
 ### auth
 
@@ -85,6 +97,12 @@ Enable debug logging.
 #### Inherited from
 
 [`CqrsClientConfig`](CqrsClientConfig.md).[`debug`](CqrsClientConfig.md#debug)
+
+---
+
+### logger?
+
+> `optional` **logger**: `ILogger`
 
 ---
 

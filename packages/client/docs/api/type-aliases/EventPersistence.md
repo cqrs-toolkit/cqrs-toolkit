@@ -6,4 +6,4 @@
 
 # Type Alias: EventPersistence
 
-> **EventPersistence** = `"Permanent"` \| `"Stateful"` \| `"Anticipated"`
+> **EventPersistence** = `IEvent`\[`"persistence"`\] \| `"Anticipated"`

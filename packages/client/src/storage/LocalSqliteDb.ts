@@ -7,7 +7,7 @@
  */
 
 import { assert } from '#utils'
-import type { ISqliteDb, SqliteBatchStatement } from './ISqliteDb.js'
+import type { BatchResult, ISqliteDb, SqliteBatchStatement } from './ISqliteDb.js'
 
 /**
  * VFS type for SQLite storage.
@@ -115,23 +115,30 @@ export class LocalSqliteDb implements ISqliteDb {
     return undefined
   }
 
-  async execBatch(statements: SqliteBatchStatement[]): Promise<unknown[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- matches ISqliteDb.execBatch signature exactly; T is a phantom type on SqliteBatchStatement used only for BatchResult inference
+  async execBatch<const T extends readonly SqliteBatchStatement<any>[]>(
+    statements: T,
+  ): Promise<BatchResult<T>> {
     if (statements.length <= 1) {
-      return statements.map((stmt) => this.execOne(stmt))
+      // The tuple is built positionally from statements; TypeScript cannot
+      // express the correspondence between the SqliteBatchStatement<R> input
+      // and the heterogeneous output tuple without a cast here.
+      return statements.map((stmt) => this.execOne(stmt)) as BatchResult<T>
     }
 
     this.rawDb.exec('BEGIN')
     try {
       const results = statements.map((stmt) => this.execOne(stmt))
       this.rawDb.exec('COMMIT')
-      return results
+      return results as BatchResult<T>
     } catch (error) {
       this.rawDb.exec('ROLLBACK')
       throw error
     }
   }
 
-  private execOne(stmt: SqliteBatchStatement): unknown {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- element type of the execBatch input tuple
+  private execOne(stmt: SqliteBatchStatement<any>): unknown {
     if (stmt.returnRows) {
       return this.rawDb.exec(stmt.sql, {
         bind: stmt.bind,

@@ -4,7 +4,7 @@ import { appCreateListQuery } from '@cqrs-toolkit/demo-base/common/components'
 import { AddTodo, TodoItem } from '@cqrs-toolkit/demo-base/todos/components'
 import type { Todo } from '@cqrs-toolkit/demo-base/todos/domain'
 import { TODO_SEED_KEY } from '@cqrs-toolkit/demo-base/todos/domain'
-import { ServiceLink } from '@meticoeus/ddd-es'
+import { logProvider, ServiceLink } from '@meticoeus/ddd-es'
 import { createMemo, createSignal, For, Show } from 'solid-js'
 import PageShell from '../components/PageShell.js'
 import { createEditNavigator } from '../primitives/createEditNavigator.js'
@@ -13,11 +13,7 @@ export default function TodosPage() {
   const client = useClient<ServiceLink>()
   const nav = createEditNavigator()
   const [error, setError] = createSignal<string>()
-  const query = appCreateListQuery<Todo>(
-    client.queryManager,
-    'todos',
-    deriveScopeKey({ scopeType: 'todos' }),
-  )
+  const query = appCreateListQuery<Todo>('todos', deriveScopeKey({ scopeType: 'todos' }))
 
   const sortedTodos = createMemo(() =>
     query.items.slice().sort((a, b) => {
@@ -58,26 +54,54 @@ export default function TodosPage() {
             {(todo) => (
               <TodoItem
                 todo={todo}
-                onSubmitChangeStatus={(p) =>
-                  client.submit({
-                    command: {
-                      type: 'ChangeTodoStatus',
-                      data: { id: p.id, status: p.status },
-                      revision: p.revision,
-                    },
-                    cacheKey: TODO_SEED_KEY,
-                  })
-                }
-                onSubmitUpdateContent={(p) =>
-                  client.submit({
-                    command: {
-                      type: 'UpdateTodoContent',
-                      data: { id: p.id, content: p.content },
-                      revision: p.revision,
-                    },
-                    cacheKey: TODO_SEED_KEY,
-                  })
-                }
+                onSubmitChangeStatus={async (p) => {
+                  logProvider.log.debug({ op: 'ChangeTodoStatus', params: p }, 'TodosPage submit')
+                  try {
+                    const res = await client.submit({
+                      command: {
+                        type: 'ChangeTodoStatus',
+                        data: { id: p.id, status: p.status },
+                        revision: p.revision,
+                      },
+                      cacheKey: TODO_SEED_KEY,
+                    })
+                    logProvider.log.debug(
+                      { op: 'ChangeTodoStatus', res },
+                      'TodosPage submit succeeded',
+                    )
+                    return res
+                  } catch (err) {
+                    logProvider.log.debug(
+                      { op: 'ChangeTodoStatus', err },
+                      'TodosPage submit failed',
+                    )
+                    throw err
+                  }
+                }}
+                onSubmitUpdateContent={async (p) => {
+                  logProvider.log.debug({ op: 'UpdateTodoContent', params: p }, 'TodosPage submit')
+                  try {
+                    const res = await client.submit({
+                      command: {
+                        type: 'UpdateTodoContent',
+                        data: { id: p.id, content: p.content },
+                        revision: p.revision,
+                      },
+                      cacheKey: TODO_SEED_KEY,
+                    })
+                    logProvider.log.debug(
+                      { op: 'UpdateTodoContent', res },
+                      'TodosPage submit succeeded',
+                    )
+                    return res
+                  } catch (err) {
+                    logProvider.log.debug(
+                      { op: 'UpdateTodoContent', err },
+                      'TodosPage submit failed',
+                    )
+                    throw err
+                  }
+                }}
                 onSubmitDelete={(p) =>
                   client.submit({
                     command: {

@@ -9,6 +9,7 @@
 
 import { assert } from '#utils'
 import { Err, Ok, logProvider, type Link, type Result } from '@meticoeus/ddd-es'
+import type { EnqueueCommand } from '../../types/index.js'
 import type { EventBus } from '../events/EventBus.js'
 import {
   EnqueueOptions,
@@ -27,9 +28,9 @@ import type { WriteQueueOp } from './operations.js'
 import { ALL_OP_TYPES } from './operations.js'
 import { QueueState } from './WriteQueueState.js'
 
-interface PendingEntry<TLink extends Link> {
+interface PendingEntry<TLink extends Link, TCommand extends EnqueueCommand> {
   opId: string
-  op: WriteQueueOp<TLink>
+  op: WriteQueueOp<TLink, TCommand>
   priority: number
   enqueuedAt: number
   resolve: (value: Result<void, WriteQueueException>) => void
@@ -39,13 +40,16 @@ interface PendingEntry<TLink extends Link> {
 /**
  * Write queue implementation.
  */
-export class WriteQueue<TLink extends Link> implements IWriteQueue<TLink> {
-  private readonly handlers: WriteQueueHandlerMap<TLink> = {}
-  private readonly evictionHandlers: WriteQueueEvictionHandlerMap<TLink> = {}
-  private readonly pending: PendingEntry<TLink>[] = []
+export class WriteQueue<TLink extends Link, TCommand extends EnqueueCommand> implements IWriteQueue<
+  TLink,
+  TCommand
+> {
+  private readonly handlers: WriteQueueHandlerMap<TLink, TCommand> = {}
+  private readonly evictionHandlers: WriteQueueEvictionHandlerMap<TLink, TCommand> = {}
+  private readonly pending: PendingEntry<TLink, TCommand>[] = []
   private sessionResetHandler: SessionResetCallback | undefined
   private state: QueueState = { status: 'idle' }
-  private currentOp: WriteQueueOp<TLink> | undefined
+  private currentOp: WriteQueueOp<TLink, TCommand> | undefined
   private boostrapValidation: ReturnType<typeof setTimeout> | undefined
   private opIdCounter = 0
 
@@ -70,27 +74,31 @@ export class WriteQueue<TLink extends Link> implements IWriteQueue<TLink> {
     this.sessionResetHandler = handler
   }
 
-  register<K extends WriteQueueOp<TLink>['type']>(
+  register<K extends WriteQueueOp<TLink, TCommand>['type']>(
     type: K,
-    handler: WriteQueueHandler<TLink, Extract<WriteQueueOp<TLink>, { type: K }>>,
+    handler: WriteQueueHandler<
+      TLink,
+      TCommand,
+      Extract<WriteQueueOp<TLink, TCommand>, { type: K }>
+    >,
   ): void {
     assert(!this.handlers[type], `WriteQueue: handler already registered for '${type}'`)
-    this.handlers[type] = handler as WriteQueueHandlerMap<TLink>[K]
+    this.handlers[type] = handler as WriteQueueHandlerMap<TLink, TCommand>[K]
   }
 
-  registerEviction<K extends WriteQueueOp<TLink>['type']>(
+  registerEviction<K extends WriteQueueOp<TLink, TCommand>['type']>(
     type: K,
-    handler: WriteQueueEvictionHandler<Extract<WriteQueueOp<TLink>, { type: K }>>,
+    handler: WriteQueueEvictionHandler<Extract<WriteQueueOp<TLink, TCommand>, { type: K }>>,
   ): void {
     assert(
       !this.evictionHandlers[type],
       `WriteQueue: eviction handler already registered for '${type}'`,
     )
-    this.evictionHandlers[type] = handler as WriteQueueEvictionHandlerMap<TLink>[K]
+    this.evictionHandlers[type] = handler as WriteQueueEvictionHandlerMap<TLink, TCommand>[K]
   }
 
   enqueue(
-    op: WriteQueueOp<TLink>,
+    op: WriteQueueOp<TLink, TCommand>,
     options?: EnqueueOptions,
   ): Promise<Result<void, WriteQueueException>> {
     switch (this.state.status) {
@@ -103,7 +111,7 @@ export class WriteQueue<TLink extends Link> implements IWriteQueue<TLink> {
         const opId = String(++this.opIdCounter)
         const priority = options?.priority ?? 0
         return new Promise((resolve, reject) => {
-          const entry: PendingEntry<TLink> = {
+          const entry: PendingEntry<TLink, TCommand> = {
             opId,
             op,
             priority,
@@ -162,8 +170,8 @@ export class WriteQueue<TLink extends Link> implements IWriteQueue<TLink> {
     }
   }
 
-  getDebugState(): WriteQueueDebugState<TLink> {
-    const pendingByType: Partial<Record<WriteQueueOp<TLink>['type'], number>> = {}
+  getDebugState(): WriteQueueDebugState<TLink, TCommand> {
+    const pendingByType: Partial<Record<WriteQueueOp<TLink, TCommand>['type'], number>> = {}
     for (const entry of this.pending) {
       const count = pendingByType[entry.op.type] ?? 0
       pendingByType[entry.op.type] = count + 1
@@ -219,7 +227,7 @@ export class WriteQueue<TLink extends Link> implements IWriteQueue<TLink> {
         if (this.state.status !== 'processing') break
 
         // Cast justified: while condition guarantees pending.length > 0, so shift() cannot return undefined.
-        const entry = this.pending.shift() as PendingEntry<TLink>
+        const entry = this.pending.shift() as PendingEntry<TLink, TCommand>
         this.currentOp = entry.op
 
         try {
@@ -230,7 +238,7 @@ export class WriteQueue<TLink extends Link> implements IWriteQueue<TLink> {
             opType: entry.op.type,
           })
           const startedAt = Date.now()
-          await (handler as (op: WriteQueueOp<TLink>) => Promise<void>)(entry.op)
+          await (handler as (op: WriteQueueOp<TLink, TCommand>) => Promise<void>)(entry.op)
           entry.resolve(Ok())
           this.eventBus.emitDebug('writequeue:op-completed', {
             opId: entry.opId,
@@ -272,10 +280,13 @@ export class WriteQueue<TLink extends Link> implements IWriteQueue<TLink> {
   /**
    * Invoke the eviction handler for a discarded op.
    */
-  private invokeEvictionHandler(op: WriteQueueOp<TLink>, reason: WriteQueueException): void {
+  private invokeEvictionHandler(
+    op: WriteQueueOp<TLink, TCommand>,
+    reason: WriteQueueException,
+  ): void {
     const handler = this.evictionHandlers[op.type]
     assert(handler, `WriteQueue: no eviction handler registered for '${op.type}'`)
-    ;(handler as (op: WriteQueueOp<TLink>, r: WriteQueueException) => void)(op, reason)
+    ;(handler as (op: WriteQueueOp<TLink, TCommand>, r: WriteQueueException) => void)(op, reason)
   }
 
   /**

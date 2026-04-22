@@ -282,7 +282,7 @@ export function notebookRoutes(
 
       const events = eventStore
         .getGlobalEvents(afterPosition, limit + 1)
-        .filter((e) => e.streamId.startsWith('Notebook-'))
+        .filter((e) => e.streamId.startsWith('nb.Notebook-'))
 
       const items = events.slice(0, limit)
       const hasMore = events.length > limit

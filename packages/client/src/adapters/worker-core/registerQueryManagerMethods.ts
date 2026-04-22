@@ -28,6 +28,10 @@ export function registerQueryManagerMethods<TLink extends Link, TCommand extends
     return queryManager.list(args[0] as ListParams<TLink>)
   })
 
+  handler.registerMethod('queryManager.getLocallyById', async (args) => {
+    return queryManager.getLocallyById(args[0] as string, args[1] as string)
+  })
+
   handler.registerMethod('queryManager.exists', async (args) => {
     return queryManager.exists(args[0] as string, args[1] as string)
   })

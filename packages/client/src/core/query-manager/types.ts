@@ -4,6 +4,7 @@
 
 import type { Link } from '@meticoeus/ddd-es'
 import type { Observable } from 'rxjs'
+import type { EntityId } from '../../types/entities.js'
 import type { CacheKeyIdentity } from '../cache-manager/CacheKey.js'
 
 /**
@@ -34,7 +35,7 @@ export interface QueryOptions<TLink extends Link> {
  */
 export interface GetByIdParams<TLink extends Link> extends QueryOptions<TLink> {
   /** Entity ID */
-  id: string
+  id: EntityId
 }
 
 /**
@@ -42,7 +43,7 @@ export interface GetByIdParams<TLink extends Link> extends QueryOptions<TLink> {
  */
 export interface GetByIdsParams<TLink extends Link> extends QueryOptions<TLink> {
   /** Entity IDs */
-  ids: string[]
+  ids: EntityId[]
 }
 
 /**
@@ -146,13 +147,30 @@ export interface IQueryManager<TLink extends Link> {
   watchById<T>(params: GetByIdParams<TLink>): Observable<T | undefined>
 
   /**
+   * Read a locally-cached read model by ID without triggering any client-side effects.
+   *
+   * Unlike {@link IQueryManager.getById}, this does not acquire a cache key,
+   * register holds, emit events, or reconcile references.
+   * It reads straight from the local read-model store and returns the data
+   * if present, or `undefined` if the entity is not cached locally.
+   *
+   * Use this for quick local lookups where a full query result
+   * (with metadata and cache-key plumbing) is not needed.
+   *
+   * @param collection - Collection name
+   * @param id - Entity ID
+   * @returns The cached data, or `undefined` if not present locally
+   */
+  getLocallyById<T>(collection: string, id: EntityId): Promise<T | undefined>
+
+  /**
    * Check if an entity exists.
    *
    * @param collection - Collection name
    * @param id - Entity ID
    * @returns Whether the entity exists
    */
-  exists(collection: string, id: string): Promise<boolean>
+  exists(collection: string, id: EntityId): Promise<boolean>
 
   /**
    * Get the count of entities in a collection.

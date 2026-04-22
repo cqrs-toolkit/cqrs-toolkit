@@ -2,7 +2,7 @@
  * Configuration types for the CQRS Client.
  */
 
-import type { IPersistedEvent, Link } from '@meticoeus/ddd-es'
+import type { ILogger, IPersistedEvent, Link } from '@meticoeus/ddd-es'
 import type { AuthStrategy } from '../core/auth.js'
 import type {
   CacheKeyIdentity,
@@ -12,9 +12,21 @@ import type {
 import type { IAnticipatedEvent } from '../core/command-lifecycle/AnticipatedEventShape.js'
 import type { ICommandSender } from '../core/command-queue/types.js'
 import type { ProcessorRegistration } from '../core/event-processor/types.js'
-import type { AggregateConfig, DirectIdReference, IdReference } from './aggregates.js'
+import type {
+  AggregateConfig,
+  DirectIdReference,
+  IClientAggregates,
+  IdReference,
+} from './aggregates.js'
 import { EnqueueCommand } from './commands.js'
-import type { CommandHandlerRegistration, SchemaValidator } from './domain.js'
+import {
+  applyCommandHandlerDefaults,
+  type CommandHandlerRegistration,
+  type SchemaValidator,
+} from './domain.js'
+import type { JSONPathExpression } from './json-path.js'
+
+export type ClientAggregatesConfig<TLink extends Link> = IClientAggregates<TLink>
 
 /**
  * Execution mode for the CQRS Client.
@@ -291,6 +303,18 @@ export interface Collection<TLink extends Link> {
   readonly idReferences?: readonly IdReference<TLink>[]
 
   /**
+   * JSONPath into the read model data where the aggregate's stream revision lives.
+   * Used to advance `AggregateChain.lastKnownRevision` when server data arrives via
+   * seed, refetch, or snapshot — so subsequent AutoRevision commands resolve against
+   * the latest confirmed revision, not a stale command-success value.
+   *
+   * Examples: `'$.revision'`, `'$.latestRevision'`.
+   * Absent means chain revision is not updated from read model records (only from
+   * WS events and command responses).
+   */
+  readonly revisionPath?: JSONPathExpression
+
+  /**
    * Derive cache key identities from WS event topics.
    * Called at WS ingestion to resolve which cache keys an event belongs to.
    * The returned identities are attached to the event before processing —
@@ -393,6 +417,18 @@ function injectCollectionDefaults<TLink extends Link>(
   })
 }
 
+function injectCommandHandlerDefaults<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+>(
+  handlers: CommandHandlerRegistration<TLink, TCommand, TSchema, TEvent>[] | undefined,
+): CommandHandlerRegistration<TLink, TCommand, TSchema, TEvent>[] {
+  if (!handlers) return []
+  return handlers.map((h) => applyCommandHandlerDefaults(h))
+}
+
 /**
  * Shared CQRS configuration.
  *
@@ -412,6 +448,11 @@ export interface CqrsConfig<
    * agree on the schema type (JSONSchema7, z.ZodType, etc.).
    */
   schemaValidator?: SchemaValidator<TSchema>
+
+  /**
+   * Aggregate registry and stream ID parser.
+   */
+  aggregates: ClientAggregatesConfig<TLink>
 
   /**
    * Command handler registrations for local validation and optimistic updates.
@@ -473,6 +514,21 @@ export interface CqrsConfig<
    * Enable debug logging.
    */
   debug?: boolean
+
+  /**
+   * Logger to install via `logProvider.setLogger(...)` at bootstrap.
+   *
+   * When provided, the client honours it verbatim — consumers wiring Pino
+   * or their own transport keep full control over level, format, and
+   * destination. When omitted, the client falls back to the built-in
+   * wiring: {@link EventBusLogger} in debug mode (so log calls land on
+   * `client.events$` alongside library events) or a plain console logger
+   * at `warn` otherwise.
+   *
+   * Applies on both main thread and worker — pass the same logger via the
+   * shared config and both sides install it.
+   */
+  logger?: ILogger
 
   /**
    * Module URLs to dynamically import before initialization.
@@ -562,6 +618,7 @@ export interface ResolvedConfig<
     | 'workerSetup'
     | 'collections'
     | 'processors'
+    | 'logger'
   >
 > {
   commandHandlers: CommandHandlerRegistration<TLink, TCommand, TSchema, TEvent>[]
@@ -570,6 +627,7 @@ export interface ResolvedConfig<
   workerSetup?: string[]
   collections: Collection<TLink>[]
   processors: ProcessorRegistration[]
+  logger?: ILogger
 }
 
 /**
@@ -584,7 +642,8 @@ export function resolveConfig<
   config: CqrsConfig<TLink, TCommand, TSchema, TEvent>,
 ): ResolvedConfig<TLink, TCommand, TSchema, TEvent> {
   return {
-    commandHandlers: config.commandHandlers ?? [],
+    aggregates: config.aggregates,
+    commandHandlers: injectCommandHandlerDefaults(config.commandHandlers),
     commandSender: config.commandSender,
     schemaValidator: config.schemaValidator,
     auth: config.auth,
@@ -609,6 +668,7 @@ export function resolveConfig<
     processors: config.processors ?? [],
     retainTerminal: config.retainTerminal ?? false,
     debug: config.debug ?? false,
+    logger: config.logger,
     workerSetup: config.workerSetup,
   }
 }

@@ -15,7 +15,7 @@ export const notebooksCollection: Collection<ServiceLink> = {
     cacheKey: NOTEBOOK_SEED_KEY,
     topics: ['Notebook:*'],
   },
-  matchesStream: (streamId) => streamId.startsWith('Notebook-'),
+  matchesStream: (streamId) => streamId.startsWith('nb.Notebook-'),
   fetchSeedRecords: ({ ctx, cursor, limit }) =>
     fetchSeedRecordPage(ctx, '/notebooks', cursor, limit),
   fetchStreamEvents: ({ ctx, streamId, afterRevision }) =>

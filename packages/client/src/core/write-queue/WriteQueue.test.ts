@@ -1,6 +1,7 @@
 import type { IPersistedEvent, ServiceLink } from '@meticoeus/ddd-es'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createTestWriteQueue } from '../../testing/index.js'
+import { EnqueueCommand } from '../../types/index.js'
 import { deriveScopeKey } from '../cache-manager/index.js'
 import { EventBus } from '../events/index.js'
 import {
@@ -11,8 +12,8 @@ import {
 import type {
   ApplyGapRepairOp,
   ApplyRecordsOp,
-  ApplyWsEventOp,
   EvictCacheKeyOp,
+  ReconcileWsEventsOp,
   WriteQueueOp,
 } from './operations.js'
 
@@ -37,10 +38,8 @@ describe('WriteQueue', () => {
         },
       })
 
-      const wsEvent: ApplyWsEventOp<ServiceLink> = {
-        type: 'apply-ws-event',
-        event: DUMMY_EVENT,
-        cacheKeys: [TODO_CACHE_KEY],
+      const wsEvent: ReconcileWsEventsOp = {
+        type: 'reconcile-ws-events',
       }
 
       await Promise.all([queue.enqueue(wsEvent), queue.enqueue(wsEvent), queue.enqueue(wsEvent)])
@@ -52,10 +51,8 @@ describe('WriteQueue', () => {
       const { handler, calls } = controllableHandler()
       const queue = createQueue({ handler })
 
-      const wsEvent: ApplyWsEventOp<ServiceLink> = {
-        type: 'apply-ws-event',
-        event: DUMMY_EVENT,
-        cacheKeys: [TODO_CACHE_KEY],
+      const wsEvent: ReconcileWsEventsOp = {
+        type: 'reconcile-ws-events',
       }
 
       const p1 = queue.enqueue(wsEvent)
@@ -79,10 +76,8 @@ describe('WriteQueue', () => {
       const { handler, calls } = controllableHandler()
       const queue = createQueue({ handler })
 
-      const wsEvent: ApplyWsEventOp<ServiceLink> = {
-        type: 'apply-ws-event',
-        event: DUMMY_EVENT,
-        cacheKeys: [TODO_CACHE_KEY],
+      const wsEvent: ReconcileWsEventsOp = {
+        type: 'reconcile-ws-events',
       }
 
       const p = queue.enqueue(wsEvent)
@@ -97,10 +92,8 @@ describe('WriteQueue', () => {
       const queue = createQueue()
       queue.destroy()
 
-      const wsEvent: ApplyWsEventOp<ServiceLink> = {
-        type: 'apply-ws-event',
-        event: DUMMY_EVENT,
-        cacheKeys: [TODO_CACHE_KEY],
+      const wsEvent: ReconcileWsEventsOp = {
+        type: 'reconcile-ws-events',
       }
 
       const result = await queue.enqueue(wsEvent)
@@ -112,10 +105,8 @@ describe('WriteQueue', () => {
       const { handler, calls } = controllableHandler()
       const queue = createQueue({ handler })
 
-      const wsEvent: ApplyWsEventOp<ServiceLink> = {
-        type: 'apply-ws-event',
-        event: DUMMY_EVENT,
-        cacheKeys: [TODO_CACHE_KEY],
+      const wsEvent: ReconcileWsEventsOp = {
+        type: 'reconcile-ws-events',
       }
 
       queue.enqueue(wsEvent)
@@ -141,10 +132,8 @@ describe('WriteQueue', () => {
         },
       })
 
-      const wsEvent: ApplyWsEventOp<ServiceLink> = {
-        type: 'apply-ws-event',
-        event: DUMMY_EVENT,
-        cacheKeys: [TODO_CACHE_KEY],
+      const wsEvent: ReconcileWsEventsOp = {
+        type: 'reconcile-ws-events',
       }
 
       await expect(queue.enqueue(wsEvent)).rejects.toThrow('handler boom')
@@ -159,10 +148,8 @@ describe('WriteQueue', () => {
         },
       })
 
-      const wsEvent: ApplyWsEventOp<ServiceLink> = {
-        type: 'apply-ws-event',
-        event: DUMMY_EVENT,
-        cacheKeys: [TODO_CACHE_KEY],
+      const wsEvent: ReconcileWsEventsOp = {
+        type: 'reconcile-ws-events',
       }
 
       const p1 = queue.enqueue(wsEvent)
@@ -180,10 +167,8 @@ describe('WriteQueue', () => {
       const { handler, calls } = controllableHandler()
       const queue = createQueue({ handler })
 
-      const wsEvent: ApplyWsEventOp<ServiceLink> = {
-        type: 'apply-ws-event',
-        event: DUMMY_EVENT,
-        cacheKeys: [TODO_CACHE_KEY],
+      const wsEvent: ReconcileWsEventsOp = {
+        type: 'reconcile-ws-events',
       }
       const seedRecords: ApplyRecordsOp<ServiceLink> = {
         type: 'apply-records',
@@ -219,10 +204,8 @@ describe('WriteQueue', () => {
       const onReset = vi.fn(async () => {})
       const queue = createQueue({ handler, onSessionReset: onReset })
 
-      const wsEvent: ApplyWsEventOp<ServiceLink> = {
-        type: 'apply-ws-event',
-        event: DUMMY_EVENT,
-        cacheKeys: [TODO_CACHE_KEY],
+      const wsEvent: ReconcileWsEventsOp = {
+        type: 'reconcile-ws-events',
       }
 
       queue.enqueue(wsEvent)
@@ -267,10 +250,8 @@ describe('WriteQueue', () => {
 
       await queue.resetSession('user-changed')
 
-      const wsEvent: ApplyWsEventOp<ServiceLink> = {
-        type: 'apply-ws-event',
-        event: DUMMY_EVENT,
-        cacheKeys: [TODO_CACHE_KEY],
+      const wsEvent: ReconcileWsEventsOp = {
+        type: 'reconcile-ws-events',
       }
 
       const result = await queue.enqueue(wsEvent)
@@ -282,10 +263,8 @@ describe('WriteQueue', () => {
       const { handler, calls } = controllableHandler()
       const queue = createQueue({ handler })
 
-      const wsEvent: ApplyWsEventOp<ServiceLink> = {
-        type: 'apply-ws-event',
-        event: DUMMY_EVENT,
-        cacheKeys: [TODO_CACHE_KEY],
+      const wsEvent: ReconcileWsEventsOp = {
+        type: 'reconcile-ws-events',
       }
       const evict: EvictCacheKeyOp = { type: 'evict-cache-key', cacheKey: TODO_CACHE_KEY.key }
 
@@ -319,10 +298,8 @@ describe('WriteQueue', () => {
       const { handler, calls } = controllableHandler()
       const queue = createQueue({ handler })
 
-      const wsEvent: ApplyWsEventOp<ServiceLink> = {
-        type: 'apply-ws-event',
-        event: DUMMY_EVENT,
-        cacheKeys: [TODO_CACHE_KEY],
+      const wsEvent: ReconcileWsEventsOp = {
+        type: 'reconcile-ws-events',
       }
       const evict: EvictCacheKeyOp = { type: 'evict-cache-key', cacheKey: TODO_CACHE_KEY.key }
 
@@ -351,10 +328,8 @@ describe('WriteQueue', () => {
       const evictionHandler = vi.fn()
       const queue = createQueue({ handler, evictionHandler })
 
-      const wsEvent: ApplyWsEventOp<ServiceLink> = {
-        type: 'apply-ws-event',
-        event: DUMMY_EVENT,
-        cacheKeys: [TODO_CACHE_KEY],
+      const wsEvent: ReconcileWsEventsOp = {
+        type: 'reconcile-ws-events',
       }
 
       // First op goes in-flight
@@ -379,10 +354,8 @@ describe('WriteQueue', () => {
       const evictionHandler = vi.fn()
       const queue = createQueue({ handler, evictionHandler })
 
-      const wsEvent: ApplyWsEventOp<ServiceLink> = {
-        type: 'apply-ws-event',
-        event: DUMMY_EVENT,
-        cacheKeys: [TODO_CACHE_KEY],
+      const wsEvent: ReconcileWsEventsOp = {
+        type: 'reconcile-ws-events',
       }
 
       queue.enqueue(wsEvent)
@@ -402,10 +375,8 @@ describe('WriteQueue', () => {
       const evictionHandler = vi.fn()
       const queue = createQueue({ handler, evictionHandler })
 
-      const wsEvent: ApplyWsEventOp<ServiceLink> = {
-        type: 'apply-ws-event',
-        event: DUMMY_EVENT,
-        cacheKeys: [TODO_CACHE_KEY],
+      const wsEvent: ReconcileWsEventsOp = {
+        type: 'reconcile-ws-events',
       }
 
       queue.enqueue(wsEvent)
@@ -425,20 +396,18 @@ describe('WriteQueue', () => {
       const evictionHandler = vi.fn()
       const queue = createQueue({ handler, evictionHandler })
 
-      const wsEvent: ApplyWsEventOp<ServiceLink> = {
-        type: 'apply-ws-event',
-        event: DUMMY_EVENT,
-        cacheKeys: [TODO_CACHE_KEY],
+      const wsEvent: ReconcileWsEventsOp = {
+        type: 'reconcile-ws-events',
       }
 
       // Put one in-flight so the next ones are pending
       queue.enqueue(wsEvent)
       await tick()
 
-      const gapRepair: ApplyGapRepairOp = {
+      const gapRepair: ApplyGapRepairOp<ServiceLink> = {
         type: 'apply-gap-repair',
         streamId: 'stream-1',
-        cacheKeys: [TODO_CACHE_KEY.key],
+        cacheKeys: [TODO_CACHE_KEY],
         events: [],
       }
       queue.enqueue(gapRepair)
@@ -491,10 +460,8 @@ describe('WriteQueue', () => {
       const { handler, calls } = controllableHandler()
       const queue = createQueue({ handler })
 
-      const wsEvent: ApplyWsEventOp<ServiceLink> = {
-        type: 'apply-ws-event',
-        event: DUMMY_EVENT,
-        cacheKeys: [TODO_CACHE_KEY],
+      const wsEvent: ReconcileWsEventsOp = {
+        type: 'reconcile-ws-events',
       }
       const seedRecords: ApplyRecordsOp<ServiceLink> = {
         type: 'apply-records',
@@ -514,7 +481,7 @@ describe('WriteQueue', () => {
       const state = queue.getDebugState()
       expect(state.pendingCount).toBe(3)
       expect(state.pendingByType).toEqual({
-        'apply-ws-event': 1,
+        'reconcile-ws-events': 1,
         'apply-records': 2,
       })
 
@@ -529,10 +496,8 @@ describe('WriteQueue', () => {
       const { handler, calls } = controllableHandler()
       const queue = createQueue({ handler })
 
-      const wsEvent: ApplyWsEventOp<ServiceLink> = {
-        type: 'apply-ws-event',
-        event: DUMMY_EVENT,
-        cacheKeys: [TODO_CACHE_KEY],
+      const wsEvent: ReconcileWsEventsOp = {
+        type: 'reconcile-ws-events',
       }
 
       queue.enqueue(wsEvent)
@@ -547,10 +512,8 @@ describe('WriteQueue', () => {
     })
   })
   describe('priority', () => {
-    const wsEvent: ApplyWsEventOp<ServiceLink> = {
-      type: 'apply-ws-event',
-      event: DUMMY_EVENT,
-      cacheKeys: [TODO_CACHE_KEY],
+    const wsEvent: ReconcileWsEventsOp = {
+      type: 'reconcile-ws-events',
     }
 
     const evictOp: EvictCacheKeyOp = {
@@ -568,7 +531,7 @@ describe('WriteQueue', () => {
 
       await Promise.all([queue.enqueue(wsEvent), queue.enqueue(evictOp), queue.enqueue(wsEvent)])
 
-      expect(order).toEqual(['apply-ws-event', 'evict-cache-key', 'apply-ws-event'])
+      expect(order).toEqual(['reconcile-ws-events', 'evict-cache-key', 'reconcile-ws-events'])
     })
 
     it('higher priority operations process before lower priority', async () => {
@@ -596,7 +559,7 @@ describe('WriteQueue', () => {
       await Promise.all([lowPromise, highPromise])
 
       expect(calls[1]!.op.type).toBe('evict-cache-key')
-      expect(calls[2]!.op.type).toBe('apply-ws-event')
+      expect(calls[2]!.op.type).toBe('reconcile-ws-events')
     })
 
     it('same priority preserves FIFO order', async () => {
@@ -622,9 +585,9 @@ describe('WriteQueue', () => {
       calls[3]!.resolve()
       await tick()
 
-      expect(calls[1]!.op.type).toBe('apply-ws-event')
+      expect(calls[1]!.op.type).toBe('reconcile-ws-events')
       expect(calls[2]!.op.type).toBe('evict-cache-key')
-      expect(calls[3]!.op.type).toBe('apply-ws-event')
+      expect(calls[3]!.op.type).toBe('reconcile-ws-events')
     })
 
     it('session reset discards all pending regardless of priority', async () => {
@@ -676,23 +639,26 @@ describe('WriteQueue', () => {
   })
 
   function createQueue(params?: {
-    handler?: (op: WriteQueueOp<ServiceLink>) => Promise<void>
-    evictionHandler?: (op: WriteQueueOp<ServiceLink>, reason: WriteQueueException) => void
+    handler?: (op: WriteQueueOp<ServiceLink, EnqueueCommand>) => Promise<void>
+    evictionHandler?: (
+      op: WriteQueueOp<ServiceLink, EnqueueCommand>,
+      reason: WriteQueueException,
+    ) => void
     onSessionReset?: (reason: string) => Promise<void>
   }) {
     const eventBus = new EventBus<ServiceLink>()
-    return createTestWriteQueue<ServiceLink>(eventBus, cleanup, [], params)
+    return createTestWriteQueue<ServiceLink, EnqueueCommand>(eventBus, cleanup, [], params)
   }
 })
 
 function controllableHandler() {
   const calls: Array<{
-    op: WriteQueueOp<ServiceLink>
+    op: WriteQueueOp<ServiceLink, EnqueueCommand>
     resolve: () => void
     reject: (err: Error) => void
   }> = []
 
-  const handler = (op: WriteQueueOp<ServiceLink>): Promise<void> => {
+  const handler = (op: WriteQueueOp<ServiceLink, EnqueueCommand>): Promise<void> => {
     return new Promise<void>((resolve, reject) => {
       calls.push({ op, resolve, reject })
     })

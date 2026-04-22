@@ -4,13 +4,22 @@
 
 // Aggregates
 
-export { ClientAggregate, matchesAggregate } from './aggregates.js'
+export {
+  ClientAggregate,
+  StreamIdParseException,
+  isEntityIdLink,
+  matchesAggregate,
+} from './aggregates.js'
 export type {
   AggregateConfig,
   DirectIdReference,
   IdReference,
   LinkIdReference,
 } from './aggregates.js'
+
+// Config
+
+export type { ClientAggregatesConfig } from './config.js'
 
 // Entities
 export type { EntityId, EntityRef } from './entities.js'
@@ -89,6 +98,7 @@ export type {
   EnqueueOptions,
   EnqueueResult,
   EnqueueSuccess,
+  HandlerCommand,
   SubmitError,
   SubmitOptions,
   SubmitParams,

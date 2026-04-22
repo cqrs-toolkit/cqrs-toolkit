@@ -58,7 +58,7 @@ Place a hold on the cache key while query is active
 
 ### id
 
-> **id**: `string`
+> **id**: [`EntityId`](../type-aliases/EntityId.md)
 
 Entity ID
 

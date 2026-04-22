@@ -13,7 +13,8 @@
  * @packageDocumentation
  */
 
-import { Err, Ok, type Link } from '@meticoeus/ddd-es'
+import { assert } from '#utils'
+import { Err, logProvider, Ok, type Link } from '@meticoeus/ddd-es'
 import type { Observable } from 'rxjs'
 import type {
   AdapterStatus,
@@ -24,17 +25,20 @@ import type {
 import { DedicatedWorkerAdapter } from './adapters/dedicated-worker/DedicatedWorkerAdapter.js'
 import { OnlineOnlyAdapter } from './adapters/online-only/OnlineOnlyAdapter.js'
 import { SharedWorkerAdapter } from './adapters/shared-worker/SharedWorkerAdapter.js'
+import { resolveLogger } from './adapters/worker-core/eventBusLogger.js'
 import { OpfsUnavailableException } from './adapters/worker-core/probeOpfs.js'
 import type { CacheKeyIdentity } from './core/cache-manager/CacheKey.js'
 import { CacheManager } from './core/cache-manager/CacheManager.js'
 import { CacheManagerFacade } from './core/cache-manager/CacheManagerFacade.js'
 import type { ICacheManager } from './core/cache-manager/types.js'
+import { CommandIdMappingStore } from './core/command-id-mapping-store/CommandIdMappingStore.js'
 import { AnticipatedEventHandler } from './core/command-lifecycle/AnticipatedEventHandler.js'
 import type { IAnticipatedEvent } from './core/command-lifecycle/AnticipatedEventShape.js'
 import { createCommandResponseHandler } from './core/command-lifecycle/createCommandResponseHandler.js'
 import { CommandQueue } from './core/command-queue/CommandQueue.js'
 import { InMemoryCommandFileStore } from './core/command-queue/file-store/InMemoryCommandFileStore.js'
 import type { ICommandQueue } from './core/command-queue/types.js'
+import { CommandStore } from './core/command-store/CommandStore.js'
 import { detectMode, readModeCache, writeModeCache } from './core/detectMode.js'
 import { EventCache } from './core/event-cache/EventCache.js'
 import { EventProcessorRegistry } from './core/event-processor/EventProcessorRegistry.js'
@@ -46,7 +50,7 @@ import type { IQueryManager } from './core/query-manager/types.js'
 import { ReadModelStore } from './core/read-model-store/ReadModelStore.js'
 import { ConnectivityManager } from './core/sync-manager/ConnectivityManager.js'
 import type { IConnectivity } from './core/sync-manager/IConnectivityManager.js'
-import type { CollectionSyncStatus } from './core/sync-manager/SeedStatusIndex.js'
+import { CollectionSyncStatus } from './core/sync-manager/SeedStatusIndex.js'
 import { SyncManager } from './core/sync-manager/SyncManager.js'
 import { WriteQueue } from './core/write-queue/WriteQueue.js'
 import type { EnqueueCommand, SubmitParams, SubmitResult, SubmitSuccess } from './types/commands.js'
@@ -62,7 +66,6 @@ import type { CqrsDevToolsHook, DebugStorageAPI } from './types/debug.js'
 import { createDomainExecutor } from './types/domain.js'
 import type { EntityRef } from './types/entities.js'
 import type { LibraryEvent } from './types/events.js'
-import { assert } from './utils/assert.js'
 
 /**
  * Window type augmentation for devtools hook detection.
@@ -152,7 +155,9 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand> {
   async submit<TResponse = unknown>(
     params: SubmitParams<TLink, TCommand>,
   ): Promise<SubmitResult<TResponse>> {
-    const { command, cacheKey, skipValidation, timeout } = params
+    // Strip submit-only fields; the rest flow verbatim into enqueue so new
+    // EnqueueOptions fields don't silently get dropped here.
+    const { timeout, ...enqueueParams } = params
     let commandId = params.commandId
 
     // Step 1: If commandId provided, check queue for existing command
@@ -161,7 +166,10 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand> {
       if (existing) {
         switch (existing.status) {
           case 'succeeded':
-            // Already confirmed — return cached success
+          case 'applied':
+            // Already confirmed — return cached success. 'applied' is post-terminal
+            // (pipeline has since reflected effects in serverData) and is treated the
+            // same as 'succeeded' for submit idempotency.
             return Ok({
               stage: 'confirmed',
               commandId,
@@ -185,10 +193,8 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand> {
 
     // Step 2: Enqueue the command
     const enqueueResult = await this.commandQueue.enqueue({
-      command,
-      skipValidation,
+      ...enqueueParams,
       commandId,
-      cacheKey,
     })
 
     // Step 3: If validation fails, return error with no commandId
@@ -360,7 +366,7 @@ export async function createCqrsClient<
         mode,
       )
     } else {
-      client = await createWorkerClient<TLink, TCommand>(adapter, mode, resolved.debug)
+      client = await createWorkerClient<TLink, TCommand, TSchema, TEvent>(adapter, mode, resolved)
     }
   } catch (error) {
     await adapter.close()
@@ -413,6 +419,11 @@ async function createOnlineOnlyClient<
 ): Promise<CqrsClient<TLink, TCommand>> {
   const { storage, eventBus } = adapter
 
+  // Wire the main-thread logger against the adapter's bus (online-only has
+  // exactly one bus and every emit lands on `client.events$`). `resolveLogger`
+  // honours consumer-provided loggers first, falls back to built-in wiring.
+  logProvider.setLogger(resolveLogger(resolved, eventBus))
+
   // Register event processors
   const registry = new EventProcessorRegistry()
   for (const registration of resolved.processors) {
@@ -421,61 +432,68 @@ async function createOnlineOnlyClient<
 
   // Create core components
   const windowId = crypto.randomUUID()
-  const cacheManager = new CacheManager<TLink, TCommand>(storage, eventBus, {
+  const cacheManager = new CacheManager<TLink, TCommand>(eventBus, storage, {
     cacheConfig: resolved.cache,
   })
   await cacheManager.initialize()
 
-  const eventCache = new EventCache<TLink, TCommand>(storage, eventBus)
+  const eventCache = new EventCache<TLink, TCommand>(storage)
 
-  const readModelStore = new ReadModelStore(storage)
+  const mappingStore = new CommandIdMappingStore<TLink, TCommand>(storage)
+  await mappingStore.initialize()
+
+  const readModelStore = new ReadModelStore(eventBus, storage, mappingStore)
 
   const eventProcessorRunner = new EventProcessorRunner<TLink, TCommand>(
-    readModelStore,
     eventBus,
     registry,
+    readModelStore,
   )
 
   // Create WriteQueue — subsystems register their own handlers in their constructors.
-  const writeQueue = new WriteQueue<TLink>(eventBus)
+  const writeQueue = new WriteQueue<TLink, TCommand>(eventBus)
+
+  // Create and initialize CommandStore
+  const commandStore = new CommandStore(storage, {
+    retainTerminal: resolved.retainTerminal,
+  })
+  await commandStore.initialize()
 
   // Lazy ref for SyncManager — safe because onCommandResponse is never called
   // before SyncManager exists (queue starts paused, only processes after resume).
   let syncManagerRef: SyncManager<TLink, TCommand, TSchema, TEvent>
 
   const anticipatedEventHandler = new AnticipatedEventHandler(
+    eventBus,
     eventCache,
-    eventProcessorRunner,
+    registry,
     readModelStore,
     resolved.collections,
     writeQueue,
   )
 
-  // Wire the anticipated handler into the processor for create reconciliation.
-  // Breaks the circular dependency: handler needs runner, runner needs handler.
-  eventProcessorRunner.setAnticipatedEventHandler(anticipatedEventHandler)
-
   const queryManager = new QueryManager<TLink, TCommand>(eventBus, cacheManager, readModelStore)
 
   const fileStore = new InMemoryCommandFileStore()
 
+  const domainExecutor =
+    resolved.commandHandlers.length === 0
+      ? undefined
+      : createDomainExecutor<TLink, TCommand, TSchema, TEvent>(resolved.commandHandlers, {
+          schemaValidator: resolved.schemaValidator,
+          queryManager,
+        })
   const commandQueue = new CommandQueue<TLink, TCommand, TSchema, TEvent>(
-    storage,
     eventBus,
+    storage,
     fileStore,
     anticipatedEventHandler,
+    resolved.aggregates,
+    readModelStore,
+    commandStore,
+    mappingStore,
     {
-      ...(() => {
-        if (resolved.commandHandlers.length === 0) return {}
-        const executor = createDomainExecutor<TLink, TCommand, TSchema, TEvent>(
-          resolved.commandHandlers,
-          {
-            schemaValidator: resolved.schemaValidator,
-            queryManager,
-          },
-        )
-        return { domainExecutor: executor, handlerMetadata: executor }
-      })(),
+      domainExecutor,
       commandSender: resolved.commandSender,
       retryConfig: resolved.retry,
       retainTerminal: resolved.retainTerminal,
@@ -495,10 +513,13 @@ async function createOnlineOnlyClient<
 
   const syncManager = new SyncManager<TLink, TCommand, TSchema, TEvent>(
     eventBus,
+    storage,
     adapter.sessionManager,
+    anticipatedEventHandler,
     commandQueue,
     eventCache,
     cacheManager,
+    registry,
     eventProcessorRunner,
     readModelStore,
     queryManager,
@@ -507,6 +528,10 @@ async function createOnlineOnlyClient<
     resolved.network,
     resolved.auth,
     resolved.collections,
+    resolved.aggregates,
+    domainExecutor,
+    commandStore,
+    mappingStore,
   )
   syncManagerRef = syncManager
 
@@ -514,6 +539,8 @@ async function createOnlineOnlyClient<
   cacheManager.setWriteQueue(writeQueue)
   cacheManager.setCommandQueue(commandQueue)
   commandQueue.setCacheManager(cacheManager)
+
+  await commandQueue.initialize()
 
   // Build sync manager facade
   const syncManagerFacade: CqrsClientSyncManager<TLink> = {
@@ -539,6 +566,8 @@ async function createOnlineOnlyClient<
     await syncManager.destroy()
     await stableQueryManager.destroy()
     await commandQueue.destroy()
+    await commandStore.destroy()
+    await mappingStore.destroy()
   }
 
   const cacheManagerFacade = new CacheManagerFacade<TLink>(cacheManager, windowId)
@@ -562,16 +591,27 @@ async function createOnlineOnlyClient<
  * If debug is enabled, sends a `debug.enable` RPC to the worker so it
  * starts emitting debug events. This is one-way and idempotent.
  */
-async function createWorkerClient<TLink extends Link, TCommand extends EnqueueCommand>(
+async function createWorkerClient<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+>(
   adapter: IWorkerAdapter<TLink, TCommand>,
   mode: ExecutionMode,
-  debug: boolean,
+  resolved: ResolvedConfig<TLink, TCommand, TSchema, TEvent>,
 ): Promise<CqrsClient<TLink, TCommand>> {
   const { commandQueue, cacheManager, syncManager } = adapter
   const stableQueryManager = new StableRefQueryManager<TLink>(adapter.queryManager)
 
+  // Wire the main-thread logger against the channel — it's the single
+  // source of library events for this thread, so local emissions land on
+  // `client.events$` alongside events forwarded from the worker without
+  // crossing `postMessage`.
+  logProvider.setLogger(resolveLogger(resolved, adapter.channel))
+
   // Enable debug in worker if requested
-  if (debug) {
+  if (resolved.debug) {
     await adapter.enableDebug()
   }
 
@@ -680,12 +720,14 @@ function createAdapterForMode<
         workerUrl,
         sqliteWorkerUrl,
         requestTimeout: config.network.timeout,
+        debug: config.debug,
       })
     case 'dedicated-worker':
       assert(workerUrl, 'workerUrl is required for dedicated-worker mode')
       return new DedicatedWorkerAdapter<TLink, TCommand>({
         workerUrl,
         requestTimeout: config.network.timeout,
+        debug: config.debug,
       })
   }
 }

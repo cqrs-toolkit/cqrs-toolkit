@@ -2,7 +2,8 @@ import { type CqrsClient, type EnqueueCommand } from '@cqrs-toolkit/client'
 import type { Link } from '@meticoeus/ddd-es'
 import { createContext, type JSX, useContext } from 'solid-js'
 
-const CqrsContext = createContext<CqrsClient<Link, EnqueueCommand>>()
+/** @internal Exported for test use only — production code should use CqrsProvider. */
+export const CqrsContext = createContext<CqrsClient<Link, EnqueueCommand>>()
 
 interface CqrsProviderProps<TLink extends Link, TCommand extends EnqueueCommand> {
   client: CqrsClient<TLink, TCommand>

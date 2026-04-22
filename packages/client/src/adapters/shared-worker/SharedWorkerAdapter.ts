@@ -74,6 +74,15 @@ export interface SharedWorkerAdapterConfig {
   requestTimeout?: number
   /** Heartbeat interval in milliseconds (default: 10000) */
   heartbeatInterval?: number
+  /**
+   * Whether the main-thread channel should allow `emitDebug` emissions.
+   * Forwarded to {@link WorkerMessageChannel} so local debug events
+   * (e.g. `debug:log` from the main-thread logger) surface on
+   * `libraryEvents$`. Has no effect on what the worker emits across
+   * `postMessage` — that's controlled by the worker's own `EventBus.debug`
+   * and toggled via the `debug.enable` RPC. Defaults to `false`.
+   */
+  debug?: boolean
 }
 
 const DEFAULT_HEARTBEAT_INTERVAL = 10000
@@ -115,7 +124,7 @@ export class SharedWorkerAdapter<
 
   private sharedWorker: SharedWorker | undefined
   private sqliteWorker: Worker | undefined
-  private channel: WorkerMessageChannel | undefined
+  private _channel: WorkerMessageChannel | undefined
   private heartbeatSubscription: Subscription | undefined
   private currentWorkerInstanceId: string | undefined
   private beforeUnloadHandler: (() => void) | undefined
@@ -132,6 +141,11 @@ export class SharedWorkerAdapter<
   get events$(): Observable<LibraryEvent<TLink>> {
     assert(this._events$, 'Adapter not initialized')
     return this._events$
+  }
+
+  get channel(): WorkerMessageChannel {
+    assert(this._channel, 'Adapter not initialized')
+    return this._channel
   }
 
   get commandQueue(): ICommandQueue<TLink, TCommand> {
@@ -159,13 +173,13 @@ export class SharedWorkerAdapter<
   }
 
   async enableDebug(): Promise<void> {
-    assert(this.channel, 'Adapter not initialized')
-    await this.channel.request('debug.enable')
+    assert(this._channel, 'Adapter not initialized')
+    await this._channel.request('debug.enable')
   }
 
   async debugQuery<T>(method: string, args?: unknown[]): Promise<T> {
-    assert(this.channel, 'Adapter not initialized')
-    return this.channel.request(method, args) as Promise<T>
+    assert(this._channel, 'Adapter not initialized')
+    return this._channel.request(method, args) as Promise<T>
   }
 
   /**
@@ -198,14 +212,15 @@ export class SharedWorkerAdapter<
       })
 
       // 4. Create message channel on SharedWorker port
-      this.channel = new WorkerMessageChannel(this.sharedWorker.port, {
+      this._channel = new WorkerMessageChannel(this.sharedWorker.port, {
         requestTimeout: this.config.requestTimeout,
+        debug: this.config.debug,
       })
-      this.channel.connect(this.sharedWorker.port)
+      this._channel.connect(this.sharedWorker.port)
       this.sharedWorker.port.start()
 
       // Build shared broadcast observable for proxies
-      const broadcastEvents$ = this.channel.libraryEvents$.pipe(share(), takeUntil(this.destroy$))
+      const broadcastEvents$ = this._channel.libraryEvents$.pipe(share(), takeUntil(this.destroy$))
 
       // Build events$ observable for consumers
       this._events$ = broadcastEvents$.pipe(
@@ -220,12 +235,14 @@ export class SharedWorkerAdapter<
       )
 
       // Listen for worker instance changes (restarts)
-      this.channel.workerInstanceChanges$.pipe(takeUntil(this.destroy$)).subscribe((instanceId) => {
-        this.handleWorkerInstanceChange(instanceId)
-      })
+      this._channel.workerInstanceChanges$
+        .pipe(takeUntil(this.destroy$))
+        .subscribe((instanceId) => {
+          this.handleWorkerInstanceChange(instanceId)
+        })
 
       // 5. Register this window
-      const registration = await this.channel.register(this.windowId)
+      const registration = await this._channel.register(this.windowId)
       if (!registration.success) {
         throw new Error(`Failed to register window: ${registration.error}`)
       }
@@ -271,21 +288,21 @@ export class SharedWorkerAdapter<
       })
 
       // 8. Wait for orchestrator ready
-      await this.channel.request('orchestrator.initialize')
+      await this._channel.request('orchestrator.initialize')
 
       // 9. Create proxy objects
       this._commandQueue = new CommandQueueProxy(
-        this.channel,
+        this._channel,
         new OpfsCommandFileStore(),
         broadcastEvents$,
       )
       this._queryManager = new QueryManagerProxy<TLink>(
-        this.channel,
+        this._channel,
         broadcastEvents$,
         this.windowId,
       )
-      this._cacheManager = new SharedWorkerCacheManagerProxy<TLink>(this.channel, this.windowId)
-      this._syncManager = new SyncManagerProxy<TLink>(this.channel, broadcastEvents$)
+      this._cacheManager = new SharedWorkerCacheManagerProxy<TLink>(this._channel, this.windowId)
+      this._syncManager = new SyncManagerProxy<TLink>(this._channel, broadcastEvents$)
 
       // 10. Sync connectivity state from worker
       await this._syncManager.syncState()
@@ -325,10 +342,10 @@ export class SharedWorkerAdapter<
     }
 
     // Unregister window and destroy channel
-    if (this.channel) {
-      this.channel.unregister(this.windowId)
-      this.channel.destroy()
-      this.channel = undefined
+    if (this._channel) {
+      this._channel.unregister(this.windowId)
+      this._channel.destroy()
+      this._channel = undefined
     }
 
     // Destroy proxies
@@ -361,8 +378,8 @@ export class SharedWorkerAdapter<
     this.heartbeatSubscription = interval(heartbeatInterval)
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
-        if (this.channel) {
-          this.channel.sendHeartbeat(this.windowId)
+        if (this._channel) {
+          this._channel.sendHeartbeat(this.windowId)
         }
       })
   }
@@ -378,13 +395,13 @@ export class SharedWorkerAdapter<
   }
 
   private async restoreHolds(): Promise<void> {
-    if (!this.channel || !this._cacheManager) return
+    if (!this._channel || !this._cacheManager) return
 
     const cacheKeys = this._cacheManager.getHeldKeys()
     if (cacheKeys.length === 0) return
 
     try {
-      const response = await this.channel.restoreHolds(this.windowId, cacheKeys)
+      const response = await this._channel.restoreHolds(this.windowId, cacheKeys)
 
       // Remove keys that failed to restore (no longer exist in storage after restart)
       for (const failedKey of response.failedKeys) {

@@ -18,7 +18,6 @@ import type { CacheKeyRecord, IStorage } from '../../storage/IStorage.js'
 import type { CacheConfig } from '../../types/config.js'
 import { isEntityRef, type EntityRef } from '../../types/entities.js'
 import { EnqueueCommand } from '../../types/index.js'
-import { noop } from '../../utils/index.js'
 import type { ICommandQueueInternal } from '../command-queue/types.js'
 import { resolveRefPaths, setAtPath } from '../entity-ref/ref-path.js'
 import type { EventBus } from '../events/EventBus.js'
@@ -117,11 +116,11 @@ export class CacheManager<
   private commandQueue: ICommandQueueInternal<TLink, TCommand> | undefined
 
   /** WriteQueue reference for dirty flush scheduling. Set via setWriteQueue(). */
-  private writeQueue: IWriteQueue<TLink> | undefined
+  private writeQueue: IWriteQueue<TLink, TCommand> | undefined
 
   constructor(
-    private readonly storage: IStorage<TLink, TCommand>,
     private readonly eventBus: EventBus<TLink>,
+    private readonly storage: IStorage<TLink, TCommand>,
     config: CacheManagerConfig = {},
   ) {
     this.maxCacheKeys = config.cacheConfig?.maxCacheKeys ?? 1000
@@ -142,10 +141,15 @@ export class CacheManager<
    * Set the WriteQueue reference for dirty flush scheduling.
    * Called after construction by the orchestrator.
    */
-  setWriteQueue(writeQueue: IWriteQueue<TLink>): void {
+  setWriteQueue(writeQueue: IWriteQueue<TLink, TCommand>): void {
     this.writeQueue = writeQueue
     this.writeQueue.register('flush-cache-keys', this.onFlushCacheKeys.bind(this))
-    this.writeQueue.registerEviction('flush-cache-keys', noop)
+    // Reset the pending flag if the op is evicted (session reset / destroy)
+    // before the handler runs. Without this, the flag stays true forever and
+    // `scheduleDirtyFlush` silently no-ops for the lifetime of the instance.
+    this.writeQueue.registerEviction('flush-cache-keys', () => {
+      this.flushPending = false
+    })
   }
 
   /**
@@ -164,7 +168,7 @@ export class CacheManager<
       if (record.evictionPolicy === 'ephemeral') {
         ephemeralKeysToDelete.push(record.key)
         this.eventBus.emit('cache:evicted', {
-          cacheKey: hydrateCacheKeyIdentity(record),
+          cacheKey: hydrateCacheKeyIdentity<TLink>(record),
           reason: 'explicit',
         })
         continue
@@ -255,7 +259,7 @@ export class CacheManager<
       existing.lastAccessedAt = now
       this.dirty.add(existing.identity.key)
       if (options?.hold && options.windowId) {
-        await this.holdForWindow(existing.identity.key, options.windowId)
+        this.holdForWindow(existing.identity.key, options.windowId)
       }
       this.eventBus.emit('cache:key-accessed', { cacheKey: existing.identity })
       this.scheduleDirtyFlush()
@@ -292,7 +296,7 @@ export class CacheManager<
     }
 
     if (options?.hold && options.windowId) {
-      await this.holdForWindow(cacheKey.key, options.windowId)
+      this.holdForWindow(cacheKey.key, options.windowId)
     }
 
     this.eventBus.emit('cache:key-added', {
@@ -319,7 +323,7 @@ export class CacheManager<
   ): Promise<CacheKeyIdentity<TLink>> {
     const identity = this.registerCacheKeySync(template, options)
     if (options?.hold && options.windowId) {
-      await this.holdForWindow(identity.key, options.windowId)
+      this.holdForWindow(identity.key, options.windowId)
     }
     this.scheduleDirtyFlush()
     return identity
@@ -425,12 +429,12 @@ export class CacheManager<
    * Called by CommandQueue after reconcileCreateIds.
    *
    * @param commandId - The succeeded command's ID
-   * @param idMap - clientId → { serverId, commandType } mappings
+   * @param idMap - clientId → serverId mappings
    * @param resolveCacheKey - Optional custom resolver from command handler registration
    */
   resolvePendingKeys(
     commandId: string,
-    idMap: Record<string, { serverId: string; commandType: string }>,
+    idMap: Record<string, { serverId: string }>,
     resolveCacheKey?: (cacheKey: CacheKeyIdentity<TLink>) => CacheKeyIdentity<TLink>,
   ): void {
     const keyUuids = this.pendingByCommand.get(commandId)
@@ -508,6 +512,10 @@ export class CacheManager<
   // ---------------------------------------------------------------------------
 
   async exists(key: string): Promise<boolean> {
+    return this.uuidToIdentity.has(key)
+  }
+
+  existsSync(key: string): boolean {
     return this.uuidToIdentity.has(key)
   }
 
@@ -1103,10 +1111,12 @@ export class CacheManager<
     if (!this.writeQueue) return
 
     this.flushPending = true
-    this.writeQueue.enqueue({ type: 'flush-cache-keys' }).catch(() => {
-      // Write queue destroyed — ignore
-      this.flushPending = false
-    })
+    // Fire and forget — the eviction handler registered in setWriteQueue
+    // resets `flushPending` if the op is discarded before it runs, and the
+    // handler itself clears it as its first action. `.catch()` is the wrong
+    // mechanism: it doesn't cover every discard path and the WriteQueue
+    // already owns the discard → eviction-handler contract.
+    void this.writeQueue.enqueue({ type: 'flush-cache-keys' })
   }
 
   /**

@@ -24,14 +24,16 @@
 
 /// <reference lib="webworker" />
 
-import { createConsoleLogger, logProvider, type Link } from '@meticoeus/ddd-es'
+import { logProvider, type Link } from '@meticoeus/ddd-es'
 import type { IAnticipatedEvent } from '../../core/command-lifecycle/AnticipatedEventShape.js'
 import { OpfsCommandFileStore } from '../../core/command-queue/file-store/OpfsCommandFileStore.js'
+import { EventBus } from '../../core/events/index.js'
 import { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
 import { deserialize } from '../../protocol/serialization.js'
 import { DEFAULT_CONFIG, resolveConfig, type CqrsConfig } from '../../types/config.js'
 import { EnqueueCommand } from '../../types/index.js'
 import { WorkerOrchestrator } from './WorkerOrchestrator.js'
+import { resolveLogger } from './eventBusLogger.js'
 import { RemoteSqliteDb } from './sqlite-worker/RemoteSqliteDb.js'
 
 /**
@@ -109,9 +111,9 @@ export function startSharedWorker<
   TEvent extends IAnticipatedEvent,
 >(config: CqrsConfig<TLink, TCommand, TSchema, TEvent>): void {
   const self = globalThis as unknown as SharedWorkerGlobalScope
+  const eventBus = new EventBus<TLink>()
 
-  // Set a default warn-level console logger so logProvider doesn't throw before consumer setup
-  logProvider.setLogger(createConsoleLogger({ level: 'warn' }))
+  logProvider.setLogger(resolveLogger(config, eventBus))
 
   // Surface uncaught errors — without this, worker crashes are silent
   self.addEventListener('error', (event) => {
@@ -124,6 +126,7 @@ export function startSharedWorker<
   const resolved = resolveConfig(config)
   const messageHandler = new WorkerMessageHandler()
   const orchestrator = new WorkerOrchestrator<TLink, TCommand, TSchema, TEvent>(
+    eventBus,
     messageHandler,
     resolved,
   )

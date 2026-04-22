@@ -32,6 +32,18 @@ proxy objects that forward calls via the message protocol.
 
 ---
 
+### channel
+
+> `readonly` **channel**: [`WorkerMessageChannel`](../@cqrs-toolkit/namespaces/protocol/classes/WorkerMessageChannel.md)
+
+Transport channel to the worker. Exposed so the bootstrap can treat it
+as the main-thread IEventSink for local events (log emissions,
+etc.) — events pushed through `channel.emit`/`emitDebug` surface on
+[events$](#events) alongside events forwarded from the worker without
+crossing `postMessage`.
+
+---
+
 ### commandQueue
 
 > `readonly` **commandQueue**: [`ICommandQueue`](ICommandQueue.md)\<`TLink`, `TCommand`\>

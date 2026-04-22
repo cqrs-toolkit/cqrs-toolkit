@@ -6,6 +6,7 @@
  */
 
 import { Exception, type Link, type Result } from '@meticoeus/ddd-es'
+import type { EnqueueCommand } from '../../types/index.js'
 import type { WriteQueueOp } from './operations.js'
 
 // ---------------------------------------------------------------------------
@@ -22,7 +23,11 @@ import type { WriteQueueOp } from './operations.js'
  * A thrown error rejects the enqueue promise and is logged, but does not stop the drain loop.
  * Expected domain failures should be handled within the handler itself — not thrown.
  */
-export interface WriteQueueHandler<TLink extends Link, TOp extends WriteQueueOp<TLink>> {
+export interface WriteQueueHandler<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+  TOp extends WriteQueueOp<TLink, TCommand>,
+> {
   (op: TOp): Promise<void>
 }
 
@@ -30,10 +35,11 @@ export interface WriteQueueHandler<TLink extends Link, TOp extends WriteQueueOp<
  * Maps each operation type tag to the handler function for that operation.
  * Used internally by the queue for dispatch.
  */
-export type WriteQueueHandlerMap<TLink extends Link> = {
-  [K in WriteQueueOp<TLink>['type']]?: WriteQueueHandler<
+export type WriteQueueHandlerMap<TLink extends Link, TCommand extends EnqueueCommand> = {
+  [K in WriteQueueOp<TLink, TCommand>['type']]?: WriteQueueHandler<
     TLink,
-    Extract<WriteQueueOp<TLink>, { type: K }>
+    TCommand,
+    Extract<WriteQueueOp<TLink, TCommand>, { type: K }>
   >
 }
 
@@ -55,9 +61,9 @@ export interface WriteQueueEvictionHandler<TOp> {
  * Maps each operation type tag to the eviction handler for that operation.
  * Used internally by the queue for dispatch during discard.
  */
-export type WriteQueueEvictionHandlerMap<TLink extends Link> = {
-  [K in WriteQueueOp<TLink>['type']]?: WriteQueueEvictionHandler<
-    Extract<WriteQueueOp<TLink>, { type: K }>
+export type WriteQueueEvictionHandlerMap<TLink extends Link, TCommand extends EnqueueCommand> = {
+  [K in WriteQueueOp<TLink, TCommand>['type']]?: WriteQueueEvictionHandler<
+    Extract<WriteQueueOp<TLink, TCommand>, { type: K }>
   >
 }
 
@@ -81,11 +87,11 @@ export type WriteQueueStatus = 'idle' | 'processing' | 'resetting' | 'destroyed'
 /**
  * Debug snapshot of the write queue state.
  */
-export interface WriteQueueDebugState<TLink extends Link> {
+export interface WriteQueueDebugState<TLink extends Link, TCommand extends EnqueueCommand> {
   status: WriteQueueStatus
   pendingCount: number
-  currentOpType: WriteQueueOp<TLink>['type'] | undefined
-  pendingByType: Partial<Record<WriteQueueOp<TLink>['type'], number>>
+  currentOpType: WriteQueueOp<TLink, TCommand>['type'] | undefined
+  pendingByType: Partial<Record<WriteQueueOp<TLink, TCommand>['type'], number>>
 }
 
 // ---------------------------------------------------------------------------
@@ -103,15 +109,19 @@ export interface WriteQueueDebugState<TLink extends Link> {
  * Each operation type has exactly one handler. After one tick, the queue asserts
  * that all operation types have handlers — missing registrations throw.
  */
-export interface IWriteQueue<TLink extends Link> {
+export interface IWriteQueue<TLink extends Link, TCommand extends EnqueueCommand> {
   /**
    * Register a handler for an operation type.
    * Called by subsystems at bootstrap (typically in constructors).
    * Each operation type must have exactly one handler — duplicate registration throws.
    */
-  register<K extends WriteQueueOp<TLink>['type']>(
+  register<K extends WriteQueueOp<TLink, TCommand>['type']>(
     type: K,
-    handler: WriteQueueHandler<TLink, Extract<WriteQueueOp<TLink>, { type: K }>>,
+    handler: WriteQueueHandler<
+      TLink,
+      TCommand,
+      Extract<WriteQueueOp<TLink, TCommand>, { type: K }>
+    >,
   ): void
 
   /**
@@ -119,9 +129,9 @@ export interface IWriteQueue<TLink extends Link> {
    * Called when a pending operation of this type is discarded by session reset or destroy.
    * Every operation type must have an eviction handler — use a noop if no cleanup is needed.
    */
-  registerEviction<K extends WriteQueueOp<TLink>['type']>(
+  registerEviction<K extends WriteQueueOp<TLink, TCommand>['type']>(
     type: K,
-    handler: WriteQueueEvictionHandler<Extract<WriteQueueOp<TLink>, { type: K }>>,
+    handler: WriteQueueEvictionHandler<Extract<WriteQueueOp<TLink, TCommand>, { type: K }>>,
   ): void
 
   /**
@@ -134,7 +144,7 @@ export interface IWriteQueue<TLink extends Link> {
    * Rejects the promise only for infrastructure errors (handler threw).
    */
   enqueue(
-    op: WriteQueueOp<TLink>,
+    op: WriteQueueOp<TLink, TCommand>,
     options?: EnqueueOptions,
   ): Promise<Result<void, WriteQueueException>>
 
@@ -160,7 +170,7 @@ export interface IWriteQueue<TLink extends Link> {
   /**
    * Get a debug snapshot of the queue state.
    */
-  getDebugState(): WriteQueueDebugState<TLink>
+  getDebugState(): WriteQueueDebugState<TLink, TCommand>
 
   /**
    * Destroy the queue. Resolves pending enqueue promises with Err and clears state.

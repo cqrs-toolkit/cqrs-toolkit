@@ -6,7 +6,7 @@
  */
 
 import type { ISqliteDb } from '@cqrs-toolkit/client'
-import type { SqliteBatchStatement } from '@cqrs-toolkit/client/internals'
+import type { BatchResult, SqliteBatchStatement } from '@cqrs-toolkit/client/internals'
 import Database from 'better-sqlite3'
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
@@ -49,7 +49,10 @@ export class BetterSqliteDb implements ISqliteDb {
     return undefined
   }
 
-  async execBatch(statements: SqliteBatchStatement[]): Promise<unknown[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- matches ISqliteDb.execBatch signature exactly; T is a phantom type on SqliteBatchStatement used only for BatchResult inference
+  async execBatch<const T extends readonly SqliteBatchStatement<any>[]>(
+    statements: T,
+  ): Promise<BatchResult<T>> {
     const results: unknown[] = []
 
     const runBatch = this.db.transaction(() => {
@@ -70,7 +73,10 @@ export class BetterSqliteDb implements ISqliteDb {
     })
 
     runBatch()
-    return results
+    // The tuple is built positionally from statements; TypeScript cannot
+    // express the correspondence between the SqliteBatchStatement<R> input
+    // and the heterogeneous output tuple without a cast here.
+    return results as BatchResult<T>
   }
 
   async close(): Promise<void> {
