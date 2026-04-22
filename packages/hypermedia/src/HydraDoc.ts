@@ -438,7 +438,7 @@ export namespace HydraDoc {
     constructor(
       readonly id: string,
       template: `/${string}`,
-      readonly mappings: ReadonlyArray<IriTemplateMapping>,
+      readonly mappings: readonly IriTemplateMapping[],
       readonly variableRepresentation?: 'BasicRepresentation' | 'ExplicitRepresentation',
     ) {
       assert(id, 'IriTemplate.id is required')
@@ -685,8 +685,8 @@ export namespace HydraDoc {
    * - Custom endpoints (like room's /association) use surfaceOverride.
    */
   export class CommandsDef<Ext extends string> {
-    readonly surfaces: ReadonlyArray<CommandSurface<Ext>>
-    readonly commands: ReadonlyArray<CommandCapability<Ext>>
+    readonly surfaces: readonly CommandSurface<Ext>[]
+    readonly commands: readonly CommandCapability<Ext>[]
 
     private readonly _surfaceByDispatch: Map<CommandDispatch<Ext>, CommandSurface<Ext>>
 

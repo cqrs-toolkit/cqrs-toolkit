@@ -6,7 +6,13 @@
  * callbacks (topics, stream matching).
  */
 
-import { AggregateConfig, Collection, IdReference } from '@cqrs-toolkit/client'
+import {
+  AggregateConfig,
+  CacheKeyIdentity,
+  Collection,
+  FetchContext,
+  IdReference,
+} from '@cqrs-toolkit/client'
 import type { Link } from '@meticoeus/ddd-es'
 import { fetchEventPage, fetchStreamEvents } from './fetchHelpers.js'
 import type { RepresentationSurfaces } from './types.js'
@@ -36,6 +42,12 @@ export interface CreateCollectionOptions<TLink extends Link> {
   seedOnInit?: Collection<TLink>['seedOnInit']
   /** On-demand config. Forwarded to {@link Collection.seedOnDemand} */
   seedOnDemand?: Collection<TLink>['seedOnDemand']
+  /**
+   * Derive extra headers from the cache key and fetch context.
+   * Merged into the FetchContext headers for seed event fetches.
+   * Use for context-dependent headers (e.g., x-tenant-id).
+   */
+  fetchHeaders?(cacheKey: CacheKeyIdentity<TLink>, ctx: FetchContext): Record<string, string>
 }
 
 /**
@@ -78,8 +90,12 @@ export function createCollection<TLink extends Link>(
     matchesStream,
     seedOnInit: opts.seedOnInit,
     seedOnDemand: opts.seedOnDemand,
-    fetchSeedEvents: ({ ctx, cursor, limit }) =>
-      fetchEventPage(ctx, aggregateEventsHref, cursor, limit),
+    fetchSeedEvents: ({ ctx, cursor, limit, cacheKey }) => {
+      const mergedCtx = opts.fetchHeaders
+        ? { ...ctx, headers: { ...ctx.headers, ...opts.fetchHeaders(cacheKey, ctx) } }
+        : ctx
+      return fetchEventPage(mergedCtx, aggregateEventsHref, cursor, limit)
+    },
     fetchStreamEvents: ({ ctx, streamId, afterRevision }) => {
       const id = extractId(streamId)
       const path = expandItemEventsPath(representation.itemEvents.template, id)

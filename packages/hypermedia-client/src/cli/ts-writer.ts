@@ -202,11 +202,11 @@ export const schemas: SchemaRegistry = { commands: {}, common: {} }
     .join('\n')
 
   const commandEntries = schemas.commands.map(
-    (s) => `    ${quoteKey(s.name)}: ${toIdentifier(s.name)} as JSONSchema7`,
+    (s) => `    ${quoteKey(s.name)}: ${toIdentifier(s.name)} as unknown as JSONSchema7`,
   )
 
   const commonEntries = schemas.common.map(
-    (s) => `    '${s.id}': ${toIdentifier(s.name)} as JSONSchema7`,
+    (s) => `    '${s.id}': ${toIdentifier(s.name)} as unknown as JSONSchema7`,
   )
 
   const commonCommandsLine =

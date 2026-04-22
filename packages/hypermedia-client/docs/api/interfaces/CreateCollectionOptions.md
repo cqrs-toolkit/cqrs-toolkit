@@ -16,6 +16,14 @@ Options for creating a collection from a representation.
 
 ## Properties
 
+### aggregate
+
+> **aggregate**: `AggregateConfig`\<`TLink`\>
+
+Forwarded to Collection.aggregate.
+
+---
+
 ### aggregateId()?
 
 > `optional` **aggregateId**: (`streamId`) => `string`
@@ -60,6 +68,14 @@ Topic strings from the WS event message
 
 Cache key identities or templates. Templates (no `.key`) are resolved
 by the caller via `registerCacheKeySync`.
+
+---
+
+### idReferences?
+
+> `readonly` `optional` **idReferences**: `IdReference`\<`TLink`\>[]
+
+Forwarded to Collection.idReferences.
 
 ---
 
@@ -110,3 +126,27 @@ On-demand config. Forwarded to Collection.seedOnDemand
 > `optional` **seedOnInit**: `SeedOnInitConfig`\<`TLink`\>
 
 Auto-seed config. Forwarded to Collection.seedOnInit
+
+## Methods
+
+### fetchHeaders()?
+
+> `optional` **fetchHeaders**(`cacheKey`, `ctx`): `Record`\<`string`, `string`\>
+
+Derive extra headers from the cache key and fetch context.
+Merged into the FetchContext headers for seed event fetches.
+Use for context-dependent headers (e.g., x-tenant-id).
+
+#### Parameters
+
+##### cacheKey
+
+`CacheKeyIdentity`\<`TLink`\>
+
+##### ctx
+
+`FetchContext`
+
+#### Returns
+
+`Record`\<`string`, `string`\>

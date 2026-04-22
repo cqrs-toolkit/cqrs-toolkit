@@ -19,7 +19,7 @@ export interface ConnectedMessage {
 
 export interface EventMessage {
   readonly type: 'event'
-  readonly topics: ReadonlyArray<string>
+  readonly topics: readonly string[]
   readonly service: string
   readonly aggregateType: string
   readonly event: ISerializedEvent
@@ -27,23 +27,23 @@ export interface EventMessage {
 
 export interface SubscribedMessage {
   readonly type: 'subscribed'
-  readonly topics: ReadonlyArray<string>
+  readonly topics: readonly string[]
 }
 
 export interface UnsubscribedMessage {
   readonly type: 'unsubscribed'
-  readonly topics: ReadonlyArray<string>
+  readonly topics: readonly string[]
 }
 
 export interface SubscriptionDeniedMessage {
   readonly type: 'subscription_denied'
-  readonly topics: ReadonlyArray<string>
+  readonly topics: readonly string[]
   readonly message: string
 }
 
 export interface SubscriptionRevokedMessage {
   readonly type: 'subscription_revoked'
-  readonly topics: ReadonlyArray<string>
+  readonly topics: readonly string[]
   readonly message: string
 }
 
@@ -64,12 +64,12 @@ export type ServerMessage =
 
 export interface SubscribeMessage {
   readonly type: 'subscribe'
-  readonly topics: ReadonlyArray<string>
+  readonly topics: readonly string[]
 }
 
 export interface UnsubscribeMessage {
   readonly type: 'unsubscribe'
-  readonly topics: ReadonlyArray<string>
+  readonly topics: readonly string[]
 }
 
 export type ClientMessage = SubscribeMessage | UnsubscribeMessage
