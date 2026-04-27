@@ -23,7 +23,6 @@ import type { ICommandFileStore } from '../../core/command-queue/file-store/ICom
 import { CommandStore } from '../../core/command-store/CommandStore.js'
 import { EventCache } from '../../core/event-cache/EventCache.js'
 import { EventProcessorRegistry } from '../../core/event-processor/EventProcessorRegistry.js'
-import { EventProcessorRunner } from '../../core/event-processor/EventProcessorRunner.js'
 import { EventBus } from '../../core/events/EventBus.js'
 import { QueryManager } from '../../core/query-manager/QueryManager.js'
 import { ReadModelStore } from '../../core/read-model-store/ReadModelStore.js'
@@ -168,15 +167,12 @@ export class WorkerOrchestrator<
     const readModelStore = new ReadModelStore(eventBus, storage, mappingStore)
     this.readModelStore = readModelStore
 
-    // 8.5. Create and initialize CommandStore
+    // 9. Create and initialize CommandStore
     const commandStore = new CommandStore(storage, {
       retainTerminal: config.retainTerminal,
     })
     await commandStore.initialize()
     this.commandStore = commandStore
-
-    // 9. Create EventProcessorRunner
-    const eventProcessorRunner = new EventProcessorRunner(eventBus, registry, readModelStore)
 
     // 10. Create WriteQueue — subsystems register their own handlers in their constructors.
     const writeQueue = new WriteQueue<TLink, TCommand>(eventBus)
@@ -207,8 +203,10 @@ export class WorkerOrchestrator<
     const commandQueue = new CommandQueue<TLink, TCommand, TSchema, TEvent>(
       eventBus,
       storage,
+      cacheManager,
       options.fileStore,
       anticipatedEventHandler,
+      config.collections,
       config.aggregates,
       readModelStore,
       commandStore,
@@ -240,7 +238,6 @@ export class WorkerOrchestrator<
       eventCache,
       cacheManager,
       registry,
-      eventProcessorRunner,
       readModelStore,
       queryManager,
       writeQueue,
@@ -259,7 +256,6 @@ export class WorkerOrchestrator<
     // Wire cross-dependencies (property-set to break circular refs)
     cacheManager.setWriteQueue(writeQueue)
     cacheManager.setCommandQueue(commandQueue)
-    commandQueue.setCacheManager(cacheManager)
 
     await commandQueue.initialize()
 

@@ -6,7 +6,7 @@ import type { IAnticipatedEvent } from './AnticipatedEventShape.js'
 /**
  * Handler for anticipated event lifecycle.
  * CommandQueue hands off anticipated events at the right lifecycle points — the handler
- * implementation coordinates EventCache, CacheManager, EventProcessorRunner, and collection routing.
+ * implementation coordinates EventCache, CacheManager, and collection routing.
  *
  * Cleanup is split across the three terminal-ish transitions:
  *   - {@link cleanupOnSucceeded}: command server-acked. Retains tracking for

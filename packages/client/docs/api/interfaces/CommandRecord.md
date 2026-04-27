@@ -150,27 +150,6 @@ URL path template values for command sender URL expansion.
 
 ---
 
-### pendingAggregateCoverage?
-
-> `optional` **pendingAggregateCoverage**: `string`
-
-Pipeline coverage tracking for the `'succeeded' → 'applied'` transition. Populated
-by the CommandQueue success path; consumed + updated by the server data pipeline.
-
-JSON-encoded on-disk. After parse:
-
-- `'events'` — server response carried events; rule 1 (pipeline drain of those
-  events) will mark the command applied.
-- `Record<streamId, stringifiedBigInt>` — server response carried no events;
-  rule 2 (per-aggregate revision / cache-key eviction) removes entries as
-  coverage accrues. Empty map → command transitions to `'applied'`.
-
-Absent for commands not yet in `'succeeded'` status. The pipeline's in-flight
-filter on `'succeeded'` guarantees every in-scope command has this populated.
-See `_active-plans/command-applied.md` §3.2.
-
----
-
 ### postProcess?
 
 > `optional` **postProcess**: [`PostProcessPlan`](PostProcessPlan.md)

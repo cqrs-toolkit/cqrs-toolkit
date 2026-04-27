@@ -2,7 +2,7 @@
  * Registers CommandQueue RPC methods on the worker message handler.
  *
  * Observable methods (events$, commandEvents$) and long-running methods
- * (waitForCompletion, enqueueAndWait) are NOT registered here — they are
+ * (waitForSucceeded, enqueueAndWait) are NOT registered here — they are
  * reconstructed on the main thread from broadcast events.
  */
 

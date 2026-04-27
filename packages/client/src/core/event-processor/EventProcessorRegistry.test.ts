@@ -1,5 +1,5 @@
 /**
- * Unit tests for EventProcessorRegistry and EventProcessorRunner.
+ * Unit tests for EventProcessorRegistry.
  */
 
 import { describe, expect, it, vi } from 'vitest'

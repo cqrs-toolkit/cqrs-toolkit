@@ -5,7 +5,7 @@
 
 import { assert, calculateBackoffDelay, generateId, shouldRetry } from '#utils'
 import { Err, type Link, logProvider, Ok, type Result } from '@meticoeus/ddd-es'
-import { filter, map, Observable, race, share, Subject, takeUntil, timer } from 'rxjs'
+import { filter, Observable, share, Subject, takeUntil } from 'rxjs'
 import type { IStorage } from '../../storage/IStorage.js'
 import {
   type AffectedAggregate,
@@ -28,16 +28,12 @@ import type {
   WaitOptions,
 } from '../../types/commands.js'
 import {
-  CommandCancelledException,
   CommandFailedException,
   CommandNotFoundException,
-  CommandTimeoutException,
   InvalidCommandStatusException,
-  isCommandFailed,
-  isTerminalCommandEvent,
   isTerminalStatus,
 } from '../../types/commands.js'
-import type { RetryConfig } from '../../types/config.js'
+import type { Collection, RetryConfig } from '../../types/config.js'
 import type {
   CommandHandlerRegistration,
   DomainExecutionError,
@@ -67,8 +63,9 @@ import type { EventBus } from '../events/EventBus.js'
 import type { EntityIdMigration, ReadModelStore } from '../read-model-store/ReadModelStore.js'
 import { AggregateChainRegistry } from './AggregateChainRegistry.js'
 import type { ICommandFileStore } from './file-store/ICommandFileStore.js'
-import type { ICommandQueueInternal, ICommandSender } from './types.js'
+import { CommandSendException, ICommandQueueInternal, ICommandSender } from './types.js'
 import { deriveAffectedAggregates } from './utils.js'
+import { waitForTerminal } from './waitForTerminal.js'
 
 /**
  * Command queue configuration.
@@ -87,11 +84,6 @@ export interface CommandQueueConfig<
   /** When true, terminal commands are retained in storage instead of being cleaned up. */
   retainTerminal?: boolean
 }
-
-/**
- * Default wait timeout in milliseconds.
- */
-const DEFAULT_WAIT_TIMEOUT = 30000
 
 /**
  * Command queue implementation.
@@ -150,9 +142,6 @@ export class CommandQueue<
   ) => Promise<void>
   private readonly retainTerminal: boolean
 
-  /** CacheManager reference for cache key reconciliation. Set via setCacheManager(). */
-  private cacheManager: ICacheManagerInternal<TLink> | undefined
-
   protected readonly commandEvents = new Subject<CommandEvent>()
   private readonly destroy$ = new Subject<void>()
 
@@ -178,10 +167,12 @@ export class CommandQueue<
   constructor(
     private readonly eventBus: EventBus<TLink>,
     private readonly storage: IStorage<TLink, TCommand>,
+    private readonly cacheManager: ICacheManagerInternal<TLink>,
     /** File store for commands with file attachments. */
     private readonly fileStore: ICommandFileStore,
     private readonly anticipatedEventHandler: IAnticipatedEventHandler<TLink, TCommand>,
-    private readonly aggregates: IClientAggregates<TLink>,
+    private readonly collections: Collection<TLink>[],
+    private readonly clientAggregates: IClientAggregates<TLink>,
     /** Read-model store — used by the success path to apply best-guess ID rewrites
      *  as local-changes overlays. Must not be used to touch `serverData`. */
     private readonly readModelStore: ReadModelStore<TLink, TCommand>,
@@ -208,14 +199,6 @@ export class CommandQueue<
    */
   async initialize(): Promise<void> {
     await this.rebuildChains()
-  }
-
-  /**
-   * Set the CacheManager reference for cache key reconciliation.
-   * Called after construction by the orchestrator to break the circular dependency.
-   */
-  setCacheManager(cacheManager: ICacheManagerInternal<TLink>): void {
-    this.cacheManager = cacheManager
   }
 
   async enqueue<TData, TEvent extends IAnticipatedEvent>(
@@ -487,7 +470,10 @@ export class CommandQueue<
     // 7. Derive affected aggregates from the anticipated events. A parse failure
     //    is an invariant violation: the app produced an anticipated event whose
     //    streamId its own parseStreamId cannot handle.
-    const affectedAggregatesResult = deriveAffectedAggregates(this.aggregates, anticipatedEvents)
+    const affectedAggregatesResult = deriveAffectedAggregates(
+      this.clientAggregates,
+      anticipatedEvents,
+    )
     assert(
       affectedAggregatesResult.ok,
       `deriveAffectedAggregates failed: ${affectedAggregatesResult.ok ? '' : affectedAggregatesResult.error.message}`,
@@ -527,46 +513,18 @@ export class CommandQueue<
     })
   }
 
-  async waitForCompletion(
+  waitForSucceeded(
     commandId: string,
     options?: WaitOptions,
   ): Promise<Result<unknown, CommandCompletionError>> {
-    const timeout = options?.timeout ?? DEFAULT_WAIT_TIMEOUT
+    return waitForTerminal(this, commandId, 'succeeded', options)
+  }
 
-    // Subscribe eagerly BEFORE the async check so no event is missed
-    // between the caller's enqueue and this method's subscription.
-    let resolveCompletion: (value: Result<unknown, CommandCompletionError>) => void
-    const completionPromise = new Promise<Result<unknown, CommandCompletionError>>((resolve) => {
-      resolveCompletion = resolve
-    })
-
-    const subscription = race(
-      this.commandEvents$(commandId).pipe(
-        filter(isTerminalCommandEvent),
-        map((event) => this.eventToCompletionResult(event)),
-      ),
-      timer(timeout).pipe(
-        map((): Result<unknown, CommandCompletionError> => Err(new CommandTimeoutException())),
-      ),
-    ).subscribe((result) => {
-      resolveCompletion(result)
-    })
-
-    // Check if command is already in terminal state
-    const command = await this.commandStore.get(commandId)
-    if (!command) {
-      subscription.unsubscribe()
-      return Err(new CommandFailedException('local', `Command not found: ${commandId}`))
-    }
-
-    if (isTerminalStatus(command.status)) {
-      subscription.unsubscribe()
-      return this.toCompletionResult(command)
-    }
-
-    const result = await completionPromise
-    subscription.unsubscribe()
-    return result
+  waitForApplied(
+    commandId: string,
+    options?: WaitOptions,
+  ): Promise<Result<unknown, CommandCompletionError>> {
+    return waitForTerminal(this, commandId, 'applied', options)
   }
 
   async enqueueAndWait<TData, TEvent extends IAnticipatedEvent, TResponse>(
@@ -578,7 +536,11 @@ export class CommandQueue<
       return Err(enqueueResult.error)
     }
 
-    const completionResult = await this.waitForCompletion(enqueueResult.value.commandId, params)
+    const waitFor = params.waitFor ?? 'applied'
+    const completionResult =
+      waitFor === 'succeeded'
+        ? await this.waitForSucceeded(enqueueResult.value.commandId, params)
+        : await this.waitForApplied(enqueueResult.value.commandId, params)
 
     if (!completionResult.ok) {
       return Err(completionResult.error)
@@ -797,138 +759,226 @@ export class CommandQueue<
     }
 
     if (result.ok) {
-      const response = result.value
-
-      this.eventBus.emitDebug('command:response', {
-        commandId: current.commandId,
+      return this.processCommandSuccess({
         correlationId,
-        response,
+        current,
+        updatedCommand,
+        response: result.value,
       })
-
-      // Hand response events off to the SyncManager drain. This is
-      // fire-and-forget by contract: command lifecycle resolution is
-      // driven by `response.id` and `response.nextExpectedRevision`
-      // below, NOT by whether the response's events have been applied
-      // to the read model. Consumers that need "read model current for
-      // this command's events" should subscribe to `readmodel:updated`.
-      // Errors from event processing are handled inside the drain and
-      // must not fail the command — a future slice will wire them to
-      // invalidation signals for local recovery.
-      if (this.onCommandResponse) {
-        try {
-          await this.onCommandResponse(updatedCommand, response)
-        } catch (err) {
-          logProvider.log.error(
-            { err, commandId: current.commandId },
-            'Failed to process command response events',
-          )
-        }
-      }
-
-      // Collect id-mapping candidates + per-aggregate coverage BEFORE the
-      // status write so we can persist `pendingAggregateCoverage` in the
-      // same update. The pipeline reads this field to drive the
-      // `'succeeded' → 'applied'` transition.
-      const registration = this.domainExecutor?.getRegistration(updatedCommand.type)
-      const mappings = this.collectIdMappingCandidates(updatedCommand, registration ?? {}, response)
-      const pendingAggregateCoverage = buildPendingAggregateCoverage(response, mappings)
-
-      // Success
-      const succeededCommand = await this.updateCommandStatus(updatedCommand, 'succeeded', {
-        serverResponse: response,
-        pendingAggregateCoverage,
+    } else {
+      return this.processCommandFailure({
+        current,
+        updatedCommand,
+        exception: result.error,
       })
+    }
+  }
 
-      // Process id-mapping configs (responseIdReferences + responseIdMapping).
-      // Dual-indexes client↔server aggregate chains, updates or clears each
-      // chain's lastKnownRevision per the config, and persists the mapping so
-      // future commands with stale client IDs can be patched at enqueue time.
-      const idMap = await this.reconcileAggregateIds(succeededCommand)
+  private async processCommandSuccess(params: {
+    correlationId: string
+    current: CommandRecord<TLink, TCommand>
+    updatedCommand: CommandRecord<TLink, TCommand>
+    response: unknown
+  }) {
+    const { current, correlationId, response, updatedCommand } = params
 
-      // Best-guess ID reconciliation on the local overlay: for each (clientId →
-      // serverId) mapping, copy the optimistic overlay from the client id's row
-      // onto a new local overlay at the server id. Never touches `serverData`;
-      // the sync pipeline will write authoritative server data when response
-      // events drain (or on invalidation refetch below).
-      await this.applyIdRewritesToLocalOverlay(succeededCommand, idMap)
+    this.eventBus.emitDebug('command:response', {
+      commandId: current.commandId,
+      correlationId,
+      response,
+    })
 
-      // Invalidation hook: event-less responses and streams without a resolved
-      // expected revision both signal "the pipeline cannot confirm this
-      // aggregate from events", so fall back to a refetch for each. Deduplicated
-      // by streamId — each aggregate fires at most once per success.
-      this.fireInvalidationsForSuccess(succeededCommand, mappings.uncoveredStreams, response)
-
-      // For create commands with temporary IDs: rewrite ALL commands in the aggregate
-      // chain with the server ID. They stay blocked (waiting for their direct dependency
-      // to resolve their revision), but get the correct server ID immediately.
-      if (Object.keys(idMap).length > 0) {
-        await this.rewriteCommandsWithStaleIds(idMap)
-
-        // Resolve pending cache keys that depend on this command's ID mapping.
-        // The CacheManager's resolvePendingKeys updates identity fields in-place
-        // and emits cache:key-reconciled events.
-        if (this.cacheManager) {
-          const boundResolver = registration?.resolveCacheKey
-            ? (cacheKey: CacheKeyIdentity<TLink>) =>
-                registration.resolveCacheKey!({
-                  commandId: succeededCommand.commandId,
-                  type: succeededCommand.type,
-                  data: succeededCommand.data,
-                  serverResponse: succeededCommand.serverResponse,
-                  cacheKey,
-                })
-            : undefined
-          this.cacheManager.resolvePendingKeys(succeededCommand.commandId, idMap, boundResolver)
-        }
+    // Hand response events off to the SyncManager drain. This is
+    // fire-and-forget by contract: command lifecycle resolution is
+    // driven by `response.id` and `response.nextExpectedRevision`
+    // below, NOT by whether the response's events have been applied
+    // to the read model. Consumers that need "read model current for
+    // this command's events" should subscribe to `readmodel:updated`.
+    // Errors from event processing are handled inside the drain and
+    // must not fail the command — a future slice will wire them to
+    // invalidation signals for local recovery.
+    if (this.onCommandResponse) {
+      try {
+        await this.onCommandResponse(updatedCommand, response)
+      } catch (err) {
+        logProvider.log.error(
+          { err, commandId: current.commandId },
+          'Failed to process command response events',
+        )
       }
+    }
 
-      // Unblock direct dependents and resolve revision for the next command in chain
-      await this.unblockDependentCommands(succeededCommand)
+    // Collect id-mapping candidates so the success write can carry them and
+    // the invalidation hook below can fire for any uncovered streams.
+    const registration = this.domainExecutor?.getRegistration(updatedCommand.type)
+    const mappings = this.collectIdMappingCandidates(updatedCommand, registration ?? {}, response)
 
-      this.eventBus.emit('command:completed', {
+    // Success
+    const succeededCommand = await this.updateCommandStatus(updatedCommand, 'succeeded', {
+      serverResponse: response,
+    })
+
+    // Process id-mapping configs (responseIdReferences + responseIdMapping).
+    // Dual-indexes client↔server aggregate chains, updates or clears each
+    // chain's lastKnownRevision per the config, and persists the mapping so
+    // future commands with stale client IDs can be patched at enqueue time.
+    const idMap = await this.reconcileAggregateIds(succeededCommand)
+
+    // Best-guess ID reconciliation on the local overlay: for each (clientId →
+    // serverId) mapping, copy the optimistic overlay from the client id's row
+    // onto a new local overlay at the server id. Never touches `serverData`;
+    // the sync pipeline will write authoritative server data when response
+    // events drain (or on invalidation refetch below).
+    await this.applyIdRewritesToLocalOverlay(succeededCommand, idMap)
+
+    // Invalidation hook: event-less responses and streams without a resolved
+    // expected revision both signal "the pipeline cannot confirm this
+    // aggregate from events", so fall back to a refetch for each. Deduplicated
+    // by streamId — each aggregate fires at most once per success.
+    this.fireInvalidationsForSuccess(succeededCommand, mappings.uncoveredStreams, response)
+
+    // For create commands with temporary IDs: rewrite ALL commands in the aggregate
+    // chain with the server ID. They stay blocked (waiting for their direct dependency
+    // to resolve their revision), but get the correct server ID immediately.
+    if (Object.keys(idMap).length > 0) {
+      await this.rewriteCommandsWithStaleIds(idMap)
+
+      // Resolve pending cache keys that depend on this command's ID mapping.
+      // The CacheManager's resolvePendingKeys updates identity fields in-place
+      // and emits cache:key-reconciled events.
+      const boundResolver = registration?.resolveCacheKey
+        ? (cacheKey: CacheKeyIdentity<TLink>) =>
+            registration.resolveCacheKey!({
+              commandId: succeededCommand.commandId,
+              type: succeededCommand.type,
+              data: succeededCommand.data,
+              serverResponse: succeededCommand.serverResponse,
+              cacheKey,
+            })
+        : undefined
+      this.cacheManager.resolvePendingKeys(succeededCommand.commandId, idMap, boundResolver)
+    }
+
+    // Unblock direct dependents and resolve revision for the next command in chain
+    await this.unblockDependentCommands(succeededCommand)
+
+    this.eventBus.emit('command:completed', {
+      commandId: current.commandId,
+      type: current.type,
+      cacheKey: current.cacheKey,
+    })
+    this.emitCommandEvent('completed', succeededCommand)
+
+    // Post-success applied detection.
+    //
+    // A command is `'applied'` when its effects are reflected in the local
+    // read model. The server data pipeline (SyncManager) handles the normal
+    // case: an event arrives or a record seeds, `knownRevisions` advances,
+    // and the per-batch evaluator flips the command to `'applied'` once the
+    // primary aggregate's revision reaches `response.nextExpectedRevision`.
+    //
+    // The edge we cover here is "state is already past the threshold at
+    // succeed time" — e.g., a WS event for this aggregate drained before the
+    // command response itself landed, so the read model is already at the
+    // target revision. In that case no future pipeline batch fires for this
+    // stream and the command would stay `'succeeded'` forever without this
+    // check. Escape hatches (no cacheKey, no registration, no matching
+    // collection) also slip to `'applied'` because we can't prove coverage
+    // any other way and leaving the command `'succeeded'` indefinitely is
+    // worse than a best-effort slip.
+    await this.checkAppliedAtSuccess(succeededCommand, registration, response)
+  }
+
+  private async checkAppliedAtSuccess(
+    command: CommandRecord<TLink, TCommand>,
+    registration: CommandHandlerRegistration<TLink, TCommand, TSchema, TEvent> | undefined,
+    response: unknown,
+  ): Promise<void> {
+    // Escape hatches — slip to `'applied'` when we can't prove coverage.
+    if (!this.cacheManager.existsSync(command.cacheKey.key)) {
+      await this.slipToApplied(command)
+      return
+    }
+    if (!registration || !registration.aggregate) {
+      await this.slipToApplied(command)
+      return
+    }
+
+    const primaryAggregate = registration.aggregate
+    const collection = this.collections.find((c) =>
+      matchesAggregate(c.aggregate.getLinkMatcher(), primaryAggregate),
+    )
+    if (!collection) {
+      await this.slipToApplied(command)
+      return
+    }
+
+    // Strong detection: compare the primary aggregate's read-model revision
+    // to `response.nextExpectedRevision`. Secondary aggregates are ignored —
+    // the pipeline-side evaluator applies the same rule.
+    const primaryEntityId = this.readResponseField(response, 'id')
+    if (primaryEntityId === undefined) return
+
+    const nextExpectedRevisionRaw = this.readResponseField(response, 'nextExpectedRevision')
+    if (nextExpectedRevisionRaw === undefined) return
+    const expected = parseExpectedRevision(nextExpectedRevisionRaw)
+    if (expected === undefined) return
+
+    const record = await this.readModelStore.getById(collection.name, primaryEntityId)
+    if (!record || record.revision === undefined) return
+    const current = parseExpectedRevision(record.revision)
+    if (current === undefined) return
+
+    if (current >= expected) {
+      await this.slipToApplied(command)
+    }
+  }
+
+  private async slipToApplied(command: CommandRecord<TLink, TCommand>): Promise<void> {
+    await this.batchUpdateSyncStatus({ applied: [command] })
+    await this.anticipatedEventHandler.cleanupOnAppliedBatch([command.commandId])
+  }
+
+  private async processCommandFailure(params: {
+    current: CommandRecord<TLink, TCommand>
+    updatedCommand: CommandRecord<TLink, TCommand>
+    exception: CommandSendException
+  }) {
+    const { current, exception, updatedCommand } = params
+    const error = new CommandFailedException('server', exception.message, {
+      errorCode: exception.errorCode,
+      details: exception.details,
+    })
+
+    const canRetry = exception.isRetryable && shouldRetry(updatedCommand.attempts, this.retryConfig)
+
+    if (canRetry) {
+      // Back to pending for retry
+      await this.updateCommandStatus(updatedCommand, 'pending', { error })
+
+      // Schedule retry with backoff
+      const delay = calculateBackoffDelay(updatedCommand.attempts, this.retryConfig)
+      const timerId = setTimeout(() => {
+        this.retryTimers.delete(timerId)
+        this.processPendingCommands().catch((err) => {
+          logProvider.log.error({ err }, 'Failed to process pending commands after retry')
+        })
+      }, delay)
+      this.retryTimers.add(timerId)
+    } else {
+      // Mark as failed
+      const failedCommand = await this.updateCommandStatus(updatedCommand, 'failed', { error })
+
+      // Cancel dependent commands
+      await this.cancelDependentCommands(current.commandId)
+
+      this.eventBus.emit('command:failed', {
         commandId: current.commandId,
         type: current.type,
+        error: error.message,
         cacheKey: current.cacheKey,
       })
-      this.emitCommandEvent('completed', succeededCommand)
-    } else {
-      const exception = result.error
-      const error = new CommandFailedException('server', exception.message, {
-        errorCode: exception.errorCode,
-        details: exception.details,
-      })
-
-      const canRetry =
-        exception.isRetryable && shouldRetry(updatedCommand.attempts, this.retryConfig)
-
-      if (canRetry) {
-        // Back to pending for retry
-        await this.updateCommandStatus(updatedCommand, 'pending', { error })
-
-        // Schedule retry with backoff
-        const delay = calculateBackoffDelay(updatedCommand.attempts, this.retryConfig)
-        const timerId = setTimeout(() => {
-          this.retryTimers.delete(timerId)
-          this.processPendingCommands().catch((err) => {
-            logProvider.log.error({ err }, 'Failed to process pending commands after retry')
-          })
-        }, delay)
-        this.retryTimers.add(timerId)
-      } else {
-        // Mark as failed
-        const failedCommand = await this.updateCommandStatus(updatedCommand, 'failed', { error })
-
-        // Cancel dependent commands
-        await this.cancelDependentCommands(current.commandId)
-
-        this.eventBus.emit('command:failed', {
-          commandId: current.commandId,
-          type: current.type,
-          error: error.message,
-          cacheKey: current.cacheKey,
-        })
-        this.emitCommandEvent('failed', failedCommand)
-      }
+      this.emitCommandEvent('failed', failedCommand)
     }
   }
 
@@ -1102,7 +1152,7 @@ export class CommandQueue<
         if (mapping && mapping.serverId !== clientEntityId) {
           const chain = this.chains.get(streamId)
           if (chain && chain.serverStreamId === undefined) {
-            const aggregate = this.aggregates.aggregates.find((a) =>
+            const aggregate = this.clientAggregates.aggregates.find((a) =>
               matchesAggregate(link as unknown as Omit<TLink, 'id'>, a),
             )
             if (aggregate) {
@@ -1350,24 +1400,22 @@ export class CommandQueue<
   }
 
   /**
-   * Collect candidate mappings from both id-mapping config sources, plus the
-   * per-aggregate expected-revision coverage that the sync pipeline needs to
-   * drive the `'succeeded' → 'applied'` transition.
+   * Collect candidate id mappings from both id-mapping config sources, plus
+   * the set of affected streams that the response did not cover with a
+   * parsable `nextExpectedRevision` (so the success path can fire an
+   * invalidation for each).
    *
    * Returned fields:
    *  - `candidates` — each entry carries an aggregate, the client entity id it
    *    corresponds to, its server-assigned id, and optionally the server's
    *    `nextExpectedRevision` for that aggregate.
-   *  - `expectedRevisionsByStream` — map of client stream id → parsed bigint
-   *    revision. Only streams with a resolved, parsable revision appear here.
    *  - `uncoveredStreams` — streams in `command.affectedAggregates` without a
    *    resolved/parsable revision after merging `responseIdReferences` and
    *    `responseIdMapping`. Deduplicated; each stream appears at most once.
    *
    * BigInt parse failures are logged once at this site as a warning and the
    * stream lands in `uncoveredStreams` (same downstream treatment as "no
-   * revision mapped" — the success path fires an invalidation for it and the
-   * pipeline treats it as auto-covered).
+   * revision mapped" — the success path fires an invalidation for it).
    */
   private collectIdMappingCandidates(
     command: CommandRecord<TLink, TCommand>,
@@ -1414,12 +1462,12 @@ export class CommandQueue<
       }
     }
 
-    const expectedRevisionsByStream = new Map<string, bigint>()
+    const coveredStreams = new Set<string>()
     for (const { clientId, nextExpectedRevision } of candidates) {
       if (nextExpectedRevision === undefined) continue
       const streamId = this.findClientStreamIdForEntityId(command, clientId)
       if (streamId === undefined) continue
-      if (expectedRevisionsByStream.has(streamId)) continue
+      if (coveredStreams.has(streamId)) continue
       const parsed = parseExpectedRevision(nextExpectedRevision)
       if (parsed === undefined) {
         logProvider.log.warn(
@@ -1433,21 +1481,21 @@ export class CommandQueue<
         )
         continue
       }
-      expectedRevisionsByStream.set(streamId, parsed)
+      coveredStreams.add(streamId)
     }
 
     const uncoveredStreams: string[] = []
     if (command.affectedAggregates) {
       const seen = new Set<string>()
       for (const { streamId } of command.affectedAggregates) {
-        if (expectedRevisionsByStream.has(streamId)) continue
+        if (coveredStreams.has(streamId)) continue
         if (seen.has(streamId)) continue
         seen.add(streamId)
         uncoveredStreams.push(streamId)
       }
     }
 
-    return { candidates, expectedRevisionsByStream, uncoveredStreams }
+    return { candidates, uncoveredStreams }
   }
 
   /**
@@ -1534,7 +1582,7 @@ export class CommandQueue<
     if (!command.affectedAggregates) return undefined
     for (const { link } of command.affectedAggregates) {
       if (entityIdToString(link.id) !== entityId) continue
-      for (const agg of this.aggregates.aggregates) {
+      for (const agg of this.clientAggregates.aggregates) {
         if (matchesAggregate(link as unknown as Omit<TLink, 'id'>, agg)) {
           return agg
         }
@@ -1638,7 +1686,7 @@ export class CommandQueue<
     })
 
     // Fire terminal CommandEvents + broadcast library events after the batch
-    // status flip. These signal "fully settled" to waitForCompletion
+    // status flip. These signal "fully settled" to waitForSucceeded
     // subscribers; cancelled commands have no post-processing of their own.
     for (const command of cancelledCommands) {
       this.eventBus.emit('command:cancelled', {
@@ -1994,26 +2042,21 @@ export class CommandQueue<
   }
 
   /**
-   * Batch-write the sync pipeline's per-command progress at end-of-batch.
-   *
-   * `applied` — commands transitioning from `'succeeded'` to `'applied'` this
-   * batch. Each gets `{ status: 'applied', pendingAggregateCoverage: null,
-   * updatedAt }` written and emits one `'status-changed'` event.
-   * `updated` — commands that stay in `'succeeded'` but had their coverage
-   * record shrink during this batch. Each gets its `pendingAggregateCoverage`
-   * re-persisted (status stays `'succeeded'`); no event is emitted.
+   * Batch-write the sync pipeline's `'succeeded' → 'applied'` transition for
+   * the given commands. Each gets `{ status: 'applied', updatedAt }` written
+   * and emits one `'status-changed'` event.
    *
    * **Contract invariants:**
    * - MUST NOT enqueue a write-queue op. The pipeline calls this from inside
    *   its own `reconcile-ws-events` op handler — re-entry would deadlock.
    * - The caller already holds the command records (loaded at batch setup).
    *   This method must not re-read them from storage.
-   * - A single `storage.updateCommands` call batches both sets.
    */
   async batchUpdateSyncStatus(params: {
     applied?: Iterable<CommandRecord<TLink, TCommand>>
-    updated?: Iterable<CommandRecord<TLink, TCommand>>
   }): Promise<void> {
+    if (!params.applied) return
+
     const now = Date.now()
     const updates: Array<{
       commandId: string
@@ -2021,30 +2064,15 @@ export class CommandQueue<
     }> = []
 
     const appliedList: CommandRecord<TLink, TCommand>[] = []
-    if (params.applied) {
-      for (const command of params.applied) {
-        appliedList.push(command)
-        updates.push({
-          commandId: command.commandId,
-          updates: {
-            status: 'applied',
-            pendingAggregateCoverage: undefined,
-            updatedAt: now,
-          },
-        })
-      }
-    }
-
-    if (params.updated) {
-      for (const command of params.updated) {
-        updates.push({
-          commandId: command.commandId,
-          updates: {
-            pendingAggregateCoverage: command.pendingAggregateCoverage,
-            updatedAt: now,
-          },
-        })
-      }
+    for (const command of params.applied) {
+      appliedList.push(command)
+      updates.push({
+        commandId: command.commandId,
+        updates: {
+          status: 'applied',
+          updatedAt: now,
+        },
+      })
     }
 
     if (updates.length === 0) return
@@ -2085,42 +2113,6 @@ export class CommandQueue<
     }
 
     this.commandEvents.next(event)
-  }
-
-  private toCompletionResult(
-    command: CommandRecord<TLink, TCommand>,
-  ): Result<unknown, CommandCompletionError> {
-    switch (command.status) {
-      case 'succeeded':
-      case 'applied':
-        return Ok(command.serverResponse)
-      case 'failed': {
-        const error = command.error
-        if (isCommandFailed(error)) return Err(error)
-        return Err(new CommandFailedException('server', error?.message ?? 'Unknown error'))
-      }
-      case 'cancelled':
-        return Err(new CommandCancelledException())
-      default:
-        assert(false, `Unexpected terminal status: ${command.status}`)
-    }
-  }
-
-  private eventToCompletionResult(event: CommandEvent): Result<unknown, CommandCompletionError> {
-    switch (event.status) {
-      case 'succeeded':
-      case 'applied':
-        return Ok(event.response)
-      case 'failed': {
-        const error = event.error
-        if (isCommandFailed(error)) return Err(error)
-        return Err(new CommandFailedException('server', error?.message ?? 'Unknown error'))
-      }
-      case 'cancelled':
-        return Err(new CommandCancelledException())
-      default:
-        assert(false, `Unexpected terminal status: ${event.status}`)
-    }
   }
 
   /**
@@ -2243,12 +2235,11 @@ export interface IdMappingCandidate<TLink extends Link> {
 
 /**
  * Full result of {@link CommandQueue.collectIdMappingCandidates}: candidate
- * id mappings plus per-aggregate expected-revision coverage for the
- * `'succeeded' → 'applied'` pipeline transition.
+ * id mappings plus the set of affected streams the response did not cover
+ * with a parsable revision.
  */
 export interface CollectedIdMappings<TLink extends Link> {
   candidates: IdMappingCandidate<TLink>[]
-  expectedRevisionsByStream: Map<string, bigint>
   uncoveredStreams: string[]
 }
 
@@ -2265,33 +2256,4 @@ export function parseExpectedRevision(value: unknown): bigint | undefined {
   } catch {
     return undefined
   }
-}
-
-/**
- * Serialize the sync pipeline's per-command coverage tracking field.
- *
- * Written at the `'succeeded'` transition; consumed + updated by the sync
- * pipeline as it drives the `'succeeded' → 'applied'` transition.
- *
- * Returns:
- *   - `JSON.stringify('events')` when the response carried events — rule 1
- *     (pipeline drain of those events) will mark the command applied.
- *   - `JSON.stringify(record)` where `record` is `Record<streamId, string>` of
- *     stringified expected revisions from the merged id-mapping config. Empty
- *     record is legal and means "every affected aggregate is uncovered";
- *     the pipeline will auto-apply on the first batch.
- */
-export function buildPendingAggregateCoverage<TLink extends Link>(
-  response: unknown,
-  mappings: CollectedIdMappings<TLink>,
-): string {
-  if (hasResponseEvents(response) && response.events.length > 0) {
-    return JSON.stringify('events')
-  }
-
-  const record: Record<string, string> = {}
-  for (const [streamId, revision] of mappings.expectedRevisionsByStream) {
-    record[streamId] = revision.toString()
-  }
-  return JSON.stringify(record)
 }

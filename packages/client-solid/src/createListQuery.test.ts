@@ -183,7 +183,7 @@ describe('createListQuery', () => {
         hasLocalChanges: false,
         cacheKey: scopeKey('ck-todos'),
       })
-      collectionUpdate$.next({ type: 'updated', ids: ['2'] })
+      collectionUpdate$.next({ type: 'updated', ids: ['2'], commandIds: [] })
 
       await tick()
 
@@ -225,7 +225,7 @@ describe('createListQuery', () => {
         hasLocalChanges: false,
         cacheKey: scopeKey('ck-todos'),
       })
-      collectionUpdate$.next({ type: 'updated', ids: ['2'] })
+      collectionUpdate$.next({ type: 'updated', ids: ['2'], commandIds: [] })
 
       // Loading should not have been set back to true
       expect(state.loading).toBe(false)
@@ -315,7 +315,7 @@ describe('createListQuery', () => {
       expect(callCount).toBe(1)
 
       // Trigger a second fetch before first resolves
-      collectionUpdate$.next({ type: 'updated', ids: ['1'] })
+      collectionUpdate$.next({ type: 'updated', ids: ['1'], commandIds: [] })
       await tick()
       expect(callCount).toBe(2)
 
@@ -395,7 +395,7 @@ describe('createListQuery', () => {
       })
       qm.list = origQm.qm.list.bind(origQm.qm)
 
-      collectionUpdate$.next({ type: 'updated', ids: ['1'] })
+      collectionUpdate$.next({ type: 'updated', ids: ['1'], commandIds: [] })
       await tick()
 
       expect(state.items).toHaveLength(1)

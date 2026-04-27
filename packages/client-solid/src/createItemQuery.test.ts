@@ -237,7 +237,7 @@ describe('createItemQuery', () => {
         hasLocalChanges: false,
         cacheKey: scopeKey('ck-todos-1'),
       })
-      collectionUpdate$.next({ type: 'updated', ids: ['1'] })
+      collectionUpdate$.next({ type: 'updated', ids: ['1'], commandIds: [] })
       await tick()
 
       expect(state.data?.title).toBe('Buy oat milk')
@@ -267,7 +267,7 @@ describe('createItemQuery', () => {
       const callCountAfterInit = getByIdSpy.mock.calls.length
 
       // Emit for a different ID
-      collectionUpdate$.next({ type: 'updated', ids: ['2', '3'] })
+      collectionUpdate$.next({ type: 'updated', ids: ['2', '3'], commandIds: [] })
       await tick()
 
       // Should not have triggered another fetch

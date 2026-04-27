@@ -3,37 +3,24 @@
  *
  * Imperative methods (enqueue, getCommand, etc.) use RPC.
  * Observable properties (events$, commandEvents$) are reconstructed from broadcasts.
- * waitForCompletion and enqueueAndWait are implemented locally via broadcast subscription
- * to avoid long-running RPC timeouts.
+ * waitForSucceeded, waitForApplied, and enqueueAndWait are implemented locally
+ * via broadcast subscription to avoid long-running RPC timeouts.
  */
 
-import { assert, generateId } from '#utils'
+import { generateId } from '#utils'
 import { Err, type IException, type Link, Ok, type Result } from '@meticoeus/ddd-es'
-import {
-  Observable,
-  Subject,
-  filter,
-  firstValueFrom,
-  map,
-  race,
-  share,
-  take,
-  takeUntil,
-  timer,
-} from 'rxjs'
+import { Observable, Subject, filter, firstValueFrom, share, take, takeUntil } from 'rxjs'
 import type { ICommandFileStore } from '../../core/command-queue/file-store/ICommandFileStore.js'
 import type { ICommandQueue } from '../../core/command-queue/types.js'
+import { waitForTerminal } from '../../core/command-queue/waitForTerminal.js'
 import type { WorkerMessageChannel } from '../../protocol/MessageChannel.js'
 import type { EventMessage } from '../../protocol/messages.js'
 import type { CommandCompletionError } from '../../types/commands.js'
 import {
-  CommandCancelledException,
   CommandEvent,
-  CommandFailedException,
   CommandFilter,
   CommandNotFoundException,
   CommandRecord,
-  CommandTimeoutException,
   EnqueueAndWaitParams,
   EnqueueAndWaitResult,
   EnqueueCommand,
@@ -41,12 +28,7 @@ import {
   EnqueueResult,
   InvalidCommandStatusException,
   WaitOptions,
-  isCommandFailed,
-  isTerminalCommandEvent,
-  isTerminalStatus,
 } from '../../types/commands.js'
-
-const DEFAULT_WAIT_TIMEOUT = 30000
 
 /**
  * Main-thread proxy for the worker-side CommandQueue.
@@ -115,61 +97,35 @@ export class CommandQueueProxy<
     return this.channel.request<EnqueueResult<TEvent>>('commandQueue.enqueue', [params])
   }
 
-  async waitForCompletion(
+  waitForSucceeded(
     commandId: string,
     options?: WaitOptions,
   ): Promise<Result<unknown, CommandCompletionError>> {
-    const timeout = options?.timeout ?? DEFAULT_WAIT_TIMEOUT
+    return waitForTerminal(this, commandId, 'succeeded', options)
+  }
 
-    // Subscribe eagerly BEFORE the RPC check so no broadcast is missed
-    // between the caller's enqueue/RPC and this method's observable subscription.
-    // The promise resolves on the first terminal event or timeout.
-    let resolveCompletion: (value: Result<unknown, CommandCompletionError>) => void
-    const completionPromise = new Promise<Result<unknown, CommandCompletionError>>((resolve) => {
-      resolveCompletion = resolve
-    })
-
-    const subscription = race(
-      this.commandEvents$(commandId).pipe(
-        filter(isTerminalCommandEvent),
-        map((event) => eventToCompletionResult(event)),
-      ),
-      timer(timeout).pipe(
-        map((): Result<unknown, CommandCompletionError> => Err(new CommandTimeoutException())),
-      ),
-    ).subscribe((result) => {
-      resolveCompletion(result)
-    })
-
-    // Check if command is already in terminal state
-    const command = await this.getCommand(commandId)
-
-    if (!command) {
-      subscription.unsubscribe()
-      return Err(new CommandFailedException('local', `Command not found: ${commandId}`))
-    }
-
-    if (isTerminalStatus(command.status)) {
-      subscription.unsubscribe()
-      return toCompletionResult(command)
-    }
-
-    const result = await completionPromise
-    subscription.unsubscribe()
-    return result
+  waitForApplied(
+    commandId: string,
+    options?: WaitOptions,
+  ): Promise<Result<unknown, CommandCompletionError>> {
+    return waitForTerminal(this, commandId, 'applied', options)
   }
 
   async enqueueAndWait<TData, TEvent, TResponse>(
     params: EnqueueAndWaitParams<TLink, TData>,
   ): Promise<EnqueueAndWaitResult<TResponse>> {
-    const { commandId, command, cacheKey, skipValidation, ...options } = params
+    const { commandId, command, cacheKey, skipValidation, waitFor, ...options } = params
     const enqueueResult = await this.enqueue<TData, TEvent>(params)
 
     if (!enqueueResult.ok) {
       return Err(enqueueResult.error)
     }
 
-    const completionResult = await this.waitForCompletion(enqueueResult.value.commandId, options)
+    const terminal = waitFor ?? 'applied'
+    const completionResult =
+      terminal === 'succeeded'
+        ? await this.waitForSucceeded(enqueueResult.value.commandId, options)
+        : await this.waitForApplied(enqueueResult.value.commandId, options)
 
     if (!completionResult.ok) {
       return Err(completionResult.error)
@@ -306,41 +262,5 @@ function broadcastToCommandEvent<TLink extends Link, TCommand extends EnqueueCom
       }
     default:
       return undefined
-  }
-}
-
-function toCompletionResult<TLink extends Link, TCommand extends EnqueueCommand>(
-  command: CommandRecord<TLink, TCommand>,
-): Result<unknown, CommandCompletionError> {
-  switch (command.status) {
-    case 'succeeded':
-    case 'applied':
-      return Ok(command.serverResponse)
-    case 'failed': {
-      const error = command.error
-      if (isCommandFailed(error)) return Err(error)
-      return Err(new CommandFailedException('server', error?.message ?? 'Unknown error'))
-    }
-    case 'cancelled':
-      return Err(new CommandCancelledException())
-    default:
-      assert(false, `Unexpected terminal status: ${command.status}`)
-  }
-}
-
-function eventToCompletionResult(event: CommandEvent): Result<unknown, CommandCompletionError> {
-  switch (event.status) {
-    case 'succeeded':
-    case 'applied':
-      return Ok(event.response)
-    case 'failed': {
-      const error = event.error
-      if (isCommandFailed(error)) return Err(error)
-      return Err(new CommandFailedException('server', error?.message ?? 'Unknown error'))
-    }
-    case 'cancelled':
-      return Err(new CommandCancelledException())
-    default:
-      assert(false, `Unexpected terminal status: ${event.status}`)
   }
 }

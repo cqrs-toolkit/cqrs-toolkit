@@ -47,7 +47,7 @@ export interface ApplyAnticipatedOp<TLink extends Link, TCommand extends Enqueue
 /**
  * Cache fetched events and drain the gap buffer for a stream after a repair fetch completes.
  * The handler caches the fetched events (SQLite + GapBuffer), then drains the full GapBuffer
- * in revision order through EventProcessorRunner.
+ * in revision order through the SyncManager reconcile pipeline.
  */
 export interface ApplyGapRepairOp<TLink extends Link> {
   type: 'apply-gap-repair'

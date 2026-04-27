@@ -154,7 +154,8 @@ export class GapRepairCoordinator<TLink extends Link, TCommand extends EnqueueCo
 
   /**
    * Write queue handler for apply-gap-repair.
-   * Drains the gap buffer for a stream, processing events through EventProcessorRunner.
+   * Drains the gap buffer for a stream, routing the buffered entries through
+   * the SyncManager reconcile pipeline via the `onProcessGapEvents` callback.
    * Clears the repairing guard on completion (including errors) so the next WS event can retry.
    */
   private async onApplyGapRepair(op: ApplyGapRepairOp<TLink>): Promise<void> {

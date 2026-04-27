@@ -205,14 +205,17 @@ Cache key identity to seed for
 
 Network-aware command submission.
 
-When online+authenticated: waits for server confirmation (like `enqueueAndWait`).
-When offline/unauthenticated: returns after enqueue (like `enqueue`).
+When online+authenticated: waits until the command reaches `'applied'` —
+server confirmed AND the sync pipeline has reflected the response events
+in the read model. When offline/unauthenticated: returns after enqueue.
 
 If `options.commandId` is provided, checks the queue first:
 
-- Found + non-terminal → resumes waiting (no duplicate enqueue)
-- Found + succeeded → returns cached success immediately
-- Found + failed/cancelled, or not found → fresh enqueue
+- Found + applied → returns cached success immediately.
+- Found + succeeded + online → waits for `'applied'` (drain still in flight).
+- Found + succeeded + offline → returns the cached server response.
+- Found + non-terminal → resumes waiting (no duplicate enqueue).
+- Found + failed/cancelled, or not found → fresh enqueue.
 
 #### Type Parameters
 

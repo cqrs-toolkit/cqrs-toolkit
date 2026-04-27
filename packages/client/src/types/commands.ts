@@ -199,22 +199,6 @@ export interface CommandRecord<
    *  and prune entries as tempIds resolve to serverIds. */
   // TODO: widen to Record<JSONPathExpression, EntityRef | EntityTLink<TLink>> when A.4 (Link-aware walker) lands
   commandIdPaths?: Record<JSONPathExpression, EntityRef>
-  /**
-   * Pipeline coverage tracking for the `'succeeded' → 'applied'` transition. Populated
-   * by the CommandQueue success path; consumed + updated by the server data pipeline.
-   *
-   * JSON-encoded on-disk. After parse:
-   *   - `'events'` — server response carried events; rule 1 (pipeline drain of those
-   *     events) will mark the command applied.
-   *   - `Record<streamId, stringifiedBigInt>` — server response carried no events;
-   *     rule 2 (per-aggregate revision / cache-key eviction) removes entries as
-   *     coverage accrues. Empty map → command transitions to `'applied'`.
-   *
-   * Absent for commands not yet in `'succeeded'` status. The pipeline's in-flight
-   * filter on `'succeeded'` guarantees every in-scope command has this populated.
-   * See `_active-plans/command-applied.md` §3.2.
-   */
-  pendingAggregateCoverage?: string
   /** Sequence number for stable submit-order sorting. Assigned by CommandStore;
    *  SQL autoincrement is authoritative on disk — this value is read-only from
    *  the storage perspective. */
@@ -312,7 +296,7 @@ export interface EnqueueParams<TLink extends Link, TData = unknown> extends Enqu
 }
 
 /**
- * Options for waitForCompletion operation.
+ * Options for waitForSucceeded operation.
  */
 export interface WaitOptions {
   /** Timeout in milliseconds (default: 30000) */
@@ -323,7 +307,15 @@ export interface WaitOptions {
  * Options for enqueueAndWait operation.
  */
 export interface EnqueueAndWaitOptions<TLink extends Link>
-  extends EnqueueOptions<TLink>, WaitOptions {}
+  extends EnqueueOptions<TLink>, WaitOptions {
+  /**
+   * Terminal state to wait for. Default `'applied'` — the sync pipeline has
+   * reflected the command's response events in the read model. Override with
+   * `'succeeded'` to resolve earlier at server acknowledgement, before the
+   * read-model drain completes.
+   */
+  waitFor?: 'succeeded' | 'applied'
+}
 
 /**
  * Parameters for {@link ICommandQueue.enqueueAndWait}.
@@ -445,7 +437,7 @@ export function isEnqueueFailure<TEvent>(
  * Terminal command statuses — command processing is complete.
  *
  * Note: `'applied'` is post-terminal and intentionally NOT included here.
- * Terminal status gates `waitForCompletion`, file cleanup, and chain detachment —
+ * Terminal status gates `waitForSucceeded`, file cleanup, and chain detachment —
  * all of which fire at `'succeeded'` and must not wait for the pipeline's later
  * `'succeeded' → 'applied'` transition.
  */
@@ -479,7 +471,7 @@ export function isTerminalStatus(status: CommandStatus): status is TerminalComma
  * with a terminal {@link CommandEvent.status} fires at the status flip — BEFORE
  * post-processing. The terminal {@link CommandEvent.eventType}s (`completed`,
  * `failed`, `cancelled`) fire AFTER, so consumers that need to observe
- * fully-settled state (e.g. `waitForCompletion`) should filter on the
+ * fully-settled state (e.g. `waitForSucceeded`) should filter on the
  * {@link CommandEvent.eventType} via this predicate rather than on status.
  */
 export function isTerminalCommandEvent(event: CommandEvent): boolean {

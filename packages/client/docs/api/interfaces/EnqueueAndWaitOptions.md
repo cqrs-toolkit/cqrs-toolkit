@@ -80,3 +80,14 @@ Timeout in milliseconds (default: 30000)
 #### Inherited from
 
 [`WaitOptions`](WaitOptions.md).[`timeout`](WaitOptions.md#timeout)
+
+---
+
+### waitFor?
+
+> `optional` **waitFor**: `"succeeded"` \| `"applied"`
+
+Terminal state to wait for. Default `'applied'` — the sync pipeline has
+reflected the command's response events in the read model. Override with
+`'succeeded'` to resolve earlier at server acknowledgement, before the
+read-model drain completes.

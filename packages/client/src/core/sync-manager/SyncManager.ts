@@ -39,7 +39,7 @@ import { getAtPath } from '../entity-ref/ref-path.js'
 import type { RewriteIdEntry } from '../entity-ref/rewrite-command.js'
 import { rewriteCommandWithIdMap } from '../entity-ref/rewrite-command.js'
 import type { CacheServerEventEntry, EventCache } from '../event-cache/EventCache.js'
-import { EventProcessorRegistry, EventProcessorRunner } from '../event-processor/index.js'
+import { EventProcessorRegistry } from '../event-processor/index.js'
 import type { ProcessorContext, ProcessorResult } from '../event-processor/types.js'
 import type { EventBus } from '../events/EventBus.js'
 import type { IQueryManagerInternal } from '../query-manager/types.js'
@@ -145,12 +145,6 @@ interface ServerStateChangeResult<TLink extends Link> {
   /** Read model records already loaded by the entry point (for merge + _clientMetadata lookup). */
   preloadedRecords: ReadonlyMap<string, ReadModel>
   /**
-   * Command ids carried by any event's `metadata.commandId` in this batch.
-   * Drives rule 1 of the `'succeeded' → 'applied'` transition: when a
-   * command's response events drain here, the pipeline marks it applied.
-   */
-  commandIdsWithDrainedEvents: Set<string>
-  /**
    * Processor results awaiting persistence. Phase 3 of the WS path and the
    * per-record loop in `onApplyRecords` push here instead of writing
    * directly — Phase 6 of `reconcileAndPersist` flushes the queue after
@@ -228,7 +222,6 @@ export class SyncManager<
     private readonly eventCache: EventCache<TLink, TCommand>,
     private readonly cacheManager: ICacheManagerInternal<TLink>,
     private readonly eventProcessorRegistry: EventProcessorRegistry,
-    private readonly eventProcessor: EventProcessorRunner<TLink, TCommand>,
     private readonly readModelStore: ReadModelStore<TLink, TCommand>,
     private readonly queryManager: IQueryManagerInternal<TLink>,
     private readonly writeQueue: IWriteQueue<TLink, TCommand>,
@@ -949,9 +942,10 @@ export class SyncManager<
     }
 
     // Notify reactive queries that seeding is complete.
-    // Unlike seedWithEvents (where EventProcessorRunner emits per-event),
-    // record-based seeding writes directly to storage, so a single bulk
-    // notification is needed after all pages are loaded.
+    // Unlike seedWithEvents (where each `apply-seed-events` op routes through
+    // the reconcile pipeline, which emits `readmodel:updated` per batch from
+    // Phase 6), record-based seeding writes directly to storage, so a single
+    // bulk notification is needed after all pages are loaded.
     // Always emit, even for zero records — consumers need the signal to
     // resolve loading state for genuinely empty collections.
     this.eventBus.emit('readmodel:updated', {
@@ -1123,7 +1117,6 @@ export class SyncManager<
       idMap: new Map(),
       tempIdsToDelete: new Set(),
       preloadedRecords: new Map(),
-      commandIdsWithDrainedEvents: new Set(),
       pendingApplications,
     })
   }
@@ -2020,19 +2013,15 @@ export class SyncManager<
     const tempIdsToDelete = new Set<string>()
     const dirtyEntityKeys = new Set<string>()
     const lockedEntityKeys = new Set<string>()
-    // Every `event.metadata.commandId` observed in this batch (rule 1 input).
-    const commandIdsWithDrainedEvents = new Set<string>()
     // Processor results staged for deferred persistence in Phase 6.
     const pendingApplications: DeferredApplication[] = []
 
     for (const { event, primaryCollection, matchingCollections, cacheKeys, serverId } of scanned) {
-      // Per-event debug bookkeeping: matches the legacy
-      // `EventProcessorRunner.processEvent` contract where `updatedIds`
-      // accumulates `${collection}:${id}` for every processor result
-      // produced against this event (regardless of whether the write
-      // actually changed the row) and `invalidated` is the OR across all
-      // processors. Events with no matching processors get an empty
-      // record, same as the old path.
+      // Per-event debug bookkeeping. `updatedIds` accumulates
+      // `${collection}:${id}` for every processor result produced against
+      // this event (regardless of whether the write actually changed the
+      // row); `invalidated` is the OR across all processors. Events with
+      // no matching processors get an empty record.
       const eventDebug: { updatedIds: string[]; invalidated: boolean } = {
         updatedIds: [],
         invalidated: false,
@@ -2158,7 +2147,6 @@ export class SyncManager<
       // event back to a pending create command — the create's `tempId` is
       // being resolved to the event's `serverId`.
       if (typeof eventCommandId === 'string') {
-        commandIdsWithDrainedEvents.add(eventCommandId)
         const pendingCreate = pendingCreatesByCommandId.get(eventCommandId)
         if (pendingCreate && pendingCreate.tempId !== serverId) {
           const ref = createEntityRef(
@@ -2187,7 +2175,6 @@ export class SyncManager<
       idMap,
       tempIdsToDelete,
       preloadedRecords,
-      commandIdsWithDrainedEvents,
       pendingApplications,
     })
 
@@ -2232,7 +2219,6 @@ export class SyncManager<
       idMap,
       tempIdsToDelete,
       preloadedRecords,
-      commandIdsWithDrainedEvents,
       pendingApplications,
     } = change
 
@@ -2269,11 +2255,11 @@ export class SyncManager<
     // one there can be no handlers to re-run and Phase 4/5 are no-ops.
     //
     // `'succeeded'` is in scope because the pipeline owns the
-    // `'succeeded' → 'applied'` transition (see `_active-plans/command-applied.md`):
-    // succeeded commands with `creates.idStrategy === 'temporary'` still need
-    // their tempId→serverId migration (Phase 3 + Phase 6 step 4), and the
-    // per-aggregate coverage checks that drive `'applied'` read the command's
-    // `pendingAggregateCoverage` field on each batch.
+    // `'succeeded' → 'applied'` transition: succeeded commands with
+    // `creates.idStrategy === 'temporary'` still need their tempId→serverId
+    // migration (Phase 3 + Phase 6 step 4), and the primary-aggregate
+    // coverage check that drives `'applied'` runs against each succeeded
+    // command's `serverResponse` and `knownRevisions` per batch.
     const commands = this.domainExecutor
       ? await this.commandStore.getByStatus(['pending', 'blocked', 'sending', 'succeeded'])
       : []
@@ -2327,7 +2313,7 @@ export class SyncManager<
     // batch. Writes happen at the very end of `reconcileAndPersist`, after
     // all existing Phase 6 writes, so failures in coverage evaluation do
     // not partially roll back the batch.
-    const coverage = this.evaluateCoverageForBatch(succeededCommands, commandIdsWithDrainedEvents)
+    const coverage = this.evaluateCoverageForBatch(succeededCommands)
 
     // Merge preloaded records (event targets from the caller) with any
     // additional command-primary records into a single lookup map. Used by
@@ -2819,15 +2805,10 @@ export class SyncManager<
     // all existing Phase 6 steps so coverage writes don't contend with the
     // main reconcile output. Applied commands' EventCache + anticipatedUpdates
     // cleanup runs alongside.
-    if (coverage.applied.length > 0 || coverage.updated.length > 0) {
-      await this.commandQueue.batchUpdateSyncStatus({
-        applied: coverage.applied,
-        updated: coverage.updated,
-      })
-      if (coverage.applied.length > 0) {
-        const appliedIds = coverage.applied.map((c) => c.commandId)
-        await this.anticipatedEventHandler.cleanupOnAppliedBatch(appliedIds)
-      }
+    if (coverage.applied.length > 0) {
+      await this.commandQueue.batchUpdateSyncStatus({ applied: coverage.applied })
+      const appliedIds = coverage.applied.map((c) => c.commandId)
+      await this.anticipatedEventHandler.cleanupOnAppliedBatch(appliedIds)
     }
 
     // Flush any command store changes accumulated during this pipeline run
@@ -2835,118 +2816,75 @@ export class SyncManager<
   }
 
   /**
-   * Evaluate the `'succeeded' → 'applied'` coverage for every in-scope
+   * Evaluate the `'succeeded' → 'applied'` transition for every in-scope
    * succeeded command in this batch.
    *
-   * Produces:
-   *   - `applied`: commands fully covered this batch — pipeline writes
-   *     `status: 'applied'` + clears `pendingAggregateCoverage`.
-   *   - `updated`: commands whose coverage record shrank but is still
-   *     non-empty — pipeline re-persists the smaller record, status stays
-   *     `'succeeded'`. Unchanged commands are not returned at all.
+   * Detection rules (all based on server-authoritative state):
+   *   - **Cache key evicted** — `cacheManager.existsSync(command.cacheKey.key)`
+   *     returns false → applied. The read-model entries that would have
+   *     carried this command's revision are gone, so we can't prove coverage
+   *     any other way; slipping is preferable to leaving the command
+   *     `'succeeded'` forever.
+   *   - **Primary-aggregate revision covers** — for the command's primary
+   *     aggregate (from `registration.aggregate`), compare post-batch
+   *     `knownRevisions[primaryStreamId]` to `response.nextExpectedRevision`.
+   *     `>=` means every revision up to and including the command's own
+   *     events has been seen by the read model. Secondary aggregates are
+   *     intentionally ignored — the contract is "primary aggregate applied."
    *
-   * Coverage rules:
-   *   - **Rule 1** — `pendingAggregateCoverage === 'events'` and the command's
-   *     id was observed in any `event.metadata.commandId` this batch → applied.
-   *   - **Rule 2a** — for each streamId in a coverage record, post-batch
-   *     `knownRevisions[streamId] >= expectedRevision` → stream covered.
-   *   - **Rule 2b** — the command's cache key is no longer present in the
-   *     cache manager (evicted or never acquired) → every stream covered.
+   * Commands without a registration are skipped here — they were slipped to
+   * `'applied'` at succeed time in `CommandQueue` via its escape hatch.
    *
-   * Edge case: streams whose stored revision does not parse as a bigint are
-   * treated as covered (same treatment as `'no-expected-revision'` at the
-   * success-path site — auto-cover with an invalidation already fired).
+   * Returns only the set of commands transitioning to `'applied'`; commands
+   * not yet covered stay `'succeeded'` and are re-evaluated next batch when
+   * more state advances.
    */
   protected evaluateCoverageForBatch(
     succeededCommands: readonly CommandRecord<TLink, TCommand>[],
-    commandIdsWithDrainedEvents: Set<string>,
   ): {
     applied: CommandRecord<TLink, TCommand>[]
-    updated: CommandRecord<TLink, TCommand>[]
   } {
     const applied: CommandRecord<TLink, TCommand>[] = []
-    const updated: CommandRecord<TLink, TCommand>[] = []
 
     for (const command of succeededCommands) {
-      const raw = command.pendingAggregateCoverage
-      if (typeof raw !== 'string') {
-        logProvider.log.warn(
-          { commandId: command.commandId },
-          'Pipeline coverage: succeeded command missing pendingAggregateCoverage; skipping',
-        )
-        continue
-      }
+      if (!this.domainExecutor) continue
+      const registration = this.domainExecutor.getRegistration(command.type)
+      if (!registration || !registration.aggregate) continue
 
-      let parsed: unknown
-      try {
-        parsed = JSON.parse(raw)
-      } catch (err) {
-        logProvider.log.warn(
-          { err, commandId: command.commandId },
-          'Pipeline coverage: unparsable pendingAggregateCoverage; skipping',
-        )
-        continue
-      }
-
-      // Rule 1 — events marker
-      if (parsed === 'events') {
-        if (commandIdsWithDrainedEvents.has(command.commandId)) {
-          applied.push(command)
-        }
-        continue
-      }
-
-      if (typeof parsed !== 'object' || parsed === null) {
-        logProvider.log.warn(
-          { commandId: command.commandId, parsed },
-          'Pipeline coverage: pendingAggregateCoverage parsed to unexpected shape; skipping',
-        )
-        continue
-      }
-
-      const initial = parsed as Record<string, string>
-      const cacheKeyActive = this.cacheManager.existsSync(command.cacheKey.key)
-
-      const remaining: Record<string, string> = {}
-      let shrunk = false
-
-      for (const [streamId, revisionStr] of Object.entries(initial)) {
-        // Rule 2b — cache key evicted covers every stream at once.
-        if (!cacheKeyActive) {
-          shrunk = true
-          continue
-        }
-        const expected = parseExpectedRevision(revisionStr)
-        if (expected === undefined) {
-          // Malformed entry — treat as covered (auto-drop).
-          shrunk = true
-          continue
-        }
-        const current = this.knownRevisions.get(streamId)
-        if (current !== undefined && current >= expected) {
-          // Rule 2a — revision covered.
-          shrunk = true
-          continue
-        }
-        remaining[streamId] = revisionStr
-      }
-
-      const remainingKeys = Object.keys(remaining)
-      if (remainingKeys.length === 0) {
+      // Cache-key-evicted slip — state has been dropped, nothing to prove against.
+      if (!this.cacheManager.existsSync(command.cacheKey.key)) {
         applied.push(command)
         continue
       }
 
-      if (shrunk) {
-        updated.push({
-          ...command,
-          pendingAggregateCoverage: JSON.stringify(remaining),
-        })
+      const primaryEntityId = this.readResponseField(command.serverResponse, 'id')
+      if (primaryEntityId === undefined) continue
+      const nextExpectedRevisionRaw = this.readResponseField(
+        command.serverResponse,
+        'nextExpectedRevision',
+      )
+      if (nextExpectedRevisionRaw === undefined) continue
+      const expected = parseExpectedRevision(nextExpectedRevisionRaw)
+      if (expected === undefined) continue
+
+      const primaryStreamId = registration.aggregate.getStreamId(primaryEntityId)
+      const current = this.knownRevisions.get(primaryStreamId)
+      if (current === undefined) continue
+
+      if (current >= expected) {
+        applied.push(command)
       }
-      // else: unchanged — no write emitted for this command
     }
 
-    return { applied, updated }
+    return { applied }
+  }
+
+  private readResponseField(response: unknown, field: string): string | undefined {
+    if (typeof response !== 'object' || response === null) return undefined
+    if (!(field in response)) return undefined
+    const value = (response as Record<string, unknown>)[field]
+    if (typeof value === 'string') return value
+    return undefined
   }
 
   /**

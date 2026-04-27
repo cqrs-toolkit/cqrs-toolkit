@@ -26,7 +26,6 @@ import {
   EventBus,
   EventCache,
   EventProcessorRegistry,
-  EventProcessorRunner,
   QueryManager,
   ReadModelStore,
   SQLiteStorage,
@@ -165,13 +164,6 @@ async function bootstrapWorker<
     // 7. Read model store
     const readModelStore = new ReadModelStore<TLink, TCommand>(eventBus, storage, mappingStore)
 
-    // 8. Event processor runner
-    const eventProcessorRunner = new EventProcessorRunner<TLink, TCommand>(
-      eventBus,
-      registry,
-      readModelStore,
-    )
-
     // 9. Write queue
     const writeQueue = new WriteQueue<TLink, TCommand>(eventBus)
 
@@ -208,8 +200,10 @@ async function bootstrapWorker<
     const commandQueue = new CommandQueue<TLink, TCommand, TSchema, TEvent>(
       eventBus,
       storage,
+      cacheManager,
       fileStore,
       anticipatedEventHandler,
+      config.collections,
       config.aggregates,
       readModelStore,
       commandStore,
@@ -241,7 +235,6 @@ async function bootstrapWorker<
       eventCache,
       cacheManager,
       registry,
-      eventProcessorRunner,
       readModelStore,
       queryManager,
       writeQueue,
@@ -257,6 +250,10 @@ async function bootstrapWorker<
     syncManagerRef = syncManager
 
     await commandQueue.initialize()
+
+    // Wire cross-dependencies (property-set to break circular refs)
+    cacheManager.setWriteQueue(writeQueue)
+    cacheManager.setCommandQueue(commandQueue)
 
     // 15. Register RPC methods
     registerCommandQueueMethods(messageHandler, commandQueue, eventBus)

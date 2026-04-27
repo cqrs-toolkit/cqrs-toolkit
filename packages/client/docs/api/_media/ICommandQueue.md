@@ -114,6 +114,11 @@ Enqueue result with validation status
 Convenience: enqueue and wait for completion in one call.
 Best for simple form submissions.
 
+Set `params.waitFor` to choose the terminal: `'applied'` (default — the
+sync pipeline has reflected the command's events in the read model) or
+`'succeeded'` (earlier resolve at server acknowledgement, before the
+read-model drain completes).
+
 #### Type Parameters
 
 ##### TData
@@ -287,9 +292,38 @@ Command ID to retry
 
 ---
 
-### waitForCompletion()
+### waitForApplied()
 
-> **waitForCompletion**(`commandId`, `options?`): `Promise`\<`Result`\<`unknown`, [`CommandCompletionError`](../type-aliases/CommandCompletionError.md)\>\>
+> **waitForApplied**(`commandId`, `options?`): `Promise`\<`Result`\<`unknown`, [`CommandCompletionError`](../type-aliases/CommandCompletionError.md)\>\>
+
+Wait for a command to reach [CommandStatus](../type-aliases/CommandStatus.md) `'applied'` — the
+post-terminal state after the sync pipeline has reflected the command's
+response events in the read model. Resolves early with the error result
+if the command reaches `'failed'` / `'cancelled'` before `'applied'`.
+
+Use this when a caller needs "read model current for this command's
+events" semantics (e.g. CRUD form save that unlocks only after the
+effect is durably reflected).
+
+#### Parameters
+
+##### commandId
+
+`string`
+
+##### options?
+
+[`WaitOptions`](WaitOptions.md)
+
+#### Returns
+
+`Promise`\<`Result`\<`unknown`, [`CommandCompletionError`](../type-aliases/CommandCompletionError.md)\>\>
+
+---
+
+### waitForSucceeded()
+
+> **waitForSucceeded**(`commandId`, `options?`): `Promise`\<`Result`\<`unknown`, [`CommandCompletionError`](../type-aliases/CommandCompletionError.md)\>\>
 
 Wait for a specific command to reach a terminal state.
 Returns when command succeeds, fails, or is cancelled.

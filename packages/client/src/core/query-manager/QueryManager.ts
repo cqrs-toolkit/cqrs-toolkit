@@ -166,7 +166,13 @@ export class QueryManager<
   watchCollection(collection: string): Observable<CollectionSignal> {
     const updated$ = this.eventBus.on('readmodel:updated').pipe(
       filter((e) => e.data.collection === collection),
-      map((e): CollectionSignal => ({ type: 'updated', ids: e.data.ids })),
+      map(
+        (e): CollectionSignal => ({
+          type: 'updated',
+          ids: e.data.ids,
+          commandIds: e.data.commandIds,
+        }),
+      ),
     )
     const seedCompleted$ = this.eventBus.on('sync:seed-completed').pipe(
       filter((e) => e.data.collection === collection),

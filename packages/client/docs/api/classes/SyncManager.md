@@ -30,7 +30,7 @@ Sync manager.
 
 ### Constructor
 
-> **new SyncManager**\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>(`eventBus`, `storage`, `sessionManager`, `anticipatedEventHandler`, `commandQueue`, `eventCache`, `cacheManager`, `eventProcessorRegistry`, `eventProcessor`, `readModelStore`, `queryManager`, `writeQueue`, `connectivity`, `networkConfig`, `auth`, `collections`, `clientAggregates`, `domainExecutor`, `commandStore`, `mappingStore`): `SyncManager`\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
+> **new SyncManager**\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>(`eventBus`, `storage`, `sessionManager`, `anticipatedEventHandler`, `commandQueue`, `eventCache`, `cacheManager`, `eventProcessorRegistry`, `readModelStore`, `queryManager`, `writeQueue`, `connectivity`, `networkConfig`, `auth`, `collections`, `clientAggregates`, `domainExecutor`, `commandStore`, `mappingStore`): `SyncManager`\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 #### Parameters
 
@@ -65,10 +65,6 @@ Sync manager.
 ##### eventProcessorRegistry
 
 [`EventProcessorRegistry`](EventProcessorRegistry.md)
-
-##### eventProcessor
-
-[`EventProcessorRunner`](EventProcessorRunner.md)\<`TLink`, `TCommand`\>
 
 ##### readModelStore
 
@@ -194,41 +190,37 @@ Calls stop(), then destroys the connectivity manager.
 
 ### evaluateCoverageForBatch()
 
-> `protected` **evaluateCoverageForBatch**(`succeededCommands`, `commandIdsWithDrainedEvents`): `object`
+> `protected` **evaluateCoverageForBatch**(`succeededCommands`): `object`
 
-Evaluate the `'succeeded' → 'applied'` coverage for every in-scope
+Evaluate the `'succeeded' → 'applied'` transition for every in-scope
 succeeded command in this batch.
 
-Produces:
+Detection rules (all based on server-authoritative state):
 
-- `applied`: commands fully covered this batch — pipeline writes
-  `status: 'applied'` + clears `pendingAggregateCoverage`.
-- `updated`: commands whose coverage record shrank but is still
-  non-empty — pipeline re-persists the smaller record, status stays
-  `'succeeded'`. Unchanged commands are not returned at all.
+- **Cache key evicted** — `cacheManager.existsSync(command.cacheKey.key)`
+  returns false → applied. The read-model entries that would have
+  carried this command's revision are gone, so we can't prove coverage
+  any other way; slipping is preferable to leaving the command
+  `'succeeded'` forever.
+- **Primary-aggregate revision covers** — for the command's primary
+  aggregate (from `registration.aggregate`), compare post-batch
+  `knownRevisions[primaryStreamId]` to `response.nextExpectedRevision`.
+  `>=` means every revision up to and including the command's own
+  events has been seen by the read model. Secondary aggregates are
+  intentionally ignored — the contract is "primary aggregate applied."
 
-Coverage rules:
+Commands without a registration are skipped here — they were slipped to
+`'applied'` at succeed time in `CommandQueue` via its escape hatch.
 
-- **Rule 1** — `pendingAggregateCoverage === 'events'` and the command's
-  id was observed in any `event.metadata.commandId` this batch → applied.
-- **Rule 2a** — for each streamId in a coverage record, post-batch
-  `knownRevisions[streamId] >= expectedRevision` → stream covered.
-- **Rule 2b** — the command's cache key is no longer present in the
-  cache manager (evicted or never acquired) → every stream covered.
-
-Edge case: streams whose stored revision does not parse as a bigint are
-treated as covered (same treatment as `'no-expected-revision'` at the
-success-path site — auto-cover with an invalidation already fired).
+Returns only the set of commands transitioning to `'applied'`; commands
+not yet covered stay `'succeeded'` and are re-evaluated next batch when
+more state advances.
 
 #### Parameters
 
 ##### succeededCommands
 
 readonly [`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>[]
-
-##### commandIdsWithDrainedEvents
-
-`Set`\<`string`\>
 
 #### Returns
 
@@ -237,10 +229,6 @@ readonly [`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`,
 ##### applied
 
 > **applied**: [`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>[]
-
-##### updated
-
-> **updated**: [`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>[]
 
 ---
 

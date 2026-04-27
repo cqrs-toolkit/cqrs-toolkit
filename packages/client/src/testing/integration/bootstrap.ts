@@ -41,7 +41,6 @@ import { CommandStore } from '../../core/command-store/CommandStore.js'
 import type { ICommandStore } from '../../core/command-store/ICommandStore.js'
 import { EventCache } from '../../core/event-cache/EventCache.js'
 import { EventProcessorRegistry } from '../../core/event-processor/EventProcessorRegistry.js'
-import { EventProcessorRunner } from '../../core/event-processor/EventProcessorRunner.js'
 import type { ProcessorRegistration } from '../../core/event-processor/types.js'
 import { EventBus } from '../../core/events/EventBus.js'
 import { QueryManager } from '../../core/query-manager/QueryManager.js'
@@ -93,7 +92,6 @@ type SyncManagerConstructor = new (
   eventCache: EventCache<TLink, TCommand>,
   cacheManager: CacheManager<TLink, TCommand>,
   registry: EventProcessorRegistry,
-  eventProcessor: EventProcessorRunner<TLink, TCommand>,
   readModelStore: ReadModelStore<TLink, TCommand>,
   queryManager: QueryManager<TLink, TCommand>,
   writeQueue: WriteQueue<TLink, TCommand>,
@@ -150,7 +148,6 @@ export interface IntegrationContext {
   cacheManager: CacheManager<TLink, TCommand>
   eventCache: EventCache<TLink, TCommand>
   readModelStore: ReadModelStore<TLink, TCommand>
-  eventProcessorRunner: EventProcessorRunner<TLink, TCommand>
   anticipatedEventHandler: AnticipatedEventHandler<TLink, TCommand>
   commandQueue: CommandQueue<TLink, TCommand, TSchema, TEvent>
   queryManager: QueryManager<TLink, TCommand>
@@ -219,21 +216,14 @@ async function wireComponents(
   await mappingStore.initialize()
   const readModelStore = new ReadModelStore<TLink, TCommand>(eventBus, storage, mappingStore)
 
-  // 6. EventProcessorRunner
-  const eventProcessorRunner = new EventProcessorRunner<TLink, TCommand>(
-    eventBus,
-    registry,
-    readModelStore,
-  )
-
-  // 7. WriteQueue
+  // 6. WriteQueue
   const writeQueue = new WriteQueue<TLink, TCommand>(eventBus)
 
-  // 8. CommandStore
+  // 7. CommandStore
   const commandStore = new CommandStore(storage)
   await commandStore.initialize()
 
-  // 9. AnticipatedEventHandler (registers 'apply-anticipated' on writeQueue)
+  // 8. AnticipatedEventHandler (registers 'apply-anticipated' on writeQueue)
   const anticipatedEventHandler = new AnticipatedEventHandler<TLink, TCommand>(
     eventBus,
     eventCache,
@@ -243,10 +233,10 @@ async function wireComponents(
     writeQueue,
   )
 
-  // 10. QueryManager
+  // 9. QueryManager
   const queryManager = new QueryManager<TLink, TCommand>(eventBus, cacheManager, readModelStore)
 
-  // 11. CommandQueue (with optional DomainExecutor)
+  // 10. CommandQueue (with optional DomainExecutor)
   let syncManagerRef: SyncManager<TLink, TCommand, TSchema, TEvent>
 
   const fileStore = new InMemoryCommandFileStore()
@@ -263,8 +253,10 @@ async function wireComponents(
   const commandQueue = new CommandQueue<TLink, TCommand, TSchema, TEvent>(
     eventBus,
     storage,
+    cacheManager,
     fileStore,
     anticipatedEventHandler,
+    collections,
     aggregates,
     readModelStore,
     commandStore,
@@ -291,7 +283,6 @@ async function wireComponents(
     eventCache,
     cacheManager,
     registry,
-    eventProcessorRunner,
     readModelStore,
     queryManager,
     writeQueue,
@@ -309,7 +300,6 @@ async function wireComponents(
   // Wire cross-dependencies (property-set to break circular refs)
   cacheManager.setWriteQueue(writeQueue)
   cacheManager.setCommandQueue(commandQueue)
-  commandQueue.setCacheManager(cacheManager)
 
   // Rebuild in-memory chain state from any persisted commands (seeded via
   // `config.seedStorage` or carried over from a prior session). Must run
@@ -357,7 +347,6 @@ async function wireComponents(
     cacheManager,
     eventCache,
     readModelStore,
-    eventProcessorRunner,
     anticipatedEventHandler,
     commandQueue,
     queryManager,

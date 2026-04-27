@@ -1412,8 +1412,8 @@ ON CONFLICT(client_id) DO UPDATE SET
       sql: `INSERT INTO commands
 (command_id, cache_key, service, type, data, status, depends_on, blocked_by, attempts,
   last_attempt_at, error, server_response, post_process, creates, revision,
-  path, file_refs, command_id_paths, affected_aggregates, pending_aggregate_coverage, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  path, file_refs, command_id_paths, affected_aggregates, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(command_id) DO UPDATE SET
   cache_key=excluded.cache_key,
   service=excluded.service,
@@ -1433,7 +1433,6 @@ ON CONFLICT(command_id) DO UPDATE SET
   file_refs=excluded.file_refs,
   command_id_paths=excluded.command_id_paths,
   affected_aggregates=excluded.affected_aggregates,
-  pending_aggregate_coverage=excluded.pending_aggregate_coverage,
   created_at=excluded.created_at,
   updated_at=excluded.updated_at`,
       bind: [
@@ -1456,7 +1455,6 @@ ON CONFLICT(command_id) DO UPDATE SET
         command.fileRefs ? JSON.stringify(command.fileRefs) : null,
         command.commandIdPaths ? JSON.stringify(command.commandIdPaths) : null,
         command.affectedAggregates ? JSON.stringify(command.affectedAggregates) : null,
-        command.pendingAggregateCoverage ?? null,
         command.createdAt,
         command.updatedAt,
       ],
@@ -1528,7 +1526,6 @@ ON CONFLICT(command_id) DO UPDATE SET
       fileRefs: row.file_refs ? JSON.parse(row.file_refs) : undefined,
       commandIdPaths: row.command_id_paths ? JSON.parse(row.command_id_paths) : undefined,
       affectedAggregates: row.affected_aggregates ? JSON.parse(row.affected_aggregates) : undefined,
-      pendingAggregateCoverage: row.pending_aggregate_coverage ?? undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }
@@ -1637,7 +1634,6 @@ interface CommandRow {
   file_refs: string | null
   command_id_paths: string | null
   affected_aggregates: string | null
-  pending_aggregate_coverage: string | null
   created_at: number
   updated_at: number
 }

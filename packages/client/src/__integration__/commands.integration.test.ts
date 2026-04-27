@@ -192,7 +192,7 @@ describe.each(bootstrapVariants)('$name commands', ({ bootstrap }) => {
             await new Promise((resolve) => setTimeout(resolve, 10))
             return Ok({
               id: serverId,
-              nextExpectedRevision: '1',
+              nextExpectedRevision: '0',
               events: [
                 createSerializedEvent(
                   'TodoCreated',
@@ -229,7 +229,7 @@ describe.each(bootstrapVariants)('$name commands', ({ bootstrap }) => {
             expect(result.ok).toBe(true)
             if (!result.ok) return
 
-            await ctx.commandQueue.waitForCompletion(result.value.commandId)
+            await ctx.commandQueue.waitForSucceeded(result.value.commandId)
             await updated
 
             const model = await ctx.readModelStore.getById<{ id: string; title: string }>(
@@ -276,7 +276,7 @@ describe.each(bootstrapVariants)('$name commands', ({ bootstrap }) => {
             await new Promise((resolve) => setTimeout(resolve, 10))
             return Ok({
               id: serverId,
-              nextExpectedRevision: '1',
+              nextExpectedRevision: '0',
               events: [
                 createSerializedEvent(
                   'TodoCreated',
@@ -321,10 +321,10 @@ describe.each(bootstrapVariants)('$name commands', ({ bootstrap }) => {
             const tempId = modelsBefore[0]!.id
 
             // Resume to send the command and receive the response.
-            // waitForCompletion resolves after the reconcile op fully settles —
+            // waitForSucceeded resolves after the reconcile op fully settles —
             // the response events have applied to the read model by then.
             await ctx.commandQueue.resume()
-            await ctx.commandQueue.waitForCompletion(commandId)
+            await ctx.commandQueue.waitForSucceeded(commandId)
 
             // Raw storage: tempId entry deleted, serverId entry created
             const rawTemp = await ctx.storage.getReadModel('todos', tempId)

@@ -228,7 +228,7 @@ export function reconcilePendingCommands<
           clientState.get(stateKeyForEvent) ?? initialServerState.get(stateKeyForEvent)
         // TODO(types): fix need to cast as any here
         // Processors receive the event's `data` payload directly (not the
-        // wrapper), matching `EventProcessorRunner.runProcessor`.
+        // wrapper) — same convention used by the WS reconcile loop.
         const result = processor(anticipated.data, handlerState as any, context)
         if (!result) continue
         // TODO: why does this just skip? if the local read model is invalidated we need to throw it

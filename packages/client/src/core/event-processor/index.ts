@@ -13,5 +13,3 @@ export type {
 } from './types.js'
 
 export { EventProcessorRegistry } from './EventProcessorRegistry.js'
-export { EventProcessorRunner } from './EventProcessorRunner.js'
-export type { ProcessEventResult } from './EventProcessorRunner.js'

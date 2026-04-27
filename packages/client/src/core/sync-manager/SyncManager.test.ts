@@ -28,7 +28,6 @@ import { InMemoryCommandFileStore } from '../command-queue/file-store/InMemoryCo
 import { CommandStore } from '../command-store/CommandStore.js'
 import { EventCache } from '../event-cache/EventCache.js'
 import { EventProcessorRegistry } from '../event-processor/EventProcessorRegistry.js'
-import { EventProcessorRunner } from '../event-processor/EventProcessorRunner.js'
 import { ProcessorRegistration } from '../event-processor/index.js'
 import { EventBus } from '../events/EventBus.js'
 import { QueryManager } from '../query-manager/QueryManager.js'
@@ -60,12 +59,10 @@ class TestSyncManager extends SyncManager<ServiceLink, EnqueueCommand, unknown, 
 
   testEvaluateCoverageForBatch(
     succeededCommands: readonly CommandRecord<ServiceLink, EnqueueCommand>[],
-    commandIdsWithDrainedEvents: Set<string>,
   ): {
     applied: CommandRecord<ServiceLink, EnqueueCommand>[]
-    updated: CommandRecord<ServiceLink, EnqueueCommand>[]
   } {
-    return this.evaluateCoverageForBatch(succeededCommands, commandIdsWithDrainedEvents)
+    return this.evaluateCoverageForBatch(succeededCommands)
   }
 }
 
@@ -90,7 +87,6 @@ describe('SyncManager', () => {
     eventCache: EventCache<ServiceLink, EnqueueCommand>
     readModelStore: ReadModelStore<ServiceLink, EnqueueCommand>
     registry: EventProcessorRegistry
-    eventProcessorRunner: EventProcessorRunner<ServiceLink, EnqueueCommand>
     anticipatedEventHandler: IAnticipatedEventHandler<ServiceLink, EnqueueCommand>
     aggregates: IClientAggregates<ServiceLink>
     commandQueue: CommandQueue<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>
@@ -130,10 +126,30 @@ describe('SyncManager', () => {
     for (const p of params?.processors ?? []) {
       registry.register(p)
     }
-    const eventProcessorRunner = new EventProcessorRunner<ServiceLink, EnqueueCommand>(
+    const todosCollection: Collection<ServiceLink> = {
+      name: 'todos',
+      aggregate: TodoAggregate,
+      cacheKeysFromTopics(topics: readonly string[]) {
+        return [TODO_CACHE_KEY]
+      },
+      matchesStream: (streamId: string) => streamId.startsWith('nb.Todo-'),
+      seedOnInit: { cacheKey: TODO_CACHE_KEY, topics: ['todos'] },
+    }
+    const sessionManager = createSessionManager()
+    const writeQueue = createTestWriteQueue(
       eventBus,
-      registry,
-      readModelStore,
+      cleanup,
+      [
+        'apply-records',
+        'apply-seed-events',
+        'apply-gap-repair',
+        'reconcile-ws-events',
+        'evict-cache-key',
+        'flush-cache-keys',
+      ],
+      {
+        onSessionReset: 'unset',
+      },
     )
 
     const anticipatedEventHandler: IAnticipatedEventHandler<ServiceLink, EnqueueCommand> = {
@@ -160,13 +176,17 @@ describe('SyncManager', () => {
     const commandQueue = new CommandQueue<ServiceLink, EnqueueCommand, unknown, IAnticipatedEvent>(
       eventBus,
       storage,
+      cacheManager,
       fileStore,
       anticipatedEventHandler,
+      params?.collections ?? [todosCollection],
       aggregates,
       readModelStore,
       commandStore,
       mappingStore,
     )
+    cacheManager.setWriteQueue(writeQueue)
+    cacheManager.setCommandQueue(commandQueue)
 
     const queryManager = new QueryManager<ServiceLink, EnqueueCommand>(
       eventBus,
@@ -174,30 +194,6 @@ describe('SyncManager', () => {
       readModelStore,
     )
 
-    const todosCollection: Collection<ServiceLink> = {
-      name: 'todos',
-      aggregate: TodoAggregate,
-      cacheKeysFromTopics(topics: readonly string[]) {
-        return [TODO_CACHE_KEY]
-      },
-      matchesStream: (streamId: string) => streamId.startsWith('nb.Todo-'),
-      seedOnInit: { cacheKey: TODO_CACHE_KEY, topics: ['todos'] },
-    }
-    const sessionManager = createSessionManager()
-    const writeQueue = createTestWriteQueue(
-      eventBus,
-      cleanup,
-      [
-        'apply-records',
-        'apply-seed-events',
-        'apply-gap-repair',
-        'reconcile-ws-events',
-        'evict-cache-key',
-      ],
-      {
-        onSessionReset: 'unset',
-      },
-    )
     const connectivity = new ConnectivityManager(eventBus)
 
     const syncManager = params?.customSyncManager
@@ -211,7 +207,6 @@ describe('SyncManager', () => {
           eventCache,
           cacheManager,
           registry,
-          eventProcessorRunner,
           readModelStore,
           queryManager,
           writeQueue,
@@ -232,7 +227,6 @@ describe('SyncManager', () => {
       eventCache,
       readModelStore,
       registry,
-      eventProcessorRunner,
       anticipatedEventHandler,
       aggregates,
       commandQueue,
@@ -422,7 +416,6 @@ describe('SyncManager', () => {
         eventBus,
         eventCache,
         registry,
-        eventProcessorRunner,
         queryManager,
         readModelStore,
         sessionManager,
@@ -475,7 +468,6 @@ describe('SyncManager', () => {
         eventCache,
         cacheManager,
         registry,
-        eventProcessorRunner,
         readModelStore,
         queryManager,
         writeQueue,
@@ -555,7 +547,6 @@ describe('SyncManager', () => {
         eventBus,
         eventCache,
         registry,
-        eventProcessorRunner,
         queryManager,
         readModelStore,
         sessionManager,
@@ -583,7 +574,6 @@ describe('SyncManager', () => {
         eventCache,
         cacheManager,
         registry,
-        eventProcessorRunner,
         readModelStore,
         queryManager,
         writeQueue,
@@ -787,10 +777,12 @@ describe('SyncManager', () => {
   // Coverage evaluator — `evaluateCoverageForBatch`
   //
   // Drives the `'succeeded' → 'applied'` transition inside the sync pipeline.
-  // Exercised here as a pure function of its inputs (succeeded commands with
-  // pre-parsed `pendingAggregateCoverage`, the batch's drained commandIds,
-  // `knownRevisions`, and `cacheManager.existsSync`) — the surrounding
-  // pipeline integration is covered in `pipeline.integration.test.ts`.
+  // For each in-scope succeeded command, compares the primary aggregate's
+  // post-batch `knownRevisions` against the command response's
+  // `nextExpectedRevision`. Commands without a registration are skipped here
+  // (slipped to applied at succeed time by CommandQueue's escape hatch).
+  // Cache-key eviction also transitions to applied.
+  // Integration coverage lives in `pipeline.integration.test.ts`.
   // ---------------------------------------------------------------------
   describe('evaluateCoverageForBatch', () => {
     const TEST_CACHE_KEY = deriveScopeKey({ scopeType: 'evaluate-coverage-test' })
@@ -798,22 +790,21 @@ describe('SyncManager', () => {
     function succeededCommand(
       overrides: Partial<CommandRecord<ServiceLink, EnqueueCommand>> & {
         commandId: string
-        pendingAggregateCoverage: string | undefined
+        type: string
       },
     ): CommandRecord<ServiceLink, EnqueueCommand> {
-      const { commandId, pendingAggregateCoverage, cacheKey, ...rest } = overrides
+      const { commandId, type, cacheKey, serverResponse, ...rest } = overrides
       return {
         commandId,
         cacheKey: cacheKey ?? TEST_CACHE_KEY,
         service: 'default',
-        type: 'TestCommand',
+        type,
         data: {},
         status: 'succeeded',
         dependsOn: [],
         blockedBy: [],
         attempts: 1,
-        serverResponse: { id: commandId },
-        pendingAggregateCoverage,
+        serverResponse: serverResponse ?? { id: commandId, nextExpectedRevision: '0' },
         seq: 0,
         createdAt: 1000,
         updatedAt: 1000,
@@ -821,229 +812,209 @@ describe('SyncManager', () => {
       }
     }
 
-    describe('rule 1 — events marker', () => {
-      it('transitions to applied when commandId is in the drained set', async () => {
-        const { syncManager, cacheManager } = await bootstrap()
-        await cacheManager.acquire(TEST_CACHE_KEY)
+    it('skips commands when no domainExecutor is configured', async () => {
+      const { syncManager, cacheManager } = await bootstrap()
+      await cacheManager.acquire(TEST_CACHE_KEY)
 
-        const command = succeededCommand({
-          commandId: 'cmd-rule1',
-          pendingAggregateCoverage: JSON.stringify('events'),
-        })
-
-        const result = syncManager.testEvaluateCoverageForBatch([command], new Set(['cmd-rule1']))
-
-        expect(result.applied).toEqual([command])
-        expect(result.updated).toEqual([])
+      const command = succeededCommand({
+        commandId: 'cmd-no-executor',
+        type: 'CreateItem',
       })
 
-      it('does not transition when the command has no response events drained this batch', async () => {
-        const { syncManager, cacheManager } = await bootstrap()
-        await cacheManager.acquire(TEST_CACHE_KEY)
+      const result = syncManager.testEvaluateCoverageForBatch([command])
 
-        const command = succeededCommand({
-          commandId: 'cmd-rule1-unmatched',
-          pendingAggregateCoverage: JSON.stringify('events'),
-        })
-
-        const result = syncManager.testEvaluateCoverageForBatch([command], new Set())
-
-        expect(result.applied).toEqual([])
-        expect(result.updated).toEqual([])
-      })
+      expect(result.applied).toEqual([])
     })
 
-    describe('rule 2a — revision advance', () => {
-      it('shrinks the record when one stream is covered by knownRevisions', async () => {
-        const { syncManager, cacheManager } = await bootstrap()
-        await cacheManager.acquire(TEST_CACHE_KEY)
-        syncManager.getKnownRevisions().set('nb.Todo-todo-a', 5n)
+    it('skips commands whose type has no registration', async () => {
+      const { syncManager, cacheManager } = await bootstrap({
+        domainExecutor: itemDomainExecutor,
+      })
+      await cacheManager.acquire(TEST_CACHE_KEY)
 
-        const command = succeededCommand({
-          commandId: 'cmd-rule2a-partial',
-          pendingAggregateCoverage: JSON.stringify({
-            'nb.Todo-todo-a': '5',
-            'nb.Todo-todo-b': '10',
-          }),
-        })
-
-        const result = syncManager.testEvaluateCoverageForBatch([command], new Set())
-
-        expect(result.applied).toEqual([])
-        expect(result.updated).toHaveLength(1)
-        expect(JSON.parse(result.updated[0]!.pendingAggregateCoverage!)).toEqual({
-          'nb.Todo-todo-b': '10',
-        })
+      const command = succeededCommand({
+        commandId: 'cmd-no-reg',
+        type: 'UnknownCommand',
       })
 
-      it('transitions to applied when every stream is covered', async () => {
-        const { syncManager, cacheManager } = await bootstrap()
-        await cacheManager.acquire(TEST_CACHE_KEY)
-        syncManager.getKnownRevisions().set('nb.Todo-todo-a', 5n)
-        syncManager.getKnownRevisions().set('nb.Todo-todo-b', 10n)
+      const result = syncManager.testEvaluateCoverageForBatch([command])
 
-        const command = succeededCommand({
-          commandId: 'cmd-rule2a-full',
-          pendingAggregateCoverage: JSON.stringify({
-            'nb.Todo-todo-a': '5',
-            'nb.Todo-todo-b': '10',
-          }),
-        })
-
-        const result = syncManager.testEvaluateCoverageForBatch([command], new Set())
-
-        expect(result.applied).toHaveLength(1)
-        expect(result.applied[0]!.commandId).toBe('cmd-rule2a-full')
-        expect(result.updated).toEqual([])
-      })
-
-      it('accepts knownRevisions strictly greater than expected', async () => {
-        const { syncManager, cacheManager } = await bootstrap()
-        await cacheManager.acquire(TEST_CACHE_KEY)
-        syncManager.getKnownRevisions().set('nb.Todo-todo-a', 100n)
-
-        const command = succeededCommand({
-          commandId: 'cmd-rule2a-gt',
-          pendingAggregateCoverage: JSON.stringify({ 'nb.Todo-todo-a': '5' }),
-        })
-
-        const result = syncManager.testEvaluateCoverageForBatch([command], new Set())
-        expect(result.applied).toHaveLength(1)
-      })
-
-      it('leaves record unchanged when no stream has advanced far enough', async () => {
-        const { syncManager, cacheManager } = await bootstrap()
-        await cacheManager.acquire(TEST_CACHE_KEY)
-        syncManager.getKnownRevisions().set('nb.Todo-todo-a', 2n)
-
-        const command = succeededCommand({
-          commandId: 'cmd-rule2a-noop',
-          pendingAggregateCoverage: JSON.stringify({ 'nb.Todo-todo-a': '5' }),
-        })
-
-        const result = syncManager.testEvaluateCoverageForBatch([command], new Set())
-        expect(result.applied).toEqual([])
-        expect(result.updated).toEqual([])
-      })
+      expect(result.applied).toEqual([])
     })
 
-    describe('rule 2b — cache key evicted', () => {
-      it('transitions to applied when the command\u2019s cache key is absent', async () => {
-        const { syncManager } = await bootstrap()
-        // Do NOT acquire TEST_CACHE_KEY — it is absent from the cache manager.
+    it('transitions to applied when the cache key is evicted', async () => {
+      const { syncManager } = await bootstrap({ domainExecutor: itemDomainExecutor })
+      // Do NOT acquire TEST_CACHE_KEY — it is absent from the cache manager.
 
-        const command = succeededCommand({
-          commandId: 'cmd-rule2b',
-          pendingAggregateCoverage: JSON.stringify({
-            'nb.Todo-todo-a': '5',
-            'nb.Todo-todo-b': '10',
-          }),
-        })
-
-        const result = syncManager.testEvaluateCoverageForBatch([command], new Set())
-
-        expect(result.applied).toHaveLength(1)
-        expect(result.applied[0]!.commandId).toBe('cmd-rule2b')
-        expect(result.updated).toEqual([])
+      const command = succeededCommand({
+        commandId: 'cmd-evicted',
+        type: 'CreateItem',
       })
+
+      const result = syncManager.testEvaluateCoverageForBatch([command])
+
+      expect(result.applied).toHaveLength(1)
+      expect(result.applied[0]!.commandId).toBe('cmd-evicted')
     })
 
-    describe('edge cases', () => {
-      it('treats unparsable bigint revisions as covered (auto-drop)', async () => {
-        const { syncManager, cacheManager } = await bootstrap()
-        await cacheManager.acquire(TEST_CACHE_KEY)
+    it('skips commands whose serverResponse has no id', async () => {
+      const { syncManager, cacheManager } = await bootstrap({
+        domainExecutor: itemDomainExecutor,
+      })
+      await cacheManager.acquire(TEST_CACHE_KEY)
 
-        const command = succeededCommand({
-          commandId: 'cmd-unparsable',
-          pendingAggregateCoverage: JSON.stringify({ 'nb.Todo-todo-a': 'not-a-bigint' }),
-        })
-
-        const result = syncManager.testEvaluateCoverageForBatch([command], new Set())
-        expect(result.applied).toHaveLength(1)
+      const command = succeededCommand({
+        commandId: 'cmd-no-id',
+        type: 'CreateItem',
+        serverResponse: { nextExpectedRevision: '0' },
       })
 
-      it('applies empty records immediately', async () => {
-        const { syncManager, cacheManager } = await bootstrap()
-        await cacheManager.acquire(TEST_CACHE_KEY)
+      const result = syncManager.testEvaluateCoverageForBatch([command])
 
-        const command = succeededCommand({
-          commandId: 'cmd-empty',
-          pendingAggregateCoverage: JSON.stringify({}),
-        })
+      expect(result.applied).toEqual([])
+    })
 
-        const result = syncManager.testEvaluateCoverageForBatch([command], new Set())
-        expect(result.applied).toHaveLength(1)
-        expect(result.updated).toEqual([])
+    it('skips commands whose serverResponse has no nextExpectedRevision', async () => {
+      const { syncManager, cacheManager } = await bootstrap({
+        domainExecutor: itemDomainExecutor,
+      })
+      await cacheManager.acquire(TEST_CACHE_KEY)
+
+      const command = succeededCommand({
+        commandId: 'cmd-no-revision',
+        type: 'CreateItem',
+        serverResponse: { id: 'item-a' },
       })
 
-      it('skips commands with missing pendingAggregateCoverage', async () => {
-        const { syncManager, cacheManager } = await bootstrap()
-        await cacheManager.acquire(TEST_CACHE_KEY)
+      const result = syncManager.testEvaluateCoverageForBatch([command])
 
-        const command = succeededCommand({
-          commandId: 'cmd-missing',
-          pendingAggregateCoverage: undefined as unknown as string,
-        })
+      expect(result.applied).toEqual([])
+    })
 
-        const result = syncManager.testEvaluateCoverageForBatch([command], new Set())
-        expect(result.applied).toEqual([])
-        expect(result.updated).toEqual([])
+    it('skips commands whose nextExpectedRevision cannot be parsed as bigint', async () => {
+      const { syncManager, cacheManager } = await bootstrap({
+        domainExecutor: itemDomainExecutor,
+      })
+      await cacheManager.acquire(TEST_CACHE_KEY)
+      syncManager.getKnownRevisions().set('nb.Item-item-a', 0n)
+
+      const command = succeededCommand({
+        commandId: 'cmd-unparsable',
+        type: 'CreateItem',
+        serverResponse: { id: 'item-a', nextExpectedRevision: 'not-a-bigint' },
       })
 
-      it('skips commands with unparsable pendingAggregateCoverage JSON', async () => {
-        const { syncManager, cacheManager } = await bootstrap()
-        await cacheManager.acquire(TEST_CACHE_KEY)
+      const result = syncManager.testEvaluateCoverageForBatch([command])
 
-        const command = succeededCommand({
-          commandId: 'cmd-bad-json',
-          pendingAggregateCoverage: 'not json',
-        })
+      expect(result.applied).toEqual([])
+    })
 
-        const result = syncManager.testEvaluateCoverageForBatch([command], new Set())
-        expect(result.applied).toEqual([])
-        expect(result.updated).toEqual([])
+    it('skips commands whose primary stream has no knownRevisions entry', async () => {
+      const { syncManager, cacheManager } = await bootstrap({
+        domainExecutor: itemDomainExecutor,
+      })
+      await cacheManager.acquire(TEST_CACHE_KEY)
+      // Intentionally leave knownRevisions empty for nb.Item-item-a.
+
+      const command = succeededCommand({
+        commandId: 'cmd-unknown-stream',
+        type: 'CreateItem',
+        serverResponse: { id: 'item-a', nextExpectedRevision: '0' },
       })
 
-      it('processes a mixed batch independently per command', async () => {
-        const { syncManager, cacheManager } = await bootstrap()
-        await cacheManager.acquire(TEST_CACHE_KEY)
-        syncManager.getKnownRevisions().set('nb.Todo-todo-x', 7n)
+      const result = syncManager.testEvaluateCoverageForBatch([command])
 
-        const ruleOneApplied = succeededCommand({
-          commandId: 'cmd-r1-applied',
-          pendingAggregateCoverage: JSON.stringify('events'),
-        })
-        const ruleOneStillSucceeded = succeededCommand({
-          commandId: 'cmd-r1-still-succeeded',
-          pendingAggregateCoverage: JSON.stringify('events'),
-        })
-        const ruleTwoAApplied = succeededCommand({
-          commandId: 'cmd-r2a-applied',
-          pendingAggregateCoverage: JSON.stringify({ 'nb.Todo-todo-x': '7' }),
-        })
-        const ruleTwoAUpdated = succeededCommand({
-          commandId: 'cmd-r2a-updated',
-          pendingAggregateCoverage: JSON.stringify({
-            'nb.Todo-todo-x': '7',
-            'nb.Todo-todo-y': '9',
-          }),
-        })
+      expect(result.applied).toEqual([])
+    })
 
-        const result = syncManager.testEvaluateCoverageForBatch(
-          [ruleOneApplied, ruleOneStillSucceeded, ruleTwoAApplied, ruleTwoAUpdated],
-          new Set(['cmd-r1-applied']),
-        )
-
-        expect(result.applied.map((c) => c.commandId).sort()).toEqual([
-          'cmd-r1-applied',
-          'cmd-r2a-applied',
-        ])
-        expect(result.updated).toHaveLength(1)
-        expect(result.updated[0]!.commandId).toBe('cmd-r2a-updated')
-        expect(JSON.parse(result.updated[0]!.pendingAggregateCoverage!)).toEqual({
-          'nb.Todo-todo-y': '9',
-        })
+    it('does not transition when knownRevision is below nextExpectedRevision', async () => {
+      const { syncManager, cacheManager } = await bootstrap({
+        domainExecutor: itemDomainExecutor,
       })
+      await cacheManager.acquire(TEST_CACHE_KEY)
+      syncManager.getKnownRevisions().set('nb.Item-item-a', 0n)
+
+      const command = succeededCommand({
+        commandId: 'cmd-below',
+        type: 'CreateItem',
+        serverResponse: { id: 'item-a', nextExpectedRevision: '1' },
+      })
+
+      const result = syncManager.testEvaluateCoverageForBatch([command])
+
+      expect(result.applied).toEqual([])
+    })
+
+    it('transitions to applied when knownRevision equals nextExpectedRevision', async () => {
+      const { syncManager, cacheManager } = await bootstrap({
+        domainExecutor: itemDomainExecutor,
+      })
+      await cacheManager.acquire(TEST_CACHE_KEY)
+      syncManager.getKnownRevisions().set('nb.Item-item-a', 0n)
+
+      const command = succeededCommand({
+        commandId: 'cmd-equal',
+        type: 'CreateItem',
+        serverResponse: { id: 'item-a', nextExpectedRevision: '0' },
+      })
+
+      const result = syncManager.testEvaluateCoverageForBatch([command])
+
+      expect(result.applied).toHaveLength(1)
+      expect(result.applied[0]!.commandId).toBe('cmd-equal')
+    })
+
+    it('transitions to applied when knownRevision exceeds nextExpectedRevision', async () => {
+      const { syncManager, cacheManager } = await bootstrap({
+        domainExecutor: itemDomainExecutor,
+      })
+      await cacheManager.acquire(TEST_CACHE_KEY)
+      syncManager.getKnownRevisions().set('nb.Item-item-a', 10n)
+
+      const command = succeededCommand({
+        commandId: 'cmd-above',
+        type: 'CreateItem',
+        serverResponse: { id: 'item-a', nextExpectedRevision: '5' },
+      })
+
+      const result = syncManager.testEvaluateCoverageForBatch([command])
+
+      expect(result.applied).toHaveLength(1)
+      expect(result.applied[0]!.commandId).toBe('cmd-above')
+    })
+
+    it('processes a mixed batch independently per command', async () => {
+      const { syncManager, cacheManager } = await bootstrap({
+        domainExecutor: itemDomainExecutor,
+      })
+      await cacheManager.acquire(TEST_CACHE_KEY)
+      syncManager.getKnownRevisions().set('nb.Item-item-applied', 3n)
+      syncManager.getKnownRevisions().set('nb.Item-item-below', 0n)
+
+      const applied = succeededCommand({
+        commandId: 'cmd-applied',
+        type: 'CreateItem',
+        serverResponse: { id: 'item-applied', nextExpectedRevision: '3' },
+      })
+      const below = succeededCommand({
+        commandId: 'cmd-below',
+        type: 'CreateItem',
+        serverResponse: { id: 'item-below', nextExpectedRevision: '5' },
+      })
+      const evicted = succeededCommand({
+        commandId: 'cmd-evicted',
+        type: 'CreateItem',
+        cacheKey: deriveScopeKey({ scopeType: 'not-acquired' }),
+        serverResponse: { id: 'item-e', nextExpectedRevision: '0' },
+      })
+      const noReg = succeededCommand({
+        commandId: 'cmd-no-reg',
+        type: 'UnknownCommand',
+      })
+
+      const result = syncManager.testEvaluateCoverageForBatch([applied, below, evicted, noReg])
+
+      expect(result.applied.map((c) => c.commandId).sort()).toEqual(['cmd-applied', 'cmd-evicted'])
     })
   })
 })

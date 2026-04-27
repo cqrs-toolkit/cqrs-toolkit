@@ -420,7 +420,7 @@ describe.each(bootstrapVariants)('$name reconciliation', ({ bootstrap }) => {
             await new Promise((resolve) => setTimeout(resolve, 10))
             return Ok({
               id: serverId,
-              nextExpectedRevision: '1',
+              nextExpectedRevision: '0',
               events: [
                 createSerializedEvent(
                   'TodoCreated',
@@ -493,7 +493,7 @@ describe.each(bootstrapVariants)('$name reconciliation', ({ bootstrap }) => {
 
             // Resume — sender injects WS event, then returns HTTP response
             await ctx.commandQueue.resume()
-            await ctx.commandQueue.waitForCompletion(commandId)
+            await ctx.commandQueue.waitForSucceeded(commandId)
 
             // Wait for the temp→server ID migration to complete
             await idReconciled
@@ -619,7 +619,7 @@ describe.each(bootstrapVariants)('$name reconciliation', ({ bootstrap }) => {
             if (command.type === 'CreateNote') {
               return Ok({
                 id: serverNoteId,
-                nextExpectedRevision: '1',
+                nextExpectedRevision: '0',
                 events: [
                   createSerializedEvent(
                     'NoteCreated',
@@ -634,7 +634,7 @@ describe.each(bootstrapVariants)('$name reconciliation', ({ bootstrap }) => {
               })
             }
             // CreateItem — just return success
-            return Ok({ id: 'srv-item-1', nextExpectedRevision: '1', events: [] })
+            return Ok({ id: 'srv-item-1', nextExpectedRevision: '0', events: [] })
           }) as ICommandSender<ServiceLink, EnqueueCommand>['send'],
         }
 
@@ -662,7 +662,7 @@ describe.each(bootstrapVariants)('$name reconciliation', ({ bootstrap }) => {
 
             // Resume and wait for the CreateNote command to complete
             await ctx.commandQueue.resume()
-            await ctx.commandQueue.waitForCompletion(createCommandId)
+            await ctx.commandQueue.waitForSucceeded(createCommandId)
 
             // Verify the mapping was persisted
             const tempNoteId = entityIdToString(noteEntityRef)

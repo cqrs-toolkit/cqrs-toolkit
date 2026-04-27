@@ -42,7 +42,6 @@ import { CommandStore } from './core/command-store/CommandStore.js'
 import { detectMode, readModeCache, writeModeCache } from './core/detectMode.js'
 import { EventCache } from './core/event-cache/EventCache.js'
 import { EventProcessorRegistry } from './core/event-processor/EventProcessorRegistry.js'
-import { EventProcessorRunner } from './core/event-processor/EventProcessorRunner.js'
 import { QueryManager } from './core/query-manager/QueryManager.js'
 import { QueryManagerFacade } from './core/query-manager/QueryManagerFacade.js'
 import { StableRefQueryManager } from './core/query-manager/StableRefQueryManager.js'
@@ -144,13 +143,16 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand> {
   /**
    * Network-aware command submission.
    *
-   * When online+authenticated: waits for server confirmation (like `enqueueAndWait`).
-   * When offline/unauthenticated: returns after enqueue (like `enqueue`).
+   * When online+authenticated: waits until the command reaches `'applied'` —
+   * server confirmed AND the sync pipeline has reflected the response events
+   * in the read model. When offline/unauthenticated: returns after enqueue.
    *
    * If `options.commandId` is provided, checks the queue first:
-   * - Found + non-terminal → resumes waiting (no duplicate enqueue)
-   * - Found + succeeded → returns cached success immediately
-   * - Found + failed/cancelled, or not found → fresh enqueue
+   * - Found + applied → returns cached success immediately.
+   * - Found + succeeded + online → waits for `'applied'` (drain still in flight).
+   * - Found + succeeded + offline → returns the cached server response.
+   * - Found + non-terminal → resumes waiting (no duplicate enqueue).
+   * - Found + failed/cancelled, or not found → fresh enqueue.
    */
   async submit<TResponse = unknown>(
     params: SubmitParams<TLink, TCommand>,
@@ -165,16 +167,26 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand> {
       const existing = await this.commandQueue.getCommand(commandId)
       if (existing) {
         switch (existing.status) {
-          case 'succeeded':
           case 'applied':
-            // Already confirmed — return cached success. 'applied' is post-terminal
-            // (pipeline has since reflected effects in serverData) and is treated the
-            // same as 'succeeded' for submit idempotency.
+            // Fully settled — return cached success.
             return Ok({
               stage: 'confirmed',
               commandId,
               response: existing.serverResponse as TResponse,
             } satisfies SubmitSuccess<TResponse>)
+
+          case 'succeeded':
+            // Server acknowledged but read model not yet applied. Online: wait
+            // for applied. Offline: return the cached server response (we can't
+            // wait for applied without a live drain).
+            if (!this.syncManager.connectivity.isOnline()) {
+              return Ok({
+                stage: 'confirmed',
+                commandId,
+                response: existing.serverResponse as TResponse,
+              } satisfies SubmitSuccess<TResponse>)
+            }
+            return this.submitWaitOrReturn(commandId, timeout)
 
           case 'pending':
           case 'blocked':
@@ -210,7 +222,7 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand> {
   }
 
   /**
-   * Steps 4-6 of submit: check connectivity, return enqueued or wait for completion.
+   * Steps 4-6 of submit: check connectivity, return enqueued or wait until applied.
    */
   private async submitWaitOrReturn<TResponse>(
     commandId: string,
@@ -225,8 +237,9 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand> {
       return Ok({ stage: 'enqueued', commandId, entityRef } satisfies SubmitSuccess<TResponse>)
     }
 
-    // Step 6: Online — wait for completion
-    const completion = await this.commandQueue.waitForCompletion(commandId, { timeout })
+    // Step 6: Online — wait until the command is applied (server confirmed +
+    // read model reflects the response events).
+    const completion = await this.commandQueue.waitForApplied(commandId, { timeout })
 
     if (completion.ok) {
       return Ok({
@@ -444,12 +457,6 @@ async function createOnlineOnlyClient<
 
   const readModelStore = new ReadModelStore(eventBus, storage, mappingStore)
 
-  const eventProcessorRunner = new EventProcessorRunner<TLink, TCommand>(
-    eventBus,
-    registry,
-    readModelStore,
-  )
-
   // Create WriteQueue — subsystems register their own handlers in their constructors.
   const writeQueue = new WriteQueue<TLink, TCommand>(eventBus)
 
@@ -486,8 +493,10 @@ async function createOnlineOnlyClient<
   const commandQueue = new CommandQueue<TLink, TCommand, TSchema, TEvent>(
     eventBus,
     storage,
+    cacheManager,
     fileStore,
     anticipatedEventHandler,
+    resolved.collections,
     resolved.aggregates,
     readModelStore,
     commandStore,
@@ -520,7 +529,6 @@ async function createOnlineOnlyClient<
     eventCache,
     cacheManager,
     registry,
-    eventProcessorRunner,
     readModelStore,
     queryManager,
     writeQueue,
@@ -538,7 +546,6 @@ async function createOnlineOnlyClient<
   // Wire cross-dependencies (property-set to break circular refs)
   cacheManager.setWriteQueue(writeQueue)
   cacheManager.setCommandQueue(commandQueue)
-  commandQueue.setCacheManager(cacheManager)
 
   await commandQueue.initialize()
 

@@ -83,11 +83,10 @@ export { CommandStore } from './core/command-store/index.js'
 export type { CommandStoreConfig, ICommandStore } from './core/command-store/index.js'
 export { EventCache, GapBuffer } from './core/event-cache/index.js'
 export type { CacheEventOptions, EventGap } from './core/event-cache/index.js'
-export { EventProcessorRegistry, EventProcessorRunner } from './core/event-processor/index.js'
+export { EventProcessorRegistry } from './core/event-processor/index.js'
 export type {
   EventProcessor,
   InvalidateSignal,
-  ProcessEventResult,
   ProcessorContext,
   ProcessorRegistration,
   ProcessorResult,

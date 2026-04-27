@@ -63,7 +63,6 @@ CREATE TABLE commands (
   file_refs TEXT,
   command_id_paths TEXT,
   affected_aggregates TEXT,
-  pending_aggregate_coverage TEXT,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 )`

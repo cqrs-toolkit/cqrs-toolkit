@@ -71,12 +71,14 @@ export class QueryManagerProxy<TLink extends Link> implements IQueryManager<TLin
           event.eventName === 'readmodel:updated' &&
           (event.data as { collection: string }).collection === collection,
       ),
-      map(
-        (event): CollectionSignal => ({
+      map((event): CollectionSignal => {
+        const data = event.data as { ids: string[]; commandIds: string[] }
+        return {
           type: 'updated',
-          ids: (event.data as { ids: string[] }).ids,
-        }),
-      ),
+          ids: data.ids,
+          commandIds: data.commandIds,
+        }
+      }),
     )
     const seedCompleted$ = this.broadcastEvents$.pipe(
       filter(

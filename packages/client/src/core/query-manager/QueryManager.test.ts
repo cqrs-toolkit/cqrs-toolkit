@@ -233,12 +233,16 @@ describe('QueryManager', () => {
         signals.push(signal)
       })
 
-      eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'], commandIds: [] })
+      eventBus.emit('readmodel:updated', {
+        collection: 'todos',
+        ids: ['todo-1'],
+        commandIds: ['cmd-1'],
+      })
 
       await new Promise((r) => setTimeout(r, 10))
 
       expect(signals).toHaveLength(1)
-      expect(signals[0]).toEqual({ type: 'updated', ids: ['todo-1'] })
+      expect(signals[0]).toEqual({ type: 'updated', ids: ['todo-1'], commandIds: ['cmd-1'] })
     })
 
     it('filters to specific collection', async () => {

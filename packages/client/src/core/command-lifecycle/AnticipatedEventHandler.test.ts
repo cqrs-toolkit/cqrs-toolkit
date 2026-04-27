@@ -10,7 +10,6 @@ import { deriveScopeKey } from '../cache-manager/CacheKey.js'
 import { CommandIdMappingStore } from '../command-id-mapping-store/CommandIdMappingStore.js'
 import { EventCache } from '../event-cache/EventCache.js'
 import { EventProcessorRegistry } from '../event-processor/EventProcessorRegistry.js'
-import { EventProcessorRunner } from '../event-processor/EventProcessorRunner.js'
 import type { ProcessorRegistration } from '../event-processor/types.js'
 import { EventBus } from '../events/EventBus.js'
 import { ReadModelStore } from '../read-model-store/ReadModelStore.js'
@@ -86,7 +85,6 @@ describe('AnticipatedEventHandler', () => {
 
     const registry = new EventProcessorRegistry()
     registry.register(todoProcessor())
-    const runner = new EventProcessorRunner(eventBus, registry, readModelStore)
 
     const wq = createTestWriteQueue(eventBus, cleanup, ['apply-anticipated'])
     const handler = new AnticipatedEventHandler<ServiceLink, EnqueueCommand>(

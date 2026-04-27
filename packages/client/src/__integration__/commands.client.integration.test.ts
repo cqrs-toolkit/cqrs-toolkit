@@ -218,7 +218,7 @@ describe.each(bootstrapVariants)('$name commands (client)', ({ bootstrap }) => {
             await new Promise((resolve) => setTimeout(resolve, 10))
             return Ok({
               id: serverId,
-              nextExpectedRevision: '1',
+              nextExpectedRevision: '0',
               events: [
                 createSerializedEvent(
                   'TodoCreated',
@@ -327,7 +327,7 @@ describe.each(bootstrapVariants)('$name commands (client)', ({ bootstrap }) => {
             await new Promise((resolve) => setTimeout(resolve, 10))
             return Ok({
               id: serverId,
-              nextExpectedRevision: '1',
+              nextExpectedRevision: '0',
               events: [
                 createSerializedEvent(
                   'TodoCreated',
@@ -443,7 +443,7 @@ describe.each(bootstrapVariants)('$name commands (client)', ({ bootstrap }) => {
             await new Promise((resolve) => setTimeout(resolve, 10))
             return Ok({
               id: serverId,
-              nextExpectedRevision: '1',
+              nextExpectedRevision: '0',
               events: [
                 createSerializedEvent(
                   'TodoCreated',

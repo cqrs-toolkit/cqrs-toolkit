@@ -32,7 +32,7 @@
 
 ### Constructor
 
-> **new CommandQueue**\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>(`eventBus`, `storage`, `fileStore`, `anticipatedEventHandler`, `aggregates`, `readModelStore`, `commandStore`, `mappingStore`, `config?`): `CommandQueue`\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
+> **new CommandQueue**\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>(`eventBus`, `storage`, `cacheManager`, `fileStore`, `anticipatedEventHandler`, `collections`, `clientAggregates`, `readModelStore`, `commandStore`, `mappingStore`, `config?`): `CommandQueue`\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 #### Parameters
 
@@ -44,6 +44,10 @@
 
 [`IStorage`](../interfaces/IStorage.md)\<`TLink`, `TCommand`\>
 
+##### cacheManager
+
+`ICacheManagerInternal`\<`TLink`\>
+
 ##### fileStore
 
 `ICommandFileStore`
@@ -54,7 +58,11 @@ File store for commands with file attachments.
 
 `IAnticipatedEventHandler`\<`TLink`, `TCommand`\>
 
-##### aggregates
+##### collections
+
+[`Collection`](../interfaces/Collection.md)\<`TLink`\>[]
+
+##### clientAggregates
 
 `IClientAggregates`\<`TLink`\>
 
@@ -140,14 +148,9 @@ readonly `AdvanceChainRevisionsUpdate`[]
 
 > **batchUpdateSyncStatus**(`params`): `Promise`\<`void`\>
 
-Batch-write the sync pipeline's per-command progress at end-of-batch.
-
-`applied` — commands transitioning from `'succeeded'` to `'applied'` this
-batch. Each gets `{ status: 'applied', pendingAggregateCoverage: null,
-updatedAt }` written and emits one `'status-changed'` event.
-`updated` — commands that stay in `'succeeded'` but had their coverage
-record shrink during this batch. Each gets its `pendingAggregateCoverage`
-re-persisted (status stays `'succeeded'`); no event is emitted.
+Batch-write the sync pipeline's `'succeeded' → 'applied'` transition for
+the given commands. Each gets `{ status: 'applied', updatedAt }` written
+and emits one `'status-changed'` event.
 
 **Contract invariants:**
 
@@ -155,17 +158,12 @@ re-persisted (status stays `'succeeded'`); no event is emitted.
   its own `reconcile-ws-events` op handler — re-entry would deadlock.
 - The caller already holds the command records (loaded at batch setup).
   This method must not re-read them from storage.
-- A single `storage.updateCommands` call batches both sets.
 
 #### Parameters
 
 ##### params
 
 ###### applied?
-
-`Iterable`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>, `any`, `any`\>
-
-###### updated?
 
 `Iterable`\<[`CommandRecord`](../interfaces/CommandRecord.md)\<`TLink`, `TCommand`, `unknown`\>, `any`, `any`\>
 
@@ -304,6 +302,11 @@ Enqueue result with validation status
 
 Convenience: enqueue and wait for completion in one call.
 Best for simple form submissions.
+
+Set `params.waitFor` to choose the terminal: `'applied'` (default — the
+sync pipeline has reflected the command's events in the read model) or
+`'succeeded'` (earlier resolve at server acknowledgement, before the
+read-model drain completes).
 
 #### Type Parameters
 
@@ -649,28 +652,42 @@ Command ID to retry
 
 ---
 
-### setCacheManager()
+### waitForApplied()
 
-> **setCacheManager**(`cacheManager`): `void`
+> **waitForApplied**(`commandId`, `options?`): `Promise`\<`Result`\<`unknown`, [`CommandCompletionError`](../type-aliases/CommandCompletionError.md)\>\>
 
-Set the CacheManager reference for cache key reconciliation.
-Called after construction by the orchestrator to break the circular dependency.
+Wait for a command to reach [CommandStatus](../type-aliases/CommandStatus.md) `'applied'` — the
+post-terminal state after the sync pipeline has reflected the command's
+response events in the read model. Resolves early with the error result
+if the command reaches `'failed'` / `'cancelled'` before `'applied'`.
+
+Use this when a caller needs "read model current for this command's
+events" semantics (e.g. CRUD form save that unlocks only after the
+effect is durably reflected).
 
 #### Parameters
 
-##### cacheManager
+##### commandId
 
-`ICacheManagerInternal`\<`TLink`\>
+`string`
+
+##### options?
+
+[`WaitOptions`](../interfaces/WaitOptions.md)
 
 #### Returns
 
-`void`
+`Promise`\<`Result`\<`unknown`, [`CommandCompletionError`](../type-aliases/CommandCompletionError.md)\>\>
+
+#### Implementation of
+
+`ICommandQueueInternal.waitForApplied`
 
 ---
 
-### waitForCompletion()
+### waitForSucceeded()
 
-> **waitForCompletion**(`commandId`, `options?`): `Promise`\<`Result`\<`unknown`, [`CommandCompletionError`](../type-aliases/CommandCompletionError.md)\>\>
+> **waitForSucceeded**(`commandId`, `options?`): `Promise`\<`Result`\<`unknown`, [`CommandCompletionError`](../type-aliases/CommandCompletionError.md)\>\>
 
 Wait for a specific command to reach a terminal state.
 Returns when command succeeds, fails, or is cancelled.
@@ -699,4 +716,4 @@ Completion result
 
 #### Implementation of
 
-`ICommandQueueInternal.waitForCompletion`
+`ICommandQueueInternal.waitForSucceeded`

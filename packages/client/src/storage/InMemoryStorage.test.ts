@@ -307,63 +307,6 @@ describe('InMemoryStorage', () => {
       expect(result).toHaveLength(2)
       expect(result.map((c) => c.commandId)).toEqual(['cmd-2', 'cmd-3'])
     })
-
-    describe('pendingAggregateCoverage', () => {
-      it('round-trips an absent field as undefined', async () => {
-        const { storage } = await bootstrap()
-        await storage.saveCommand(baseCommand)
-
-        const retrieved = await storage.getCommand('cmd-1')
-        expect(retrieved?.pendingAggregateCoverage).toBeUndefined()
-      })
-
-      it('round-trips the events marker', async () => {
-        const { storage } = await bootstrap()
-        await storage.saveCommand({
-          ...baseCommand,
-          pendingAggregateCoverage: JSON.stringify('events'),
-        })
-
-        const retrieved = await storage.getCommand('cmd-1')
-        expect(retrieved?.pendingAggregateCoverage).toBe(JSON.stringify('events'))
-        expect(JSON.parse(retrieved!.pendingAggregateCoverage!)).toBe('events')
-      })
-
-      it('round-trips a per-aggregate coverage record', async () => {
-        const { storage } = await bootstrap()
-        const coverage: Record<string, string> = {
-          'nb.Todo-todo-1': '42',
-          'nb.Note-note-9': '100',
-        }
-        await storage.saveCommand({
-          ...baseCommand,
-          pendingAggregateCoverage: JSON.stringify(coverage),
-        })
-
-        const retrieved = await storage.getCommand('cmd-1')
-        expect(JSON.parse(retrieved!.pendingAggregateCoverage!)).toEqual(coverage)
-      })
-
-      it('supports updateCommand to shrink the coverage record', async () => {
-        const { storage } = await bootstrap()
-        await storage.saveCommand({
-          ...baseCommand,
-          pendingAggregateCoverage: JSON.stringify({
-            'nb.Todo-todo-1': '42',
-            'nb.Note-note-9': '100',
-          }),
-        })
-
-        await storage.updateCommand('cmd-1', {
-          pendingAggregateCoverage: JSON.stringify({ 'nb.Note-note-9': '100' }),
-        })
-
-        const retrieved = await storage.getCommand('cmd-1')
-        expect(JSON.parse(retrieved!.pendingAggregateCoverage!)).toEqual({
-          'nb.Note-note-9': '100',
-        })
-      })
-    })
   })
 
   describe('cached event operations', () => {

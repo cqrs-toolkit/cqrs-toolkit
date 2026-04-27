@@ -472,7 +472,7 @@ describe.each(bootstrapVariants)('$name reconciliation (client)', ({ bootstrap }
             await new Promise((resolve) => setTimeout(resolve, 10))
             return Ok({
               id: serverId,
-              nextExpectedRevision: '1',
+              nextExpectedRevision: '0',
               events: [
                 createSerializedEvent(
                   'TodoCreated',
@@ -652,7 +652,7 @@ describe.each(bootstrapVariants)('$name reconciliation (client)', ({ bootstrap }
             if (command.type === 'CreateNote') {
               return Ok({
                 id: serverNoteId,
-                nextExpectedRevision: '1',
+                nextExpectedRevision: '0',
                 events: [
                   createSerializedEvent(
                     'NoteCreated',
@@ -663,7 +663,19 @@ describe.each(bootstrapVariants)('$name reconciliation (client)', ({ bootstrap }
                 ],
               })
             }
-            return Ok({ id: 'srv-item-1', nextExpectedRevision: '1', events: [] })
+            const serverItemId = 'srv-item-1'
+            return Ok({
+              id: serverItemId,
+              nextExpectedRevision: '0',
+              events: [
+                createSerializedEvent(
+                  'TodoCreated',
+                  `nb.Todo-${serverItemId}`,
+                  { id: serverItemId, noteId: (command.data as { noteId: string }).noteId },
+                  { commandId: command.commandId },
+                ),
+              ],
+            })
           }) as ICommandSender<ServiceLink, EnqueueCommand>['send'],
         }
 

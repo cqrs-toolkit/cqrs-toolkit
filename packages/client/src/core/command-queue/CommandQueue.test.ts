@@ -4,8 +4,9 @@
 
 import { Err, Ok, type AggregateEventData, type Result, type ServiceLink } from '@meticoeus/ddd-es'
 import { Subject } from 'rxjs'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
+import { createTestWriteQueue } from '../../testing/createTestWriteQueue.js'
 import { crossAggregateDomainExecutor, itemDomainExecutor } from '../../testing/domainExecutor.js'
 import {
   FolderAggregate,
@@ -19,8 +20,10 @@ import { IClientAggregates } from '../../types/aggregates.js'
 import type { CommandEvent, CommandRecord, EnqueueCommand } from '../../types/commands.js'
 import { CommandFailedException } from '../../types/commands.js'
 import { autoRevision, domainFailure, domainSuccess, IDomainExecutor } from '../../types/domain.js'
+import { Collection } from '../../types/index.js'
 import { isValidationException } from '../../types/validation.js'
 import { deriveScopeKey } from '../cache-manager/CacheKey.js'
+import { CacheManager } from '../cache-manager/index.js'
 import { CommandIdMappingStore } from '../command-id-mapping-store/CommandIdMappingStore.js'
 import { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventShape.js'
 import type { IAnticipatedEventHandler } from '../command-lifecycle/IAnticipatedEventHandler.js'
@@ -75,6 +78,13 @@ class TestCommandQueue extends CommandQueue<
 }
 
 describe('CommandQueue', () => {
+  let cleanup: (() => void)[] = []
+
+  afterEach(() => {
+    for (const fn of cleanup) fn()
+    cleanup = []
+  })
+
   interface BootstrapParams extends CommandQueueConfig<
     ServiceLink,
     EnqueueCommand,
@@ -121,12 +131,17 @@ describe('CommandQueue', () => {
     const { customCommandQueue, seedStorage, ...config } = params ?? {}
     const storage = new InMemoryStorage<ServiceLink, EnqueueCommand>()
     await storage.initialize()
+    const eventBus = new EventBus<ServiceLink>()
+
+    const cacheManager = new CacheManager<ServiceLink, EnqueueCommand>(eventBus, storage)
+    await cacheManager.initialize()
+
+    const writeQueue = createTestWriteQueue(eventBus, cleanup, ['flush-cache-keys'])
+    cacheManager.setWriteQueue(writeQueue)
 
     if (seedStorage) {
       await seedStorage(storage)
     }
-
-    const eventBus = new EventBus<ServiceLink>()
 
     const anticipatedEventHandler: BootstrapResult['anticipatedEventHandler'] = {
       cache: vi.fn().mockResolvedValue(undefined),
@@ -138,6 +153,7 @@ describe('CommandQueue', () => {
       setTrackedEntries: vi.fn(),
       clearAll: vi.fn().mockResolvedValue(undefined),
     }
+    const collections: Collection<ServiceLink>[] = []
 
     const fileStore = new InMemoryCommandFileStore()
 
@@ -163,14 +179,19 @@ describe('CommandQueue', () => {
       : new TestCommandQueue(
           eventBus,
           storage,
+          cacheManager,
           fileStore,
           anticipatedEventHandler,
+          collections,
           aggregates,
           readModelStore,
           commandStore,
           mappingStore,
           config,
         )
+    if (commandQueue) {
+      cacheManager.setCommandQueue(commandQueue)
+    }
 
     return {
       storage,
@@ -525,7 +546,7 @@ describe('CommandQueue', () => {
     })
   })
 
-  describe('waitForCompletion', () => {
+  describe('waitForSucceeded', () => {
     it('returns immediately if command is already succeeded', async () => {
       const { commandQueue, storage } = await bootstrap()
       const command: CommandRecord<ServiceLink, EnqueueCommand> = {
@@ -545,7 +566,7 @@ describe('CommandQueue', () => {
       }
       await storage.saveCommand(command)
 
-      const result = await commandQueue.waitForCompletion('cmd-1')
+      const result = await commandQueue.waitForSucceeded('cmd-1')
 
       expect(result.ok).toBe(true)
       if (result.ok) {
@@ -572,7 +593,7 @@ describe('CommandQueue', () => {
       }
       await storage.saveCommand(command)
 
-      const result = await commandQueue.waitForCompletion('cmd-1')
+      const result = await commandQueue.waitForSucceeded('cmd-1')
 
       expect(result.ok).toBe(false)
       if (!result.ok) {
@@ -582,7 +603,7 @@ describe('CommandQueue', () => {
 
     it('returns failed for non-existent command', async () => {
       const { commandQueue } = await bootstrap()
-      const result = await commandQueue.waitForCompletion('non-existent')
+      const result = await commandQueue.waitForSucceeded('non-existent')
 
       expect(result.ok).toBe(false)
       if (!result.ok) {
@@ -598,7 +619,7 @@ describe('CommandQueue', () => {
       })
       if (!result.ok) throw new Error('Expected success')
 
-      const completionResult = await commandQueue.waitForCompletion(result.value.commandId, {
+      const completionResult = await commandQueue.waitForSucceeded(result.value.commandId, {
         timeout: 50,
       })
 
@@ -609,16 +630,19 @@ describe('CommandQueue', () => {
     })
 
     it('waits for command to complete', async () => {
-      const { commandQueue, storage } = await bootstrap()
+      const { commandQueue, commandStore } = await bootstrap()
       const result = await commandQueue.enqueue({
         command: { type: 'Test', data: {} },
         cacheKey: TODOS_CACHE_KEY,
       })
       if (!result.ok) throw new Error('Expected success')
 
-      // Simulate completion in background
-      setTimeout(async () => {
-        await storage.updateCommand(result.value.commandId, {
+      // Simulate completion in background. `waitForTerminal` uses the command
+      // record as the source of truth — the event is just a signal — so the
+      // in-memory commandStore must reflect the terminal state before the
+      // event fires (matches the production transitionStatuses ordering).
+      setTimeout(() => {
+        commandStore.update(result.value.commandId, {
           status: 'succeeded',
           serverResponse: { done: true },
         })
@@ -632,7 +656,7 @@ describe('CommandQueue', () => {
         })
       }, 20)
 
-      const completionResult = await commandQueue.waitForCompletion(result.value.commandId, {
+      const completionResult = await commandQueue.waitForSucceeded(result.value.commandId, {
         timeout: 1000,
       })
 
@@ -756,7 +780,7 @@ describe('CommandQueue', () => {
 
       // Two events fire per cancel: the `status-changed` at the status flip
       // and the terminal `cancelled` CommandEvent after — the latter is
-      // what `waitForCompletion` subscribers use.
+      // what `waitForSucceeded` subscribers use.
       expect(events).toHaveLength(2)
       expect(events[0]).toMatchObject({
         eventType: 'status-changed',
@@ -864,7 +888,7 @@ describe('CommandQueue', () => {
       expect(commandSender.send).toHaveBeenCalledTimes(1)
 
       const stored = await storage.getCommand(result.value.commandId)
-      expect(stored?.status).toBe('succeeded')
+      expect(stored?.status).toBe('applied')
       expect(stored?.serverResponse).toEqual({ id: '123' })
     })
 
@@ -907,7 +931,7 @@ describe('CommandQueue', () => {
       expect(commandSender.send).toHaveBeenCalledTimes(3)
 
       const stored = await storage.getCommand(result.value.commandId)
-      expect(stored?.status).toBe('succeeded')
+      expect(stored?.status).toBe('applied')
     })
 
     it('marks command as failed after max retries', async () => {
@@ -981,9 +1005,9 @@ describe('CommandQueue', () => {
       await commandQueue.resume()
       await new Promise((resolve) => setTimeout(resolve, 50))
 
-      // First should be succeeded and second should be unblocked
+      // First should be applied and second should be unblocked
       const storedFirst = await storage.getCommand(first.value.commandId)
-      expect(storedFirst?.status).toBe('succeeded')
+      expect(storedFirst?.status).toBe('applied')
 
       storedSecond = await storage.getCommand(second.value.commandId)
       expect(storedSecond?.status).toBe('pending')
@@ -1029,7 +1053,7 @@ describe('CommandQueue', () => {
       expect(commandSender.send).toHaveBeenCalledTimes(2)
 
       const storedSecond = await storage.getCommand(second.value.commandId)
-      expect(storedSecond?.status).toBe('succeeded')
+      expect(storedSecond?.status).toBe('applied')
     })
 
     it('does not process a command cancelled during an earlier send', async () => {
@@ -1479,7 +1503,6 @@ describe('CommandQueue', () => {
     async function seedSucceeded(
       cs: CommandStore<ServiceLink, EnqueueCommand>,
       commandId: string,
-      coverage: string,
     ): Promise<CommandRecord<ServiceLink, EnqueueCommand>> {
       const record: CommandRecord<ServiceLink, EnqueueCommand> = {
         commandId,
@@ -1492,7 +1515,6 @@ describe('CommandQueue', () => {
         blockedBy: [],
         attempts: 1,
         serverResponse: { id: commandId },
-        pendingAggregateCoverage: coverage,
         seq: 0,
         createdAt: 1000,
         updatedAt: 1000,
@@ -1501,43 +1523,24 @@ describe('CommandQueue', () => {
       return record
     }
 
-    it('transitions applied commands to applied status and clears pendingAggregateCoverage', async () => {
+    it('transitions applied commands to applied status', async () => {
       const { commandQueue, commandStore } = await bootstrap()
-      const record = await seedSucceeded(commandStore, 'cmd-applied', JSON.stringify('events'))
+      const record = await seedSucceeded(commandStore, 'cmd-applied')
 
       await commandQueue.batchUpdateSyncStatus({ applied: [record] })
       await commandStore.flush()
 
       expect(record.status).toBe('applied')
-      expect(record.pendingAggregateCoverage).toBeUndefined()
     })
 
-    it('keeps updated commands in succeeded status and persists the new coverage', async () => {
+    it('emits one status-changed event per applied command', async () => {
       const { commandQueue, commandStore } = await bootstrap()
-      const record = await seedSucceeded(
-        commandStore,
-        'cmd-updated',
-        JSON.stringify({ 'nb.Todo-1': '42' }),
-      )
-
-      await commandQueue.batchUpdateSyncStatus({
-        updated: [{ ...record, pendingAggregateCoverage: JSON.stringify({ 'nb.Todo-1': '100' }) }],
-      })
-      await commandStore.flush()
-
-      expect(record.status).toBe('succeeded')
-      expect(record.pendingAggregateCoverage).toBe(JSON.stringify({ 'nb.Todo-1': '100' }))
-    })
-
-    it('emits one status-changed event per applied command, none for updated', async () => {
-      const { commandQueue, commandStore } = await bootstrap()
-      const applied = await seedSucceeded(commandStore, 'cmd-a', JSON.stringify('events'))
-      const updated = await seedSucceeded(commandStore, 'cmd-b', JSON.stringify({ s1: '1' }))
+      const applied = await seedSucceeded(commandStore, 'cmd-a')
 
       const events: CommandEvent[] = []
       commandQueue.events$.subscribe((e) => events.push(e))
 
-      await commandQueue.batchUpdateSyncStatus({ applied: [applied], updated: [updated] })
+      await commandQueue.batchUpdateSyncStatus({ applied: [applied] })
 
       const statusChanges = events.filter((e) => e.eventType === 'status-changed')
       expect(statusChanges).toHaveLength(1)
@@ -1546,19 +1549,19 @@ describe('CommandQueue', () => {
       expect(statusChanges[0]?.previousStatus).toBe('succeeded')
     })
 
-    it('is a no-op when both sets are empty or absent', async () => {
+    it('is a no-op when applied is empty or absent', async () => {
       const { commandQueue, storage } = await bootstrap()
       const updateSpy = vi.spyOn(storage, 'updateCommands')
 
       await commandQueue.batchUpdateSyncStatus({})
-      await commandQueue.batchUpdateSyncStatus({ applied: [], updated: [] })
+      await commandQueue.batchUpdateSyncStatus({ applied: [] })
 
       expect(updateSpy).not.toHaveBeenCalled()
     })
 
     it('accepts arbitrary iterables', async () => {
       const { commandQueue, commandStore } = await bootstrap()
-      const a = await seedSucceeded(commandStore, 'cmd-iter', JSON.stringify('events'))
+      const a = await seedSucceeded(commandStore, 'cmd-iter')
       const appliedSet = new Set([a])
 
       await commandQueue.batchUpdateSyncStatus({ applied: appliedSet })
@@ -1677,7 +1680,7 @@ describe('CommandQueue', () => {
           const response = senderResponses.get(command.type)
           if (typeof response === 'function') return Ok(response(command))
           if (response !== undefined) return Ok(response)
-          return Ok({ id: 'default-id', nextExpectedRevision: '1', events: [] })
+          return Ok({ id: 'default-id', nextExpectedRevision: '0', events: [] })
         },
       }
 
@@ -1688,14 +1691,14 @@ describe('CommandQueue', () => {
       const senderResponses = new Map<string, unknown>()
       senderResponses.set('CreateFolder', {
         id: 'folder-server-1',
-        nextExpectedRevision: '1',
+        nextExpectedRevision: '0',
         events: [
           {
             id: 'evt-1',
             type: 'FolderCreated',
             streamId: 'nb.Folder-server-1',
             data: { id: 'folder-server-1', name: 'F' },
-            revision: '1',
+            revision: '0',
             position: '1',
           },
         ],
@@ -1756,14 +1759,14 @@ describe('CommandQueue', () => {
       const senderResponses = new Map<string, unknown>()
       senderResponses.set('CreateFolder', {
         id: 'folder-server-1',
-        nextExpectedRevision: '1',
+        nextExpectedRevision: '0',
         events: [
           {
             id: 'evt-1',
             type: 'FolderCreated',
             streamId: 'nb.Folder-server-1',
             data: { id: 'folder-server-1', name: 'My Folder' },
-            revision: '1',
+            revision: '0',
             position: '1',
           },
         ],
@@ -1802,7 +1805,7 @@ describe('CommandQueue', () => {
 
       // Verify folder succeeded
       const folderCmd = await storage.getCommand(folderResult.value.commandId)
-      expect(folderCmd?.status).toBe('succeeded')
+      expect(folderCmd?.status).toBe('applied')
 
       // Verify note's data was rewritten with server ID
       noteCmd = await storage.getCommand(noteResult.value.commandId)
@@ -1816,14 +1819,14 @@ describe('CommandQueue', () => {
       const senderResponses = new Map<string, unknown>()
       senderResponses.set('CreateFolder', {
         id: 'folder-server-1',
-        nextExpectedRevision: '1',
+        nextExpectedRevision: '0',
         events: [
           {
             id: 'evt-1',
             type: 'FolderCreated',
             streamId: 'nb.Folder-server-1',
             data: { id: 'folder-server-1', name: 'F' },
-            revision: '1',
+            revision: '0',
             position: '1',
           },
         ],
@@ -1874,28 +1877,28 @@ describe('CommandQueue', () => {
       const senderResponses = new Map<string, unknown>()
       senderResponses.set('CreateFolder', {
         id: 'folder-server-1',
-        nextExpectedRevision: '1',
+        nextExpectedRevision: '0',
         events: [
           {
             id: 'evt-1',
             type: 'FolderCreated',
             streamId: 'nb.Folder-server-1',
             data: { id: 'folder-server-1', name: 'F' },
-            revision: '1',
+            revision: '0',
             position: '1',
           },
         ],
       })
       senderResponses.set('CreateNote', {
         id: 'note-server-1',
-        nextExpectedRevision: '1',
+        nextExpectedRevision: '0',
         events: [
           {
             id: 'evt-2',
             type: 'NoteCreated',
             streamId: 'nb.Note-server-1',
             data: { id: 'note-server-1', parentId: 'folder-server-1', title: 'N' },
-            revision: '1',
+            revision: '0',
             position: '2',
           },
         ],
@@ -1943,13 +1946,13 @@ describe('CommandQueue', () => {
         await commandQueue.processPendingCommands()
       }
 
-      // A succeeded
+      // A applied
       const folderCmd = await storage.getCommand(folderResult.value.commandId)
-      expect(folderCmd?.status).toBe('succeeded')
+      expect(folderCmd?.status).toBe('applied')
 
-      // B succeeded — parentId was rewritten
+      // B applied — parentId was rewritten
       const noteCmd = await storage.getCommand(noteResult.value.commandId)
-      expect(noteCmd?.status).toBe('succeeded')
+      expect(noteCmd?.status).toBe('applied')
 
       // C's data should have been rewritten with note's server ID
       const updateCmd = await storage.getCommand(updateResult.value.commandId)
@@ -1961,14 +1964,14 @@ describe('CommandQueue', () => {
       const senderResponses = new Map<string, unknown>()
       senderResponses.set('CreateFolder', {
         id: 'folder-server-1',
-        nextExpectedRevision: '1',
+        nextExpectedRevision: '0',
         events: [
           {
             id: 'evt-1',
             type: 'FolderCreated',
             streamId: 'nb.Folder-server-1',
             data: { id: 'folder-server-1', name: 'F' },
-            revision: '1',
+            revision: '0',
             position: '1',
           },
         ],
@@ -2008,14 +2011,14 @@ describe('CommandQueue', () => {
       const senderResponses = new Map<string, unknown>()
       senderResponses.set('CreateFolder', {
         id: 'folder-server-1',
-        nextExpectedRevision: '1',
+        nextExpectedRevision: '0',
         events: [
           {
             id: 'evt-1',
             type: 'FolderCreated',
             streamId: 'nb.Folder-server-1',
             data: { id: 'folder-server-1', name: 'F' },
-            revision: '1',
+            revision: '0',
             position: '1',
           },
         ],
@@ -2094,14 +2097,14 @@ describe('CommandQueue', () => {
         folderSendCount++
         return {
           id: `folder-server-${folderSendCount}`,
-          nextExpectedRevision: '1',
+          nextExpectedRevision: '0',
           events: [
             {
               id: `evt-f${folderSendCount}`,
               type: 'FolderCreated',
               streamId: `nb.Folder-server-${folderSendCount}`,
               data: { id: `folder-server-${folderSendCount}`, name: 'F' },
-              revision: '1',
+              revision: '0',
               position: String(folderSendCount),
             },
           ],
@@ -2156,13 +2159,13 @@ describe('CommandQueue', () => {
         await commandQueue.processPendingCommands()
       }
 
-      // Both folders succeeded
-      expect((await storage.getCommand(folder1Result.value.commandId))?.status).toBe('succeeded')
-      expect((await storage.getCommand(folder2Result.value.commandId))?.status).toBe('succeeded')
+      // Both folders applied
+      expect((await storage.getCommand(folder1Result.value.commandId))?.status).toBe('applied')
+      expect((await storage.getCommand(folder2Result.value.commandId))?.status).toBe('applied')
 
       // MoveNote should have been unblocked and processed
       moveCmd = await storage.getCommand(moveResult.value.commandId)
-      expect(['pending', 'sending', 'succeeded']).toContain(moveCmd?.status)
+      expect(['pending', 'sending', 'succeeded', 'applied']).toContain(moveCmd?.status)
 
       // Each folder ID was replaced independently by its own dependency's server ID
       const movedata = moveCmd?.data as {
@@ -2184,7 +2187,7 @@ describe('CommandQueue', () => {
           const response = senderResponses.get(command.type)
           if (typeof response === 'function') return Ok(response(command))
           if (response !== undefined) return Ok(response)
-          return Ok({ id: 'default-id', nextExpectedRevision: '1', events: [] })
+          return Ok({ id: 'default-id', nextExpectedRevision: '0', events: [] })
         },
       }
 
@@ -2220,14 +2223,14 @@ describe('CommandQueue', () => {
       const responses = new Map<string, unknown>()
       responses.set('CreateItem', {
         id: 'server-1',
-        nextExpectedRevision: '1',
+        nextExpectedRevision: '0',
         events: [
           {
             id: 'evt-1',
             type: 'ItemCreated',
             streamId: 'nb.Item-server-1',
             data: { id: 'server-1', name: 'Test' },
-            revision: '1',
+            revision: '0',
             position: '1',
           },
         ],
@@ -2259,7 +2262,7 @@ describe('CommandQueue', () => {
       expect(updateCmd?.status).toBe('pending')
       const data = updateCmd?.data as { id: string; title: string }
       expect(data.id).toBe('server-1')
-      expect(updateCmd?.revision).toBe('1')
+      expect(updateCmd?.revision).toBe('0')
     })
 
     it('second mutate auto-blocked behind first on same aggregate', async () => {
@@ -2323,26 +2326,26 @@ describe('CommandQueue', () => {
       const responses = new Map<string, unknown>()
       responses.set('CreateItem', {
         id: 'server-1',
-        nextExpectedRevision: '1',
+        nextExpectedRevision: '0',
         events: [
           {
             id: 'evt-1',
             type: 'ItemCreated',
             streamId: 'nb.Item-server-1',
             data: { id: 'server-1', name: 'X' },
-            revision: '1',
+            revision: '0',
             position: '1',
           },
         ],
       })
       responses.set('UpdateItem', {
         id: 'server-1',
-        nextExpectedRevision: '2',
+        nextExpectedRevision: '1',
         events: [],
       })
       responses.set('DeleteItem', {
         id: 'server-1',
-        nextExpectedRevision: '3',
+        nextExpectedRevision: '2',
         events: [],
       })
       const { commandQueue, storage } = await bootstrap(setupSameAggregateQueue(responses))
@@ -2379,9 +2382,9 @@ describe('CommandQueue', () => {
       const updateCmd = allCmds.find((c) => c.type === 'UpdateItem')
       const deleteCmd = allCmds.find((c) => c.type === 'DeleteItem')
 
-      expect(createCmd?.status).toBe('succeeded')
-      expect(updateCmd?.status).toBe('succeeded')
-      expect(deleteCmd?.status).toBe('succeeded')
+      expect(createCmd?.status).toBe('applied')
+      expect(updateCmd?.status).toBe('applied')
+      expect(deleteCmd?.status).toBe('applied')
 
       // UpdateItem was sent with server ID and create's revision
       const updatedata = updateCmd?.data as { id: string }
@@ -2421,14 +2424,14 @@ describe('CommandQueue', () => {
       const responses = new Map<string, unknown>()
       responses.set('CreateItem', {
         id: 'server-1',
-        nextExpectedRevision: '1',
+        nextExpectedRevision: '0',
         events: [
           {
             id: 'evt-1',
             type: 'ItemCreated',
             streamId: 'nb.Item-server-1',
             data: { id: 'server-1', name: 'X' },
-            revision: '1',
+            revision: '0',
             position: '1',
           },
         ],
@@ -2460,21 +2463,21 @@ describe('CommandQueue', () => {
       const updateCmd = await storage.getCommand(updateResult.value.commandId)
       const data = updateCmd?.data as { id: string }
       expect(data.id).toBe('server-1')
-      expect(updateCmd?.revision).toMatchObject({ __autoRevision: true, fallback: '1' })
+      expect(updateCmd?.revision).toMatchObject({ __autoRevision: true, fallback: '0' })
     })
 
     it('mapping cache patches stale revision via server ID lookup', async () => {
       const responses = new Map<string, unknown>()
       responses.set('CreateItem', {
         id: 'server-1',
-        nextExpectedRevision: '1',
+        nextExpectedRevision: '0',
         events: [
           {
             id: 'evt-1',
             type: 'ItemCreated',
             streamId: 'nb.Item-server-1',
             data: { id: 'server-1', name: 'X' },
-            revision: '1',
+            revision: '0',
             position: '1',
           },
         ],
@@ -2502,7 +2505,7 @@ describe('CommandQueue', () => {
       if (!updateResult.ok) throw new Error('Expected success')
 
       const updateCmd = await storage.getCommand(updateResult.value.commandId)
-      expect(updateCmd?.revision).toMatchObject({ __autoRevision: true, fallback: '1' })
+      expect(updateCmd?.revision).toMatchObject({ __autoRevision: true, fallback: '0' })
     })
   })
 

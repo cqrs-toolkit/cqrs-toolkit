@@ -57,7 +57,7 @@ describe('StableRefQueryManager', () => {
         getByIdResult = result
       },
       emitCollectionUpdate(ids: string[]) {
-        collectionUpdate$.next({ type: 'updated', ids })
+        collectionUpdate$.next({ type: 'updated', ids, commandIds: [] })
       },
 
       async getById<T>(_params: GetByIdParams<ServiceLink>): Promise<QueryResult<ServiceLink, T>> {

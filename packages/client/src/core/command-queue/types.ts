@@ -48,7 +48,22 @@ export interface ICommandQueue<TLink extends Link, TCommand extends EnqueueComma
    * @param options - Optional wait options (timeout)
    * @returns Completion result
    */
-  waitForCompletion(
+  waitForSucceeded(
+    commandId: string,
+    options?: WaitOptions,
+  ): Promise<Result<unknown, CommandCompletionError>>
+
+  /**
+   * Wait for a command to reach {@link CommandStatus} `'applied'` — the
+   * post-terminal state after the sync pipeline has reflected the command's
+   * response events in the read model. Resolves early with the error result
+   * if the command reaches `'failed'` / `'cancelled'` before `'applied'`.
+   *
+   * Use this when a caller needs "read model current for this command's
+   * events" semantics (e.g. CRUD form save that unlocks only after the
+   * effect is durably reflected).
+   */
+  waitForApplied(
     commandId: string,
     options?: WaitOptions,
   ): Promise<Result<unknown, CommandCompletionError>>
@@ -56,6 +71,11 @@ export interface ICommandQueue<TLink extends Link, TCommand extends EnqueueComma
   /**
    * Convenience: enqueue and wait for completion in one call.
    * Best for simple form submissions.
+   *
+   * Set `params.waitFor` to choose the terminal: `'applied'` (default — the
+   * sync pipeline has reflected the command's events in the read model) or
+   * `'succeeded'` (earlier resolve at server acknowledgement, before the
+   * read-model drain completes).
    *
    * @returns Combined enqueue and completion result
    */

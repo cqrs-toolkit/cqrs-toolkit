@@ -6,7 +6,7 @@
 
 # Interface: WaitOptions
 
-Options for waitForCompletion operation.
+Options for waitForSucceeded operation.
 
 ## Extended by
 
