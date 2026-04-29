@@ -69,3 +69,71 @@ export function makeClassDef(commands: HydraDoc.PlainCommandsDef<never>): HydraD
     representations: [minimalRepresentation()],
   }
 }
+
+/**
+ * Build a minimal {@link HydraDoc.ViewRepresentation} bound to {@link minimalRepresentation}.
+ * Intended for testing `supportedProperties` wiring on a parent ClassDef whose own
+ * tests do not register the base representation themselves.
+ */
+export function minimalView(
+  overrides: {
+    id?: string
+    version?: string
+    template?: `/${string}`
+    profile?: string
+    operationId?: string
+  } = {},
+): HydraDoc.ViewRepresentation {
+  const id = overrides.id ?? '#test-parent-children-view-v1_0_0'
+  const template: `/${string}` = overrides.template ?? '/api/test/parents/{id}/children'
+  return new HydraDoc.ViewRepresentation({
+    id,
+    version: overrides.version ?? '1.0.0',
+    base: minimalRepresentation(),
+    collection: {
+      profile: overrides.profile ?? 'urn:profile:test.ParentChildren:1.0.0',
+      formats: ['application/json'],
+      operationId: overrides.operationId ?? 'getParentChildren',
+      href: template,
+      template: {
+        id: `${id}-collection`,
+        template,
+        mappings: [
+          { variable: 'id', property: 'test:parentId', required: true },
+          { variable: 'q', property: 'svc:query' },
+        ],
+      },
+    },
+  })
+}
+
+/**
+ * Build a minimal {@link HydraDoc.OperationLink} bound to {@link minimalRepresentation}.
+ * Models a single-resource templated operation (no query expansion required).
+ */
+export function minimalOperationLink(
+  overrides: {
+    id?: string
+    version?: string
+    template?: `/${string}`
+    profile?: string
+    operationId?: string
+  } = {},
+): HydraDoc.OperationLink {
+  const id = overrides.id ?? '#test-entity-action-v1_0_0'
+  const template: `/${string}` = overrides.template ?? '/api/test/entities/{id}/action'
+  return new HydraDoc.OperationLink({
+    id,
+    version: overrides.version ?? '1.0.0',
+    operation: {
+      profile: overrides.profile ?? 'urn:profile:test.EntityAction:1.0.0',
+      formats: ['application/json'],
+      operationId: overrides.operationId ?? 'entityAction',
+      template: {
+        id: `${id}-surface`,
+        template,
+        mappings: [{ variable: 'id', property: 'test:entityId', required: true }],
+      },
+    },
+  })
+}

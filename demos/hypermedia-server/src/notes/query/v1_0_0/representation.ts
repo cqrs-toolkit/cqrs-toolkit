@@ -121,7 +121,13 @@ export const NoteRepV1_0_0 = new HydraDoc.Representation({
   events: {
     resourceSegment: 'notes',
     baseHref: '/api',
-    item: { profile: 'urn:profile:nb.NoteItemEvent:1.0.0' },
-    aggregate: { profile: 'urn:profile:nb.NoteEvent:1.0.0' },
+    item: {
+      id: 'urn:representation:nb.NoteItemEvent:1.0.0',
+      profile: 'urn:profile:nb.NoteItemEvent:1.0.0',
+    },
+    aggregate: {
+      id: 'urn:representation:nb.NoteEvent:1.0.0',
+      profile: 'urn:profile:nb.NoteEvent:1.0.0',
+    },
   },
 })

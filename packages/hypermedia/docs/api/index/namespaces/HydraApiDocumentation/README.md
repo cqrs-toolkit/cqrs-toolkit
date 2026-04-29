@@ -23,6 +23,15 @@ These mirror the output of buildHydraApiDocumentation.
 - [IriTemplate](interfaces/IriTemplate.md)
 - [IriTemplateMapping](interfaces/IriTemplateMapping.md)
 - [Operation](interfaces/Operation.md)
+- [OperationLinkNode](interfaces/OperationLinkNode.md)
 - [QuerySurface](interfaces/QuerySurface.md)
 - [Representation](interfaces/Representation.md)
+- [SupportedProperty](interfaces/SupportedProperty.md)
+- [TemplatedOperationLink](interfaces/TemplatedOperationLink.md)
+- [TemplatedViewLink](interfaces/TemplatedViewLink.md)
+- [ViewRepresentationNode](interfaces/ViewRepresentationNode.md)
 - [Workflow](interfaces/Workflow.md)
+
+## Type Aliases
+
+- [TemplatedLink](type-aliases/TemplatedLink.md)

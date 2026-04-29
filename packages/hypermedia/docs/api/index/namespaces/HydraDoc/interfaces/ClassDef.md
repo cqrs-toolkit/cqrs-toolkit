@@ -40,4 +40,14 @@ Human-readable description of this resource class.
 
 ### representations
 
-> **representations**: ([`Representation`](../classes/Representation.md)\<[`EventsConfig`](../type-aliases/EventsConfig.md) \| `undefined`\> \| [`ViewRepresentation`](../classes/ViewRepresentation.md))[]
+> **representations**: ([`ViewRepresentation`](../classes/ViewRepresentation.md) \| [`Representation`](../classes/Representation.md)\<[`EventsConfig`](../type-aliases/EventsConfig.md) \| `undefined`\>)[]
+
+---
+
+### supportedProperties?
+
+> `optional` **supportedProperties**: [`SupportedProperty`](SupportedProperty.md)[]
+
+`hydra:supportedProperty` — properties of this class whose values are
+dereferenceable. Used for templated sub-resource collections (e.g.
+`chat:Room` → `chat:fileObjects`).

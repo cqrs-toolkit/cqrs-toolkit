@@ -20,6 +20,12 @@
 
 ---
 
+### hydra:supportedProperty?
+
+> `optional` **hydra:supportedProperty**: [`SupportedProperty`](SupportedProperty.md)[]
+
+---
+
 ### schema:description?
 
 > `optional` **schema:description**: `string`

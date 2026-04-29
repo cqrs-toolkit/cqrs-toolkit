@@ -1,6 +1,6 @@
 {
   "name": "@cqrs-toolkit/hypermedia-cli",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "CLI tooling for CQRS Hydra documentation generation and deployment",
   "keywords": [
     "cqrs",
@@ -40,8 +40,8 @@
     "compile": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@cqrs-toolkit/hypermedia": "*",
-    "@cqrs-toolkit/hypermedia-client": "*"
+    "@cqrs-toolkit/hypermedia": "^0.3.0",
+    "@cqrs-toolkit/hypermedia-client": "^0.3.0"
   },
   "optionalDependencies": {
     "esbuild": "^0.28.0"

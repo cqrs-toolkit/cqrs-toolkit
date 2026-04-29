@@ -29,6 +29,56 @@ export namespace HydraApiDocumentation {
     'schema:description'?: string
     'svc:commands'?: Commands
     'svc:representation': Representation[]
+    'hydra:supportedProperty'?: SupportedProperty[]
+  }
+
+  // ---------------------------------------------------------------------------
+  // Supported properties (templated links)
+  // ---------------------------------------------------------------------------
+
+  export interface SupportedProperty {
+    '@type': 'hydra:SupportedProperty'
+    'schema:description'?: string
+    'hydra:property': TemplatedLink
+  }
+
+  export type TemplatedLink = TemplatedViewLink | TemplatedOperationLink
+
+  /** TemplatedLink whose target is a collection-style scoped sub-resource. */
+  export interface TemplatedViewLink {
+    '@id': string
+    '@type': 'hydra:TemplatedLink'
+    /** Versioned view nodes — non-empty tuple, mirroring `Class['svc:representation']`. */
+    'svc:view': readonly [ViewRepresentationNode, ...ViewRepresentationNode[]]
+  }
+
+  /** TemplatedLink whose target is a single-resource templated operation. */
+  export interface TemplatedOperationLink {
+    '@id': string
+    '@type': 'hydra:TemplatedLink'
+    /** Versioned operation link nodes — non-empty tuple. */
+    'svc:operation': readonly [OperationLinkNode, ...OperationLinkNode[]]
+  }
+
+  export interface ViewRepresentationNode {
+    '@id': string
+    '@type': 'svc:ViewRepresentation'
+    'schema:version': string
+    /** e.g. `['svc:Deprecated']`. */
+    'rdf:type'?: string[]
+    /** `@id` of the base {@link Representation} (i.e. {@link Representation}'s `@id`). */
+    'svc:base': { '@id': string }
+    'svc:collection': QuerySurface
+  }
+
+  export interface OperationLinkNode {
+    '@id': string
+    '@type': 'svc:OperationLink'
+    'schema:version': string
+    /** e.g. `['svc:Deprecated']`. */
+    'rdf:type'?: string[]
+    /** Single templated operation surface (no required query expansion). */
+    'svc:surface': QuerySurface
   }
 
   // ---------------------------------------------------------------------------

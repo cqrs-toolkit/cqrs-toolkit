@@ -1,6 +1,6 @@
 {
   "name": "@cqrs-toolkit/hypermedia-client",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Hypermedia-driven command sender, schema validators, and CLI for CQRS client auto-wiring",
   "keywords": [
     "cqrs",

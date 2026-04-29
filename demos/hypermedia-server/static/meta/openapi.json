@@ -7,6 +7,7 @@
   "paths": {
     "/api/events/file-objects": {
       "get": {
+        "operationId": "getFileObjectEvents",
         "parameters": [
           {
             "description": "Maximum number of items to return",
@@ -272,6 +273,7 @@
     },
     "/api/file-objects/{id}/events": {
       "get": {
+        "operationId": "getFileObjectEventsById",
         "parameters": [
           {
             "description": "File object identifier",

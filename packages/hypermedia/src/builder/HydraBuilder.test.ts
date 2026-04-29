@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest'
 import { HydraDoc } from '../HydraDoc.js'
 import {
   makeClassDef,
+  minimalOperationLink,
   minimalRepresentation,
+  minimalView,
   PERMIT_RESPONSE_SCHEMA,
   PREFIXES,
   RENAME_SCHEMA,
@@ -436,6 +438,296 @@ describe('buildHydraApiDocumentation', () => {
       expect(ctx['svc:nextStep']).toEqual({})
     })
   })
+
+  describe('supportedProperties', () => {
+    it('renders hydra:supportedProperty on the class node', () => {
+      const result = buildWithSupportedProperty()
+      const cls = result.jsonld['hydra:supportedClass'][0]
+      expect(cls['hydra:supportedProperty']).toBeDefined()
+      expect(cls['hydra:supportedProperty']).toHaveLength(1)
+    })
+
+    it('renders hydra:property as a TemplatedLink with the property IRI', () => {
+      const result = buildWithSupportedProperty()
+      const sp = findSupportedProperty(result, 'test:Entity', 'test:children')
+      expect(sp['@type']).toBe('hydra:SupportedProperty')
+      expect(sp['hydra:property']['@id']).toBe('test:children')
+      expect(sp['hydra:property']['@type']).toBe('hydra:TemplatedLink')
+    })
+
+    it('embeds svc:view as an array of view nodes', () => {
+      const result = buildWithSupportedProperty()
+      const sp = findSupportedProperty(result, 'test:Entity', 'test:children')
+      const views = sp['hydra:property']['svc:view']
+      expect(Array.isArray(views)).toBe(true)
+      expect(views).toHaveLength(1)
+      expect(views[0]['@type']).toBe('svc:ViewRepresentation')
+      expect(views[0]['schema:version']).toBe('1.0.0')
+      expect(views[0]['svc:base']).toEqual({ '@id': '#test-entity-v1_0_0' })
+    })
+
+    it('emits the description when provided', () => {
+      const result = buildWithSupportedProperty()
+      const sp = findSupportedProperty(result, 'test:Entity', 'test:children')
+      expect(sp['schema:description']).toBe('Children of this entity.')
+    })
+
+    it('emits multiple versioned views in svc:view', () => {
+      const result = buildWithMultiVersionViews()
+      const sp = findSupportedProperty(result, 'test:Entity', 'test:children')
+      const views = sp['hydra:property']['svc:view']
+      expect(views).toHaveLength(2)
+      const versions = views.map((v: Record<string, unknown>) => v['schema:version'])
+      expect(versions).toEqual(['1.0.0', '1.1.0'])
+    })
+
+    it('renders the view collection surface (template, formats, profile)', () => {
+      const result = buildWithSupportedProperty()
+      const sp = findSupportedProperty(result, 'test:Entity', 'test:children')
+      const view = sp['hydra:property']['svc:view'][0]
+      const collection = view['svc:collection']
+      expect(collection['@type']).toBe('svc:Surface')
+      expect(collection['svc:formats']).toEqual(['application/json'])
+      expect(collection['svc:profile']).toEqual({ '@id': 'urn:profile:test.ParentChildren:1.0.0' })
+      expect(collection['svc:template']['hydra:template']).toContain(
+        '/api/test/parents/{id}/children',
+      )
+    })
+
+    it('omits hydra:supportedProperty when none configured', () => {
+      const result = buildHydraApiDocumentation({
+        classes: [{ class: 'test:Entity', representations: [minimalRepresentation()] }],
+        prefixes: PREFIXES,
+        strictPrefixes: true,
+      })
+      const cls = result.jsonld['hydra:supportedClass'][0]
+      expect(cls).not.toHaveProperty('hydra:supportedProperty')
+    })
+
+    it('declares svc:view and svc:base in @context', () => {
+      const result = buildWithSupportedProperty()
+      const ctx = result.jsonld['@context']
+      expect(ctx['svc:view']).toEqual({ '@container': '@set' })
+      expect(ctx['svc:base']).toEqual({ '@type': '@id' })
+      expect(ctx['hydra:supportedProperty']).toEqual({ '@container': '@set' })
+    })
+
+    it('throws when two supportedProperties on the same class share a property IRI', () => {
+      expect(() =>
+        buildHydraApiDocumentation({
+          classes: [
+            {
+              class: 'test:Entity',
+              representations: [minimalRepresentation()],
+              supportedProperties: [
+                { property: 'test:children', links: [minimalView()] },
+                {
+                  property: 'test:children',
+                  links: [
+                    minimalView({
+                      id: '#test-other-view-v1_0_0',
+                      template: '/api/test/parents/{id}/other-children',
+                    }),
+                  ],
+                },
+              ],
+            },
+          ],
+          prefixes: PREFIXES,
+          strictPrefixes: true,
+        }),
+      ).toThrow(/duplicate supportedProperty 'test:children'/)
+    })
+
+    it('throws when two views in the same property share a SemVer', () => {
+      expect(() =>
+        buildHydraApiDocumentation({
+          classes: [
+            {
+              class: 'test:Entity',
+              representations: [minimalRepresentation()],
+              supportedProperties: [
+                {
+                  property: 'test:children',
+                  links: [
+                    minimalView({ id: '#a-v1_0_0', version: '1.0.0' }),
+                    minimalView({
+                      id: '#b-v1_0_0',
+                      version: '1.0.0',
+                      template: '/api/test/parents/{id}/other-children',
+                    }),
+                  ],
+                },
+              ],
+            },
+          ],
+          prefixes: PREFIXES,
+          strictPrefixes: true,
+        }),
+      ).toThrow(/duplicate version 1\.0\.0/)
+    })
+
+    it('throws when a view id collides with a representation id', () => {
+      expect(() =>
+        buildHydraApiDocumentation({
+          classes: [
+            {
+              class: 'test:Entity',
+              representations: [minimalRepresentation()],
+              supportedProperties: [
+                {
+                  property: 'test:children',
+                  // minimalRepresentation uses '#test-entity-v1_0_0' — collide.
+                  links: [minimalView({ id: '#test-entity-v1_0_0' })],
+                },
+              ],
+            },
+          ],
+          prefixes: PREFIXES,
+          strictPrefixes: true,
+        }),
+      ).toThrow(/Duplicate representation id/)
+    })
+
+    it('throws when sp.property uses an unknown CURIE prefix in strict mode', () => {
+      expect(() =>
+        buildHydraApiDocumentation({
+          classes: [
+            {
+              class: 'test:Entity',
+              representations: [minimalRepresentation()],
+              supportedProperties: [{ property: 'unknown:children', links: [minimalView()] }],
+            },
+          ],
+          prefixes: PREFIXES,
+          strictPrefixes: true,
+        }),
+      ).toThrow(/Unknown prefix 'unknown'/)
+    })
+
+    it('warns when sp.property uses an unknown CURIE prefix in non-strict mode', () => {
+      const result = buildHydraApiDocumentation({
+        classes: [
+          {
+            class: 'test:Entity',
+            representations: [minimalRepresentation()],
+            supportedProperties: [{ property: 'unknown:children', links: [minimalView()] }],
+          },
+        ],
+        prefixes: PREFIXES,
+        strictPrefixes: false,
+      })
+      expect(result.warnings.some((w) => w.includes("Unknown prefix 'unknown'"))).toBe(true)
+    })
+
+    it('collects view collection response schemas', () => {
+      const responseSchema: JSONSchema7 = {
+        $id: 'urn:schema:test.ChildrenResponse:1.0.0',
+        type: 'object',
+        properties: { items: { type: 'array' } },
+      }
+      const result = buildHydraApiDocumentation({
+        classes: [
+          {
+            class: 'test:Entity',
+            representations: [minimalRepresentation()],
+            supportedProperties: [
+              {
+                property: 'test:children',
+                links: [
+                  new HydraDoc.ViewRepresentation({
+                    id: '#test-children-view-v1_0_0',
+                    version: '1.0.0',
+                    base: minimalRepresentation(),
+                    collection: {
+                      profile: 'urn:profile:test.ParentChildren:1.0.0',
+                      formats: ['application/json'],
+                      operationId: 'getParentChildren',
+                      href: '/api/test/parents/{id}/children',
+                      template: {
+                        id: '#test-children-view-collection-v1_0_0',
+                        template: '/api/test/parents/{id}/children',
+                        mappings: [
+                          { variable: 'id', property: 'test:parentId', required: true },
+                          { variable: 'q', property: 'svc:query' },
+                        ],
+                      },
+                      responses: [{ code: 200, schema: responseSchema }],
+                    },
+                  }),
+                ],
+              },
+            ],
+          },
+        ],
+        prefixes: PREFIXES,
+        strictPrefixes: true,
+      })
+      expect(result.schemas.has('schemas/urn/schema/test.ChildrenResponse/1.0.0.json')).toBe(true)
+
+      const sp = findSupportedProperty(result, 'test:Entity', 'test:children')
+      const collection = sp['hydra:property']['svc:view'][0]['svc:collection']
+      expect(collection['svc:responseSchema']).toBeDefined()
+      expect(collection['svc:responseSchema'][0]['svc:jsonSchema']).toBe(
+        'urn:schema:test.ChildrenResponse:1.0.0',
+      )
+    })
+  })
+
+  describe('supportedProperties: operation links', () => {
+    it('renders svc:operation array on the TemplatedLink', () => {
+      const result = buildWithOperationLink()
+      const sp = findSupportedProperty(result, 'test:Entity', 'test:action')
+      expect(sp['hydra:property']['svc:operation']).toBeDefined()
+      expect(sp['hydra:property']['svc:operation']).toHaveLength(1)
+      expect(sp['hydra:property']).not.toHaveProperty('svc:view')
+    })
+
+    it('renders the OperationLink node with svc:surface and no svc:base', () => {
+      const result = buildWithOperationLink()
+      const sp = findSupportedProperty(result, 'test:Entity', 'test:action')
+      const node = sp['hydra:property']['svc:operation'][0]
+      expect(node['@type']).toBe('svc:OperationLink')
+      expect(node['schema:version']).toBe('1.0.0')
+      expect(node).not.toHaveProperty('svc:base')
+      expect(node['svc:surface']['@type']).toBe('svc:Surface')
+      expect(node['svc:surface']['svc:template']['hydra:template']).toContain(
+        '/api/test/entities/{id}/action',
+      )
+    })
+
+    it('does not require query expansion on the operation surface', () => {
+      // minimalOperationLink uses no query mappings — building must not throw.
+      expect(() => buildWithOperationLink()).not.toThrow()
+    })
+
+    it('throws when a property mixes view and operation kinds', () => {
+      expect(() =>
+        buildHydraApiDocumentation({
+          classes: [
+            {
+              class: 'test:Entity',
+              representations: [minimalRepresentation()],
+              supportedProperties: [
+                {
+                  property: 'test:mixed',
+                  links: [minimalView(), minimalOperationLink()],
+                },
+              ],
+            },
+          ],
+          prefixes: PREFIXES,
+          strictPrefixes: true,
+        }),
+      ).toThrow(/mixes link kinds/)
+    })
+
+    it('declares svc:operation in @context', () => {
+      const result = buildWithOperationLink()
+      const ctx = result.jsonld['@context']
+      expect(ctx['svc:operation']).toEqual({ '@container': '@set' })
+    })
+  })
 })
 
 function buildWithSchema(): BuildResult {
@@ -785,4 +1077,85 @@ function findCommand(result: BuildResult, commandId: string): Record<string, any
     }
   }
   throw new Error(`Command ${commandId} not found in JSON-LD output`)
+}
+
+function findSupportedProperty(
+  result: BuildResult,
+  classIri: string,
+  propertyIri: string,
+): Record<string, any> {
+  const classes = result.jsonld['hydra:supportedClass'] as any[]
+  const cls = classes.find((c) => c['@id'] === classIri)
+  if (!cls) throw new Error(`Class ${classIri} not found in JSON-LD output`)
+  const sps = cls['hydra:supportedProperty'] as any[] | undefined
+  if (!sps) throw new Error(`Class ${classIri} has no hydra:supportedProperty`)
+  const found = sps.find((sp) => sp['hydra:property']?.['@id'] === propertyIri)
+  if (!found) throw new Error(`SupportedProperty ${propertyIri} not found on ${classIri}`)
+  return found
+}
+
+function buildWithSupportedProperty(): BuildResult {
+  return buildHydraApiDocumentation({
+    classes: [
+      {
+        class: 'test:Entity',
+        representations: [minimalRepresentation()],
+        supportedProperties: [
+          {
+            property: 'test:children',
+            description: 'Children of this entity.',
+            links: [minimalView()],
+          },
+        ],
+      },
+    ],
+    prefixes: PREFIXES,
+    strictPrefixes: true,
+  })
+}
+
+function buildWithOperationLink(): BuildResult {
+  return buildHydraApiDocumentation({
+    classes: [
+      {
+        class: 'test:Entity',
+        representations: [minimalRepresentation()],
+        supportedProperties: [
+          {
+            property: 'test:action',
+            description: 'Perform an action on this entity.',
+            links: [minimalOperationLink()],
+          },
+        ],
+      },
+    ],
+    prefixes: PREFIXES,
+    strictPrefixes: true,
+  })
+}
+
+function buildWithMultiVersionViews(): BuildResult {
+  return buildHydraApiDocumentation({
+    classes: [
+      {
+        class: 'test:Entity',
+        representations: [minimalRepresentation()],
+        supportedProperties: [
+          {
+            property: 'test:children',
+            links: [
+              minimalView({ id: '#test-children-view-v1_0_0', version: '1.0.0' }),
+              minimalView({
+                id: '#test-children-view-v1_1_0',
+                version: '1.1.0',
+                template: '/api/test/parents/{id}/children-v2',
+              }),
+            ],
+          },
+        ],
+      },
+    ],
+    prefixes: PREFIXES,
+    strictPrefixes: true,
+  })
 }

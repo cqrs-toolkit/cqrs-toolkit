@@ -119,7 +119,13 @@ export const TodoRepV1_0_0 = new HydraDoc.Representation({
   events: {
     resourceSegment: 'todos',
     baseHref: '/api',
-    item: { profile: 'urn:profile:nb.TodoItemEvent:1.0.0' },
-    aggregate: { profile: 'urn:profile:nb.TodoEvent:1.0.0' },
+    item: {
+      id: 'urn:representation:nb.TodoItemEvent:1.0.0',
+      profile: 'urn:profile:nb.TodoItemEvent:1.0.0',
+    },
+    aggregate: {
+      id: 'urn:representation:nb.TodoEvent:1.0.0',
+      profile: 'urn:profile:nb.TodoEvent:1.0.0',
+    },
   },
 })

@@ -13,6 +13,7 @@
 - [CommandSurface](classes/CommandSurface.md)
 - [CustomCommandSurface](classes/CustomCommandSurface.md)
 - [IriTemplate](classes/IriTemplate.md)
+- [OperationLink](classes/OperationLink.md)
 - [QuerySurface](classes/QuerySurface.md)
 - [Representation](classes/Representation.md)
 - [ViewRepresentation](classes/ViewRepresentation.md)
@@ -34,6 +35,7 @@
 - [PlainCustomCommandCapability](interfaces/PlainCustomCommandCapability.md)
 - [PlainCustomCommandSurface](interfaces/PlainCustomCommandSurface.md)
 - [PlainIriTemplate](interfaces/PlainIriTemplate.md)
+- [PlainOperationLink](interfaces/PlainOperationLink.md)
 - [PlainQuerySurface](interfaces/PlainQuerySurface.md)
 - [PlainRepresentation](interfaces/PlainRepresentation.md)
 - [PlainViewRepresentation](interfaces/PlainViewRepresentation.md)
@@ -42,6 +44,7 @@
 - [ResponseDef](interfaces/ResponseDef.md)
 - [StandardCommandSurfaceOpts](interfaces/StandardCommandSurfaceOpts.md)
 - [StandardCreateCommandSurfaceOpts](interfaces/StandardCreateCommandSurfaceOpts.md)
+- [SupportedProperty](interfaces/SupportedProperty.md)
 - [Workflow](interfaces/Workflow.md)
 
 ## Type Aliases
@@ -56,6 +59,7 @@
 - [PlainCommandSurface](type-aliases/PlainCommandSurface.md)
 - [ResponseEntry](type-aliases/ResponseEntry.md)
 - [StandardCommandDispatch](type-aliases/StandardCommandDispatch.md)
+- [SupportedPropertyTarget](type-aliases/SupportedPropertyTarget.md)
 
 ## Variables
 

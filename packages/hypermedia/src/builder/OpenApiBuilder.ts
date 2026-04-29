@@ -184,6 +184,33 @@ export function buildOpenApiDocument(opts: OpenApiBuildOptions): OpenApiBuildRes
       }
     }
 
+    // ---- supported-property templated links (GET) ----
+    if (cls.supportedProperties) {
+      for (const sp of cls.supportedProperties) {
+        for (const link of sp.links) {
+          if (link.kind === 'view') {
+            addQuerySurface({
+              ...ctx,
+              paths,
+              surface: link.collection,
+              tag: tagName,
+              role: 'collection',
+              rep: link,
+            })
+          } else {
+            addQuerySurface({
+              ...ctx,
+              paths,
+              surface: link.operation,
+              tag: tagName,
+              role: 'resource',
+              rep: link,
+            })
+          }
+        }
+      }
+    }
+
     // ---- command surfaces (POST) ----
     if (cls.commands) {
       addCommandOperations({ ...ctx, paths, commands: cls.commands, tag: tagName })
@@ -230,7 +257,10 @@ interface AddQuerySurfaceOpts extends BuildContext {
   surface: HydraDoc.QuerySurface
   tag: string
   role: SurfaceRole
-  rep: HydraDoc.Representation<HydraDoc.EventsConfig | undefined> | HydraDoc.ViewRepresentation
+  rep:
+    | HydraDoc.Representation<HydraDoc.EventsConfig | undefined>
+    | HydraDoc.ViewRepresentation
+    | HydraDoc.OperationLink
 }
 
 function addQuerySurface(opts: AddQuerySurfaceOpts): void {
@@ -668,7 +698,10 @@ function buildOpenApiResponses(
 }
 
 function isRepresentation(
-  rep: HydraDoc.Representation<HydraDoc.EventsConfig | undefined> | HydraDoc.ViewRepresentation,
+  rep:
+    | HydraDoc.Representation<HydraDoc.EventsConfig | undefined>
+    | HydraDoc.ViewRepresentation
+    | HydraDoc.OperationLink,
 ): rep is HydraDoc.Representation<HydraDoc.EventsConfig | undefined> {
   return 'itemEvents' in rep || 'aggregateEvents' in rep
 }

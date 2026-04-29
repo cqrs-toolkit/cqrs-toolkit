@@ -115,7 +115,10 @@ describe('HydraDoc', () => {
         events: {
           baseHref: '/api',
           resourceSegment: 'items',
-          item: { profile: 'urn:profile:test.ItemEvents:1.0.0' },
+          item: {
+            id: 'urn:representation:test.ItemEvents:1.0.0',
+            profile: 'urn:profile:test.ItemEvents:1.0.0',
+          },
         },
       })
       expect(rep.itemEvents).toBeInstanceOf(HydraDoc.QuerySurface)
@@ -128,8 +131,14 @@ describe('HydraDoc', () => {
         events: {
           baseHref: '/api',
           resourceSegment: 'items',
-          item: { profile: 'urn:profile:test.ItemEvents:1.0.0' },
-          aggregate: { profile: 'urn:profile:test.ItemAggEvents:1.0.0' },
+          item: {
+            id: 'urn:representation:test.ItemEvents:1.0.0',
+            profile: 'urn:profile:test.ItemEvents:1.0.0',
+          },
+          aggregate: {
+            id: 'urn:representation:test.ItemAggEvents:1.0.0',
+            profile: 'urn:profile:test.ItemAggEvents:1.0.0',
+          },
         },
       })
       expect(rep.aggregateEvents).toBeInstanceOf(HydraDoc.QuerySurface)

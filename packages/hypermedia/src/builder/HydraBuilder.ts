@@ -234,6 +234,50 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
         }
       }
     }
+
+    // ---- validate supportedProperties ----
+    if (cls.supportedProperties) {
+      const seenProperty = new Set<string>()
+      for (const sp of cls.supportedProperties) {
+        if (!sp.property) {
+          throw new Error(`Class ${cls.class} has a supportedProperty missing 'property' IRI`)
+        }
+        if (seenProperty.has(sp.property)) {
+          throw new Error(`Class ${cls.class} has duplicate supportedProperty '${sp.property}'`)
+        }
+        seenProperty.add(sp.property)
+
+        const pp = curiePrefix(sp.property)
+        if (pp) prefixUse.add(pp)
+
+        const propertyKind = sp.links[0].kind
+        const seenLinkVersions = new Set<string>()
+        for (const link of sp.links) {
+          if (link.kind !== propertyKind) {
+            throw new Error(
+              `Class ${cls.class} supportedProperty ${sp.property} mixes link kinds (${propertyKind} and ${link.kind}); each property must have a single kind`,
+            )
+          }
+
+          addUnique(repIds, link.id, 'representation')
+
+          if (!link.version || !semverRe.test(link.version)) {
+            throw new Error(
+              `Class ${cls.class} supportedProperty ${sp.property} link ${link.id} has invalid SemVer: ${link.version}`,
+            )
+          }
+          if (seenLinkVersions.has(link.version)) {
+            throw new Error(
+              `Class ${cls.class} supportedProperty ${sp.property} has duplicate version ${link.version}`,
+            )
+          }
+          seenLinkVersions.add(link.version)
+
+          const targetSurface = link.kind === 'view' ? link.collection : link.operation
+          validateQuerySurface(link.id, 'collection', targetSurface)
+        }
+      }
+    }
   }
 
   // ---- check prefixes ----
@@ -252,8 +296,14 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
 
     // ---- query representations ----
     'svc:representation': { '@container': '@set' },
+    'svc:view': { '@container': '@set' },
+    'svc:operation': { '@container': '@set' },
+    'svc:base': { '@type': '@id' },
     'svc:formats': { '@container': '@set' },
     'svc:profile': { '@type': '@id' },
+
+    // ---- supported properties ----
+    'hydra:supportedProperty': { '@container': '@set' },
 
     // ---- commands ----
     'svc:commands': {},
@@ -299,6 +349,13 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
       ...(cls.description ? { 'schema:description': cls.description } : {}),
       ...(cls.commands ? { 'svc:commands': renderCommands(cls.commands) } : {}),
       'svc:representation': cls.representations.map((rep) => renderRepresentation(rep)),
+      ...(cls.supportedProperties?.length
+        ? {
+            'hydra:supportedProperty': cls.supportedProperties.map((sp) =>
+              renderSupportedProperty(sp),
+            ),
+          }
+        : {}),
     })),
   }
 
@@ -354,6 +411,16 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
         collectResponseSchemas(surf.responses, true, `Rep ${rep.id}`)
       }
     }
+
+    // Supported-property link response schemas
+    if (cls.supportedProperties) {
+      for (const sp of cls.supportedProperties) {
+        for (const link of sp.links) {
+          const surface = link.kind === 'view' ? link.collection : link.operation
+          collectResponseSchemas(surface.responses, true, `Link ${link.id}`)
+        }
+      }
+    }
   }
 
   // ---- collect common schemas (auto-discovered $id sub-schemas) ----
@@ -403,6 +470,48 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
       ...base,
       ...(rep.aggregateEvents ? { 'svc:aggregateEvents': renderSurface(rep.aggregateEvents) } : {}),
       ...(rep.itemEvents ? { 'svc:itemEvents': renderSurface(rep.itemEvents) } : {}),
+    }
+  }
+
+  function renderSupportedProperty(sp: HydraDoc.SupportedProperty): JsonLd {
+    const viewNodes: JsonLd[] = []
+    const operationNodes: JsonLd[] = []
+    for (const link of sp.links) {
+      if (link.kind === 'view') viewNodes.push(renderViewNode(link))
+      else operationNodes.push(renderOperationLinkNode(link))
+    }
+    // Validation guarantees all entries share a kind — exactly one of these is non-empty.
+    const versions: JsonLd =
+      viewNodes.length > 0 ? { 'svc:view': viewNodes } : { 'svc:operation': operationNodes }
+    return {
+      '@type': 'hydra:SupportedProperty',
+      ...(sp.description ? { 'schema:description': sp.description } : {}),
+      'hydra:property': {
+        '@id': sp.property,
+        '@type': 'hydra:TemplatedLink',
+        ...versions,
+      },
+    }
+  }
+
+  function renderViewNode(view: HydraDoc.ViewRepresentation): JsonLd {
+    return {
+      '@id': view.id,
+      '@type': 'svc:ViewRepresentation',
+      'schema:version': view.version,
+      ...(view.deprecated ? { 'rdf:type': ['svc:Deprecated'] } : {}),
+      'svc:base': { '@id': view.baseId },
+      'svc:collection': renderSurface(view.collection),
+    }
+  }
+
+  function renderOperationLinkNode(link: HydraDoc.OperationLink): JsonLd {
+    return {
+      '@id': link.id,
+      '@type': 'svc:OperationLink',
+      'schema:version': link.version,
+      ...(link.deprecated ? { 'rdf:type': ['svc:Deprecated'] } : {}),
+      'svc:surface': renderSurface(link.operation),
     }
   }
 

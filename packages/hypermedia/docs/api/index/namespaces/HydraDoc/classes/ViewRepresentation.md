@@ -37,6 +37,14 @@ ViewRepresentation explicitly models a "collection-only view" over an existing r
 
 ## Properties
 
+### baseId
+
+> `readonly` **baseId**: `string`
+
+[Representation.id](Representation.md#id) of the underlying base representation.
+
+---
+
 ### collection
 
 > `readonly` **collection**: [`QuerySurface`](QuerySurface.md)
@@ -56,6 +64,14 @@ ViewRepresentation explicitly models a "collection-only view" over an existing r
 ### id
 
 > `readonly` **id**: `string`
+
+---
+
+### kind
+
+> `readonly` **kind**: `"view"`
+
+Discriminator for [SupportedPropertyTarget](../type-aliases/SupportedPropertyTarget.md).
 
 ---
 

@@ -8,15 +8,27 @@
 
 ## Properties
 
-### id?
+### description?
 
-> `optional` **id**: `string`
+> `optional` **description**: `string`
 
-Optional template node
+Human-readable description for this events GET endpoint.
 
-#### Id
+---
 
-(fragment). Default is derived.
+### id
+
+> **id**: `string`
+
+Template node `@id` (fragment or URN) for this events surface.
+
+---
+
+### operationId?
+
+> `optional` **operationId**: `string`
+
+OpenAPI `operationId` for this events GET endpoint.
 
 ---
 
@@ -24,4 +36,12 @@ Optional template node
 
 > **profile**: `string`
 
-REQUIRED: profile IRI/URN for the surface
+Profile IRI/URN for the surface.
+
+---
+
+### responses?
+
+> `optional` **responses**: readonly [`ResponseEntry`](../type-aliases/ResponseEntry.md)[]
+
+Response entries (status codes + schemas) for this events GET endpoint.

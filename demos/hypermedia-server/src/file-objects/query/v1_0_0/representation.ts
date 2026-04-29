@@ -127,10 +127,12 @@ export const FileObjectRepV1_0_0 = new HydraDoc.Representation({
     resourceSegment: 'file-objects',
     baseHref: '/api',
     item: {
+      id: 'urn:representation:storage.FileObjectItemEvent:1.0.0',
       profile: 'urn:profile:storage.FileObjectItemEvent:1.0.0',
       operationId: 'getFileObjectEventsById',
     },
     aggregate: {
+      id: 'urn:representation:storage.FileObjectEvent:1.0.0',
       profile: 'urn:profile:storage.FileObjectEvent:1.0.0',
       operationId: 'getFileObjectEvents',
     },

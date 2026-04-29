@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest'
 import { HydraDoc } from '../HydraDoc.js'
 import {
   makeClassDef,
+  minimalOperationLink,
   minimalRepresentation,
+  minimalView,
   PERMIT_RESPONSE_SCHEMA,
   PREFIXES,
   RENAME_SCHEMA,
@@ -712,6 +714,157 @@ describe('buildOpenApiDocument', () => {
       expect(keys).toEqual([...keys].sort())
     })
   })
+
+  describe('view via supportedProperty', () => {
+    it('emits a GET operation at the view collection path', () => {
+      const result = buildWithSupportedProperty()
+      const op = result.document.paths['/api/test/parents/{id}/children']?.get
+      expect(op).toBeDefined()
+      expect(op?.operationId).toBe('getParentChildren')
+    })
+
+    it('tags the operation under the parent class', () => {
+      const result = buildWithSupportedProperty()
+      const op = result.document.paths['/api/test/parents/{id}/children']?.get
+      expect(op?.tags).toEqual(['Entity'])
+    })
+
+    it('preserves path and query parameters from the view collection template', () => {
+      const result = buildWithSupportedProperty()
+      const params = result.document.paths['/api/test/parents/{id}/children']?.get?.parameters
+      expect(params).toEqual([
+        {
+          name: 'id',
+          in: 'path',
+          required: true,
+          schema: { type: 'string' },
+          description: 'Parent identifier',
+        },
+        { name: 'q', in: 'query', schema: { type: 'string' }, description: 'Search query' },
+      ])
+    })
+
+    it('emits view collection responses', () => {
+      const responseSchema: JSONSchema7 = {
+        $id: 'urn:schema:test.ChildrenResponse:1.0.0',
+        type: 'object',
+        properties: { items: { type: 'array' } },
+      }
+      const result = build(
+        [
+          {
+            class: 'test:Entity',
+            representations: [minimalRepresentation()],
+            supportedProperties: [
+              {
+                property: 'test:children',
+                links: [
+                  new HydraDoc.ViewRepresentation({
+                    id: '#test-children-view-v1_0_0',
+                    version: '1.0.0',
+                    base: minimalRepresentation(),
+                    collection: {
+                      profile: 'urn:profile:test.ParentChildren:1.0.0',
+                      formats: ['application/json'],
+                      operationId: 'getParentChildren',
+                      href: '/api/test/parents/{id}/children',
+                      template: {
+                        id: '#test-children-view-collection-v1_0_0',
+                        template: '/api/test/parents/{id}/children',
+                        mappings: [
+                          { variable: 'id', property: 'test:parentId', required: true },
+                          { variable: 'q', property: 'svc:query' },
+                        ],
+                      },
+                      responses: [{ code: 200, schema: responseSchema }],
+                    },
+                  }),
+                ],
+              },
+            ],
+          },
+        ],
+        {
+          ...testPropertyDictionary,
+          'test:parentId': { schema: { type: 'string' }, description: 'Parent identifier' },
+        },
+      )
+      const op = result.document.paths['/api/test/parents/{id}/children']?.get
+      expect(op?.responses?.['200']?.content?.['application/json']?.schema.$ref).toBe(
+        'urn:schema:test.ChildrenResponse:1.0.0',
+      )
+    })
+
+    it('first registered view wins for the same path (multi-version dedup)', () => {
+      const result = build(
+        [
+          {
+            class: 'test:Entity',
+            representations: [minimalRepresentation()],
+            supportedProperties: [
+              {
+                property: 'test:children',
+                links: [
+                  minimalView({
+                    id: '#test-children-view-v1_0_0',
+                    version: '1.0.0',
+                    operationId: 'getChildrenV1',
+                  }),
+                  minimalView({
+                    id: '#test-children-view-v1_1_0',
+                    version: '1.1.0',
+                    operationId: 'getChildrenV1_1',
+                  }),
+                ],
+              },
+            ],
+          },
+        ],
+        {
+          ...testPropertyDictionary,
+          'test:parentId': { schema: { type: 'string' }, description: 'Parent identifier' },
+        },
+      )
+      const op = result.document.paths['/api/test/parents/{id}/children']?.get
+      expect(op?.operationId).toBe('getChildrenV1')
+    })
+  })
+
+  describe('operation link via supportedProperty', () => {
+    it('emits a GET at the operation surface path', () => {
+      const result = buildWithOperationLink()
+      const op = result.document.paths['/api/test/entities/{id}/action']?.get
+      expect(op).toBeDefined()
+      expect(op?.operationId).toBe('entityAction')
+    })
+
+    it('tags the operation under the parent class', () => {
+      const result = buildWithOperationLink()
+      const op = result.document.paths['/api/test/entities/{id}/action']?.get
+      expect(op?.tags).toEqual(['Entity'])
+    })
+
+    it('does not require query parameters', () => {
+      const result = buildWithOperationLink()
+      const op = result.document.paths['/api/test/entities/{id}/action']?.get
+      const queryParams = op?.parameters?.filter((p) => 'in' in p && p.in === 'query') ?? []
+      expect(queryParams).toEqual([])
+    })
+
+    it('preserves required path parameters', () => {
+      const result = buildWithOperationLink()
+      const op = result.document.paths['/api/test/entities/{id}/action']?.get
+      expect(op?.parameters).toEqual([
+        {
+          name: 'id',
+          in: 'path',
+          required: true,
+          schema: { type: 'string' },
+          description: 'Entity identifier',
+        },
+      ])
+    })
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -805,6 +958,32 @@ function buildWithMultipleEnvelopeCommands(): OpenApiBuildResult {
   ])
 }
 
+function buildWithSupportedProperty(): OpenApiBuildResult {
+  return build(
+    [
+      {
+        class: 'test:Entity',
+        representations: [minimalRepresentation()],
+        supportedProperties: [{ property: 'test:children', links: [minimalView()] }],
+      },
+    ],
+    {
+      ...testPropertyDictionary,
+      'test:parentId': { schema: { type: 'string' }, description: 'Parent identifier' },
+    },
+  )
+}
+
+function buildWithOperationLink(): OpenApiBuildResult {
+  return build([
+    {
+      class: 'test:Entity',
+      representations: [minimalRepresentation()],
+      supportedProperties: [{ property: 'test:action', links: [minimalOperationLink()] }],
+    },
+  ])
+}
+
 function buildWithEvents(): OpenApiBuildResult {
   return build([
     {
@@ -835,8 +1014,14 @@ function buildWithEvents(): OpenApiBuildResult {
           events: {
             resourceSegment: 'entities',
             baseHref: '/api',
-            item: { profile: 'urn:profile:test.EntityItemEvent:1.0.0' },
-            aggregate: { profile: 'urn:profile:test.EntityEvent:1.0.0' },
+            item: {
+              id: 'urn:representation:test.EntityItemEvent:1.0.0',
+              profile: 'urn:profile:test.EntityItemEvent:1.0.0',
+            },
+            aggregate: {
+              id: 'urn:representation:test.EntityEvent:1.0.0',
+              profile: 'urn:profile:test.EntityEvent:1.0.0',
+            },
           },
         }),
       ],

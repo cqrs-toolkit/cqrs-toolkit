@@ -347,10 +347,16 @@ export namespace HydraDoc {
   }
 
   export interface EventsResourceConfig {
-    /** Optional template node @id (fragment). Default is derived. */
-    id?: string
-    /** REQUIRED: profile IRI/URN for the surface */
+    /** Template node `@id` (fragment or URN) for this events surface. */
+    id: string
+    /** Profile IRI/URN for the surface. */
     profile: string
+    /** OpenAPI `operationId` for this events GET endpoint. */
+    operationId?: string
+    /** Human-readable description for this events GET endpoint. */
+    description?: string
+    /** Response entries (status codes + schemas) for this events GET endpoint. */
+    responses?: readonly ResponseEntry[]
   }
 
   interface BaseEventsConfig {
@@ -421,6 +427,47 @@ export namespace HydraDoc {
     collection: CollectionSurface
   }
 
+  export interface PlainOperationLink {
+    /**
+     *  JSON-LD @id for this operation link node
+     *  Format: #<prefix>-<local>-v<semver_underscored>
+     *  Example: #storage-fileobject-download-v1_0_0
+     */
+    id: string
+    /** Semantic version of this operation link (SemVer), e.g. `1.0.0`. */
+    version: string
+    /** Mark this operation link as deprecated (still documented, slated for removal). */
+    deprecated?: boolean
+
+    /**
+     * Templated single-resource operation surface (e.g. download redirect, action endpoint).
+     * Query expansion is supported but not required.
+     */
+    operation: ResourceSurface
+  }
+
+  export type SupportedPropertyTarget = ViewRepresentation | OperationLink
+
+  export interface SupportedProperty {
+    /** rdf:Property IRI for this link, e.g. 'chat:fileObjects'. */
+    property: string
+    /** Human-readable description of the property. */
+    description?: string
+    /**
+     * Versioned link targets — either {@link ViewRepresentation} (collection-style
+     * scoped sub-resource) or {@link OperationLink} (single-resource templated
+     * operation, e.g. download redirect). All entries within one `links` array
+     * must share the same {@link ViewRepresentation.kind} / {@link OperationLink.kind}.
+     *
+     * Mirrors the versioning semantics of {@link ClassDef.representations}: as base
+     * resources evolve, append additional entries each binding to its own base
+     * version. Ids and SemVer must be unique within this array.
+     *
+     * Typed as a non-empty tuple so the compiler rejects `links: []`.
+     */
+    links: readonly [SupportedPropertyTarget, ...SupportedPropertyTarget[]]
+  }
+
   export interface ClassDef<Ext extends string = never> {
     /** class IRI, e.g. 'storage:FileObject' */
     class: string
@@ -429,6 +476,12 @@ export namespace HydraDoc {
     /** CQRS command capabilities and surfaces (NOT coupled to read representation versions) */
     commands?: CommandsDef<Ext>
     representations: (Representation<HydraDoc.EventsConfig | undefined> | ViewRepresentation)[]
+    /**
+     * `hydra:supportedProperty` — properties of this class whose values are
+     * dereferenceable. Used for templated sub-resource collections (e.g.
+     * `chat:Room` → `chat:fileObjects`).
+     */
+    supportedProperties?: SupportedProperty[]
   }
 
   // ---------- Public API classes (validation + helpers) ----------
@@ -901,18 +954,17 @@ export namespace HydraDoc {
       if (plain.events) {
         const ev = plain.events
         const formats: readonly string[] = ['application/json', 'application/hal+json']
-        const verU = this.version.replaceAll('.', '_')
-        const idStem = this.id.replace(/-v\d+_\d+_\d+$/, '') // e.g. "#pms-asset"
 
-        // Single item collection events
         if ('item' in ev && ev.item) {
-          const itemId = ev.item.id ?? `${idStem}-item-events-v${verU}`
           const idMap = requiredIdMapping(this.resource.template) // reuse required {id} mapping
           this.itemEvents = new QuerySurface({
             formats,
-            profile: ev.item.profile, // profile is REQUIRED, provided by caller
+            profile: ev.item.profile,
+            operationId: ev.item.operationId,
+            description: ev.item.description,
+            responses: ev.item.responses,
             template: {
-              id: itemId,
+              id: ev.item.id,
               template: `${this.resource.hrefBase}/events`,
               mappings: [
                 idMap,
@@ -926,14 +978,15 @@ export namespace HydraDoc {
           this.itemEvents = undefined as ItemEventsProp<E>
         }
 
-        // Aggregate-wide aggregate events
         if (ev.aggregate) {
-          const colId = ev.aggregate.id ?? `${idStem}-aggregate-events-v${verU}`
           this.aggregateEvents = new QuerySurface({
             formats,
             profile: ev.aggregate.profile,
+            operationId: ev.aggregate.operationId,
+            description: ev.aggregate.description,
+            responses: ev.aggregate.responses,
             template: {
-              id: colId,
+              id: ev.aggregate.id,
               template: `${ev.baseHref}/events/${ev.resourceSegment}`,
               mappings: [
                 { variable: LIMIT_PARAM, property: 'svc:limit' },
@@ -963,9 +1016,13 @@ export namespace HydraDoc {
    * - The view defines only a collection/search surface with service-specific filters.
    */
   export class ViewRepresentation extends BaseRepresentation {
+    /** Discriminator for {@link SupportedPropertyTarget}. */
+    readonly kind = 'view' as const
     readonly id: string
     readonly version: string
     readonly deprecated?: boolean
+    /** {@link Representation.id} of the underlying base representation. */
+    readonly baseId: string
 
     constructor(plain: PlainViewRepresentation) {
       super(
@@ -976,6 +1033,7 @@ export namespace HydraDoc {
       this.id = plain.id
       this.version = plain.version
       this.deprecated = plain.deprecated
+      this.baseId = plain.base.id
 
       assert(this.id, 'ViewRepresentation.id is required')
       assert(this.version, 'ViewRepresentation.version is required')
@@ -1000,6 +1058,36 @@ export namespace HydraDoc {
         // Optional nice-to-have later:
         // via: { href: this.collection.template.template, templated: true as const },
       }
+    }
+  }
+
+  /**
+   * `OperationLink` models a single-resource templated operation (e.g. a
+   * download redirect, a side-effect action endpoint that returns a 302 or
+   * a small status body).
+   *
+   * The `operation` is a single templated surface; query expansion is
+   * supported but not required.
+   *
+   * Compare to {@link ViewRepresentation}, which models a *collection-style*
+   * scoped sub-resource (with required query expansion for filters/pagination).
+   */
+  export class OperationLink {
+    /** Discriminator for {@link SupportedPropertyTarget}. */
+    readonly kind = 'operation' as const
+    readonly id: string
+    readonly version: string
+    readonly deprecated?: boolean
+    readonly operation: QuerySurface
+
+    constructor(plain: PlainOperationLink) {
+      this.id = plain.id
+      this.version = plain.version
+      this.deprecated = plain.deprecated
+      this.operation = new QuerySurface(plain.operation)
+
+      assert(this.id, 'OperationLink.id is required')
+      assert(this.version, 'OperationLink.version is required')
     }
   }
 

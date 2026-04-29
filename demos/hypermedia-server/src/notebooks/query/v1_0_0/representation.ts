@@ -112,7 +112,13 @@ export const NotebookRepV1_0_0 = new HydraDoc.Representation({
   events: {
     resourceSegment: 'notebooks',
     baseHref: '/api',
-    item: { profile: 'urn:profile:nb.NotebookItemEvent:1.0.0' },
-    aggregate: { profile: 'urn:profile:nb.NotebookEvent:1.0.0' },
+    item: {
+      id: 'urn:representation:nb.NotebookItemEvent:1.0.0',
+      profile: 'urn:profile:nb.NotebookItemEvent:1.0.0',
+    },
+    aggregate: {
+      id: 'urn:representation:nb.NotebookEvent:1.0.0',
+      profile: 'urn:profile:nb.NotebookEvent:1.0.0',
+    },
   },
 })
