@@ -52,6 +52,17 @@ export async function selectNotebook(page: Page, name: string): Promise<void> {
     .click()
 }
 
+export async function renameNotebook(page: Page, oldName: string, newName: string): Promise<void> {
+  const item = page.locator('.notebook-item', {
+    has: page.locator('.notebook-name', { hasText: oldName }),
+  })
+  await item.dblclick()
+  await expect(item.locator('.rename-input')).toBeVisible()
+  await item.locator('.rename-input').fill(newName)
+  await item.locator('.rename-input').press('Enter')
+  await expect(page.locator('.notebook-name', { hasText: newName })).toBeVisible()
+}
+
 export async function deleteNotebook(page: Page, name: string): Promise<void> {
   // Ensure trash icons are visible
   if (
