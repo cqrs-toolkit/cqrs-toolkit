@@ -68,6 +68,12 @@ Shared surface selectable by dispatch.
 
 ---
 
+### requestHeaders?
+
+> `readonly` `optional` **requestHeaders**: readonly [`HeaderEntry`](../type-aliases/HeaderEntry.md)[]
+
+---
+
 ### responses?
 
 > `readonly` `optional` **responses**: readonly [`ResponseEntry`](../type-aliases/ResponseEntry.md)[]

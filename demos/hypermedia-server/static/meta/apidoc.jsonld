@@ -716,6 +716,45 @@
     {
       "@id": "storage:FileObject",
       "@type": "hydra:Class",
+      "hydra:supportedProperty": [
+        {
+          "@type": "hydra:SupportedProperty",
+          "hydra:property": {
+            "@id": "storage:download",
+            "@type": "hydra:TemplatedLink",
+            "svc:operation": [
+              {
+                "@id": "urn:representation:storage.FileObjectDownload:1.0.0",
+                "@type": "svc:OperationLink",
+                "schema:version": "1.0.0",
+                "svc:surface": {
+                  "@type": "svc:Surface",
+                  "svc:formats": [
+                    "application/json"
+                  ],
+                  "svc:profile": {
+                    "@id": "urn:profile:storage.FileObjectDownload:1.0.0"
+                  },
+                  "svc:template": {
+                    "@id": "#storage-file-object-download-v1_0_0",
+                    "@type": "hydra:IriTemplate",
+                    "hydra:mapping": [
+                      {
+                        "@type": "hydra:IriTemplateMapping",
+                        "hydra:property": "storage:fileObjectId",
+                        "hydra:required": true,
+                        "hydra:variable": "id"
+                      }
+                    ],
+                    "hydra:template": "/api/file-objects/{id}/download"
+                  }
+                }
+              }
+            ]
+          },
+          "schema:description": "Templated link to download the file via a presigned URL."
+        }
+      ],
       "svc:commands": {
         "@type": "svc:Commands",
         "svc:commandSurfaces": [

@@ -98,17 +98,14 @@ export function fileObjectRoutes(
           reply.code(404)
           return { message: 'FileObject not found' }
         }
-
-        const filePath = parseFileResource(fileObject.resource)
-        const data = fileStore.read(filePath)
-        if (!data) {
-          reply.code(404)
-          return { message: 'File data not found' }
-        }
-
-        reply.header('Content-Disposition', `attachment; filename="${fileObject.name}"`)
-        reply.type(fileObject.contentType)
-        return reply.send(data)
+        const params = new URLSearchParams({
+          'response-content-type': fileObject.contentType,
+          'response-content-disposition': `attachment; filename="${fileObject.name}"`,
+          sig: 'demo',
+          exp: '3600',
+        })
+        const presigned = `${uploadBaseUrl}/s3/files/${fileObject.id}?${params}`
+        return reply.code(307).header('Location', presigned).send()
       },
     )
 

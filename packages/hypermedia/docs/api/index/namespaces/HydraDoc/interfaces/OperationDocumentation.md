@@ -33,6 +33,16 @@ OpenAPI operationId. Required for OpenAPI generation.
 
 ---
 
+### requestHeaders?
+
+> `optional` **requestHeaders**: readonly [`HeaderEntry`](../type-aliases/HeaderEntry.md)[]
+
+Request headers consumed by this operation. Emitted as `parameters[in: header]` entries
+in OpenAPI output; ignored by Hydra emission. Resolved against the openapi config's
+`requestHeaders` registry and merged with `globalRequestHeaders` at build time.
+
+---
+
 ### responses?
 
 > `optional` **responses**: readonly [`ResponseEntry`](../type-aliases/ResponseEntry.md)[]

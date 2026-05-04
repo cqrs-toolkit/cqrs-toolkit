@@ -1,14 +1,18 @@
 /**
- * Mock S3 file upload endpoint — POST /s3/files.
+ * Mock S3 file upload + download endpoints.
  *
- * Accepts multipart form data with signed fields from the permit command.
- * Verifies the HMAC signature, stores the file, and creates the FileObject aggregate.
- * Returns 204 No Content (S3-like — no domain data in response).
+ * - `POST /s3/files`     accepts a multipart form with signed fields from the permit command.
+ *                        Verifies the HMAC signature, stores the file, and creates the
+ *                        FileObject aggregate. Returns 204 No Content.
+ * - `GET  /s3/files/:id` returns the stored bytes for the given key, honoring the
+ *                        `response-content-type` and `response-content-disposition` query
+ *                        params (mirrors S3 GET object semantics). Returns 404 with an
+ *                        S3-style XML `NoSuchKey` envelope when the key is unknown.
  *
- * This route is NOT listed in Hydra API docs — it is treated as an external,
- * opaque URL. The presigned permit returns the full absolute URL so the client
- * uses it as-is without needing to resolve it against any origin. CORS is
- * enabled on this route since it is accessed cross-origin in Electron.
+ * Neither route is listed in Hydra API docs — they are treated as external, opaque URLs.
+ * The presigned permit returns the full absolute upload URL; the domain download endpoint
+ * 307-redirects to the absolute mock-S3 download URL. CORS is enabled since these routes
+ * are accessed cross-origin in Electron.
  */
 
 import { type TempFileStore, encodeFileResource } from '@cqrs-toolkit/demo-base/common/server'
@@ -106,6 +110,29 @@ export function uploadRoute(
 
       reply.code(204)
       return reply.send()
+    })
+
+    app.get<{
+      Params: { id: string }
+      Querystring: {
+        'response-content-type'?: string
+        'response-content-disposition'?: string
+      }
+    }>('/s3/files/:id', async (request, reply) => {
+      reply.header('Access-Control-Allow-Origin', '*')
+
+      const data = fileStore.readById(request.params.id)
+      if (!data) {
+        reply.code(404).type('application/xml')
+        return reply.send(
+          `<?xml version="1.0" encoding="UTF-8"?>\n<Error><Code>NoSuchKey</Code><Message>The specified key does not exist.</Message><Key>${request.params.id}</Key></Error>`,
+        )
+      }
+
+      reply.type(request.query['response-content-type'] ?? 'application/octet-stream')
+      const cd = request.query['response-content-disposition']
+      if (cd) reply.header('Content-Disposition', cd)
+      return reply.send(data)
     })
   }
 }

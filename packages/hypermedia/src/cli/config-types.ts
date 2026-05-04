@@ -10,6 +10,41 @@ export interface OpenApiConfig {
   hydraPropertyDictionary?: Record<string, HydraPropertyDocumentation>
   globalResponses?: HydraDoc.ResolvedResponseDef[]
   responses?: HydraDoc.ResolvedResponseDef[]
+  /**
+   * Header definitions consumers can reference by name in operation `requestHeaders` lists.
+   * Keys are header names; values omit `name` since the key supplies it. The reserved names
+   * `Content-Type`, `Accept`, and `Authorization` are skipped at resolution time per OpenAPI
+   * 3.1 (expressed structurally via `requestBody.content` keys / `responses[*].content` keys
+   * / `securitySchemes` instead).
+   *
+   * OpenAPI-only; has no effect on `apidoc.jsonld`.
+   */
+  requestHeaders?: Record<string, HydraDoc.HeaderDef>
+  /**
+   * Headers applied to every operation. Cannot be opted out by per-operation declarations
+   * (mirrors `globalResponses` semantics). Per-operation declarations with the same canonical
+   * name (case-insensitive) override the global value for that operation; the header itself
+   * remains present.
+   *
+   * OpenAPI-only; has no effect on `apidoc.jsonld`.
+   */
+  globalRequestHeaders?: readonly HydraDoc.HeaderEntry[]
+  /**
+   * Header definitions consumers can reference by name in response `responseHeaders` lists.
+   * Keys are header names; values omit `name` since the key supplies it.
+   *
+   * OpenAPI-only; has no effect on `apidoc.jsonld`.
+   */
+  responseHeaders?: Record<string, HydraDoc.HeaderDef>
+  /**
+   * Headers applied to every emitted response across every status code. Cannot be opted out
+   * by per-response declarations. Per-`ResponseDef.responseHeaders` declarations with the
+   * same canonical name override the global value for that response; the header itself
+   * remains present. Applied alongside `globalResponses`-created responses too.
+   *
+   * OpenAPI-only; has no effect on `apidoc.jsonld`.
+   */
+  globalResponseHeaders?: readonly HydraDoc.HeaderEntry[]
 }
 
 /** Schema URN resolution functions. */

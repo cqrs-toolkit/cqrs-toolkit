@@ -77,6 +77,20 @@ Example: 'urn:profile:storage.FileObject:1.0.0'
 
 ---
 
+### requestHeaders?
+
+> `optional` **requestHeaders**: readonly [`HeaderEntry`](../type-aliases/HeaderEntry.md)[]
+
+Request headers consumed by this operation. Emitted as `parameters[in: header]` entries
+in OpenAPI output; ignored by Hydra emission. Resolved against the openapi config's
+`requestHeaders` registry and merged with `globalRequestHeaders` at build time.
+
+#### Inherited from
+
+[`PlainQuerySurface`](PlainQuerySurface.md).[`requestHeaders`](PlainQuerySurface.md#requestheaders)
+
+---
+
 ### responses?
 
 > `optional` **responses**: readonly [`ResponseEntry`](../type-aliases/ResponseEntry.md)[]

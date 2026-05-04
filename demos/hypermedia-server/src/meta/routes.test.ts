@@ -204,6 +204,67 @@ describe('GET /api/meta/openapi', () => {
   })
 })
 
+describe('header documentation in generated docs', () => {
+  it('apidoc.jsonld contains no header structural JSON keys', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/meta/apidoc' })
+    const json = JSON.stringify(res.json())
+    expect(json).not.toMatch(/"requestHeaders"/)
+    expect(json).not.toMatch(/"responseHeaders"/)
+    expect(json).not.toMatch(/"globalRequestHeaders"/)
+    expect(json).not.toMatch(/"globalResponseHeaders"/)
+    expect(json).not.toMatch(/"headers"/)
+  })
+
+  it('openapi.json never emits required:false on header parameters or response headers', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/meta/openapi' })
+    expect(JSON.stringify(res.json())).not.toContain('"required":false')
+  })
+
+  it('download 307 response has no content, Location header (required:true, format:uri), and global X-Correlation-Id', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/meta/openapi' })
+    const doc = res.json()
+    const download = doc.paths['/api/file-objects/{id}/download']?.get
+    expect(download).toBeDefined()
+    const r307 = download.responses['307']
+    expect(r307.description).toBe('Redirect to a presigned download URL.')
+    expect(r307.content).toBeUndefined()
+    expect(r307.headers.Location).toEqual({
+      description: 'Redirect target URL.',
+      required: true,
+      schema: { type: 'string', format: 'uri' },
+    })
+    expect(r307.headers['X-Correlation-Id']).toBeDefined()
+    expect(r307.headers['X-Correlation-Id'].schema).toEqual({ type: 'string' })
+  })
+
+  it('download 404 response refs nb.Error schema and carries the global response header', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/meta/openapi' })
+    const doc = res.json()
+    const r404 = doc.paths['/api/file-objects/{id}/download']?.get?.responses['404']
+    const ref = r404?.content?.['application/json']?.schema?.$ref as string
+    expect(ref).toMatch(/\/api\/meta\/schemas\/urn\/schema\/nb\.Error\/1\.0\.0\.json$/)
+    expect(r404.headers['X-Correlation-Id']).toBeDefined()
+  })
+
+  it('POST command operations carry both global request headers as in:header parameters', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/meta/openapi' })
+    const doc = res.json()
+    const post = doc.paths['/api/file-objects']?.post
+    expect(post).toBeDefined()
+    const headerParams = (post.parameters ?? []).filter((p: { in: string }) => p.in === 'header')
+    const names = headerParams.map((p: { name: string }) => p.name)
+    expect(names).toContain('X-Correlation-Id')
+    expect(names).toContain('X-Request-Id')
+  })
+
+  it('GET 200 responses carry the global X-Correlation-Id response header', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/meta/openapi' })
+    const doc = res.json()
+    const get200 = doc.paths['/api/file-objects']?.get?.responses['200']
+    expect(get200?.headers?.['X-Correlation-Id']).toBeDefined()
+  })
+})
+
 // --- Helpers ---
 
 /**

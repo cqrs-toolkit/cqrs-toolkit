@@ -27,6 +27,11 @@ export class TempFileStore {
     return fs.readFileSync(filePath)
   }
 
+  /** Read a file by its id (the key used at {@link save} time). */
+  readById(id: string): Buffer | undefined {
+    return this.read(path.join(this.dir, id))
+  }
+
   /** Delete a file by its absolute path on disk. */
   delete(filePath: string): void {
     if (fs.existsSync(filePath)) {

@@ -127,6 +127,18 @@ Example: 'urn:command:chat.RenameRoom:1.0.0'
 
 ---
 
+### requestHeaders?
+
+> `optional` **requestHeaders**: readonly [`HeaderEntry`](../type-aliases/HeaderEntry.md)[]
+
+Request headers for this command. See [OperationDocumentation.requestHeaders](OperationDocumentation.md#requestheaders).
+
+#### Inherited from
+
+[`BaseCommandCapability`](BaseCommandCapability.md).[`requestHeaders`](BaseCommandCapability.md#requestheaders)
+
+---
+
 ### responses?
 
 > `optional` **responses**: readonly [`ResponseEntry`](../type-aliases/ResponseEntry.md)[]

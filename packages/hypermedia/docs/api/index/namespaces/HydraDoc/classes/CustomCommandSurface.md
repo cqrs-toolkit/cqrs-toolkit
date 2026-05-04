@@ -62,6 +62,12 @@ One-off surface used only by a single command capability (not dispatch-addressab
 
 ---
 
+### requestHeaders?
+
+> `readonly` `optional` **requestHeaders**: readonly [`HeaderEntry`](../type-aliases/HeaderEntry.md)[]
+
+---
+
 ### responses?
 
 > `readonly` `optional` **responses**: readonly [`ResponseEntry`](../type-aliases/ResponseEntry.md)[]

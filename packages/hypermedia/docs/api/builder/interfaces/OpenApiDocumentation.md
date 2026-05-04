@@ -20,6 +20,22 @@ Classes to generate OpenAPI paths from
 
 ---
 
+### globalRequestHeaders?
+
+> `optional` **globalRequestHeaders**: readonly [`HeaderEntry`](../../index/namespaces/HydraDoc/type-aliases/HeaderEntry.md)[]
+
+Headers applied to every operation. Cannot be opted out; per-op same-name overrides value.
+
+---
+
+### globalResponseHeaders?
+
+> `optional` **globalResponseHeaders**: readonly [`HeaderEntry`](../../index/namespaces/HydraDoc/type-aliases/HeaderEntry.md)[]
+
+Headers applied to every emitted response. Cannot be opted out; per-response same-name overrides value.
+
+---
+
 ### globalResponses?
 
 > `optional` **globalResponses**: [`ResolvedResponseDef`](../../index/namespaces/HydraDoc/interfaces/ResolvedResponseDef.md)[]
@@ -40,6 +56,22 @@ Used as the default parameter schema when a mapping does not provide a per-mappi
 ### info
 
 > **info**: `OpenApiInfo`
+
+---
+
+### requestHeaders?
+
+> `optional` **requestHeaders**: `Record`\<`string`, [`HeaderDef`](../../index/namespaces/HydraDoc/interfaces/HeaderDef.md)\>
+
+Header registry referenced by name from operation `requestHeaders` lists.
+
+---
+
+### responseHeaders?
+
+> `optional` **responseHeaders**: `Record`\<`string`, [`HeaderDef`](../../index/namespaces/HydraDoc/interfaces/HeaderDef.md)\>
+
+Header registry referenced by name from response `responseHeaders` lists.
 
 ---
 

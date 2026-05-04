@@ -10,6 +10,42 @@ import {
 
 export namespace HydraDoc {
   // ---------------------------------------------------------------------------
+  // Header documentation types
+  // ---------------------------------------------------------------------------
+
+  export interface HeaderDef {
+    /** JSON Schema for the header value (typically `{ type: 'string' }`, sometimes with format/enum). */
+    schema: JSONSchema7
+    /**
+     * Marks the header required. Defaults to false on both request and response sides per
+     * OpenAPI 3.1. Emitters write `required: true` only when set; `required: false` is never
+     * emitted, matching the existing parameter emission style for diff stability.
+     */
+    required?: boolean
+    /** Human-readable description rendered in OpenAPI tooling. */
+    description?: string
+  }
+
+  /**
+   * {@link HeaderDef} carrying its own header name; used inline in {@link HeaderEntry}.
+   *
+   * NOTE: `name` is a toolkit-internal field used to determine the OpenAPI map key (response
+   * side) or the `parameters[].name` value (request side). It is never emitted as a property
+   * on the response Header Object — the Header Object identifies headers by map key.
+   */
+  export interface NamedHeaderDef extends HeaderDef {
+    /** Header name as it appears on the wire (e.g., `X-Tenant-Id`). Case-insensitive on the wire. */
+    name: string
+  }
+
+  /**
+   * Either a string (registry reference by header name) or an inline {@link NamedHeaderDef}.
+   * Mirrors the `ResponseEntry = number | ResponseDef` pattern. String references are looked
+   * up in the OpenAPI config's header registry at build time.
+   */
+  export type HeaderEntry = string | NamedHeaderDef
+
+  // ---------------------------------------------------------------------------
   // Response documentation types
   // ---------------------------------------------------------------------------
 
@@ -24,6 +60,14 @@ export namespace HydraDoc {
     /** Response body schema. Use NO_BODY for explicitly empty responses. */
     schema?: JSONSchema7 | typeof NO_BODY
     description?: string
+    /**
+     * Headers attached to this response. Emitted ONLY in OpenAPI output; not represented in
+     * the Hydra JSON-LD apidoc since Hydra has no native header concept. When multiple
+     * `ResponseDef` entries share a status code across content-type variants, their
+     * `responseHeaders` are aggregated into a single `headers` object on the OpenAPI Response
+     * Object for that status code.
+     */
+    responseHeaders?: readonly HeaderEntry[]
   }
 
   /** A bare number is shorthand for { code: N, contentType: 'application/json' }. */
@@ -35,6 +79,8 @@ export namespace HydraDoc {
     contentType: string
     schema: JSONSchema7
     description?: string
+    /** See {@link ResponseDef.responseHeaders}. OpenAPI-only; ignored by Hydra emission. */
+    responseHeaders?: readonly HeaderEntry[]
   }
 
   // ---------------------------------------------------------------------------
@@ -110,6 +156,12 @@ export namespace HydraDoc {
     responses?: readonly ResponseEntry[]
     /** URN for the oneOf union schema when 2xx responses have different schemas per contentType. */
     responseSchemaUrn?: string
+    /**
+     * Request headers consumed by this operation. Emitted as `parameters[in: header]` entries
+     * in OpenAPI output; ignored by Hydra emission. Resolved against the openapi config's
+     * `requestHeaders` registry and merged with `globalRequestHeaders` at build time.
+     */
+    requestHeaders?: readonly HeaderEntry[]
   }
 
   function getOperationDocumentation<T extends OperationDocumentation>(
@@ -120,6 +172,7 @@ export namespace HydraDoc {
       description: doc.description,
       responses: doc.responses,
       responseSchemaUrn: doc.responseSchemaUrn,
+      requestHeaders: doc.requestHeaders,
     }
   }
 
@@ -231,6 +284,9 @@ export namespace HydraDoc {
     responses?: readonly ResponseEntry[]
     /** URN for the oneOf union schema when 2xx responses have different schemas per contentType. */
     responseSchemaUrn?: string
+
+    /** Request headers for this command. See {@link OperationDocumentation.requestHeaders}. */
+    requestHeaders?: readonly HeaderEntry[]
 
     /** Workflow annotation declaring chained operation semantics. */
     workflow?: Workflow
@@ -357,6 +413,8 @@ export namespace HydraDoc {
     description?: string
     /** Response entries (status codes + schemas) for this events GET endpoint. */
     responses?: readonly ResponseEntry[]
+    /** Request headers for this events GET endpoint. See {@link OperationDocumentation.requestHeaders}. */
+    requestHeaders?: readonly HeaderEntry[]
   }
 
   interface BaseEventsConfig {
@@ -607,6 +665,7 @@ export namespace HydraDoc {
     readonly description?: string
     readonly responses?: readonly ResponseEntry[]
     readonly responseSchemaUrn?: string
+    readonly requestHeaders?: readonly HeaderEntry[]
 
     constructor(plain: PlainCommonCommandSurface<Ext>) {
       super(plain)
@@ -616,6 +675,7 @@ export namespace HydraDoc {
       this.description = plain.description
       this.responses = plain.responses
       this.responseSchemaUrn = plain.responseSchemaUrn
+      this.requestHeaders = plain.requestHeaders
     }
   }
 
@@ -626,6 +686,7 @@ export namespace HydraDoc {
     readonly description?: string
     readonly responses?: readonly ResponseEntry[]
     readonly responseSchemaUrn?: string
+    readonly requestHeaders?: readonly HeaderEntry[]
 
     constructor(plain: PlainCustomCommandSurface) {
       super(plain)
@@ -634,6 +695,7 @@ export namespace HydraDoc {
       this.description = plain.description
       this.responses = plain.responses
       this.responseSchemaUrn = plain.responseSchemaUrn
+      this.requestHeaders = plain.requestHeaders
     }
   }
 
@@ -674,6 +736,9 @@ export namespace HydraDoc {
     readonly responses?: readonly ResponseEntry[]
     readonly responseSchemaUrn?: string
 
+    /** Request headers consumed by this command. See {@link OperationDocumentation.requestHeaders}. */
+    readonly requestHeaders?: readonly HeaderEntry[]
+
     /** Workflow annotation declaring chained operation semantics. */
     readonly workflow?: Workflow
 
@@ -698,6 +763,7 @@ export namespace HydraDoc {
       this.description = plain.description
       this.responses = plain.responses
       this.responseSchemaUrn = plain.responseSchemaUrn
+      this.requestHeaders = plain.requestHeaders
       this.workflow = plain.workflow
       this.version = plain.version
       this.isLatest = envelope.isLatest
@@ -838,6 +904,7 @@ export namespace HydraDoc {
     readonly description?: string
     readonly responses?: readonly ResponseEntry[]
     readonly responseSchemaUrn?: string
+    readonly requestHeaders?: readonly HeaderEntry[]
 
     constructor(plain: ResourceSurface | CollectionSurface) {
       const {
@@ -849,6 +916,7 @@ export namespace HydraDoc {
         description,
         responses,
         responseSchemaUrn,
+        requestHeaders,
       } = plain
       assert(formats?.length, 'QuerySurface.formats must be non-empty')
       assert(profile, 'QuerySurface.profile is required')
@@ -865,6 +933,7 @@ export namespace HydraDoc {
       this.description = description
       this.responses = responses
       this.responseSchemaUrn = responseSchemaUrn
+      this.requestHeaders = requestHeaders
     }
 
     /** Non-templated canonical href (override or derived) */
@@ -963,6 +1032,7 @@ export namespace HydraDoc {
             operationId: ev.item.operationId,
             description: ev.item.description,
             responses: ev.item.responses,
+            requestHeaders: ev.item.requestHeaders,
             template: {
               id: ev.item.id,
               template: `${this.resource.hrefBase}/events`,
@@ -985,6 +1055,7 @@ export namespace HydraDoc {
             operationId: ev.aggregate.operationId,
             description: ev.aggregate.description,
             responses: ev.aggregate.responses,
+            requestHeaders: ev.aggregate.requestHeaders,
             template: {
               id: ev.aggregate.id,
               template: `${ev.baseHref}/events/${ev.resourceSegment}`,

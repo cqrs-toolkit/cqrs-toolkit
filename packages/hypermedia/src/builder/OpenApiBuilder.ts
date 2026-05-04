@@ -41,7 +41,7 @@ interface OpenApiOperation {
 
 interface OpenApiParameter {
   name: string
-  in: 'path' | 'query'
+  in: 'path' | 'query' | 'header'
   required?: boolean
   schema?: JSONSchema7
   description?: string
@@ -55,6 +55,17 @@ interface OpenApiRequestBody {
 interface OpenApiResponse {
   description: string
   content?: Record<string, { schema: OpenApiSchemaRef }>
+  headers?: Record<string, OpenApiHeader>
+}
+
+/**
+ * OpenAPI 3.1 Header Object subset emitted by the toolkit. Deliberately omits `name` (set by
+ * the parent `headers` map key) and `in` (implicit on Header Objects per spec).
+ */
+interface OpenApiHeader {
+  description?: string
+  required?: boolean
+  schema: JSONSchema7
 }
 
 interface OpenApiSchemaRef {
@@ -83,6 +94,14 @@ export interface OpenApiDocumentation {
   globalResponses?: HydraDoc.ResolvedResponseDef[]
   /** Schema registry for response inheritance. Last fallback when resolving schemas by (code, contentType). */
   responses?: HydraDoc.ResolvedResponseDef[]
+  /** Header registry referenced by name from operation `requestHeaders` lists. */
+  requestHeaders?: Record<string, HydraDoc.HeaderDef>
+  /** Headers applied to every operation. Cannot be opted out; per-op same-name overrides value. */
+  globalRequestHeaders?: readonly HydraDoc.HeaderEntry[]
+  /** Header registry referenced by name from response `responseHeaders` lists. */
+  responseHeaders?: Record<string, HydraDoc.HeaderDef>
+  /** Headers applied to every emitted response. Cannot be opted out; per-response same-name overrides value. */
+  globalResponseHeaders?: readonly HydraDoc.HeaderEntry[]
 }
 
 export interface OpenApiBuildOptions extends OpenApiDocumentation {
@@ -141,6 +160,10 @@ export function buildOpenApiDocument(opts: OpenApiBuildOptions): OpenApiBuildRes
     missingProperties: new Set<string>(),
     globalResponses,
     responseRegistry,
+    requestHeadersRegistry: opts.requestHeaders,
+    globalRequestHeaders: opts.globalRequestHeaders,
+    responseHeadersRegistry: opts.responseHeaders,
+    globalResponseHeaders: opts.globalResponseHeaders,
     warnings,
   }
 
@@ -249,6 +272,10 @@ interface BuildContext {
   missingProperties: Set<string>
   globalResponses: HydraDoc.ResolvedResponseDef[]
   responseRegistry: HydraDoc.ResolvedResponseDef[]
+  requestHeadersRegistry?: Record<string, HydraDoc.HeaderDef>
+  globalRequestHeaders?: readonly HydraDoc.HeaderEntry[]
+  responseHeadersRegistry?: Record<string, HydraDoc.HeaderDef>
+  globalResponseHeaders?: readonly HydraDoc.HeaderEntry[]
   warnings: string[]
 }
 
@@ -275,7 +302,8 @@ function addQuerySurface(opts: AddQuerySurfaceOpts): void {
     opts.warnings.push(`Missing operationId on ${role} surface ${surface.template.id}`)
   }
   const parameters = buildParameters(surface.template, opts)
-  const responses = resolveResponses(surface.responses, undefined, opts)
+  appendHeaderParameters(parameters, surface.requestHeaders, opts, surface.template.id)
+  const responses = resolveResponses(surface.responses, undefined, opts, surface.template.id)
 
   // OpenAPI requires at least one response
   if (Object.keys(responses).length === 0) {
@@ -330,6 +358,18 @@ function addCommandOperations(opts: AddCommandOperationsOpts): void {
     const item = (paths[pathKey] ??= {})
     const parameters = buildParameters(group.surface.template, opts)
 
+    // Union of surface-level + every command's requestHeaders. The shared POST is one OpenAPI
+    // operation; per-command differences disappear into a flat parameters[] (no oneOf for
+    // headers). First-seen wins on canonical-name conflict via resolveHeaders.
+    const surfaceRequestHeaders =
+      'requestHeaders' in group.surface ? group.surface.requestHeaders : undefined
+    const perOpHeaders: HydraDoc.HeaderEntry[] = []
+    if (surfaceRequestHeaders) perOpHeaders.push(...surfaceRequestHeaders)
+    for (const cap of group.commands) {
+      if (cap.requestHeaders) perOpHeaders.push(...cap.requestHeaders)
+    }
+    appendHeaderParameters(parameters, perOpHeaders, opts, group.surface.template.id)
+
     // Collect all request schemas for this surface's commands
     const requestSchemas: OpenApiSchemaRef[] = []
     for (const cap of group.commands) {
@@ -359,7 +399,12 @@ function addCommandOperations(opts: AddCommandOperationsOpts): void {
 
     // Resolve responses — surface defaults, then per-command overrides merged
     const surfaceResponses = 'responses' in group.surface ? group.surface.responses : undefined
-    const responses = mergeCommandResponses(group.commands, surfaceResponses, opts)
+    const responses = mergeCommandResponses(
+      group.commands,
+      surfaceResponses,
+      opts,
+      group.surface.template.id,
+    )
 
     const surfaceOperationId =
       'operationId' in group.surface ? group.surface.operationId : undefined
@@ -430,6 +475,153 @@ function buildParameters(template: HydraDoc.IriTemplate, ctx: BuildContext): Ope
   })
 }
 
+/**
+ * Append `in: header` parameter entries to an existing parameters array. Headers are placed
+ * after path/query parameters; ordering within headers is the iteration order of the merged
+ * `resolveHeaders` Map (globals first, per-op layered on top with order-preserving overrides).
+ */
+function appendHeaderParameters(
+  parameters: OpenApiParameter[],
+  perOp: readonly HydraDoc.HeaderEntry[] | undefined,
+  ctx: BuildContext,
+  label: string,
+): void {
+  const merged = resolveHeaders(
+    ctx.globalRequestHeaders,
+    perOp,
+    ctx.requestHeadersRegistry,
+    ctx.warnings,
+    label,
+  )
+  for (const h of merged.values()) {
+    parameters.push({
+      name: h.name,
+      in: 'header',
+      ...(h.required ? { required: true } : {}),
+      ...(h.description ? { description: h.description } : {}),
+      schema: h.schema,
+    })
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Header resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * Header names reserved by OpenAPI 3.1: `Content-Type` and `Accept` are expressed structurally
+ * via `requestBody.content` / `responses[*].content` keys; `Authorization` belongs in
+ * `securitySchemes`. `in: header` parameters with these names SHALL be ignored by tooling per
+ * the spec, and response Header Object entries with these names are redundant.
+ */
+const RESERVED_HEADER_NAMES = new Set(['accept', 'content-type', 'authorization'])
+
+/**
+ * Resolve a HeaderEntry against the registry. String entries look up the registry by name;
+ * NamedHeaderDef entries are returned as-is. Returns null and pushes a warning when:
+ *   - a string reference is missing from the registry,
+ *   - an inline entry has an empty `name`, or
+ *   - the canonical name is one of the OpenAPI 3.1 reserved header names.
+ *
+ * The caller is responsible for passing the correct registry (request vs response). Nothing in
+ * this helper enforces alignment between the registry and the header's intended emission site.
+ */
+function resolveHeaderEntry(
+  entry: HydraDoc.HeaderEntry,
+  registry: Record<string, HydraDoc.HeaderDef> | undefined,
+  warnings: string[],
+  label: string,
+): HydraDoc.NamedHeaderDef | null {
+  let resolved: HydraDoc.NamedHeaderDef
+  if (typeof entry === 'string') {
+    const def = registry?.[entry]
+    if (!def) {
+      warnings.push(`Unknown header reference '${entry}' on ${label}`)
+      return null
+    }
+    resolved = { name: entry, ...def }
+  } else {
+    if (!entry.name) {
+      warnings.push(`Inline header on ${label} is missing a 'name'`)
+      return null
+    }
+    resolved = entry
+  }
+
+  if (RESERVED_HEADER_NAMES.has(resolved.name.toLowerCase())) {
+    const reason =
+      resolved.name.toLowerCase() === 'authorization'
+        ? 'use securitySchemes'
+        : 'expressed via content-type keys'
+    warnings.push(
+      `Header '${resolved.name}' on ${label} is reserved by OpenAPI 3.1 (${reason}); skipping`,
+    )
+    return null
+  }
+
+  return resolved
+}
+
+/**
+ * Merge globals + per-operation/response header lists into a deduplicated map keyed by the
+ * canonical header name (lowercased). Semantics:
+ *
+ * - Within globals: first-seen wins on duplicates.
+ * - Within perOp: first-seen wins on duplicates (e.g., cross-content-type aggregation,
+ *   multi-command unions). A warning is pushed for each duplicate dropped.
+ * - Across globals → perOp: perOp wins on the value but the global's `name` casing and
+ *   position are preserved (`Map.set` on an existing key updates value in place).
+ *
+ * Globals are non-opt-outable: an empty perOp list means "no per-op entries," not "drop
+ * globals." Per-op entries with the same canonical name override the global VALUE; the
+ * header itself remains present.
+ */
+function resolveHeaders(
+  globals: readonly HydraDoc.HeaderEntry[] | undefined,
+  perOp: readonly HydraDoc.HeaderEntry[] | undefined,
+  registry: Record<string, HydraDoc.HeaderDef> | undefined,
+  warnings: string[],
+  label: string,
+): Map<string, HydraDoc.NamedHeaderDef> {
+  const result = new Map<string, HydraDoc.NamedHeaderDef>()
+
+  // Pass 1: globals — first-seen wins.
+  for (const entry of globals ?? []) {
+    const resolved = resolveHeaderEntry(entry, registry, warnings, label)
+    if (!resolved) continue
+    const key = resolved.name.toLowerCase()
+    if (!result.has(key)) result.set(key, resolved)
+  }
+
+  // Pass 2: perOp — first-seen wins within perOp; overrides global value but preserves the
+  // global's name casing if one was already present.
+  const perOpSeen = new Set<string>()
+  for (const entry of perOp ?? []) {
+    const resolved = resolveHeaderEntry(entry, registry, warnings, label)
+    if (!resolved) continue
+    const key = resolved.name.toLowerCase()
+    if (perOpSeen.has(key)) {
+      warnings.push(
+        `Conflicting per-op header '${resolved.name}' on ${label}; using first occurrence`,
+      )
+      continue
+    }
+    perOpSeen.add(key)
+    const existing = result.get(key)
+    result.set(key, existing ? { ...resolved, name: existing.name } : resolved)
+  }
+
+  return result
+}
+
+function headerToOpenApi(h: HydraDoc.NamedHeaderDef): OpenApiHeader {
+  return {
+    ...(h.description ? { description: h.description } : {}),
+    ...(h.required ? { required: true } : {}),
+    schema: h.schema,
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Response resolution
 // ---------------------------------------------------------------------------
@@ -483,6 +675,15 @@ function findInRegistry(
   return registry.find((r) => r.code === code && r.contentType === contentType)
 }
 
+interface PairData {
+  code: number
+  contentType: string
+  schema?: JSONSchema7
+  description?: string
+  /** Per-`ResponseDef` headers, raw entries (registry resolution + globals applied at emit). */
+  responseHeaders?: readonly HydraDoc.HeaderEntry[]
+}
+
 /**
  * Resolve responses for a GET operation (query surface).
  * Active pairs: surface.responses if provided, else none (only globals).
@@ -491,14 +692,12 @@ function resolveResponses(
   operationResponses: readonly HydraDoc.ResponseEntry[] | undefined,
   surfaceResponses: readonly HydraDoc.ResponseEntry[] | undefined,
   ctx: BuildContext,
+  label: string,
 ): Record<string, OpenApiResponse> {
   const { globalResponses, responseRegistry, warnings } = ctx
 
   // Collect resolved pairs keyed by (code, contentType)
-  const pairs = new Map<
-    PairKey,
-    { code: number; contentType: string; schema?: JSONSchema7; description?: string }
-  >()
+  const pairs = new Map<PairKey, PairData>()
 
   // 1. Start with global responses — always present
   for (const g of globalResponses) {
@@ -508,6 +707,7 @@ function resolveResponses(
       contentType: g.contentType,
       schema: g.schema,
       description: g.description,
+      responseHeaders: g.responseHeaders,
     })
   }
 
@@ -518,74 +718,118 @@ function resolveResponses(
       const norm = normalizeEntry(entry)
       const key = pairKey(norm.code, norm.contentType)
 
-      // Resolve schema: explicit > surface > registry > global (already in pairs)
+      // Resolve schema/description/responseHeaders: explicit > surface > registry > global
       let schema = norm.schema
       let description = norm.description
+      let responseHeaders = norm.responseHeaders
+
       if (schema === HydraDoc.NO_BODY) {
-        pairs.set(key, { code: norm.code, contentType: norm.contentType, description })
+        // NO_BODY suppresses content but headers still flow through fallback chain
+        if (!responseHeaders && surfaceResponses) {
+          const surfDef = surfaceResponses
+            .map(normalizeEntry)
+            .find((s) => s.code === norm.code && s.contentType === norm.contentType)
+          if (surfDef?.responseHeaders) responseHeaders = surfDef.responseHeaders
+        }
+        if (!responseHeaders) {
+          const regDef = findInRegistry(norm.code, norm.contentType, responseRegistry)
+          if (regDef?.responseHeaders) responseHeaders = regDef.responseHeaders
+        }
+        if (!responseHeaders) {
+          const globalDef = findInRegistry(norm.code, norm.contentType, globalResponses)
+          if (globalDef?.responseHeaders) responseHeaders = globalDef.responseHeaders
+        }
+        pairs.set(key, {
+          code: norm.code,
+          contentType: norm.contentType,
+          description,
+          responseHeaders,
+        })
         continue
       }
 
-      if (!schema && surfaceResponses) {
+      if (surfaceResponses) {
         const surfDef = surfaceResponses
           .map(normalizeEntry)
           .find((s) => s.code === norm.code && s.contentType === norm.contentType)
-        if (surfDef?.schema && surfDef.schema !== HydraDoc.NO_BODY) {
+        if (!schema && surfDef?.schema && surfDef.schema !== HydraDoc.NO_BODY) {
           schema = surfDef.schema
         }
         if (!description && surfDef?.description) {
           description = surfDef.description
         }
-      }
-
-      if (!schema) {
-        const regDef = findInRegistry(norm.code, norm.contentType, responseRegistry)
-        if (regDef) {
-          schema = regDef.schema
-          if (!description) description = regDef.description
+        if (!responseHeaders && surfDef?.responseHeaders) {
+          responseHeaders = surfDef.responseHeaders
         }
       }
 
-      if (!schema) {
+      if (!schema || !responseHeaders) {
+        const regDef = findInRegistry(norm.code, norm.contentType, responseRegistry)
+        if (regDef) {
+          if (!schema) schema = regDef.schema
+          if (!description) description = regDef.description
+          if (!responseHeaders) responseHeaders = regDef.responseHeaders
+        }
+      }
+
+      if (!schema || !responseHeaders) {
         const globalDef = findInRegistry(norm.code, norm.contentType, globalResponses)
         if (globalDef) {
-          schema = globalDef.schema
+          if (!schema) schema = globalDef.schema
           if (!description) description = globalDef.description
+          if (!responseHeaders) responseHeaders = globalDef.responseHeaders
         }
       }
 
       if (!schema) {
         warnings.push(
-          `No schema found for response (${norm.code}, ${norm.contentType}). Define it in responses or globalResponses.`,
+          `No schema found for response (${norm.code}, ${norm.contentType}) on ${label}. Define it in responses or globalResponses.`,
         )
       }
 
-      pairs.set(key, { code: norm.code, contentType: norm.contentType, schema, description })
+      pairs.set(key, {
+        code: norm.code,
+        contentType: norm.contentType,
+        schema,
+        description,
+        responseHeaders,
+      })
     }
   }
 
-  return buildOpenApiResponses(pairs)
+  return buildOpenApiResponses(pairs, ctx, label)
 }
 
 /**
  * Resolve and merge responses across multiple commands sharing a POST endpoint.
+ *
+ * Schemas: differing schemas for the same (code, contentType) merge into a `oneOf` union.
+ * Headers: per-command resolved responses already carry `headers` (with globals applied);
+ *          across commands, headers are merged per status code with first-seen wins on
+ *          canonical-name conflict. Globals appear with the same name in every command's
+ *          resolution and dedup naturally to a single entry.
  */
 function mergeCommandResponses(
   commands: HydraDoc.CommandCapability<string>[],
   surfaceResponses: readonly HydraDoc.ResponseEntry[] | undefined,
   ctx: BuildContext,
+  label: string,
 ): Record<string, OpenApiResponse> {
   if (commands.length === 1) {
-    return resolveResponses(commands[0]?.responses, surfaceResponses, ctx)
+    return resolveResponses(commands[0]?.responses, surfaceResponses, ctx, label)
   }
 
-  // Resolve each command independently, then merge per (code, contentType)
+  // Resolve each command independently, then merge per (code, contentType) for schemas and
+  // per status code for headers.
   const perCommand: Map<
     PairKey,
     { code: number; contentType: string; schemaId?: string; description?: string }
   >[] = []
+  // Per status code, first-seen header wins (keyed by canonical name). Original case preserved.
+  const perStatusHeaders = new Map<number, Map<string, { name: string; header: OpenApiHeader }>>()
+
   for (const cap of commands) {
-    const resolved = resolveResponses(cap.responses, surfaceResponses, ctx)
+    const resolved = resolveResponses(cap.responses, surfaceResponses, ctx, label)
     const cmdPairs = new Map<
       PairKey,
       { code: number; contentType: string; schemaId?: string; description?: string }
@@ -610,11 +854,22 @@ function mergeCommandResponses(
           description: resp.description,
         })
       }
+      if (resp.headers) {
+        let codeMap = perStatusHeaders.get(code)
+        if (!codeMap) {
+          codeMap = new Map()
+          perStatusHeaders.set(code, codeMap)
+        }
+        for (const [name, header] of Object.entries(resp.headers)) {
+          const key = name.toLowerCase()
+          if (!codeMap.has(key)) codeMap.set(key, { name, header })
+        }
+      }
     }
     perCommand.push(cmdPairs)
   }
 
-  // Merge: union all pairs, dedup or oneOf per pair
+  // Merge schemas: union all pairs, dedup or oneOf per pair
   const merged = new Map<
     PairKey,
     { code: number; contentType: string; schemaIds: Set<string>; description?: string }
@@ -665,20 +920,51 @@ function mergeCommandResponses(
     result[codeStr] = { description, content }
   }
 
+  // Attach merged headers per status code.
+  for (const [code, codeMap] of perStatusHeaders) {
+    if (codeMap.size === 0) continue
+    const codeStr = String(code)
+    const existing = result[codeStr]
+    if (!existing) continue
+    const headers: Record<string, OpenApiHeader> = {}
+    for (const { name, header } of codeMap.values()) {
+      headers[name] = header
+    }
+    result[codeStr] = { ...existing, headers }
+  }
+
   return result
 }
 
-/** Convert resolved pairs into OpenAPI response objects grouped by status code. */
+/**
+ * Convert resolved pairs into OpenAPI response objects grouped by status code. Headers
+ * (per-`ResponseDef.responseHeaders` aggregated across content-type variants of the same
+ * status, merged with `globalResponseHeaders`) attach to the per-status Response Object.
+ *
+ * NO_BODY pairs (`schema` undefined) emit `{ description, headers? }` with no `content`,
+ * which is exactly what the 307 + Location redirect pattern needs.
+ */
 function buildOpenApiResponses(
-  pairs: Map<
-    PairKey,
-    { code: number; contentType: string; schema?: JSONSchema7; description?: string }
-  >,
+  pairs: Map<PairKey, PairData>,
+  ctx: BuildContext,
+  label: string,
 ): Record<string, OpenApiResponse> {
   const result: Record<string, OpenApiResponse> = {}
+  // Aggregate per-status responseHeaders lists (concatenated across content-type variants).
+  const perStatusHeaders = new Map<number, HydraDoc.HeaderEntry[]>()
+
   for (const [, val] of pairs) {
     const codeStr = String(val.code)
     const description = val.description ?? httpStatusDescription(val.code)
+
+    if (val.responseHeaders?.length) {
+      let arr = perStatusHeaders.get(val.code)
+      if (!arr) {
+        arr = []
+        perStatusHeaders.set(val.code, arr)
+      }
+      arr.push(...val.responseHeaders)
+    }
 
     if (!val.schema) {
       if (!result[codeStr]) {
@@ -694,6 +980,29 @@ function buildOpenApiResponses(
     }
     result[codeStr] = { description, content }
   }
+
+  // Apply headers per status code: globals + aggregated per-response (first-seen wins on
+  // canonical-name conflict; positions preserved on override). Run for every emitted code so
+  // globals reach responses that have no per-response headers.
+  for (const codeStr of Object.keys(result)) {
+    const code = parseInt(codeStr, 10)
+    const perStatus = perStatusHeaders.get(code)
+    const merged = resolveHeaders(
+      ctx.globalResponseHeaders,
+      perStatus,
+      ctx.responseHeadersRegistry,
+      ctx.warnings,
+      `${label} response [${codeStr}]`,
+    )
+    if (merged.size > 0) {
+      const headers: Record<string, OpenApiHeader> = {}
+      for (const h of merged.values()) {
+        headers[h.name] = headerToOpenApi(h)
+      }
+      result[codeStr] = { ...result[codeStr]!, headers }
+    }
+  }
+
   return result
 }
 

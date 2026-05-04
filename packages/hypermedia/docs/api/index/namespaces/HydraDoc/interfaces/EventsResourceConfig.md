@@ -40,6 +40,14 @@ Profile IRI/URN for the surface.
 
 ---
 
+### requestHeaders?
+
+> `optional` **requestHeaders**: readonly [`HeaderEntry`](../type-aliases/HeaderEntry.md)[]
+
+Request headers for this events GET endpoint. See [OperationDocumentation.requestHeaders](OperationDocumentation.md#requestheaders).
+
+---
+
 ### responses?
 
 > `optional` **responses**: readonly [`ResponseEntry`](../type-aliases/ResponseEntry.md)[]

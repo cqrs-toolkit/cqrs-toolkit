@@ -43,6 +43,32 @@ export default defineConfig({
           description: 'File object identifier',
         },
       },
+      requestHeaders: {
+        'X-Request-Id': {
+          schema: { type: 'string' },
+          description:
+            'Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.',
+        },
+        'X-Correlation-Id': {
+          schema: { type: 'string' },
+          description:
+            'Correlation identifier propagated through logs. Generated server-side if absent.',
+        },
+      },
+      globalRequestHeaders: ['X-Correlation-Id', 'X-Request-Id'],
+      responseHeaders: {
+        'X-Correlation-Id': {
+          schema: { type: 'string' },
+          description:
+            'Echoes the request correlation id, generating one if the request did not provide it.',
+        },
+        Location: {
+          schema: { type: 'string', format: 'uri' },
+          required: true,
+          description: 'Redirect target URL.',
+        },
+      },
+      globalResponseHeaders: ['X-Correlation-Id'],
     },
     schema: {
       pathSegment: 'schemas',

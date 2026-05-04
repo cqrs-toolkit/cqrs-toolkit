@@ -28,6 +28,14 @@ Fully resolved response — schema and contentType required. Used in top-level r
 
 ---
 
+### responseHeaders?
+
+> `optional` **responseHeaders**: readonly [`HeaderEntry`](../type-aliases/HeaderEntry.md)[]
+
+See [ResponseDef.responseHeaders](ResponseDef.md#responseheaders). OpenAPI-only; ignored by Hydra emission.
+
+---
+
 ### schema
 
 > **schema**: `JSONSchema7`

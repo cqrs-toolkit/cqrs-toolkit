@@ -61,6 +61,10 @@ async function generateOpenApiDocs(buildResult: BuildResult, config: ResolvedCon
     hydraPropertyDictionary: config.openapi.hydraPropertyDictionary,
     globalResponses: config.openapi.globalResponses,
     responses: config.openapi.responses,
+    requestHeaders: config.openapi.requestHeaders,
+    globalRequestHeaders: config.openapi.globalRequestHeaders,
+    responseHeaders: config.openapi.responseHeaders,
+    globalResponseHeaders: config.openapi.globalResponseHeaders,
   })
 
   if (openapiWarnings.length) {

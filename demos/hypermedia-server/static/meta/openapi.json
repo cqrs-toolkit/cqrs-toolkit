@@ -25,6 +25,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -36,7 +52,15 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["FileObject"]
@@ -61,6 +85,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -72,7 +112,15 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["Notebook"]
@@ -97,6 +145,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -108,7 +172,15 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["Note"]
@@ -133,6 +205,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -144,7 +232,15 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["Todo"]
@@ -178,6 +274,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -194,7 +306,15 @@
                 }
               }
             },
-            "description": "Success"
+            "description": "Success",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "500": {
             "content": {
@@ -204,13 +324,39 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["FileObject"]
       },
       "post": {
         "operationId": "getFileUploadPermit",
+        "parameters": [
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -230,7 +376,15 @@
                 }
               }
             },
-            "description": "Success"
+            "description": "Success",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "500": {
             "content": {
@@ -240,7 +394,15 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["FileObject"]
@@ -255,6 +417,22 @@
             "in": "path",
             "name": "id",
             "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
             "schema": {
               "type": "string"
             }
@@ -274,7 +452,15 @@
                 }
               }
             },
-            "description": "Success"
+            "description": "Success",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "500": {
             "content": {
@@ -284,7 +470,15 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["FileObject"]
@@ -299,6 +493,22 @@
             "in": "path",
             "name": "id",
             "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
             "schema": {
               "type": "string"
             }
@@ -323,7 +533,15 @@
                 }
               }
             },
-            "description": "Success"
+            "description": "Success",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "500": {
             "content": {
@@ -333,7 +551,105 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["FileObject"]
+      }
+    },
+    "/api/file-objects/{id}/download": {
+      "get": {
+        "operationId": "downloadFileObject",
+        "parameters": [
+          {
+            "description": "File object identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "307": {
+            "description": "Redirect to a presigned download URL.",
+            "headers": {
+              "Location": {
+                "description": "Redirect target URL.",
+                "required": true,
+                "schema": {
+                  "format": "uri",
+                  "type": "string"
+                }
+              },
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "urn:schema:nb.Error:1.0.0"
+                }
+              }
+            },
+            "description": "File object not found.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "urn:schema:nb.Error:1.0.0"
+                }
+              }
+            },
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["FileObject"]
@@ -368,6 +684,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -379,7 +711,15 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["FileObject"]
@@ -405,6 +745,22 @@
               "minimum": 1,
               "type": "integer"
             }
+          },
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -421,7 +777,15 @@
                 }
               }
             },
-            "description": "Success"
+            "description": "Success",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "500": {
             "content": {
@@ -431,13 +795,39 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["Notebook"]
       },
       "post": {
         "operationId": "createNotebook",
+        "parameters": [
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -457,7 +847,15 @@
                 }
               }
             },
-            "description": "Success"
+            "description": "Success",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "500": {
             "content": {
@@ -467,7 +865,15 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["Notebook"]
@@ -482,6 +888,22 @@
             "in": "path",
             "name": "id",
             "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
             "schema": {
               "type": "string"
             }
@@ -501,7 +923,15 @@
                 }
               }
             },
-            "description": "Success"
+            "description": "Success",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "500": {
             "content": {
@@ -511,7 +941,15 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["Notebook"]
@@ -526,6 +964,22 @@
             "in": "path",
             "name": "id",
             "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
             "schema": {
               "type": "string"
             }
@@ -563,7 +1017,15 @@
                 }
               }
             },
-            "description": "Success"
+            "description": "Success",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "500": {
             "content": {
@@ -573,7 +1035,15 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["Notebook"]
@@ -607,6 +1077,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -618,7 +1104,15 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["Notebook"]
@@ -644,6 +1138,22 @@
               "minimum": 1,
               "type": "integer"
             }
+          },
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -660,7 +1170,15 @@
                 }
               }
             },
-            "description": "Success"
+            "description": "Success",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "500": {
             "content": {
@@ -670,13 +1188,39 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["Note"]
       },
       "post": {
         "operationId": "createNote",
+        "parameters": [
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -696,7 +1240,15 @@
                 }
               }
             },
-            "description": "Success"
+            "description": "Success",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "500": {
             "content": {
@@ -706,7 +1258,15 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["Note"]
@@ -721,6 +1281,22 @@
             "in": "path",
             "name": "id",
             "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
             "schema": {
               "type": "string"
             }
@@ -740,7 +1316,15 @@
                 }
               }
             },
-            "description": "Success"
+            "description": "Success",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "500": {
             "content": {
@@ -750,7 +1334,15 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["Note"]
@@ -765,6 +1357,22 @@
             "in": "path",
             "name": "id",
             "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
             "schema": {
               "type": "string"
             }
@@ -799,7 +1407,15 @@
                 }
               }
             },
-            "description": "Success"
+            "description": "Success",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "500": {
             "content": {
@@ -809,7 +1425,15 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["Note"]
@@ -843,6 +1467,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -854,7 +1494,15 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["Note"]
@@ -880,6 +1528,22 @@
               "minimum": 1,
               "type": "integer"
             }
+          },
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -896,7 +1560,15 @@
                 }
               }
             },
-            "description": "Success"
+            "description": "Success",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "500": {
             "content": {
@@ -906,13 +1578,39 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["Todo"]
       },
       "post": {
         "operationId": "createTodo",
+        "parameters": [
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -932,7 +1630,15 @@
                 }
               }
             },
-            "description": "Success"
+            "description": "Success",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "500": {
             "content": {
@@ -942,7 +1648,15 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["Todo"]
@@ -957,6 +1671,22 @@
             "in": "path",
             "name": "id",
             "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
             "schema": {
               "type": "string"
             }
@@ -976,7 +1706,15 @@
                 }
               }
             },
-            "description": "Success"
+            "description": "Success",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "500": {
             "content": {
@@ -986,7 +1724,15 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["Todo"]
@@ -1001,6 +1747,22 @@
             "in": "path",
             "name": "id",
             "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
             "schema": {
               "type": "string"
             }
@@ -1035,7 +1797,15 @@
                 }
               }
             },
-            "description": "Success"
+            "description": "Success",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "500": {
             "content": {
@@ -1045,7 +1815,15 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["Todo"]
@@ -1079,6 +1857,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "Correlation identifier propagated through logs. Generated server-side if absent.",
+            "in": "header",
+            "name": "X-Correlation-Id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Idempotency key for POST commands. The server caches the response for 5 minutes so retried requests with the same key return the cached result.",
+            "in": "header",
+            "name": "X-Request-Id",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -1090,7 +1884,15 @@
                 }
               }
             },
-            "description": "Unexpected server error."
+            "description": "Unexpected server error.",
+            "headers": {
+              "X-Correlation-Id": {
+                "description": "Echoes the request correlation id, generating one if the request did not provide it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "tags": ["Todo"]

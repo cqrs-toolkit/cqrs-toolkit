@@ -258,10 +258,26 @@ describe('GET /api/file-objects/:id', () => {
 })
 
 describe('GET /api/file-objects/:id/download', () => {
-  it('returns file binary with correct headers', async () => {
+  it('returns 307 redirect with Location pointing at the mock S3 GET endpoint', async () => {
     const { id } = await createFileObject(app, noteId, 'hello.txt', 'file contents here')
 
     const res = await app.inject({ method: 'GET', url: `/api/file-objects/${id}/download` })
+
+    expect(res.statusCode).toBe(307)
+    const location = res.headers['location'] as string
+    expect(location).toMatch(new RegExp(`^http://localhost:3002/s3/files/${id}\\?`))
+    const params = new URL(location).searchParams
+    expect(params.get('response-content-disposition')).toBe('attachment; filename="hello.txt"')
+    expect(params.get('response-content-type')).toBe('text/plain')
+    expect(res.body).toBe('')
+  })
+
+  it('the mock S3 GET endpoint streams the bytes that the redirect targets', async () => {
+    const { id } = await createFileObject(app, noteId, 'hello.txt', 'file contents here')
+    const redirect = await app.inject({ method: 'GET', url: `/api/file-objects/${id}/download` })
+    const location = new URL(redirect.headers['location'] as string)
+
+    const res = await app.inject({ method: 'GET', url: location.pathname + location.search })
 
     expect(res.statusCode).toBe(200)
     expect(res.headers['content-type']).toBe('text/plain')
@@ -269,7 +285,15 @@ describe('GET /api/file-objects/:id/download', () => {
     expect(res.body).toBe('file contents here')
   })
 
-  it('returns 404 for nonexistent file object', async () => {
+  it('mock S3 GET returns 404 with NoSuchKey XML envelope for unknown keys', async () => {
+    const res = await app.inject({ method: 'GET', url: '/s3/files/nonexistent' })
+    expect(res.statusCode).toBe(404)
+    expect(res.headers['content-type']).toContain('application/xml')
+    expect(res.body).toContain('<Code>NoSuchKey</Code>')
+    expect(res.body).toContain('<Key>nonexistent</Key>')
+  })
+
+  it('returns 404 for nonexistent file object on the domain endpoint', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/file-objects/nonexistent/download' })
 
     expect(res.statusCode).toBe(404)

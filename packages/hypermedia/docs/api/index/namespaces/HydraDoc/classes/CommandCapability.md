@@ -92,6 +92,14 @@ True if this is the latest (highest semver) version within its stableId group.
 
 ---
 
+### requestHeaders?
+
+> `readonly` `optional` **requestHeaders**: readonly [`HeaderEntry`](../type-aliases/HeaderEntry.md)[]
+
+Request headers consumed by this command. See [OperationDocumentation.requestHeaders](../interfaces/OperationDocumentation.md#requestheaders).
+
+---
+
 ### responses?
 
 > `readonly` `optional` **responses**: readonly [`ResponseEntry`](../type-aliases/ResponseEntry.md)[]

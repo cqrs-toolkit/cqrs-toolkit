@@ -865,6 +865,455 @@ describe('buildOpenApiDocument', () => {
       ])
     })
   })
+
+  describe('headers', () => {
+    const SCHEMA_200: JSONSchema7 = {
+      $id: 'urn:schema:test.Result:1.0.0',
+      type: 'object',
+      properties: {},
+      additionalProperties: false,
+    }
+
+    function buildWithHeaders(opts: {
+      classes: HydraDoc.ClassDef[]
+      requestHeaders?: Record<string, HydraDoc.HeaderDef>
+      globalRequestHeaders?: readonly HydraDoc.HeaderEntry[]
+      responseHeaders?: Record<string, HydraDoc.HeaderDef>
+      globalResponseHeaders?: readonly HydraDoc.HeaderEntry[]
+    }): OpenApiBuildResult {
+      const hydraBuild = buildHydraApiDocumentation({ classes: opts.classes, prefixes: PREFIXES })
+      return buildOpenApiDocument({
+        classes: opts.classes,
+        hydraBuild,
+        info: { title: 'Test API', version: '1.0.0' },
+        hydraPropertyDictionary: testPropertyDictionary,
+        requestHeaders: opts.requestHeaders,
+        globalRequestHeaders: opts.globalRequestHeaders,
+        responseHeaders: opts.responseHeaders,
+        globalResponseHeaders: opts.globalResponseHeaders,
+      })
+    }
+
+    function makeQueryClass(
+      overrides: {
+        resourceRequestHeaders?: readonly HydraDoc.HeaderEntry[]
+        resourceResponses?: readonly HydraDoc.ResponseEntry[]
+      } = {},
+    ): HydraDoc.ClassDef {
+      return {
+        class: 'test:Entity',
+        representations: [
+          new HydraDoc.Representation({
+            id: '#test-entity-v1_0_0',
+            version: '1.0.0',
+            resource: {
+              profile: 'urn:profile:test.Entity:1.0.0',
+              formats: ['application/json'],
+              operationId: 'getEntity',
+              template: {
+                id: '#test-entity-resource-v1_0_0',
+                template: '/api/test/entities/{id}',
+                mappings: [{ variable: 'id', property: 'test:entityId', required: true }],
+              },
+              requestHeaders: overrides.resourceRequestHeaders,
+              responses: overrides.resourceResponses,
+            },
+            collection: {
+              profile: 'urn:profile:test.EntityCollection:1.0.0',
+              formats: ['application/json'],
+              operationId: 'listEntities',
+              href: '/api/test/entities',
+              template: {
+                id: '#test-entity-collection-v1_0_0',
+                template: '/api/test/entities',
+                mappings: [{ variable: 'q', property: 'svc:query' }],
+              },
+            },
+          }),
+        ],
+      }
+    }
+
+    it('inline request header lands as parameters[in:header] and never emits required:false', () => {
+      const result = buildWithHeaders({
+        classes: [
+          makeQueryClass({
+            resourceRequestHeaders: [
+              { name: 'X-Foo', schema: { type: 'string' }, description: 'foo' },
+            ],
+          }),
+        ],
+      })
+      const params = result.document.paths['/api/test/entities/{id}']?.get?.parameters ?? []
+      const header = params.find((p) => p.in === 'header')
+      expect(header).toEqual({
+        name: 'X-Foo',
+        in: 'header',
+        description: 'foo',
+        schema: { type: 'string' },
+      })
+      expect(JSON.stringify(header)).not.toContain('"required":false')
+      expect(result.warnings).toEqual([])
+    })
+
+    it('registry-referenced request header resolves; unknown reference produces a warning', () => {
+      const result = buildWithHeaders({
+        classes: [
+          makeQueryClass({
+            resourceRequestHeaders: ['X-Tenant-Id', 'X-Missing'],
+          }),
+        ],
+        requestHeaders: {
+          'X-Tenant-Id': { schema: { type: 'string' }, description: 'tenant' },
+        },
+      })
+      const params = result.document.paths['/api/test/entities/{id}']?.get?.parameters ?? []
+      const headers = params.filter((p) => p.in === 'header')
+      expect(headers).toEqual([
+        {
+          name: 'X-Tenant-Id',
+          in: 'header',
+          description: 'tenant',
+          schema: { type: 'string' },
+        },
+      ])
+      expect(result.warnings.some((w) => w.includes("Unknown header reference 'X-Missing'"))).toBe(
+        true,
+      )
+    })
+
+    it('globalRequestHeaders appear on every operation; per-op same-name override replaces value at first-seen position', () => {
+      const result = buildWithHeaders({
+        classes: [
+          makeQueryClass({
+            resourceRequestHeaders: [
+              { name: 'X-Trace', schema: { type: 'string' }, description: 'overridden trace' },
+            ],
+          }),
+        ],
+        requestHeaders: {
+          'X-Trace': { schema: { type: 'string' }, description: 'global trace' },
+          'X-Region': { schema: { type: 'string' }, description: 'global region' },
+        },
+        globalRequestHeaders: ['X-Trace', 'X-Region'],
+      })
+      const getHeaders =
+        result.document.paths['/api/test/entities/{id}']?.get?.parameters?.filter(
+          (p) => p.in === 'header',
+        ) ?? []
+      const listHeaders =
+        result.document.paths['/api/test/entities']?.get?.parameters?.filter(
+          (p) => p.in === 'header',
+        ) ?? []
+
+      // Resource: override at position 0 (where X-Trace global was), region at position 1
+      expect(getHeaders.map((h) => h.name)).toEqual(['X-Trace', 'X-Region'])
+      expect(getHeaders[0]?.description).toBe('overridden trace')
+      expect(getHeaders[1]?.description).toBe('global region')
+
+      // Collection: globals only
+      expect(listHeaders.map((h) => h.name)).toEqual(['X-Trace', 'X-Region'])
+      expect(listHeaders[0]?.description).toBe('global trace')
+    })
+
+    it('empty resourceRequestHeaders does not drop globals (globals are non-opt-outable)', () => {
+      const result = buildWithHeaders({
+        classes: [makeQueryClass({ resourceRequestHeaders: [] })],
+        requestHeaders: { 'X-Trace': { schema: { type: 'string' } } },
+        globalRequestHeaders: ['X-Trace'],
+      })
+      const headers =
+        result.document.paths['/api/test/entities/{id}']?.get?.parameters?.filter(
+          (p) => p.in === 'header',
+        ) ?? []
+      expect(headers.map((h) => h.name)).toEqual(['X-Trace'])
+    })
+
+    it('inline response header on 200 lands as responses.200.headers[name]', () => {
+      const result = buildWithHeaders({
+        classes: [
+          makeQueryClass({
+            resourceResponses: [
+              {
+                code: 200,
+                schema: SCHEMA_200,
+                responseHeaders: [
+                  { name: 'X-Foo', schema: { type: 'string' }, description: 'foo' },
+                ],
+              },
+            ],
+          }),
+        ],
+      })
+      const resp200 = result.document.paths['/api/test/entities/{id}']?.get?.responses?.['200']
+      expect(resp200?.headers?.['X-Foo']).toEqual({
+        description: 'foo',
+        schema: { type: 'string' },
+      })
+      // No required:false since the inline header didn't set required
+      expect(JSON.stringify(resp200?.headers?.['X-Foo'])).not.toContain('"required":false')
+    })
+
+    it('307 with NO_BODY + Location header emits {description, headers.Location} with no content', () => {
+      const result = buildWithHeaders({
+        classes: [
+          {
+            class: 'test:Entity',
+            representations: [minimalRepresentation()],
+            supportedProperties: [
+              {
+                property: 'test:download',
+                links: [
+                  new HydraDoc.OperationLink({
+                    id: '#test-entity-download-v1_0_0',
+                    version: '1.0.0',
+                    operation: {
+                      profile: 'urn:profile:test.EntityDownload:1.0.0',
+                      formats: ['application/json'],
+                      operationId: 'downloadEntity',
+                      template: {
+                        id: '#test-entity-download-surface-v1_0_0',
+                        template: '/api/test/entities/{id}/download',
+                        mappings: [{ variable: 'id', property: 'test:entityId', required: true }],
+                      },
+                      responses: [
+                        {
+                          code: 307,
+                          schema: HydraDoc.NO_BODY,
+                          description: 'Redirect to presigned URL.',
+                          responseHeaders: ['Location'],
+                        },
+                      ],
+                    },
+                  }),
+                ],
+              },
+            ],
+          },
+        ],
+        responseHeaders: {
+          Location: {
+            schema: { type: 'string', format: 'uri' },
+            required: true,
+            description: 'Redirect target.',
+          },
+        },
+      })
+      const resp307 =
+        result.document.paths['/api/test/entities/{id}/download']?.get?.responses?.['307']
+      expect(resp307?.description).toBe('Redirect to presigned URL.')
+      expect(resp307?.content).toBeUndefined()
+      expect(resp307?.headers?.['Location']).toEqual({
+        description: 'Redirect target.',
+        required: true,
+        schema: { type: 'string', format: 'uri' },
+      })
+    })
+
+    it('response headers across content-type variants merge per status; first-seen wins on conflict and warning emitted', () => {
+      const halSchema: JSONSchema7 = {
+        $id: 'urn:schema:test.HalResult:1.0.0',
+        type: 'object',
+        properties: {},
+        additionalProperties: false,
+      }
+      const result = buildWithHeaders({
+        classes: [
+          makeQueryClass({
+            resourceResponses: [
+              {
+                code: 200,
+                contentType: 'application/json',
+                schema: SCHEMA_200,
+                responseHeaders: [
+                  { name: 'ETag', schema: { type: 'string' }, description: 'json etag' },
+                  { name: 'X-Variant', schema: { type: 'string' }, description: 'json variant' },
+                ],
+              },
+              {
+                code: 200,
+                contentType: 'application/hal+json',
+                schema: halSchema,
+                responseHeaders: [
+                  { name: 'ETag', schema: { type: 'string' }, description: 'hal etag (loses)' },
+                  { name: 'X-Hal', schema: { type: 'string' }, description: 'hal-only' },
+                ],
+              },
+            ],
+          }),
+        ],
+      })
+      const resp200 = result.document.paths['/api/test/entities/{id}']?.get?.responses?.['200']
+      expect(resp200?.headers?.['ETag']?.description).toBe('json etag')
+      expect(resp200?.headers?.['X-Variant']?.description).toBe('json variant')
+      expect(resp200?.headers?.['X-Hal']?.description).toBe('hal-only')
+      // Both content types remain on the same response object
+      expect(Object.keys(resp200?.content ?? {}).sort()).toEqual([
+        'application/hal+json',
+        'application/json',
+      ])
+      expect(result.warnings.some((w) => w.includes("Conflicting per-op header 'ETag'"))).toBe(true)
+    })
+
+    it('multi-command POST: response headers union across commands (first-seen wins); differing schemas still produce oneOf', () => {
+      const otherSchema: JSONSchema7 = {
+        $id: 'urn:schema:test.OtherCmd:1.0.0',
+        type: 'object',
+        properties: {},
+        additionalProperties: false,
+      }
+      const successA: JSONSchema7 = {
+        $id: 'urn:schema:test.SuccessA:1.0.0',
+        type: 'object',
+        properties: {},
+      }
+      const successB: JSONSchema7 = {
+        $id: 'urn:schema:test.SuccessB:1.0.0',
+        type: 'object',
+        properties: {},
+      }
+      const result = buildWithHeaders({
+        classes: [
+          {
+            class: 'test:Entity',
+            representations: [minimalRepresentation()],
+            commands: new HydraDoc.CommandsDef<never>({
+              surfaces: testCommandSurfaces(),
+              commands: [
+                {
+                  id: 'urn:command:test.A:1.0.0',
+                  stableId: 'test.A',
+                  version: '1.0.0',
+                  dispatch: 'command',
+                  commandType: 'a',
+                  schema: RENAME_SCHEMA,
+                  responses: [
+                    {
+                      code: 200,
+                      schema: successA,
+                      responseHeaders: [
+                        {
+                          name: 'X-Trace',
+                          schema: { type: 'string' },
+                          description: 'trace from A',
+                        },
+                      ],
+                    },
+                  ],
+                },
+                {
+                  id: 'urn:command:test.B:1.0.0',
+                  stableId: 'test.B',
+                  version: '1.0.0',
+                  dispatch: 'command',
+                  commandType: 'b',
+                  schema: otherSchema,
+                  responses: [
+                    {
+                      code: 200,
+                      schema: successB,
+                      responseHeaders: [
+                        {
+                          name: 'X-Trace',
+                          schema: { type: 'string' },
+                          description: 'trace from B (loses)',
+                        },
+                        { name: 'X-B-Only', schema: { type: 'string' }, description: 'B unique' },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            }),
+          },
+        ],
+      })
+      const resp200 =
+        result.document.paths['/api/test/entities/{id}/command']?.post?.responses?.['200']
+      expect(resp200?.headers?.['X-Trace']?.description).toBe('trace from A')
+      expect(resp200?.headers?.['X-B-Only']?.description).toBe('B unique')
+      const schema = resp200?.content?.['application/json']?.schema as unknown as {
+        oneOf: { $ref: string }[]
+      }
+      expect(schema.oneOf).toEqual([
+        { $ref: 'urn:schema:test.SuccessA:1.0.0' },
+        { $ref: 'urn:schema:test.SuccessB:1.0.0' },
+      ])
+    })
+
+    it('reserved header names (Content-Type, Accept, Authorization) are skipped with warnings, regardless of casing', () => {
+      const result = buildWithHeaders({
+        classes: [
+          makeQueryClass({
+            resourceRequestHeaders: [
+              { name: 'Content-Type', schema: { type: 'string' } },
+              { name: 'accept', schema: { type: 'string' } },
+              { name: 'AUTHORIZATION', schema: { type: 'string' } },
+              { name: 'X-Allowed', schema: { type: 'string' } },
+            ],
+          }),
+        ],
+      })
+      const headers =
+        result.document.paths['/api/test/entities/{id}']?.get?.parameters?.filter(
+          (p) => p.in === 'header',
+        ) ?? []
+      expect(headers.map((h) => h.name)).toEqual(['X-Allowed'])
+
+      const reservedWarnings = result.warnings.filter((w) => w.includes('reserved by OpenAPI 3.1'))
+      expect(reservedWarnings).toHaveLength(3)
+      expect(reservedWarnings.some((w) => w.includes("'Content-Type'"))).toBe(true)
+      expect(reservedWarnings.some((w) => w.includes("'accept'"))).toBe(true)
+      expect(reservedWarnings.some((w) => w.includes("'AUTHORIZATION'"))).toBe(true)
+    })
+
+    it('case-insensitive conflict: per-op (x-foo) overrides global (X-Foo) value but first-seen casing wins', () => {
+      const result = buildWithHeaders({
+        classes: [
+          makeQueryClass({
+            resourceRequestHeaders: [
+              { name: 'x-foo', schema: { type: 'string' }, description: 'per-op' },
+            ],
+          }),
+        ],
+        requestHeaders: { 'X-Foo': { schema: { type: 'string' }, description: 'global' } },
+        globalRequestHeaders: ['X-Foo'],
+      })
+      const headers =
+        result.document.paths['/api/test/entities/{id}']?.get?.parameters?.filter(
+          (p) => p.in === 'header',
+        ) ?? []
+      expect(headers).toHaveLength(1)
+      expect(headers[0]?.name).toBe('X-Foo')
+      expect(headers[0]?.description).toBe('per-op')
+    })
+
+    it('HydraBuilder JSON-LD output contains no header-related structural keys', () => {
+      const classes: HydraDoc.ClassDef[] = [
+        makeQueryClass({
+          resourceRequestHeaders: [
+            { name: 'X-Foo', schema: { type: 'string' }, description: 'inline req' },
+          ],
+          resourceResponses: [
+            {
+              code: 200,
+              schema: SCHEMA_200,
+              responseHeaders: [
+                { name: 'X-Bar', schema: { type: 'string' }, description: 'inline resp' },
+              ],
+            },
+          ],
+        }),
+      ]
+      const hydraBuild = buildHydraApiDocumentation({ classes, prefixes: PREFIXES })
+      const jsonStr = hydraBuild.content
+      expect(jsonStr).not.toMatch(/"requestHeaders"/)
+      expect(jsonStr).not.toMatch(/"responseHeaders"/)
+      expect(jsonStr).not.toMatch(/"globalRequestHeaders"/)
+      expect(jsonStr).not.toMatch(/"globalResponseHeaders"/)
+      expect(jsonStr).not.toMatch(/"headers"/)
+    })
+  })
 })
 
 // ---------------------------------------------------------------------------

@@ -24,6 +24,30 @@ Classes to generate OpenAPI paths from
 
 ---
 
+### globalRequestHeaders?
+
+> `optional` **globalRequestHeaders**: readonly [`HeaderEntry`](../../index/namespaces/HydraDoc/type-aliases/HeaderEntry.md)[]
+
+Headers applied to every operation. Cannot be opted out; per-op same-name overrides value.
+
+#### Inherited from
+
+[`OpenApiDocumentation`](OpenApiDocumentation.md).[`globalRequestHeaders`](OpenApiDocumentation.md#globalrequestheaders)
+
+---
+
+### globalResponseHeaders?
+
+> `optional` **globalResponseHeaders**: readonly [`HeaderEntry`](../../index/namespaces/HydraDoc/type-aliases/HeaderEntry.md)[]
+
+Headers applied to every emitted response. Cannot be opted out; per-response same-name overrides value.
+
+#### Inherited from
+
+[`OpenApiDocumentation`](OpenApiDocumentation.md).[`globalResponseHeaders`](OpenApiDocumentation.md#globalresponseheaders)
+
+---
+
 ### globalResponses?
 
 > `optional` **globalResponses**: [`ResolvedResponseDef`](../../index/namespaces/HydraDoc/interfaces/ResolvedResponseDef.md)[]
@@ -64,6 +88,30 @@ Used as the default parameter schema when a mapping does not provide a per-mappi
 #### Inherited from
 
 [`OpenApiDocumentation`](OpenApiDocumentation.md).[`info`](OpenApiDocumentation.md#info)
+
+---
+
+### requestHeaders?
+
+> `optional` **requestHeaders**: `Record`\<`string`, [`HeaderDef`](../../index/namespaces/HydraDoc/interfaces/HeaderDef.md)\>
+
+Header registry referenced by name from operation `requestHeaders` lists.
+
+#### Inherited from
+
+[`OpenApiDocumentation`](OpenApiDocumentation.md).[`requestHeaders`](OpenApiDocumentation.md#requestheaders)
+
+---
+
+### responseHeaders?
+
+> `optional` **responseHeaders**: `Record`\<`string`, [`HeaderDef`](../../index/namespaces/HydraDoc/interfaces/HeaderDef.md)\>
+
+Header registry referenced by name from response `responseHeaders` lists.
+
+#### Inherited from
+
+[`OpenApiDocumentation`](OpenApiDocumentation.md).[`responseHeaders`](OpenApiDocumentation.md#responseheaders)
 
 ---
 

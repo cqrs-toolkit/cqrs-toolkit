@@ -4,6 +4,7 @@
 
 import type { HydraDoc } from '@cqrs-toolkit/hypermedia'
 import { FileObjectCommands } from './file-objects/command/doc.js'
+import { FileObjectDownloadOpV1_0_0 } from './file-objects/query/v1_0_0/download.js'
 import { FileObjectRepV1_0_0 } from './file-objects/query/v1_0_0/representation.js'
 import { NotebookCommands } from './notebooks/command/doc.js'
 import { NotebookRepV1_0_0 } from './notebooks/query/v1_0_0/representation.js'
@@ -20,5 +21,12 @@ export const HydraDemoClasses: HydraDoc.ClassDef[] = [
     class: 'storage:FileObject',
     commands: FileObjectCommands,
     representations: [FileObjectRepV1_0_0],
+    supportedProperties: [
+      {
+        property: 'storage:download',
+        description: 'Templated link to download the file via a presigned URL.',
+        links: [FileObjectDownloadOpV1_0_0],
+      },
+    ],
   },
 ]

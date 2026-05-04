@@ -464,7 +464,13 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
 
   return { jsonld, content, warnings, schemas }
 
-  /** Collect all response schemas with $id into the registry. */
+  /**
+   * Collect all response schemas with $id into the registry.
+   *
+   * NOTE: `requestHeaders` and `responseHeaders` on operation surfaces / `ResponseDef` are
+   * intentionally skipped — Hydra has no native HTTP-header concept. Header schemas are
+   * emitted inline only on the OpenAPI side via `OpenApiBuilder`.
+   */
   function collectResponseSchemas(
     responses: readonly HydraDoc.ResponseEntry[] | undefined,
     isLatest: boolean,
