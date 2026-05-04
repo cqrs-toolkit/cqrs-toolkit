@@ -728,6 +728,225 @@ describe('buildHydraApiDocumentation', () => {
       expect(ctx['svc:operation']).toEqual({ '@container': '@set' })
     })
   })
+
+  describe('extraSchemas', () => {
+    const PROBLEM_SCHEMA: JSONSchema7 = {
+      $id: 'urn:schema:test.Problem:1.0.0',
+      type: 'object',
+      properties: {
+        type: { type: 'string' },
+        title: { type: 'string' },
+        status: { type: 'integer' },
+      },
+      required: ['type', 'title'],
+    }
+    const PROBLEM_PATH = 'schemas/urn/schema/test.Problem/1.0.0.json'
+
+    const PROBLEM_DETAIL: JSONSchema7 = {
+      $id: 'urn:schema:test.ProblemDetail:1.0.0',
+      type: 'object',
+      properties: { code: { type: 'string' } },
+    }
+    const PROBLEM_DETAIL_PATH = 'schemas/urn/schema/test.ProblemDetail/1.0.0.json'
+
+    it('emits an extra schema into schemas map without referencing it from the apidoc', () => {
+      const result = buildHydraApiDocumentation({
+        classes: [{ class: 'test:Entity', representations: [minimalRepresentation()] }],
+        prefixes: PREFIXES,
+        strictPrefixes: true,
+        extraSchemas: [PROBLEM_SCHEMA],
+      })
+
+      expect(result.schemas.has(PROBLEM_PATH)).toBe(true)
+      const apidocJson = JSON.stringify(result.jsonld)
+      expect(apidocJson).not.toContain(PROBLEM_SCHEMA.$id)
+      expect(result.warnings).toEqual([])
+    })
+
+    it('extracts nested $id sub-schemas inside an extra into commonSchemas', () => {
+      const wrapper: JSONSchema7 = {
+        $id: 'urn:schema:test.WrapperProblem:1.0.0',
+        type: 'object',
+        properties: { detail: { ...PROBLEM_DETAIL } },
+      }
+      const result = buildHydraApiDocumentation({
+        classes: [{ class: 'test:Entity', representations: [minimalRepresentation()] }],
+        prefixes: PREFIXES,
+        strictPrefixes: true,
+        extraSchemas: [wrapper],
+      })
+
+      expect(result.schemas.has('schemas/urn/schema/test.WrapperProblem/1.0.0.json')).toBe(true)
+      expect(result.schemas.has(PROBLEM_DETAIL_PATH)).toBe(true)
+      const wrapperParsed = JSON.parse(
+        result.schemas.get('schemas/urn/schema/test.WrapperProblem/1.0.0.json')!.content,
+      )
+      expect(wrapperParsed.properties.detail).toEqual({ $ref: PROBLEM_DETAIL.$id })
+    })
+
+    it('lifts each $id branch of a oneOf union of problem variants into commonSchemas', () => {
+      const variantA: JSONSchema7 = {
+        $id: 'urn:schema:test.VariantA:1.0.0',
+        type: 'object',
+        properties: { kindA: { type: 'string' } },
+      }
+      const variantB: JSONSchema7 = {
+        $id: 'urn:schema:test.VariantB:1.0.0',
+        type: 'object',
+        properties: { kindB: { type: 'string' } },
+      }
+      const union: JSONSchema7 = {
+        $id: 'urn:schema:test.ProblemUnion:1.0.0',
+        oneOf: [variantA, variantB],
+      }
+      const result = buildHydraApiDocumentation({
+        classes: [{ class: 'test:Entity', representations: [minimalRepresentation()] }],
+        prefixes: PREFIXES,
+        strictPrefixes: true,
+        extraSchemas: [union],
+      })
+
+      expect(result.schemas.has('schemas/urn/schema/test.ProblemUnion/1.0.0.json')).toBe(true)
+      expect(result.schemas.has('schemas/urn/schema/test.VariantA/1.0.0.json')).toBe(true)
+      expect(result.schemas.has('schemas/urn/schema/test.VariantB/1.0.0.json')).toBe(true)
+      const unionParsed = JSON.parse(
+        result.schemas.get('schemas/urn/schema/test.ProblemUnion/1.0.0.json')!.content,
+      )
+      expect(unionParsed.oneOf).toEqual([{ $ref: variantA.$id }, { $ref: variantB.$id }])
+    })
+
+    it('dedups when the same instance is an extra and also a hydra response', () => {
+      const result = buildHydraApiDocumentation({
+        classes: [
+          makeClassDef({
+            surfaces: HydraDoc.standardCommandSurfaces({
+              idStem: '#test',
+              collectionHref: '/api/test/entities',
+              idProperty: 'test:entityId',
+            }),
+            commands: [
+              {
+                id: 'urn:command:test.CreateItem:1.0.0',
+                stableId: 'test.CreateItem',
+                version: '1.0.0',
+                dispatch: 'create',
+                schema: CREATE_SCHEMA,
+                responses: [{ code: 200, schema: PROBLEM_SCHEMA }],
+              },
+            ],
+          }),
+        ],
+        prefixes: PREFIXES,
+        strictPrefixes: true,
+        extraSchemas: [PROBLEM_SCHEMA],
+      })
+
+      expect(result.warnings).toEqual([])
+      const matching = [...result.schemas.keys()].filter((k) => k === PROBLEM_PATH)
+      expect(matching).toHaveLength(1)
+    })
+
+    it('keeps a nested $id out of commonSchemas when the same instance is also an extra', () => {
+      const wrapper: JSONSchema7 = {
+        $id: 'urn:schema:test.CreateItem:1.0.0',
+        type: 'object',
+        properties: { embedded: PROBLEM_SCHEMA },
+        additionalProperties: false,
+      }
+      const result = buildHydraApiDocumentation({
+        classes: [
+          makeClassDef({
+            surfaces: HydraDoc.standardCommandSurfaces({
+              idStem: '#test',
+              collectionHref: '/api/test/entities',
+              idProperty: 'test:entityId',
+            }),
+            commands: [
+              {
+                id: 'urn:command:test.CreateItem:1.0.0',
+                stableId: 'test.CreateItem',
+                version: '1.0.0',
+                dispatch: 'create',
+                schema: wrapper,
+              },
+            ],
+          }),
+        ],
+        prefixes: PREFIXES,
+        strictPrefixes: true,
+        extraSchemas: [PROBLEM_SCHEMA],
+      })
+
+      const wrapperParsed = JSON.parse(
+        result.schemas.get('schemas/urn/schema/test.CreateItem/1.0.0.json')!.content,
+      )
+      expect(wrapperParsed.properties.embedded).toEqual({ $ref: PROBLEM_SCHEMA.$id })
+      expect(result.schemas.has(PROBLEM_PATH)).toBe(true)
+      expect(result.warnings).toEqual([])
+    })
+
+    it('warns when an extra and a hydra response share $id but are different instances', () => {
+      const otherProblem: JSONSchema7 = {
+        $id: PROBLEM_SCHEMA.$id,
+        type: 'object',
+        properties: { type: { type: 'string' }, message: { type: 'string' } },
+      }
+      const result = buildHydraApiDocumentation({
+        classes: [
+          makeClassDef({
+            surfaces: HydraDoc.standardCommandSurfaces({
+              idStem: '#test',
+              collectionHref: '/api/test/entities',
+              idProperty: 'test:entityId',
+            }),
+            commands: [
+              {
+                id: 'urn:command:test.CreateItem:1.0.0',
+                stableId: 'test.CreateItem',
+                version: '1.0.0',
+                dispatch: 'create',
+                schema: CREATE_SCHEMA,
+                responses: [{ code: 200, schema: otherProblem }],
+              },
+            ],
+          }),
+        ],
+        prefixes: PREFIXES,
+        strictPrefixes: true,
+        extraSchemas: [PROBLEM_SCHEMA],
+      })
+
+      expect(result.warnings.some((w) => w.includes('Schema path collision'))).toBe(true)
+      const matching = [...result.schemas.keys()].filter((k) => k === PROBLEM_PATH)
+      expect(matching).toHaveLength(1)
+    })
+
+    it('asserts when an extra is missing $id', () => {
+      const noId: JSONSchema7 = { type: 'object' }
+      expect(() =>
+        buildHydraApiDocumentation({
+          classes: [{ class: 'test:Entity', representations: [minimalRepresentation()] }],
+          prefixes: PREFIXES,
+          strictPrefixes: true,
+          extraSchemas: [noId],
+        }),
+      ).toThrow('Missing required $id')
+    })
+
+    it('accepts a generator (consumed once) as extraSchemas', () => {
+      function* gen(): Iterable<JSONSchema7> {
+        yield PROBLEM_SCHEMA
+      }
+      const result = buildHydraApiDocumentation({
+        classes: [{ class: 'test:Entity', representations: [minimalRepresentation()] }],
+        prefixes: PREFIXES,
+        strictPrefixes: true,
+        extraSchemas: gen(),
+      })
+
+      expect(result.schemas.has(PROBLEM_PATH)).toBe(true)
+    })
+  })
 })
 
 function buildWithSchema(): BuildResult {

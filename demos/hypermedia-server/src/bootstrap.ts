@@ -55,6 +55,20 @@ export function createApp(options?: { logLevel?: string }): AppContext {
     },
   })
 
+  app.setErrorHandler((err: unknown, request, reply) => {
+    if (
+      err instanceof Error &&
+      'statusCode' in err &&
+      typeof err.statusCode === 'number' &&
+      err.statusCode !== 500
+    ) {
+      reply.send(err)
+      return
+    }
+    request.log.error({ err }, 'Unhandled error')
+    reply.code(500).send({ message: 'Something went wrong' })
+  })
+
   logProvider.setLogger(app.log)
 
   // Bootstrap validation — required before any CommandPlanner.parse() call

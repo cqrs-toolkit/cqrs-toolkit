@@ -3,6 +3,7 @@ import { builtinPropertyDictionary } from '@cqrs-toolkit/hypermedia/builder'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { HydraDemoClasses } from './src/doc.js'
+import { ErrorSchema } from './src/error-schema.js'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
@@ -24,6 +25,14 @@ export default defineConfig({
     },
     openapi: {
       info: { title: 'Hypermedia Demo API', version: '1.0.0' },
+      globalResponses: [
+        {
+          code: 500,
+          contentType: 'application/json',
+          schema: ErrorSchema,
+          description: 'Unexpected server error.',
+        },
+      ],
       hydraPropertyDictionary: {
         ...builtinPropertyDictionary,
         'nb:todoId': { schema: { type: 'string' }, description: 'Todo identifier' },

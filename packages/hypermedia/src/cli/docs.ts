@@ -3,6 +3,7 @@
  */
 
 import { validate } from '@hyperjump/json-schema/openapi-3-1'
+import type { JSONSchema7 } from 'json-schema'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { buildOpenApiDocument } from '../builder/OpenApiBuilder.js'
@@ -10,6 +11,7 @@ import { generateHydraDocumentation } from '../builder/generate.js'
 import type { BuildResult } from '../builder/index.js'
 import { loadSchemaBundle } from '../builder/resolve.js'
 import { resolveOpenApiUrns } from '../builder/utils.js'
+import type { OpenApiConfig } from './config-types.js'
 import type { ResolvedConfig } from './config.js'
 
 export async function docs(config: ResolvedConfig): Promise<void> {
@@ -20,6 +22,7 @@ export async function docs(config: ResolvedConfig): Promise<void> {
     prefixes: config.prefixes,
     extraContext: config.extraContext,
     strictPrefixes: config.strictPrefixes,
+    extraSchemas: config.openapi ? iterateOpenapiSchemas(config.openapi) : undefined,
   })
 
   if (warnings.length) {
@@ -88,6 +91,16 @@ async function generateOpenApiDocs(buildResult: BuildResult, config: ResolvedCon
   writeFileSync(join(config.resolved.docs.outputDir, 'openapi.json'), content)
 
   console.log(`Generated OpenAPI docs to ${config.resolved.docs.outputDir}/openapi.json`)
+}
+
+/**
+ * Yield every schema attached to the openapi config so the hydra build can
+ * register them in its single {@link SchemaRegistry}. Schemas that are also
+ * reached through hydra walks dedup naturally by reference and `$id`.
+ */
+function* iterateOpenapiSchemas(openapi: OpenApiConfig): Iterable<JSONSchema7> {
+  for (const r of openapi.globalResponses ?? []) yield r.schema
+  for (const r of openapi.responses ?? []) yield r.schema
 }
 
 /** Recursively collect leaf validation errors from the OutputUnit tree. */
