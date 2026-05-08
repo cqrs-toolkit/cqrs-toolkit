@@ -358,7 +358,7 @@ On session reset (user identity change):
 
 - No aggregation data from the previous session may survive
 
-This is part of the unconditional full data wipe defined in §10.10.
+This is part of the unconditional full data wipe defined in [`0011 §11.10`](0011-eviction-contract.md#1110-session-reset-hard-eviction).
 
 ---
 
@@ -379,7 +379,7 @@ Returns:
 
 - `null` if the cache key is not seeded or has been evicted
 
-Queries are **pull-based**. Consumers subscribe to `AggregationUpdated` events as invalidation signals and re-query to obtain updated values.
+Queries follow the same push/pull duality as the rest of the Query Manager (see [`§8.4`](0009-query-manager.md#94-query-model)) — consumers can re-query for snapshot values, subscribe to `AggregationUpdated` events for invalidation signals, or both.
 
 ---
 

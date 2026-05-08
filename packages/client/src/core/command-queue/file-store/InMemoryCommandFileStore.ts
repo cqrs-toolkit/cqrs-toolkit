@@ -2,7 +2,7 @@
  * In-memory command file store — Mode A (online-only).
  *
  * Stores Blob references in a Map. Lost on page reload, which is acceptable
- * since Mode A makes no persistence guarantees (spec §3.14.4).
+ * since Mode A makes no persistence guarantees (spec §4.14.4).
  */
 
 import type { ICommandFileStore } from './ICommandFileStore.js'

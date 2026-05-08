@@ -359,7 +359,7 @@ export class SyncManager<
       })
     this.subscriptions.push(destroyedSub)
 
-    // Subscribe to cache key lifecycle events (§4.2.1)
+    // Subscribe to cache key lifecycle events (§5.2.1)
     const keyAddedSub = this.eventBus
       .on('cache:key-added')
       .pipe(takeUntil(this.destroy$))
@@ -398,7 +398,7 @@ export class SyncManager<
     // Re-seed on cache:key-accessed for restart recovery — if the key exists in
     // storage (survived reload) but hasn't been seeded yet in this session,
     // treat it like a new key and seed matching collections.
-    // TODO: §4.8 prioritize held > recent > frozen for restart re-seeding
+    // TODO: §5.8 prioritize held > recent > frozen for restart re-seeding
     const keyAccessedSub = this.eventBus
       .on('cache:key-accessed')
       .pipe(takeUntil(this.destroy$))
@@ -758,7 +758,7 @@ export class SyncManager<
 
     // Seed collections configured with seedOnInit
     await this.startSeedOnInit()
-    // TODO: resume seedOnDemand collections from persisted cache keys (spec §4.8)
+    // TODO: resume seedOnDemand collections from persisted cache keys (spec §5.8)
     // On restart, consult stored cache keys in the DB to determine what to
     // re-seed and in what order (held > recent > frozen).
 
@@ -1019,7 +1019,7 @@ export class SyncManager<
 
   /**
    * Handle a new cache key being created.
-   * Seeds all collections whose keyTypes match the identity (§4.2.1).
+   * Seeds all collections whose keyTypes match the identity (§5.2.1).
    * Idempotent — SeedStatusIndex prevents re-seeding already-seeded pairs.
    */
   private async onCacheKeyAdded(cacheKey: CacheKeyIdentity<TLink>): Promise<void> {
@@ -1665,7 +1665,7 @@ export class SyncManager<
     //     harmless and will be superseded by the refetch anyway.
     //
     // Stateful events bypass the gap check entirely — their ordering doesn't
-    // matter per spec §4.7. They passthrough into the reconcile batch.
+    // matter per spec §5.7. They passthrough into the reconcile batch.
     const streamBuckets = new Map<string, PendingWsEventEntry<TLink>[]>()
     const statefulPassthrough: PendingWsEventEntry<TLink>[] = []
     for (const entry of filtered) {
@@ -1971,7 +1971,7 @@ export class SyncManager<
     if (this.domainExecutor) {
       // `'succeeded'` is in scope so just-succeeded temp-id creates still get
       // their Phase 3 tempId → serverId migration when the drain processes
-      // response events for them. See `_active-plans/command-applied.md` §2.4.
+      // response events for them. See `_active-plans/command-applied.md` §3.4.
       const commands = await this.commandStore.getByStatus([
         'pending',
         'blocked',

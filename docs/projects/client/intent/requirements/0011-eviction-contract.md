@@ -1,6 +1,6 @@
-# 10\. Eviction Contract (Cross-component)
+# 11\. Eviction Contract (Cross-component)
 
-## 10.1 Purpose
+## 11.1 Purpose
 
 This section defines the **cross-component contract** governing eviction of cached data and cache key lifecycle across windows, storage worker restarts, and session changes.
 
@@ -18,7 +18,7 @@ The contract explicitly accounts for **storage worker lifecycle volatility** (in
 
 ---
 
-## 10.2 Eviction triggers
+## 11.2 Eviction triggers
 
 Eviction may be triggered by:
 
@@ -38,7 +38,7 @@ Eviction does **not** imply error or failure.
 
 ---
 
-## 10.3 Cache key lifecycle states
+## 11.3 Cache key lifecycle states
 
 Each cache key may be in one or more of the following conceptual states:
 
@@ -64,11 +64,11 @@ A cache key may simultaneously be:
 
 ---
 
-## 10.4 Window holds and liveness model (multi-tab mode only)
+## 11.4 Window holds and liveness model (multi-tab mode only)
 
 **Note:** This section applies only to **multi-tab mode** (SharedWorker). In single-tab modes, window hold coordination is unnecessary because only one tab exists.
 
-### 10.4.1 Hold semantics (authoritative intent)
+### 11.4.1 Hold semantics (authoritative intent)
 
 - Windows must explicitly declare interest in a cache key via a **hold** call.
 
@@ -92,7 +92,7 @@ This mapping:
 
 ---
 
-### 10.4.2 Release semantics (best-effort)
+### 11.4.2 Release semantics (best-effort)
 
 Windows must attempt to release holds when they no longer need data.
 
@@ -120,7 +120,7 @@ Notes:
 
 ---
 
-## 10.5 Heartbeat Manager (multi-tab mode only)
+## 11.5 Heartbeat Manager (multi-tab mode only)
 
 **Note:** This section applies only to **multi-tab mode** (SharedWorker). In single-tab modes, heartbeat coordination is unnecessary.
 
@@ -128,7 +128,7 @@ Because window teardown is unreliable and the SharedWorker may be restarted at a
 
 ---
 
-### 10.5.1 Window registration
+### 11.5.1 Window registration
 
 - Each window must generate a stable `windowId` at startup.
 
@@ -146,7 +146,7 @@ lastSeenAt[windowId] = now
 
 ---
 
-### 10.5.2 Heartbeat protocol
+### 11.5.2 Heartbeat protocol
 
 - Each registered window must periodically send:
 
@@ -164,7 +164,7 @@ Heartbeat cadence and TTL are implementation-defined but must ensure:
 
 ---
 
-### 10.5.3 Stale window cleanup
+### 11.5.3 Stale window cleanup
 
 If:
 
@@ -184,13 +184,13 @@ This cleanup is authoritative and does not require window cooperation.
 
 ---
 
-## 10.6 Storage worker restart resilience (multi-tab mode only)
+## 11.6 Storage worker restart resilience (multi-tab mode only)
 
 **Note:** This section applies only to **multi-tab mode** (SharedWorker). In single-tab modes, worker restart simply requires reinitializing the storage layer.
 
-### 10.6.1 SharedWorker volatility
+### 11.6.1 SharedWorker volatility
 
-- The SharedWorker may be terminated at any time while windows remain open (e.g., if all MessagePorts are garbage collected briefly).
+- The SharedWorker terminates when its owner set (the set of documents holding `new SharedWorker(...)` references) becomes empty. Browser-managed termination of an active SharedWorker (e.g., transient MessagePort GC, memory pressure) is rare but possible; the restart resilience contract below covers both cases.
 
 - On restart:
   - all in-memory state is lost
@@ -203,7 +203,7 @@ This is expected browser behavior.
 
 ---
 
-### 10.6.2 Worker instance identity
+### 11.6.2 Worker instance identity
 
 - Each SharedWorker instance must generate a unique `workerInstanceId` at startup.
 
@@ -216,7 +216,7 @@ This allows windows to detect a **new SharedWorker instance**.
 
 ---
 
-### 10.6.3 Window-side hold tracking
+### 11.6.3 Window-side hold tracking
 
 Each window must maintain its own **authoritative list of held cache keys**:
 
@@ -234,7 +234,7 @@ This state:
 
 ---
 
-### 10.6.4 Hold restoration protocol
+### 11.6.4 Hold restoration protocol
 
 When a window detects a new SharedWorker instance (via `workerInstanceId` change):
 
@@ -259,9 +259,9 @@ This guarantees correctness after worker restarts without leaking ephemeral data
 
 ---
 
-## 10.7 Ephemeral cache keys
+## 11.7 Ephemeral cache keys
 
-### 10.7.1 Definition
+### 11.7.1 Definition
 
 An **ephemeral cache key** is a cache key whose data must not persist beyond active usage.
 
@@ -269,7 +269,7 @@ Ephemeral behavior applies at the **cache key level**, not per collection.
 
 ---
 
-### 10.7.2 Eviction rule for ephemeral keys (multi-tab mode)
+### 11.7.2 Eviction rule for ephemeral keys (multi-tab mode)
 
 When:
 
@@ -288,17 +288,27 @@ then:
 
 If holds are not restored after a SharedWorker restart, eviction is correct and expected.
 
-### 10.7.3 Eviction rule for ephemeral keys (single-tab modes)
+### 11.7.3 Eviction rule for ephemeral keys (Mode B)
 
-In single-tab modes, ephemeral keys are evicted when:
+In Mode B (single-tab DedicatedWorker), ephemeral keys are evicted when:
 
 - the page navigates away from the associated view, or
 
-- the tab is closed (data lost with the session)
+- the tab lock is released (tab close releases the lock; persisted data remains intact for the next tab to acquire the lock)
 
 ---
 
-## 10.8 Persistent cache keys
+### 11.7.4 Eviction rule for ephemeral keys (Mode A)
+
+In Mode A (online-only, in-memory), ephemeral keys are evicted when:
+
+- the page navigates away from the associated view, or
+
+- the tab is closed (all in-memory state is lost regardless — Mode A makes no persistence guarantees)
+
+---
+
+## 11.8 Persistent cache keys
 
 Persistent (non-ephemeral) cache keys:
 
@@ -315,11 +325,11 @@ Active window holds do **not** strictly prevent eviction, but implementations ma
 
 ---
 
-## 10.9 Component responsibilities on `CacheKeyEvicted`
+## 11.9 Component responsibilities on `CacheKeyEvicted`
 
 When `CacheKeyEvicted(key)` is emitted, components must respond as follows:
 
-### 10.9.1 Cache Manager
+### 11.9.1 Cache Manager
 
 - Removes metadata
 
@@ -327,7 +337,7 @@ When `CacheKeyEvicted(key)` is emitted, components must respond as follows:
 
 - Emits eviction events bottom-up
 
-### 10.9.2 Sync Manager
+### 11.9.2 Sync Manager
 
 - Stops synchronization
 
@@ -335,35 +345,35 @@ When `CacheKeyEvicted(key)` is emitted, components must respond as follows:
 
 - Deletes key-scoped sync metadata
 
-### 10.9.3 Read Model Store
+### 11.9.3 Read Model Store
 
 - Deletes all records with `cacheKey === key`
 
 - Deletes link-table and derived records
 
-### 10.9.4 Event Cache
+### 11.9.4 Event Cache
 
 - Deletes buffered events attributable to the key
 
 - Retains unattributed anticipated events until resolved normally
 
-### 10.9.5 Event Processors
+### 11.9.5 Event Processors
 
 - Must tolerate missing baselines
 
 - Must not throw due to eviction
 
-### 10.9.6 Command Queue
+### 11.9.6 Command Queue
 
 - **Must not cancel or delete commands**
 
 - Commands survive eviction
 
-**Exception:** session reset (§10.10).
+**Exception:** session reset ([§11.10](#1110-session-reset-hard-eviction)).
 
 ---
 
-## 10.10 Session reset (hard eviction)
+## 11.10 Session reset (hard eviction)
 
 When a session reset occurs (user identity change):
 
@@ -377,11 +387,11 @@ When a session reset occurs (user identity change):
 
 - all window registrations, holds, and heartbeat state are cleared (multi-tab mode)
 
-A `SessionReset` event must be emitted after completion.
+A `SessionDestroyed { reason: 'user-changed' }` event is emitted at the start of the wipe, followed by `SessionChanged { userId, isNew: true }` once the new session is established (see [`§20.3.1`](0010-public-api.md#1031-session-and-connectivity-events) and [`§5.3.4`](0005-sync-manager.md#534-session-user-change-handling)).
 
 ---
 
-## 10.11 Guarantees
+## 11.11 Guarantees
 
 This eviction contract guarantees that:
 
@@ -391,7 +401,7 @@ This eviction contract guarantees that:
 
 - stale windows cannot block eviction (multi-tab mode)
 
-- single-tab enforcement prevents concurrent access conflicts (single-tab modes)
+- Mode B's tab lock prevents concurrent access conflicts at the storage layer; Mode A's in-memory isolation per-tab achieves the same property without coordination
 
 - commands remain correct and durable
 

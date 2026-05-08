@@ -984,7 +984,7 @@ export class CacheManager<
       const childReg = this.getRegistration(childUuid)
       if (!childReg) continue
 
-      // §2.6: Ephemeral keys never contribute to or receive inherited freeze state
+      // §3.6: Ephemeral keys never contribute to or receive inherited freeze state
       if (childReg.evictionPolicy === 'ephemeral') continue
 
       if (childReg.inheritedFrozen !== frozen) {
@@ -1007,7 +1007,7 @@ export class CacheManager<
       const childReg = this.getRegistration(childUuid)
       if (!childReg) continue
 
-      // §2.6: Ephemeral keys never contribute to or receive inherited freeze state
+      // §3.6: Ephemeral keys never contribute to or receive inherited freeze state
       if (childReg.evictionPolicy === 'ephemeral') continue
 
       const shouldBeInherited = this.isAncestorFrozen(childUuid)

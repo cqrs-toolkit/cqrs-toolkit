@@ -1,6 +1,6 @@
-# 5\. Event Cache (Gap Buffer + Anticipated Event Store)
+# 6\. Event Cache (Gap Buffer + Anticipated Event Store)
 
-## 5.1 Purpose
+## 6.1 Purpose
 
 The Event Cache is a **temporary, bounded store** for events that cannot yet be fully applied to the Read Model Store or that exist only provisionally.
 
@@ -18,7 +18,7 @@ The Event Cache is **not** a full event store and must not grow without bound.
 
 ---
 
-## 5.2 Scope and non-goals
+## 6.2 Scope and non-goals
 
 The Event Cache:
 
@@ -40,9 +40,9 @@ The Event Cache does **not**:
 
 ---
 
-## 5.3 Event classes handled by the cache
+## 6.3 Event classes handled by the cache
 
-### 5.3.1 Anticipated events
+### 6.3.1 Anticipated events
 
 Anticipated events are:
 
@@ -54,7 +54,7 @@ Anticipated events are:
 
 Anticipated events:
 
-- match server event type names and payload shape
+- match server event **type names and overall payload shape**, with one exception: ID fields referencing locally-created entities may carry `EntityRef` values per [0014 §24.5.1](0014-entity-ref.md#1451-entityref-in-anticipated-events), where server-originated events always carry plain strings
 
 - omit server-only fields such as `position` and authoritative `createdAt`
 
@@ -66,7 +66,7 @@ They remain valid regardless of which cache keys are currently loaded.
 
 ---
 
-### 5.3.2 Permanent events (buffered)
+### 6.3.2 Permanent events (buffered)
 
 Permanent events originate from the server and are authoritative.
 
@@ -86,7 +86,7 @@ Permanent events:
 
 ---
 
-### 5.3.3 Stateful events
+### 6.3.3 Stateful events
 
 Stateful events:
 
@@ -100,7 +100,7 @@ They are applied best-effort and may be buffered briefly if processors cannot ap
 
 ---
 
-## 5.4 Persistence normalization
+## 6.4 Persistence normalization
 
 - If an incoming event does **not** include a `persistence` field, it must be treated as `Permanent`.
 
@@ -110,45 +110,43 @@ This rule applies uniformly to events received via WebSocket, REST, or command r
 
 ---
 
-## 5.5 Storage model
+## 6.5 Storage model
 
-Each Event Cache entry must be attributable to the **current session** and include at least:
+Each Event Cache entry is persisted as a `CachedEventRecord`, attributable to the **current session** and carrying:
+
+**Common fields:**
+
+- `id: string` — event identifier (used for de-duplication)
+
+- `type: string` — event type
+
+- `streamId: string` — owning stream
 
 - `persistence: 'Permanent' | 'Stateful' | 'Anticipated'`
 
-- `event: object`
+- `data: string` — JSON-serialized event body
 
-- `receivedAt: number`
+- `cacheKeys: string[]` — cache keys this event is associated with (junction-table in SQL, array in memory). Used for cleanup and eviction; not required for correctness. Multi-attribution is supported — an event may legitimately associate with multiple cache keys.
 
-Additional required fields by class:
+- `createdAt: number` — event timestamp
 
-### Anticipated events
+- `processedAt: number | null` — when the event was applied to the read model; null while the event is still pending application
 
-- `commandId: string`
+**Permanent-specific fields (null for Anticipated and Stateful):**
 
-### Permanent events
+- `position: string | null` — global ordering position (BigInt-as-string for JSON storage compatibility)
 
-- `eventId: string`
+- `revision: string | null` — stream-local revision (BigInt-as-string)
 
-- `position: bigint`
+**Anticipated-specific fields:**
 
-- `streamId: string`
-
-- `revision: number`
-
-### Optional attribution
-
-- `cacheKey?: string`
-
-- `collectionName?: string`
-
-Attribution to cache keys or collections is used only for **cleanup and eviction** and must not be required for correctness.
+- `commandId: string | null` — owning command (null for Permanent and Stateful)
 
 ---
 
-## 5.6 Retention and deletion rules (hard requirements)
+## 6.6 Retention and deletion rules (hard requirements)
 
-### 5.6.1 Permanent events
+### 6.6.1 Permanent events
 
 Permanent events must be deleted from the Event Cache as soon as:
 
@@ -164,7 +162,7 @@ Recommended maximum grace window:
 
 ---
 
-### 5.6.2 Anticipated events
+### 6.6.2 Anticipated events
 
 Anticipated events must be deleted when:
 
@@ -178,7 +176,7 @@ Anticipated events must not survive a session wipe.
 
 ---
 
-### 5.6.3 Stateful events
+### 6.6.3 Stateful events
 
 Stateful events may be deleted after:
 
@@ -190,7 +188,7 @@ They must not accumulate unboundedly.
 
 ---
 
-## 5.7 Gap detection and repair coordination
+## 6.7 Gap detection and repair coordination
 
 The Event Cache cooperates with the Sync Manager to support gap repair:
 
@@ -208,7 +206,7 @@ The Event Cache itself does not initiate network activity.
 
 ---
 
-## 5.8 Interaction with cache eviction
+## 6.8 Interaction with cache eviction
 
 On `CacheKeyEvicted(key)`:
 
@@ -225,7 +223,7 @@ Events without cache key attribution (e.g., anticipated events affecting unloade
 
 ---
 
-## 5.9 Session reset handling
+## 6.9 Session reset handling
 
 When a session user mismatch occurs:
 
@@ -239,7 +237,7 @@ This wipe is unconditional and independent of eviction policy.
 
 ---
 
-## 5.10 Failure and recovery guarantees
+## 6.10 Failure and recovery guarantees
 
 The Event Cache must ensure:
 

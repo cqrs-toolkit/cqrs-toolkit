@@ -1,7 +1,7 @@
 /**
  * Cache key identity types, derivation, and hydration.
  *
- * Two kinds of cache key identity exist (spec §2.2.1):
+ * Two kinds of cache key identity exist (spec §3.2.1):
  * - Entity: tied to a concrete domain entity via a Link
  * - Scope: a logical data scope with optional params
  *

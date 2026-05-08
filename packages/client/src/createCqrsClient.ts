@@ -645,7 +645,7 @@ async function createWorkerClient<
 /**
  * Create, initialize, and return an adapter with the achieved execution mode.
  *
- * For `'auto'` mode: reads mode cache first (§0.1.7), falls back to Stage 1
+ * For `'auto'` mode: reads mode cache first (§1.1.7), falls back to Stage 1
  * detection on miss, then writes cache after successful Stage 2 (adapter init).
  * If the worker adapter fails due to OPFS unavailability, falls back to
  * online-only transparently. For explicit modes: propagates all errors.

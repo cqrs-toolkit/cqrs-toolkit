@@ -1,6 +1,6 @@
-# 2\. Cache Manager
+# 3\. Cache Manager
 
-## 2.1 Goals and Scope
+## 3.1 Goals and Scope
 
 The Cache Manager is responsible for managing **which data scopes are locally cached** and for coordinating **lifecycle events** that determine when data should be loaded, retained, or evicted.
 
@@ -19,42 +19,42 @@ The Cache Manager:
 
 ---
 
-## 2.2 Key Concepts
+## 3.2 Key Concepts
 
-### 2.2.1 Cache keys and cache scopes
+### 3.2.1 Cache keys and cache scopes
 
 A **cache key** represents a unit of cached data ownership.
-
-Two forms exist:
+Two kinds exist, distinguished by a runtime discriminator (`kind: 'entity' | 'scope'`):
 
 #### Entity cache keys
 
-Derived from a concrete domain entity:
+Tied to a concrete domain entity via a `Link` (from `@meticoeus/ddd-es`):
 
-- `(service, type, entityId)`
+- `kind: 'entity'`
+- `link: TLink` — the entity's identifying link, carrying `{ type, id }` (plain `Link`) or `{ service, type, id }` (`ServiceLink`)
+- `parentKey?: string`
 
-- `type ∈ { Tenant, Workspace, Project, Room }`
+The `Link` is generic over the consumer's `TLink` parameter — `type` and `service` values are consumer-defined and library-opaque.
+`service` is present on entity keys only when the consumer uses `ServiceLink` (e.g. multi-service apps); single-service apps using plain `Link` have no service field on entity keys.
 
 #### Scope cache keys
 
-Derived from a **logical data scope** not tied to a single entity:
+A logical data scope not tied to a single entity:
 
-- `(service, scopeType, scopeParams)`
+- `kind: 'scope'`
+- `service?: string` (optional service context)
+- `scopeType: string`
+- `scopeParams?: Record<string, unknown>`
+- `parentKey?: string`
 
-- Examples:
-  - “all tenants visible to user”
+Examples: "all tenants visible to user", "home task list", "search results with filters X".
 
-  - “home task list”
-
-  - “search results with filters X”
-
-Both forms are treated uniformly by the Cache Manager.
-
-Each cache key is represented by a deterministic UUID v5 derived from its identifying tuple.
+Both kinds share `key: string` — an opaque UUID assigned by `registerCacheKey` ([§3.5.1](#351-register)) at first registration and stable thereafter, including across EntityRef reconciliation.
+For scope keys without `EntityRef` values, `deriveScopeKey` provides a deterministic UUID v5 derivation as an alternative.
 
 ---
 
-### 2.2.2 Cache key eviction policy
+### 3.2.2 Cache key eviction policy
 
 Each cache key has an eviction policy:
 
@@ -76,7 +76,7 @@ Eviction policy is defined when a key is first created and cannot be changed lat
 
 ---
 
-### 2.2.3 Active windows and holds
+### 3.2.3 Active windows and holds
 
 A cache key may be **actively held** by one or more browser windows (tabs).
 
@@ -84,11 +84,10 @@ A cache key may be **actively held** by one or more browser windows (tabs).
 
 - A window “holds” a cache key while it actively needs the data.
 
-A cache key maintains an **in-memory-only** set:
+The Cache Manager tracks active holds in two correlated forms:
 
-```ts
-activeWindowIds: Set<string>
-```
+- **In-memory:** an `activeWindowIds: Set<string>` per cache key, reflecting which windows currently hold the key.
+- **Persisted:** a `holdCount: number` field on the cache key record, updated as holds are added or released.
 
 Properties:
 
@@ -96,46 +95,63 @@ Properties:
 
 - It is populated at runtime via window interactions.
 
-- A cache key with `activeWindowIds.size > 0` is considered **active**.
+- A cache key is **active** iff `activeWindowIds.size > 0` (equivalently, `holdCount > 0` reflects the same state at the persistence boundary).
 
 This mechanism prevents eviction of data still required by open tabs and applies to **all cache keys**, not only ephemeral ones.
 
 ---
 
-## 2.3 Metadata storage schema (persisted)
+### 3.2.4 EntityRef-driven inputs and reconciliation
+
+Identity inputs to the Cache Manager — `link.id` for entity cache keys, `scopeParams` values for scope cache keys — may contain `EntityRef` values per [0014 §14.5.5](0014-entity-ref.md#1455-cache-key-derivation).
+
+When a cache key template carrying `EntityRef` values is registered via `registerCacheKey`:
+
+1. The Cache Manager scans the template for `EntityRef` values, including paths declared via `entityRefPaths` for nested or array-typed `scopeParams` structures (uses the JSONPath subset from [0014 §14.5.2.1](0014-entity-ref.md#14521-entity-ref-path-expressions)).
+2. For each `EntityRef` found, it records a pending entry — `{ commandId, clientId, paramKey? }` — into the cache key's `pendingIdMappings`. `paramKey` is absent for entity keys (always `link.id`); for scope keys it is the JSONPath into `scopeParams`.
+3. The template's identity fields are resolved to their plain-string `entityId` values for identity-string lookup. Registering the same logical entity twice — once with an `EntityRef`, once after reconciliation with the server-confirmed string — finds the same registry entry and shares the same opaque UUID.
+4. When the producing command completes successfully, the Cache Manager auto-reconciles: it replaces the temporary ID with the server-assigned ID in the persisted identity columns, drops the corresponding pending entry, and the cache key UUID stays stable across the transition. A `CacheKeyReconciled` event is emitted ([§3.12](#312-events)).
+
+The `idStrategy` on each `EntityRef` (`'temporary'` vs `'permanent'`) determines whether reconciliation actually swaps IDs (`temporary`) or simply marks the entity confirmed (`permanent`).
+
+The default reconciliation strategy replaces the matching ID field in place. Commands whose reconciliation requires a more complex transform may register an optional `resolveCacheKey` callback on their command handler registration; the callback receives the current cache key identity and returns the updated identity.
+
+No separate pending-ID mapping channel from consumer code is needed — all the metadata flows through the `EntityRef` values in the identity tuple.
+
+---
+
+## 3.3 Metadata storage schema (persisted)
 
 For each cache key, the Cache Manager persists a single metadata record:
 
-- `key: string`  
-  Deterministic UUID v5 identifier.
+- `key: string` — opaque UUID assigned by `registerCacheKey`.
+- `kind: 'entity' | 'scope'`
 
-- `service: string`
+**Entity-only columns (null for scope keys):**
 
-- `kind: 'Entity' | 'Scope'`
+- `linkService: string | null` — `link.service` when the consumer uses `ServiceLink`, otherwise null.
+- `linkType: string | null` — `link.type`.
+- `linkId: string | null` — `link.id`.
 
-- `type?: 'Tenant' | 'Workspace' | 'Project' | 'Room'`
+**Scope-only columns (null for entity keys):**
 
-- `entityId?: string`
+- `service: string | null` — optional service context.
+- `scopeType: string | null`
+- `scopeParams: string | null` — JSON-serialized.
 
-- `scopeType?: string`
-
-- `scopeParamsHash?: string`
+**Common columns:**
 
 - `parentKey: string | null`
-
 - `evictionPolicy: 'persistent' | 'ephemeral'`
-
 - `frozen: boolean`
-
 - `frozenAt: number | null`
-
 - `inheritedFrozen: boolean`
-
 - `lastAccessedAt: number`
-
+- `expiresAt: number | null`
 - `createdAt: number`
-
-- `estimatedSizeBytes?: number | null`
+- `holdCount: number`
+- `estimatedSizeBytes: number | null`
+- `pendingIdMappings: string | null` — JSON-serialized array of pending ID mappings awaiting command resolution. Each entry: `{ commandId: string; clientId: string; paramKey?: string }`. Null when no IDs are pending (fully resolved or never had pending IDs).
 
 **Not persisted:**
 
@@ -143,17 +159,17 @@ For each cache key, the Cache Manager persists a single metadata record:
 
 ---
 
-## 2.4 Session scoping and startup behavior
+## 3.4 Session scoping and startup behavior
 
-### 2.4.1 Session ownership
+### 3.4.1 Session ownership
 
 - All cache metadata belongs to a **single persisted session user**.
 
 - Cache Manager data is invalid if the session user changes.
 
-- On user mismatch, all cache metadata is wiped (see §2.11).
+- On user mismatch, all cache metadata is wiped (see [§3.11](#311-user-mismatch-wipe)).
 
-### 2.4.2 Offline-first startup
+### 3.4.2 Offline-first startup
 
 On application startup:
 
@@ -173,11 +189,24 @@ This ensures:
 
 ---
 
-## 2.5 Public lifecycle API (conceptual)
+## 3.5 Public lifecycle API (conceptual)
 
 The Cache Manager exposes the following conceptual operations:
 
-### 2.5.1 Touch (navigation access)
+### 3.5.1 Register
+
+```ts
+registerCacheKey(template, options?): CacheKey
+```
+
+- Primary creation API for cache keys, with EntityRef-aware reconciliation ([§3.2.4](#324-entityref-driven-inputs-and-reconciliation)).
+- Accepts a `CacheKeyTemplate` (entity or scope template without a resolved `key` UUID) and assigns an opaque stable UUID.
+- Idempotent: registering the same logical entity (after resolving EntityRef inputs to plain strings) returns the same key.
+- Emits `CacheKeyAdded` on first registration.
+
+---
+
+### 3.5.2 Touch (navigation access)
 
 ```ts
 touch({ windowId, keySpec }): CacheKey
@@ -187,7 +216,9 @@ touch({ windowId, keySpec }): CacheKey
 
 - Updates `lastAccessedAt`.
 
-- Creates the cache key if it does not exist.
+- For scope keys without `EntityRef` inputs, may create the cache key on first touch via deterministic UUID v5 derivation (`deriveScopeKey`).
+
+- Cache keys whose identity may carry `EntityRef` inputs must be created via `registerCacheKey` ([§3.5.1](#351-register)) so reconciliation is auto-wired — `touch` does not handle EntityRef extraction.
 
 - Emits:
   - `CacheKeyAdded` (new key)
@@ -198,7 +229,7 @@ Touch **does not imply** the window still needs the data.
 
 ---
 
-### 2.5.2 Hold (active usage)
+### 3.5.3 Hold (active usage)
 
 ```ts
 hold({ windowId, key }): void
@@ -212,7 +243,7 @@ hold({ windowId, key }): void
 
 ---
 
-### 2.5.3 Release (navigation away)
+### 3.5.4 Release (navigation away)
 
 ```ts
 release({ windowId, key }): void
@@ -227,7 +258,7 @@ release({ windowId, key }): void
 
 ---
 
-## 2.6 Freezing semantics (persistent keys only)
+## 3.6 Freezing semantics (persistent keys only)
 
 - Only `persistent` keys may be frozen.
 
@@ -242,7 +273,7 @@ Freeze behavior and inheritance rules otherwise remain unchanged from prior spec
 
 ---
 
-## 2.7 Normal eviction (LRU-based)
+## 3.7 Normal eviction (LRU-based)
 
 A cache key is eligible for normal eviction if:
 
@@ -264,7 +295,7 @@ Eviction proceeds:
 
 ---
 
-## 2.8 Ephemeral eviction
+## 3.8 Ephemeral eviction
 
 Ephemeral eviction rules are strict:
 
@@ -280,7 +311,7 @@ Ephemeral eviction rules are strict:
 
 ---
 
-## 2.9 Quota handling and capacity pressure
+## 3.9 Quota handling and capacity pressure
 
 On storage quota errors (OPFS):
 
@@ -298,7 +329,7 @@ If eviction cannot free sufficient space:
 
 ---
 
-## 2.10 Multi-window capacity guard
+## 3.10 Multi-window capacity guard
 
 To prevent pathological behavior when many windows are open:
 
@@ -321,7 +352,7 @@ This prevents chaotic eviction under constrained storage.
 
 ---
 
-## 2.11 User mismatch wipe
+## 3.11 User mismatch wipe
 
 If the persisted session user changes:
 
@@ -337,17 +368,22 @@ No cache keys survive a user mismatch.
 
 ---
 
-## 2.12 Events
+## 3.12 Events
 
-The Cache Manager emits:
+The Cache Manager emits the following events.
+TypeScript event type names below; runtime keys are kebab-case under the `cache:` namespace and map mechanically (e.g. `CacheKeyAdded` ↔ `cache:key-added`).
 
 - `CacheKeyAdded`
 
 - `CacheKeyAccessed`
 
-- `CacheKeyEvicted`
+- `CacheKeyEvicted` *(runtime key: `cache:evicted` — no `key-` infix)*
 
 - `CacheKeyFrozenChanged`
+
+- `CacheKeyReconciled` — emitted when EntityRef-driven reconciliation updates a cache key's identity ([§3.2.4](#324-entityref-driven-inputs-and-reconciliation)); payload includes the new and previous `CacheKeyIdentity` plus `commandId` / `clientId` / `serverId`.
+
+- `CacheSeedSettled`
 
 - `CacheQuotaLow`
 
@@ -356,7 +392,5 @@ The Cache Manager emits:
 - `TooManyWindowsOpen`
 
 - `CacheSessionReset`
-
-All eviction events use the same payload shape, regardless of eviction reason.
 
 ---

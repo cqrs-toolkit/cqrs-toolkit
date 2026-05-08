@@ -1,6 +1,6 @@
-# 17\. Aggregate Configuration
+# 15\. Aggregate Configuration
 
-## 17.1 Purpose
+## 15.1 Purpose
 
 Aggregates are the source of truth for entity identity and stream ownership.
 Collections consume events from aggregates and build read models.
@@ -15,35 +15,68 @@ The reconciliation system uses these declarations to update ID fields explicitly
 
 ---
 
-## 17.2 Types
+## 15.2 Types
 
 ```typescript
-/** A string representing a JSONPath expression (RFC 9535 subset per §15.5.2.1). */
+/** A string representing a JSONPath expression (RFC 9535 subset per `0014 §14.5.2.1`). */
 type JSONPathExpression = string
 ```
 
-### 17.2.1 AggregateConfig
+### 15.2.1 AggregateConfig
 
 ```typescript
-type AggregateConfig<TLink extends Link> = Omit<TLink, 'id'> & {
-  /** Build a stream ID from an entity ID. Accepts EntityId — implementations must
-   *  call entityIdToString() to extract the plain string. */
+interface AggregateConfig<TLink extends Link> {
+  /** Service identifier (only present when TLink is ServiceLink). */
+  service: TLink extends ServiceLink ? TLink['service'] : never
+  /** Aggregate type identifier. */
+  type: TLink['type']
+  /** Build a stream ID from an entity ID. Accepts EntityId —
+   *  implementations must call entityIdToString() to extract the plain string. */
   getStreamId(entityId: EntityId): string
+  /** Returns the Link minus its id field — used as a matcher for
+   *  identifying which aggregate a Link or LinkIdReference points at. */
+  getLinkMatcher(): Omit<TLink, 'id'>
 }
 ```
 
-### 17.2.2 IdReference
+The library exports a `ClientAggregate<TLink>` class that implements this interface for consumer convenience — pass `{ service, type, getStreamId }` to its constructor and `getLinkMatcher` is computed automatically from `service` and `type`.
+
+### 15.2.2 IdReference
+
+`IdReference` is a discriminated union, distinguishing paths that point to plain string IDs from paths that point to `Link` objects (which carry their own type discriminator):
 
 ```typescript
-interface IdReference {
-  /** JSONPath to the ID field in read model data. */
+/** Plain ID field — path points to a string (the aggregate ID itself). */
+interface DirectIdReference<TLink extends Link> {
+  aggregate: AggregateConfig<TLink>
   path: JSONPathExpression
-  /** Aggregate type this ID references. */
-  aggregate: string
+}
+
+/** Link field — path points to a Link object containing type+id.
+ *  Supports multiple aggregates for union/polymorphic Link references. */
+interface LinkIdReference<TLink extends Link> {
+  aggregates: AggregateConfig<TLink>[]
+  path: JSONPathExpression
+}
+
+type IdReference<TLink extends Link> = DirectIdReference<TLink> | LinkIdReference<TLink>
+```
+
+Response-side variants (used in `responseIdReferences` on command handler registrations, see [`§4.6.2`](0004-command-queue.md#462-post-processing)) extend the above with an optional `revisionPath`:
+
+```typescript
+interface ResponseDirectIdReference<TLink extends Link> extends DirectIdReference<TLink> {
+  revisionPath?: JSONPathExpression
+}
+
+interface ResponseLinkIdReference<TLink extends Link> extends LinkIdReference<TLink> {
+  revisionPath?: JSONPathExpression
 }
 ```
 
-### 17.2.3 Collection changes
+`revisionPath` lets the reconcile step update each aggregate chain's `lastKnownRevision` from the response alongside the id mapping.
+
+### 15.2.3 Collection changes
 
 `Collection` gains an `aggregate` field and optional `idReferences`.
 `getStreamId` moves from `Collection` to `AggregateConfig`.
@@ -65,34 +98,21 @@ interface Collection<TLink extends Link> {
 
 ---
 
-## 17.3 Reconciliation
+## 15.3 Reconciliation
 
-### 17.3.1 Current behavior
-
-When a create command with a temporary ID succeeds, the reconciliation system:
-
-1. Builds an `idMap` of `clientId → serverId` from the server response.
-2. Rewrites pending command data by walking each command's declared `commandIdReferences` paths (JSONPath) against `idMap`.
-3. Regenerates anticipated events with updated IDs.
-4. `patchEntityId` in `EventProcessorRunner` replaces `data.id` in overlay events using string comparison.
-
-### 17.3.2 New behavior
-
-The `idReferences` declaration on each collection provides an explicit map of which read model fields are entity IDs and which aggregate they reference.
+The `idReferences` declaration on each collection provides an explicit map of which read model fields contain entity IDs and which aggregate they reference. The reconciliation system uses this — together with the corresponding declarations on command handler registrations (`commandIdReferences`, `responseIdReferences`; see [`§4.6.2`](0004-command-queue.md#462-post-processing)) — to walk the id mapping without inferring from command-data shapes.
 
 When a create command succeeds with an ID mapping (`clientId → serverId`):
 
-1. The reconciliation system identifies the aggregate type from the command's `creates` config.
-2. It looks up all collections with `idReferences` entries referencing that aggregate type.
-3. For each matching collection + path: it knows exactly which read model field to update and where.
-4. `patchEntityId` uses the collection's aggregate config to identify the entity's own ID path (always `$.id` by convention) and uses `entityIdToString` for comparison.
+1. The reconciliation system identifies the affected aggregate(s) from the command's `creates` config and `responseIdReferences`.
+2. For each affected aggregate, it looks up all collections whose `idReferences` reference that aggregate.
+3. For each matching collection + path, it walks read-model records and rewrites the matching client IDs to server IDs. The entity's own ID at `$.id` is auto-injected by `resolveConfig` from the collection's `aggregate` — consumers don't declare it manually; only cross-aggregate references need explicit `idReferences` entries.
 
-No inference from command data shapes.
-Dependency auto-wiring flows through `EntityRef.commandId` captured at the declared paths, so no separate parent-reference config is needed.
+Dependency auto-wiring flows through `EntityRef.commandId` captured at declared paths (see [§14.6.1](0014-entity-ref.md#1461-automatic-dependson)) — no separate parent-reference config needed.
 
 ---
 
-## 17.4 Stream ID construction
+## 15.4 Stream ID construction
 
 `getStreamId` moves from `Collection` to `AggregateConfig`.
 Command handlers import the aggregate config and call `aggregate.getStreamId(entityId)` when producing anticipated events.
@@ -100,23 +120,27 @@ Command handlers import the aggregate config and call `aggregate.getStreamId(ent
 Consumers define aggregate configs alongside their collection configs:
 
 ```typescript
-const notebookAggregate: AggregateConfig<ServiceLink> = {
-  type: 'Notebook',
+const notebookAggregate = new ClientAggregate<ServiceLink>({
   service: 'nb',
-  getStreamId: (entityId) => `Notebook-${entityIdToString(entityId)}`,
-}
+  type: 'Notebook',
+  getStreamId(id: EntityId): string {
+    return `nb.Notebook-${entityIdToString(id)}`
+  },
+})
 
 const notebooksCollection: Collection<ServiceLink> = {
   name: 'notebooks',
   aggregate: notebookAggregate,
-  matchesStream: (streamId) => streamId.startsWith('Notebook-'),
+  matchesStream: (streamId) => streamId.startsWith('nb.Notebook-'),
   // ... seed config
 }
 ```
 
+The streamId convention `${service}.${Type}-${id}` lets a stream identifier carry its service namespace explicitly — useful in multi-service apps so streamIds don't collide across services for entities sharing a type name. Consumers are free to pick a different convention; the library doesn't parse `streamId` itself.
+
 ---
 
-## 17.5 Scope
+## 15.5 Scope
 
 This specification covers standard (1:1 aggregate) collections.
 

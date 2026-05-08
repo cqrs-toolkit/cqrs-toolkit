@@ -1,6 +1,6 @@
-# 7\. Event Processors (Per-Collection Reducers with Local Lookups)
+# 8\. Event Processors (Per-Collection Reducers with Local Lookups)
 
-## 7.1 Purpose
+## 8.1 Purpose
 
 Event Processors are responsible for **transforming snapshots and events into read model records** stored in the Read Model Store.
 
@@ -16,7 +16,7 @@ Event Processors must support **authoritative updates** from the server and **op
 
 ---
 
-## 7.2 Responsibilities
+## 8.2 Responsibilities
 
 Event Processors are responsible for:
 
@@ -44,40 +44,57 @@ Event Processors must **never** perform network I/O.
 
 ---
 
-## 7.3 Processor interface (conceptual)
+## 8.3 Processor interface
 
-Each collection defines a processor with the following reducers:
+A processor is a function:
 
-- `reduceServer(record | null, permanentEvent) -> Result`
+```ts
+(event: TEvent, state: TModel | undefined, context: ProcessorContext) => ProcessorReturn<TModel>
+```
 
-- `reduceAnticipated(record | null, anticipatedEvent) -> Result`
+`state` is the current effective state of the affected record (`undefined` if no record exists yet — typically when the event creates a new entity).
 
-- `reduceStateful(record | null, statefulEvent) -> Result | { invalidate: true }`
+`context: ProcessorContext` carries:
 
-Where `record` may be `null` when:
+- `persistence: 'Permanent' | 'Stateful' | 'Anticipated'` — discriminates server-baseline events from optimistic / stateful events
 
-- the record does not yet exist
+- `commandId?: string` — set for Anticipated events
 
-- the event represents creation of a new entity
+- `revision?: bigint`, `position?: bigint` — set for Permanent events
 
-`Result` must be one of:
+- `streamId: string`, `eventId: string` — always present
 
-- `{ op: 'upsert', modified: boolean, value: T }`
+`ProcessorReturn<TModel>` is:
 
-- `{ op: 'delete' }`
+- `ProcessorResult<TModel>` — a single read-model update
 
-- `{ op: 'none' }`
+- `ProcessorResult<TModel>[]` — multiple updates (e.g., when one event affects several collections or records)
 
-Processors may also return:
+- `InvalidateSignal` (`{ invalidate: true }`) — the processor cannot apply the event; signal a refetch (see [§5.7](0005-sync-manager.md#57-stateful-event-handling))
 
-- `{ invalidate: true }`  
-  to signal that authoritative refetch is required
+- `undefined` — no-op (event ignored)
+
+`ProcessorResult<TModel>` carries `{ collection, id, update, isServerUpdate }`:
+
+- `collection: string` — target collection. A single processor invocation can return multiple `ProcessorResult`s (via the array return form) targeting different collections — a single event may legitimately touch several collections.
+
+- `id: EntityId` — entity ID being updated
+
+- `update: UpdateOperation<TModel>` — `{ type: 'set', data }`, `{ type: 'merge', data: Partial<TModel> }`, or `{ type: 'delete' }` (see [§7.5](0007-read-model-store.md#75-deletes-and-update-operations))
+
+- `isServerUpdate: boolean` — distinguishes baseline updates (from server snapshots or permanent events) from optimistic updates (from anticipated events)
+
+Processors are registered via `ProcessorRegistration { eventTypes, processor, persistenceTypes? }`:
+
+- `eventTypes: string | string[]` — event type(s) this processor handles
+
+- `persistenceTypes?: EventPersistence[]` — optional filter limiting the processor to specific persistence types (e.g., only `'Permanent'`)
 
 ---
 
-## 7.4 Creation semantics (authoritative and anticipated)
+## 8.4 Creation semantics (authoritative and anticipated)
 
-### 7.4.1 Authoritative creation
+### 8.4.1 Authoritative creation
 
 When a permanent server event represents creation of a new aggregate:
 
@@ -90,29 +107,27 @@ When a permanent server event represents creation of a new aggregate:
 
 ---
 
-### 7.4.2 Anticipated creation
+### 8.4.2 Anticipated creation
 
-When an anticipated event represents creation of a new aggregate:
+When an anticipated event represents creation of a new aggregate, the processor returns a `ProcessorResult` with:
 
-- the processor must be able to:
-  - create a **new cached record** from `record === null`
+- `update: { type: 'set', data: T }` — the optimistic entity record
 
-  - mark it as optimistic by:
-    - storing the authoritative baseline in `server` when available
+- `isServerUpdate: false`
 
-    - computing effective state in `data`
+The Read Model Store handles baseline/overlay storage per [§7.4](0007-read-model-store.md#74-server-baseline-vs-effective-overlay-semantics) — for a locally-created entity (no server confirmation yet), `serverData` is null and `effectiveData` carries the optimistic entity. `_clientMetadata` is populated from the command's `creates.idStrategy === 'temporary'` so the UI can maintain stable references through subsequent reconciliation (see [§7.3](0007-read-model-store.md#73-data-model-requirements) and [0014 §24.4](0014-entity-ref.md#144-id-strategy)).
 
-- anticipated-created records:
-  - may exist before any server snapshot or permanent event
+Anticipated-created records:
 
-  - must remain stable across reloads while the command is pending
+- may exist before any server snapshot or permanent event
 
-This is the primary reason for `dependsOn` in the Command Queue:  
-dependent commands may rely on the existence of optimistic records created by earlier commands.
+- must remain stable across reloads while the command is pending
+
+This is the primary reason for `dependsOn` in the Command Queue: dependent commands may rely on the existence of optimistic records created by earlier commands. The original intent required consumers to declare `dependsOn` manually for these entity references; implementation has since refined this into auto-wiring from `EntityRef.commandId` values in command data (see [§4.6.1](0004-command-queue.md#461-dependencies) and [0014 §14.6.1](0014-entity-ref.md#1461-automatic-dependson)) — the boilerplate is no longer required for entity references. Explicit `dependsOn` declarations remain available for non-EntityRef ordering constraints.
 
 ---
 
-## 7.5 Ordering and application rules
+## 8.5 Ordering and application rules
 
 For a given record or aggregate stream, processors must apply inputs in the following order:
 
@@ -140,14 +155,14 @@ Rules:
 
 ---
 
-## 7.6 Interaction with dependencies (`dependsOn`)
+## 8.6 Interaction with dependencies (`dependsOn`)
 
-- `dependsOn` ordering is enforced by the Command Queue.
+- `dependsOn` ordering is enforced by the Command Queue. The library auto-wires `dependsOn` from `EntityRef.commandId` values in command data (see [§4.6.1](0004-command-queue.md#461-dependencies)); explicit consumer declarations remain available for non-EntityRef ordering constraints.
 
 - Event Processors may assume:
   - anticipated events arrive in dependency-safe order
 
-  - a dependent command’s anticipated events will not be applied before its prerequisites
+  - a dependent command's anticipated events will not be applied before its prerequisites
 
 - Processors must **not** perform dependency resolution themselves.
 
@@ -155,7 +170,7 @@ This allows processors to safely assume that optimistic records required by late
 
 ---
 
-## 7.7 Stateful event handling
+## 8.7 Stateful event handling
 
 Stateful events:
 
@@ -173,7 +188,7 @@ Stateful application must never corrupt effective state.
 
 ---
 
-## 7.8 Atomicity and consistency
+## 8.8 Atomicity and consistency
 
 Processors must preserve consistency across:
 
@@ -193,7 +208,7 @@ Requirements:
 
 ---
 
-## 7.9 Interaction with cache eviction
+## 8.9 Interaction with cache eviction
 
 - Processors must tolerate missing baselines due to eviction.
 
@@ -204,7 +219,7 @@ Requirements:
 
 ---
 
-## 7.10 Session reset handling
+## 8.10 Session reset handling
 
 On session reset (user identity change):
 
@@ -216,7 +231,7 @@ On session reset (user identity change):
 
 ---
 
-## 7.11 Failure and recovery guarantees
+## 8.11 Failure and recovery guarantees
 
 Event Processors must ensure:
 

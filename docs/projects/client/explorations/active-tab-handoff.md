@@ -1,17 +1,8 @@
-# 13\. Exploration Notes
+# Active tab handoff for non-SharedWorker contexts
 
-This section documents design alternatives under consideration that have not yet been committed to in the rest of the specification.
+## Context
 
----
-
-## 13.1 Active Tab Handoff for Non-SharedWorker Contexts
-
-**Status:** Under evaluation
-
-### 13.1.1 Problem statement
-
-On platforms without SharedWorker support (Safari desktop, Firefox Android), the current specification enforces single-tab operation.
-Users attempting to open a second tab are blocked with a modal indicating another tab is already open.
+On platforms where Stage 1 mode detection returns Mode B (DedicatedWorker — no SharedWorker support, e.g. Chrome for Android, Samsung Internet), the current specification enforces single-tab operation via [tab lock](../intent/requirements/0001-modes-and-constraints.md#115-mode-b--dedicated-worker). Users attempting to open a second tab are blocked with a modal indicating another tab is already open.
 
 This provides correct behavior but poor user experience:
 
@@ -19,7 +10,9 @@ This provides correct behavior but poor user experience:
 - Users cannot have multiple views open simultaneously
 - Accidentally opening a second tab requires manual resolution
 
-### 13.1.2 Proposed alternative: Active tab handoff
+Surfaced from the original spec's §13 "Exploration Notes" section — its single subsection (Active Tab Handoff) became this file (`active-tab-handoff.md`) when the section was [retired during the castle migration](../evolution/_overview.md#2026-05-04--castle-migration-requirements-wing-with-renumbering-and-content-restructure) on the determination that exploration content doesn't belong in [`intent/requirements/`](../intent/requirements/).
+
+## Proposed alternative: active tab handoff
 
 Instead of blocking additional tabs, allow multiple tabs with **explicit handoff of database ownership** based on which tab is currently active (focused).
 
@@ -30,7 +23,7 @@ Core principles:
 - When the user switches tabs, ownership transfers to the newly active tab
 - If automatic handoff fails, the user manually resumes via a button
 
-### 13.1.3 Handoff sequence
+## Handoff sequence
 
 ```
 Tab A (active, owns DB)              Tab B (background, suspended)
@@ -61,7 +54,7 @@ broadcast("db-released") ──────────────────�
  in this tab"]
 ```
 
-### 13.1.4 Timeout and manual recovery
+## Timeout and manual recovery
 
 If the handoff does not complete within a configured timeout (e.g., 5 seconds for automatic, 60 seconds before forcing user action):
 
@@ -97,7 +90,7 @@ async function attemptHandoff(): Promise<HandoffResult> {
 }
 ```
 
-### 13.1.5 Suspended tab behavior
+## Suspended tab behavior
 
 A tab in suspended state:
 
@@ -106,21 +99,16 @@ A tab in suspended state:
 - Does not perform any database writes
 - May optionally show a "Make this tab active" button
 
-### 13.1.6 Known edge cases requiring resolution
+## Known edge cases requiring resolution
 
 1. **Tab closes during handoff** — Other tabs must detect via heartbeat timeout and allow claiming
-
 2. **Rapid tab switching** — Need debouncing; switching A→B→A within 500ms should not trigger full handoff
-
 3. **Split screen / multi-window on tablets** — Two tabs may be "visible" simultaneously; need tiebreaker (most recent focus event)
-
 4. **Browser kills background tab** — Tab A loses focus, begins handoff, browser terminates it before broadcast completes; Tab B never receives release signal
-
 5. **Network request in flight** — Mutation HTTP request sent, tab loses focus, response returns to suspended tab
-
 6. **PWA vs browser mode** — Visibility semantics may differ
 
-### 13.1.7 Implementation complexity assessment
+## Implementation complexity assessment
 
 | Component                     | Complexity | Notes                          |
 | ----------------------------- | ---------- | ------------------------------ |
@@ -130,10 +118,9 @@ A tab in suspended state:
 | UI suspend/resume states      | Medium     | Overlay, disabled interactions |
 | Edge case handling            | High       | Many failure modes to handle   |
 
-**Overall assessment:** High complexity with significant edge case surface area.
-Recommend prototyping before committing to this approach.
+**Overall assessment:** High complexity with significant edge case surface area. Recommend prototyping before committing to this approach.
 
-### 13.1.8 Decision criteria
+## Decision criteria
 
 This approach should be adopted if:
 
@@ -147,7 +134,6 @@ This approach should be rejected if:
 - Complexity exceeds the UX benefit
 - Alternative solutions (e.g., better single-tab UX) prove sufficient
 
-### 13.1.9 Current status
+## Status
 
-The rest of this specification assumes **single-tab enforcement** for non-SharedWorker contexts.
-If this exploration concludes favorably, Modes C and D in §0.1 will be updated to support active tab handoff as an alternative to tab blocking.
+Open. The rest of the spec assumes single-tab enforcement (tab lock) for Mode B. If this exploration concludes favorably, Mode B's single-tab enforcement in [`§1.1.5`](../intent/requirements/0001-modes-and-constraints.md#115-mode-b--dedicated-worker) will be updated to support active tab handoff as an alternative to tab blocking.

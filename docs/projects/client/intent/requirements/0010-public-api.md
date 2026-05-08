@@ -1,14 +1,11 @@
-# 9\. Eventing and Public API Surface
+# 10\. Eventing and Public API Surface
 
-## 9.1 Design principles
+## 10.1 Design principles
 
 The CQRS Client event system follows these principles:
 
 - **Events signal change, not state**  
-  Events indicate that _something may have changed_; consumers must re-query to obtain current state.
-
-- **Pull-based data access**  
-  UI and application code never derive state from events.
+  Events indicate that _something may have changed_; consumers can re-query to obtain current state, or subscribe to event streams (or the Observable helpers exposed by the Query Manager) to react to updates directly. Push and pull are both first-class consumption patterns and combine naturally — see [`0009 §9.4`](0009-query-manager.md#94-query-model).
 
 - **Stable public surface**  
   Public APIs are identical across online-only and offline-support modes.
@@ -18,7 +15,7 @@ The CQRS Client event system follows these principles:
 
 ---
 
-## 9.2 Public modules
+## 10.2 Public modules
 
 The CQRS Client exposes the following modules as independent public interfaces:
 
@@ -40,30 +37,22 @@ The following modules are internal implementation details and not consumed direc
 
 ---
 
-## 9.3 Event categories
+## 10.3 Event categories
 
 Library events are grouped by responsibility.
 All events are **fire-and-forget** and **non-authoritative**.
 
 ---
 
-### 9.3.1 Session and connectivity events
+### 10.3.1 Session and connectivity events
 
 Emitted by the Sync Manager / Connectivity Manager:
 
-- `SessionInitialized`
-  - emitted when a persisted session is loaded at startup
+- `SessionChanged { userId, isNew: boolean }` — emitted when authentication is signaled and the session is established (`isNew: true`) or resumed (`isNew: false`).
 
-- `SessionReset`
-  - emitted after a full local data wipe due to user identity change
+- `SessionDestroyed { reason: 'user-changed' | 'explicit' | 'storage-error' }` — emitted on session destruction. The `reason` discriminator carries user-mismatch (after a full local data wipe due to user identity change), explicit logout, and storage-failure cases. Consumers can subscribe for UX prompts (e.g. "you were logged in as X").
 
-- `AuthenticationConfirmed`
-  - emitted when the app signals valid authentication
-
-- `ConnectivityStatusChanged`
-  - payload: `{ online: boolean }`
-
-  - emitted when network reachability changes
+- `ConnectivityChanged { online: boolean }` — emitted when network reachability changes.
 
 These events allow the application to:
 
@@ -75,7 +64,7 @@ These events allow the application to:
 
 ---
 
-### 9.3.2 Cache Manager events
+### 10.3.2 Cache Manager events
 
 Emitted by the Cache Manager:
 
@@ -85,40 +74,60 @@ Emitted by the Cache Manager:
 
 - `CacheKeyFrozenChanged`
 
-- `CacheKeyEvicted`
+- `CacheKeyEvicted` *(runtime key: `cache:evicted` — no `key-` infix)*
+
+- `CacheKeyReconciled` — emitted when EntityRef-driven reconciliation updates a cache key's identity (see [`0003 §3.2.4`](0003-cache-manager.md#324-entityref-driven-inputs-and-reconciliation)).
+
+- `CacheSeedSettled` — emitted per cache key when all matching collections have settled.
 
 - `CacheQuotaLow`
+
+- `CacheQuotaCritical`
+
+- `TooManyWindowsOpen`
+
+- `CacheSessionReset`
 
 These events signal cache lifecycle changes only.
 Consumers must not assume data availability from them directly.
 
 ---
 
-### 9.3.3 Sync lifecycle events
+### 10.3.3 Sync lifecycle events
 
 Emitted by the Sync Manager:
 
-- `CollectionSeedStarted`
+- `SyncStarted { collection }`
 
-- `CollectionSeedCompleted`
+- `SyncCompleted { collection, eventCount }`
 
-- `SubscriptionStatusChanged`
+- `SyncFailed { collection, error }`
 
-- `GapDetected`
+- `SyncSeedCompleted { collection, recordCount }`
 
-- `GapRepairStarted`
+- `SubscriptionStatusChanged` *(intent; no landed equivalent yet)*
 
-- `GapRepairCompleted`
+- `SyncGapDetected { streamId, expected, received }`
 
-- `StatefulInvalidateScheduled`
+- `SyncGapRepairStarted { streamId, fromRevision }`
 
-- `StatefulRefetchCompleted`
+- `SyncGapRepairCompleted { streamId, eventCount }`
+
+- `SyncInvalidateRequested` — invalidation request received for a `(collection, cacheKey)` pair (see [`0005 §5.7`](0005-sync-manager.md#57-stateful-event-handling)).
+
+- `SyncRefetchScheduled { collection, debounceMs }` — debounced refetch scheduled.
+
+- `SyncRefetchExecuted` — refetch executed.
+
+- `SyncWsEventReceived` — WebSocket event observed.
+
+- `SyncWsEventProcessed` — WebSocket event applied to the read model.
 
 These events are primarily used as **readiness and invalidation signals** for UI orchestration.
 
 ---
 
-### 9.3.4 Command Queue events
+### 10.3.4 Command Queue events
 
 Emitted by the Command Queue:
 
@@ -126,36 +135,42 @@ Emitted by the Command Queue:
 
 - `CommandStatusChanged`
 
-- `CommandSucceeded`
+- `CommandCompleted` — emitted on success.
 
 - `CommandFailed`
 
 - `CommandCancelled`
 
+- `CommandSent` — emitted when a command is dispatched to the server (after dependencies are satisfied, before the response arrives).
+
+- `CommandResponse` — emitted when a server response arrives for a sent command.
+
+- `CommandQueuePaused` *(runtime key: `commandqueue:paused` — namespace is `commandqueue:`, not `command:`)*
+
+- `CommandQueueResumed` *(runtime key: `commandqueue:resumed` — namespace is `commandqueue:`, not `command:`)*
+
 These events signal command lifecycle changes only.
 Consumers must query command state explicitly if needed.
 
+The terminal event types (`CommandCompleted`, `CommandFailed`, `CommandCancelled`) fire after post-processing completes; a `CommandStatusChanged` event whose status is terminal fires before post-processing. See [`0004 §4.12`](0004-command-queue.md#412-events) for the timing nuance.
+
 ---
 
-### 9.3.5 Read model events
+### 10.3.5 Read model events
 
 Emitted when read model data may have changed:
 
-- `ReadModelUpdated`
-  - payload includes:
-    - `collectionName`
+- `ReadModelUpdated` — payload `{ collection, ids, commandIds }`. Emitted when one or more records in a collection have been updated; `ids` carries the affected entity IDs and `commandIds` carries the originating command IDs.
 
-    - optional `cacheKey`
+- `ReadModelIdReconciled` — emitted when a temp-ID has been reconciled to a server-assigned ID. Carries the mapping for consumers tracking entity identity through reconciliation (see [`0014 §14.4`](0014-entity-ref.md#144-id-strategy)).
 
-- `ReadModelEvicted`
-  - payload includes:
-    - `cacheKey`
+- `ReadModelEvicted { cacheKey }` *(intent; no landed equivalent — eviction is currently signaled via `CacheKeyEvicted` in [§10.3.2](#1032-cache-manager-events))*
 
 These events are the primary invalidation signals for UI data refresh.
 
 ---
 
-## 9.4 Event delivery guarantees
+## 10.4 Event delivery guarantees
 
 - Events are **best-effort**.
 
@@ -175,13 +190,13 @@ No event is guaranteed to correspond 1:1 with a state change.
 
 ---
 
-## 9.5 Public API shape
+## 10.5 Public API shape
 
 Each public module exposes:
 
-- **imperative async methods** (Promises)
+- **imperative async methods** (Promises) for operations
 
-- **event emitter** for lifecycle notifications
+- **lifecycle notifications** as event subscriptions
 
 Example (conceptual):
 
@@ -191,29 +206,31 @@ queryManager.getById(...)
 commandQueue.enqueue(...)
 ```
 
-RxJS integration is achieved by adapting event emitters, not by exposing RxJS directly.
+The intent is an event subscription shape that doesn't force consumers to import a specific reactive library. UI libraries already provide their own subscription primitives (Solid signals, Svelte stores, etc.); the spec prefers an emitter / native-events shape that adapts naturally to whatever the consumer's UI layer uses.
+
+Current implementation diverges: a single central EventBus exposes events as RxJS Observables (`eventBus.on('cache:key-added').subscribe(...)`), and modules emit through it rather than offering per-module emitters. RxJS was reused because the library already depended on it; whether to change the surface to match the spec's native-events intent, or expand the impl to offer both, is unresolved.
 
 ---
 
-## 9.6 Offline-support mode boundary
+## 10.6 Offline-support mode boundary
 
 In offline modes, each public module has:
 
-- a **window-side proxy** (for worker-based modes)
+- a **main thread-side proxy** (for worker-based modes)
 
-- a **storage worker implementation** (SharedWorker, Dedicated Worker, or main thread)
+- a **storage worker implementation** (SharedWorker, Dedicated Worker, or main thread depending on platform)
 
-### 9.6.1 Multi-tab mode (SharedWorker)
+### 10.6.1 Multi-tab mode (SharedWorker — Mode C)
 
 - Communication occurs via MessagePort protocols.
 
-- Only the SharedWorker writes to SQLite.
+- The SharedWorker hosts the execution stack (Sync Manager, Command Queue, Event Processors) and routes SQLite reads and writes to the active tab's DedicatedWorker (see [0001 §1.1.4](0001-modes-and-constraints.md#114-mode-c--shared-worker)). The SharedWorker itself does not touch OPFS or SQLite directly.
 
-- All connected tabs share a single worker instance.
+- All connected tabs share a single SharedWorker instance.
 
-- Windows query data via requests to the SharedWorker.
+- Main thread contexts query data via requests to the SharedWorker.
 
-### 9.6.2 Single-tab mode (Dedicated Worker)
+### 10.6.2 Single-tab mode (Dedicated Worker — Mode B)
 
 - Communication occurs via `postMessage` protocols.
 
@@ -221,21 +238,25 @@ In offline modes, each public module has:
 
 - Tab lock ensures single-tab exclusivity.
 
-- Windows query data via requests to the Dedicated Worker.
+- Main thread contexts query data via requests to the Dedicated Worker.
 
-### 9.6.3 Single-tab mode (main thread)
+### 10.6.3 Online-only mode (Mode A — main thread)
 
-- No message passing required; direct function calls.
+- The execution stack runs on the main thread alongside the rest of the app (see [0001 §1.1.8](0001-modes-and-constraints.md#118-execution-stack-topology)).
 
-- All operations occur on the main thread.
+- No tab lock — multiple tabs may run concurrently, each with its own independent in-memory state.
 
-- Tab lock ensures single-tab exclusivity.
+- All APIs are direct function calls (no message passing).
+
+- No persistent storage — state lives in plain JS data structures via the `InMemoryStorage` implementation of `IStorage` (see [0001 §1.1.1](0001-modes-and-constraints.md#111-mode-a--online-only)).
+
+- Restarts (page reload, hard navigation) reset all client state.
 
 ---
 
-## 9.7 Window identity and lifecycle
+## 10.7 Window identity and lifecycle
 
-### 9.7.1 Multi-tab mode
+### 10.7.1 Multi-tab mode
 
 - Each window/tab must generate a unique `windowId` at startup.
 
@@ -251,7 +272,7 @@ In offline modes, each public module has:
 
   - exists only for runtime coordination
 
-### 9.7.2 Single-tab modes
+### 10.7.2 Single-tab modes
 
 - `windowId` coordination is not required (only one window exists).
 
@@ -261,7 +282,7 @@ In offline modes, each public module has:
 
 ---
 
-## 9.8 Failure and recovery guarantees
+## 10.8 Failure and recovery guarantees
 
 The eventing and API layer must ensure:
 

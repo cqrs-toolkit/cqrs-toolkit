@@ -2,7 +2,7 @@
  * Dual-indexed seed status tracking for (collection, cacheKey) pairs.
  *
  * The Sync Manager needs to look up status from two directions:
- * - **By cache key**: Cache key lifecycle events (§4.2.1) drive seeding and cleanup.
+ * - **By cache key**: Cache key lifecycle events (§5.2.1) drive seeding and cleanup.
  *   `CacheKeyAdded` → seed all collections for that key.
  *   `CacheKeyEvicted` → stop sync and delete metadata for that key.
  * - **By collection**: WS event routing needs all active cache keys for a collection,

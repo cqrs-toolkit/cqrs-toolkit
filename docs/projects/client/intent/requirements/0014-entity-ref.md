@@ -1,6 +1,6 @@
-# 15\. EntityRef (Client-Side Entity Lifecycle Tracking)
+# 14\. EntityRef (Client-Side Entity Lifecycle Tracking)
 
-## 15.1 Purpose
+## 14.1 Purpose
 
 EntityRef makes entity lifecycle state visible **in read model data** for locally-created entities whose IDs are pending server confirmation.
 
@@ -18,7 +18,7 @@ EntityRef enables:
 
 ---
 
-## 15.2 Core types
+## 14.2 Core types
 
 ```typescript
 /**
@@ -32,13 +32,13 @@ EntityRef enables:
  */
 interface EntityRef {
   /** Discriminant for runtime identification. */
-  __entityRef: true
-  /** The current entity ID (client-generated temporary). */
-  entityId: string
+  readonly __entityRef: true
+  /** The current entity ID (client-generated). */
+  readonly entityId: string
   /** The command that created this entity. */
-  commandId: string
+  readonly commandId: string
   /** Whether the server will replace this ID. */
-  idStrategy: 'temporary' | 'permanent'
+  readonly idStrategy: 'temporary' | 'permanent'
 }
 
 /**
@@ -46,26 +46,26 @@ interface EntityRef {
  * Plain string for server-confirmed entities.
  * EntityRef for locally-created entities with pending IDs.
  */
-type ID = string | EntityRef
+type EntityId = string | EntityRef
 
 /** Type guard for EntityRef values. */
 function isEntityRef(value: unknown): value is EntityRef
 
-/** Extract the plain string ID from an ID value. */
-function idToString(id: ID): string
+/** Extract the plain string ID from an EntityId value. */
+function entityIdToString(id: EntityId): string
 ```
 
-Consumer read model types use `ID` for all entity identity fields:
+Consumer read model types use `EntityId` for all entity identity fields:
 
 ```typescript
 interface Notebook {
-  id: ID
+  id: EntityId
   title: string
 }
 
 interface Note {
-  id: ID
-  notebookId: ID
+  id: EntityId
+  notebookId: EntityId
   title: string
   body: string
 }
@@ -73,9 +73,9 @@ interface Note {
 
 ---
 
-## 15.3 Lifecycle
+## 14.3 Lifecycle
 
-### 15.3.1 Entity creation via anticipated events
+### 14.3.1 Entity creation via anticipated events
 
 When a create command is enqueued and anticipated events produce read model entries, ID fields are hydrated as `EntityRef` objects:
 
@@ -87,7 +87,7 @@ When a create command is enqueued and anticipated events produce read model entr
 }
 ```
 
-### 15.3.2 Parent references in child entities
+### 14.3.2 Parent references in child entities
 
 When a child entity references a parent that was also locally created, the parent ID field carries the parent's `EntityRef`:
 
@@ -100,7 +100,7 @@ When a child entity references a parent that was also locally created, the paren
 }
 ```
 
-### 15.3.3 Server confirmation
+### 14.3.3 Server confirmation
 
 When the creating command succeeds:
 
@@ -119,7 +119,7 @@ When the creating command succeeds:
 }
 ```
 
-### 15.3.4 Deep graph cascade
+### 14.3.4 Deep graph cascade
 
 For entity graphs of arbitrary depth, reconciliation cascades top-down through the Command Queue's dependency and rewrite machinery.
 At each level, the parent reference transitions from `EntityRef` to `string` as the parent's command completes.
@@ -127,15 +127,15 @@ No consumer-side wiring is needed — the cascade is automatic.
 
 ---
 
-## 15.4 ID strategy
+## 14.4 ID strategy
 
-### 15.4.1 Temporary IDs
+### 14.4.1 Temporary IDs
 
 When `idStrategy === 'temporary'`, the client-generated ID is a placeholder.
 The server assigns the permanent ID on confirmation.
 The cache key system must reconcile the old temporary ID to the new server-assigned ID.
 
-### 15.4.2 Permanent IDs
+### 14.4.2 Permanent IDs
 
 When `idStrategy === 'permanent'`, the client-generated ID is the final ID.
 The `EntityRef` still carries lifecycle metadata — the command has not completed and the server has not confirmed.
@@ -145,13 +145,13 @@ The cache key system must treat permanent-strategy `EntityRef` values as stable 
 
 ---
 
-## 15.5 Boundaries
+## 14.5 Boundaries
 
-### 15.5.1 EntityRef in anticipated events
+### 14.5.1 EntityRef in anticipated events
 
 EntityRef values flow into anticipated events naturally through the handler.
 
-At enqueue, EntityRef values are stripped from command data for validation (§15.5.2).
+At enqueue, EntityRef values are stripped from command data for validation ([§14.5.2](#1452-command-submission-entityref-extraction-point)).
 After validation, EntityRef values are re-injected into the command data before the handler runs.
 The handler produces anticipated events that carry EntityRef values in parent reference fields.
 The event processor receives these values and maps them to read model fields — the library makes no assumptions about field name correspondence between command data and read model data.
@@ -166,7 +166,7 @@ The library does not inject or transform parent reference fields — the process
 Server events always produce plain string IDs.
 `EntityRef` must never appear in server-seeded read model data.
 
-### 15.5.2 Command submission (EntityRef extraction point)
+### 14.5.2 Command submission (EntityRef extraction point)
 
 When the consumer submits a command, they pass read model ID values directly:
 
@@ -184,7 +184,7 @@ client.submit({
 At the enqueue boundary, the library must:
 
 1. Walk the command data fields and identify `EntityRef` values.
-2. Extract them into a separate `entityRefData` map stored on the command record.
+2. Extract them into a separate `commandIdPaths` map stored on the command record.
 3. Replace them with plain `entityId` strings in the command data.
 4. Run validation (schema, validate, validateAsync) on the stripped data.
 5. Re-inject EntityRef values into the command data before the handler runs.
@@ -199,17 +199,17 @@ Library splits at enqueue:
   command.data (for validation):  { notebookId: 'nb-1', title: 'hello' }
   command.data (for handler):     { notebookId: EntityRef{ ... }, title: 'hello' }
   command.data (for server):      { notebookId: 'nb-1', title: 'hello' }
-  command.entityRefData:          { '$.notebookId': EntityRef{ ... } }
+  command.commandIdPaths:         { '$.notebookId': EntityRef{ ... } }
 ```
 
 Validation and the server see plain strings.
 The handler sees EntityRef values so anticipated events carry lifecycle metadata.
-`entityRefData` is library-internal metadata on the command record, used for re-injection and stored for reconciliation.
+`commandIdPaths` is library-internal metadata on the command record, used for re-injection and stored for reconciliation.
 
-#### entityRefData
+#### commandIdPaths
 
-`entityRefData` is a `Record<string, EntityRef>`.
-Each key is a JSONPath expression (see §15.5.2.1) addressing a location in the command data.
+`commandIdPaths` is a `Record<JSONPathExpression, EntityRef>`.
+Each key is a JSONPath expression (see [§14.5.2.1](#14521-entity-ref-path-expressions)) addressing a location in the command data.
 Each value is the `EntityRef` found at that location.
 
 All keys use JSONPath syntax with the `$` root identifier, regardless of depth.
@@ -232,9 +232,9 @@ Declared path extraction (nested and array structures):
 }
 ```
 
-Re-injection uses these paths to restore `EntityRef` values into command data before the handler runs (§15.5.2 step 5).
+Re-injection uses these paths to restore `EntityRef` values into command data before the handler runs ([§14.5.2](#1452-command-submission-entityref-extraction-point) step 5).
 
-#### 15.5.2.1 Entity ref path expressions
+#### 14.5.2.1 Entity ref path expressions
 
 Path expressions implement a subset of JSONPath (RFC 9535).
 Only structural access operators are supported — no query, filter, or selection operators.
@@ -247,24 +247,41 @@ Supported RFC 9535 operators:
 | Dot member        | `.name`    | Object property access                                                       |
 | Bracket member    | `['name']` | Object property access for field names containing dots or special characters |
 | Wildcard selector | `[*]`      | Iterate all elements of an array (declaration paths only)                    |
-| Index selector    | `[n]`      | Access a specific array element (extracted `entityRefData` output only)      |
+| Index selector    | `[n]`      | Access a specific array element (extracted `commandIdPaths` output only)     |
 
 Not supported: slice (`[start:end]`), union (`[a,b]`), recursive descent (`..`), filter (`[?()]`).
 
-`entityRefPaths` on a command handler registration declares paths where `EntityRef` values may appear in nested or array structures.
-Declaration paths use `[*]` for array traversal.
+These rules apply to two surfaces where consumers declare paths into command or scope data:
+
+- **`commandIdReferences`** on a command handler registration — declares JSONPath positions of entity IDs in command data, paired with the aggregate each ID belongs to. Handler registrations always use this richer form so the reconciliation system has the aggregate context it needs to walk both directions of the id-mapping (see [0015 §15.2.2](0015-aggregate-config.md#152-types) for the `IdReference` shape).
+
+  ```typescript
+  {
+    commandType: 'CreateProjectFromTemplate',
+    commandIdReferences: [
+      { aggregate: FormAggregate, path: '$.forms[*].id' },
+      { aggregate: OrgAggregate, path: '$.metadata.orgId' },
+      { aggregate: ItemAggregate, path: '$.sections[*].items[*].parentId' },
+    ],
+  }
+  ```
+
+- **`entityRefPaths`** on a `ScopeCacheKeyTemplate` — declares JSONPath positions where `EntityRef` values may appear in nested or array `scopeParams` structures. Cache keys don't need aggregate associations at this layer (the `EntityRef` itself carries the relevant `commandId`), so the simpler string-array form is sufficient.
+
+  ```typescript
+  {
+    kind: 'scope',
+    scopeType: 'home-task-list',
+    scopeParams: { /* may contain EntityRef values nested inside */ },
+    entityRefPaths: ['$.filter.orgId', '$.items[*].parentId'],
+  }
+  ```
+
+Declaration paths use `[*]` for array traversal in both forms.
 Multiple `[*]` segments may appear in a single path for nested arrays.
+The library resolves declaration paths against the data at extraction time, expanding `[*]` to concrete `[n]` indices for each matched element.
 
-```typescript
-{
-  commandType: 'CreateProjectFromTemplate',
-  entityRefPaths: ['$.forms[*].id', '$.metadata.orgId', '$.sections[*].items[*].parentId'],
-}
-```
-
-The library must resolve declaration paths against command data at extraction time, expanding `[*]` to concrete `[n]` indices for each matched element.
-
-### 15.5.3 Handlers and validation
+### 14.5.3 Handlers and validation
 
 Schema validation (Zod), `validate`, and `validateAsync` receive plain string data — EntityRef values are stripped before validation runs.
 
@@ -272,7 +289,7 @@ Command handlers receive re-injected data with EntityRef values in parent refere
 The handler passes these values through to anticipated event data.
 Handlers must not interpolate EntityRef values into strings (e.g., streamIds) — use the entity's own ID from `createEntityId(context)` for streamId construction.
 
-### 15.5.4 Submit result enrichment
+### 14.5.4 Submit result enrichment
 
 When a command creates entities, the submit result must surface the created entity IDs so the consumer has them immediately without a separate query.
 
@@ -280,7 +297,7 @@ For single-entity creates (the common case):
 
 ```typescript
 const result = await client.submit({ command, cacheKey })
-// result.value.created — the EntityRef for the created entity
+// result.value.entityRef — the EntityRef for the created entity
 ```
 
 For commands that create multiple entities, the consumer must be able to read all created entity IDs.
@@ -288,7 +305,7 @@ For commands that create multiple entities, the consumer must be able to read al
 The existing `getCommandEntities(commandId, collection)` method already provides this for the multi-entity case.
 The submit result enrichment adds the primary created entity for ergonomics — it does not replace `getCommandEntities` for commands that produce multiple entities.
 
-### 15.5.5 Cache key derivation
+### 14.5.5 Cache key derivation
 
 When `registerCacheKey` receives identity fields containing `EntityRef` values:
 
@@ -298,28 +315,28 @@ When `registerCacheKey` receives identity fields containing `EntityRef` values:
 The cache key system auto-wires reconciliation from the embedded metadata.
 No separate pending-ID mapping or pending-mappings parameter is needed.
 
-### 15.5.6 Three-way merge
+### 14.5.6 Three-way merge
 
 Field-level diffing via `JSON.stringify` correctly distinguishes `EntityRef` from a plain string for the same logical ID.
 When server data arrives with `orgId: 'org-srv-1'` and local data has `orgId: EntityRef{entityId: 'org-1'}`, the merge must prefer the server value.
 
 ---
 
-## 15.6 Derived automation
+## 14.6 Derived automation
 
-### 15.6.1 Automatic `dependsOn`
+### 14.6.1 Automatic `dependsOn`
 
-When `entityRefData` contains `EntityRef` values, the library must automatically add their `commandId` entries to the command's `dependsOn` list.
+When `commandIdPaths` contains `EntityRef` values, the library must automatically add their `commandId` entries to the command's `dependsOn` list.
 Explicit `dependsOn` for parent references is unnecessary.
 
-### 15.6.2 Automatic field rewriting
+### 14.6.2 Automatic field rewriting
 
 The field rewriting system walks each command's declared `commandIdReferences` paths, matching resolved client IDs to server IDs from the idMap.
 The `commandId` on the original `EntityRef` is the direct link to the producing create command — no separate config for cross-aggregate parent references or `fromCommand` type-matching is needed.
 
 ---
 
-## 15.7 URL encoding
+## 14.7 URL encoding
 
 `EntityRef` values are encoded for URL parameters using a prefix and base64:
 
@@ -332,11 +349,11 @@ The `x_` prefix distinguishes encoded `EntityRef` from plain IDs.
 The library exports encode/decode helpers for URL parameter handling:
 
 ```typescript
-/** Encode an ID value for use in a URL parameter. */
-function encodeIdParam(id: ID): string
+/** Encode an EntityId value for use in a URL parameter. */
+function encodeIdParam(id: EntityId): string
 
-/** Decode a URL parameter back to an ID value. */
-function decodeIdParam(param: string): ID
+/** Decode a URL parameter back to an EntityId value. */
+function decodeIdParam(param: string): EntityId
 ```
 
 When the server ID arrives, the URL can be updated to the clean server ID.
@@ -344,24 +361,24 @@ If the user refreshes with an `EntityRef`-encoded URL, the decoded `EntityRef` p
 
 ---
 
-## 15.8 Consumer utilities
+## 14.8 Consumer utilities
 
-### 15.8.1 `idToString(id: ID): string`
+### 14.8.1 `entityIdToString(id: EntityId): string`
 
 Extracts the plain `entityId` string from an `EntityRef`, or returns the string as-is.
 Used when the consumer needs a raw string for filtering, comparison, or display.
 
 ```typescript
 // Comparison
-notebooks.items.find(n => idToString(n.id) === idToString(selectedId))
+notebooks.items.find(n => entityIdToString(n.id) === entityIdToString(selectedId))
 
 // Display
-<span>{idToString(notebook.id)}</span>
+<span>{entityIdToString(notebook.id)}</span>
 ```
 
 ---
 
-## 15.9 Serialization
+## 14.9 Serialization
 
 Read model data is stored as JSON.
 `EntityRef` objects serialize naturally.
@@ -369,34 +386,34 @@ When read model data is deserialized from storage, the system must recognize obj
 
 ---
 
-## 15.10 Framework integration (Solid)
+## 14.10 Framework integration (Solid)
 
-### 15.10.1 List query store keying
+### 14.10.1 List query store keying
 
 Solid's `reconcile()` with `key: 'id'` uses strict equality on the `id` field value.
 `EntityRef` objects break this because different object references are not `===` equal.
 
 The `createListQuery` primitive must handle this by:
 
-1. Injecting a `_id: string` field on each item (always `idToString(item.id)`).
+1. Injecting a `_id: string` field on each item (always `entityIdToString(item.id)`).
 2. Using `key: '_id'` in the `reconcile` call.
 
 Consumer components are unaffected — `<For each={query.items}>` works as before.
 
-### 15.10.2 Pending and reconciled detection
+### 14.10.2 Pending and reconciled detection
 
 List queries must detect **pending** items (where `id` is an `EntityRef`) in addition to already-reconciled items (where `_clientMetadata.clientId` differs from the current `id`).
 
 ---
 
-## 15.11 Hypermedia client
+## 14.11 Hypermedia client
 
 The hypermedia client has schema knowledge from API documentation.
 It knows which fields are entity ID references from schema annotations.
 This allows it to:
 
 - Automatically hydrate ID fields to `EntityRef` when building read models from anticipated events.
-- Automatically extract `entityRefData` when the consumer submits commands.
+- Automatically extract `commandIdPaths` when the consumer submits commands.
 - Handle schema validation transparently (schemas expect string IDs, `EntityRef` is extracted before validation).
 
 Consumers of the hypermedia client never interact with `EntityRef` directly — the client handles the lifecycle transparently for properly documented ID properties.

@@ -5,7 +5,7 @@
  * components. The main thread gets proxy objects for CommandQueue,
  * QueryManager, CacheManager, and SyncManager.
  *
- * Tab lock is enforced via the Web Locks API on the main thread (spec §0.1.5):
+ * Tab lock is enforced via the Web Locks API on the main thread (spec §1.1.5):
  * the lock is acquired BEFORE spawning the worker, preventing multi-tab races.
  * Web Locks auto-release on page unload — no beforeunload handler needed.
  */
@@ -152,7 +152,7 @@ export class DedicatedWorkerAdapter<
     this._status = 'initializing'
 
     try {
-      // 1. Acquire tab lock via Web Locks on main thread (spec §0.1.5)
+      // 1. Acquire tab lock via Web Locks on main thread (spec §1.1.5)
       const lockAcquired = await acquireTabLock()
       if (!lockAcquired) {
         throw new TabLockError(
@@ -267,7 +267,7 @@ export class DedicatedWorkerAdapter<
 }
 
 // ---------------------------------------------------------------------------
-// Web Locks tab lock (spec §0.1.5)
+// Web Locks tab lock (spec §1.1.5)
 // ---------------------------------------------------------------------------
 
 /**

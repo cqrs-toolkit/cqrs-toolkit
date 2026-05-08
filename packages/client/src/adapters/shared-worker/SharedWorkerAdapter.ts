@@ -36,9 +36,9 @@ import { SyncManagerProxy } from '../proxy/SyncManagerProxy.js'
 import { OpfsUnavailableException } from '../worker-core/probeOpfs.js'
 
 /**
- * CacheManagerProxy subclass that tracks held keys window-side (spec §10.6.3).
+ * CacheManagerProxy subclass that tracks held keys window-side (spec §21.6.3).
  * The localHolds set is the window's authoritative list of current data requirements,
- * independent of the worker. Used to restore holds after worker restart (§10.6.4).
+ * independent of the worker. Used to restore holds after worker restart (§21.6.4).
  */
 class SharedWorkerCacheManagerProxy<TLink extends Link> extends CacheManagerProxy<TLink> {
   private readonly localHolds = new Set<string>()

@@ -4,7 +4,7 @@
  * EntityRef makes entity lifecycle state visible in read model data for
  * locally-created entities whose IDs are pending server confirmation.
  *
- * See specification §15 (EntityRef) for full details.
+ * See specification §14 (EntityRef) for full details.
  */
 
 import { Link, ServiceLink } from '@meticoeus/ddd-es'

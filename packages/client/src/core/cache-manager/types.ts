@@ -69,7 +69,7 @@ export interface ICacheManager<TLink extends Link> {
 
   /**
    * Touch a cache key to update its access time.
-   * Creates the key if it does not exist (spec §2.5.1).
+   * Creates the key if it does not exist (spec §3.5.1).
    * Does not place a hold.
    *
    * @param cacheKey - Cache key identity

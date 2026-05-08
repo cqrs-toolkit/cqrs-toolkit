@@ -18,6 +18,7 @@
     "server": "npm run server -w @cqrs-toolkit/todo-demo",
     "server:hm": "npm run server -w @cqrs-toolkit/hypermedia-server",
     "docs": "make docs",
+    "docs:audit": "./scripts/audit-links.sh",
     "format:all": "prettier --write packages demos",
     "test:e2e": "npm run test:e2e:todo && npm run test:e2e:hm-web && npm run test:e2e:extension && npm run test:e2e:hm-electron",
     "test:e2e:todo": "npx playwright test --config demos/todo-demo/playwright.config.ts",

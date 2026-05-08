@@ -1,6 +1,6 @@
-# 3\. Command Queue (Resilient Command Pipeline)
+# 4\. Command Queue (Resilient Command Pipeline)
 
-## 3.1 Purpose
+## 4.1 Purpose
 
 The Command Queue is responsible for **persisting, sequencing, retrying, and reconciling commands** issued by the client until they are successfully processed by the server or explicitly resolved.
 
@@ -18,9 +18,9 @@ The Command Queue is the **only component** that invokes the Domain Layer to exe
 
 ---
 
-## 3.2 Core principles and constraints
+## 4.2 Core principles and constraints
 
-### 3.2.1 Read-model independence
+### 4.2.1 Read-model independence
 
 Commands:
 
@@ -41,7 +41,7 @@ This ensures:
 
 ---
 
-### 3.2.2 Persistence and durability
+### 4.2.2 Persistence and durability
 
 - In offline-support mode, all enqueued commands are persisted.
 
@@ -56,7 +56,7 @@ This ensures:
 
 ---
 
-## 3.3 Responsibilities
+## 4.3 Responsibilities
 
 The Command Queue is responsible for:
 
@@ -86,48 +86,61 @@ The Command Queue does **not**:
 
 ---
 
-## 3.4 Command record schema
+## 4.4 Command record schema
 
-Each persisted command record includes at least:
+Each persisted command record (`CommandRecord<TLink, TCommand, TResponse>`) includes:
 
-- `commandId: string`  
-  Client-generated, stable identifier.
+**Identity and routing:**
 
-- `service: string`
+- `commandId: string` — client-generated, stable identifier.
+- `cacheKey: CacheKeyIdentity<TLink>` — the cache key that scopes this command's anticipated events and response events. Persisted as JSON in SQL storage.
+- `service: string` — target service for the command.
+- `type: string` — command type (e.g. `CreateTodo`).
+- `data: object` — command payload.
+- `path?: unknown` — URL path template values for command-sender URL expansion.
 
-- `type: string`
+**Lifecycle:**
 
-- `payload: object`
-
-- `createdAt: number`
-
-- `status: 'pending' | 'blocked' | 'sending' | 'succeeded' | 'failed' | 'cancelled'`
-
-- `dependsOn: string[]`
-
-- `blockedBy: string[]`
-
+- `status: 'pending' | 'blocked' | 'sending' | 'succeeded' | 'applied' | 'failed' | 'cancelled'`
+  - `'succeeded'` — server confirmed; effects not yet reflected in `serverData`.
+  - `'applied'` — pipeline-owned post-terminal state. The sync pipeline transitions `'succeeded'` → `'applied'` after observing either the command's response events or per-aggregate revision/eviction coverage. Terminal-status checks (file cleanup, chain detachment, `waitForSucceeded`) fire at `'succeeded'`; `'applied'` is post-terminal and not part of `TerminalCommandStatus`.
 - `attempts: number`
-
 - `lastAttemptAt?: number`
+- `error?: IException` — present on failed commands (typed exception from `@meticoeus/ddd-es`).
+- `serverResponse?: TResponse` — set on success.
 
-- `error?: { code?: string; message: string; details?: any }`
+**Dependencies:**
 
-- `resolution?: { kind: 'none' | 'user_action_required' | 'auto_retry' | string }`
+- `dependsOn: string[]` — commandIds this command waits for. Auto-derived from `EntityRef.commandId` values in command data; explicit declarations for entity references are unnecessary (see [0014 §14.6.1](0014-entity-ref.md#1461-automatic-dependson)).
+- `blockedBy: string[]` — back-reference to dependents.
 
-### 3.4.1 Integration fields
+**Bookkeeping:**
 
-- `anticipatedEventIds: string[]`
+- `seq: number` — sequence number for stable submit-order sorting. SQL autoincrement is authoritative on disk; the value is read-only from the storage perspective.
+- `createdAt: number`
+- `updatedAt: number`
 
-- `postProcess?: { kind: string; ... }`
+### 4.4.1 EntityRef and aggregate integration fields
 
-- `tempIdHints?: object`
+- `creates?: CreateCommandConfig` — present only for commands that create an aggregate. Carries `{ eventType, idStrategy }` declaring which response event type carries the server-assigned ID and whether the client-generated ID is `'temporary'` or `'permanent'` (see [0014 §14.4](0014-entity-ref.md#144-id-strategy)).
+- `affectedAggregates?: AffectedAggregate<TLink>[]` — derived at enqueue time. Each entry carries the canonical `streamId` (chain/concurrency key) and an `EntityId`-aware `TLink` for reconciliation across `EntityRef` lifecycles. See [0015](0015-aggregate-config.md).
+- `commandIdPaths?: Record<JSONPathExpression, EntityRef>` — resolved JSONPath positions of `EntityRef` values in the command record, captured at enqueue time. Keyed by JSONPath rooted at the command object (e.g. `$.data.notebookId`, `$.path.id`). Used to strip and restore `EntityRef` values for storage and handler re-runs, derive auto-dependencies from `ref.commandId`, and prune entries as temporary IDs resolve to server IDs (see [0014 §14.5.2](0014-entity-ref.md#1452-command-submission-entityref-extraction-point)).
+- `postProcess?: PostProcessPlan` — optional generic post-processing instructions from the domain executor (`{ kind, tempIds? }`). EntityRef-driven field rewriting ([`0014 §14.6.2`](0014-entity-ref.md#1462-automatic-field-rewriting)) and aggregate-config-driven ID reconciliation ([`0015 §15.3`](0015-aggregate-config.md#153-reconciliation)) are auto-wired and do not require explicit `postProcess` entries.
+
+### 4.4.2 Submit-time inputs
+
+- `revision?: string | AutoRevision` — provided by the consumer for mutate commands; absent for creates. `AutoRevision` is a serializable marker the library resolves before send (substituting the read model's current revision, with optional fallback).
+- `modelState?: unknown` — read-model snapshot the user had when the command was submitted, captured at submit time and immutable thereafter. Anticipated event handlers receive this as their initial state so the optimistic event reflects what the user saw at submit. The Command Queue does not read the Read Model Store at runtime — this snapshot is consumer-passed at enqueue and persisted with the command record ([§4.3](#43-responsibilities)).
+
+### 4.4.3 File attachments
+
+- `fileRefs?: FileRef[]` — file attachment metadata. At rest, each `FileRef.data` is undefined; the library hydrates `data: Blob` before send. See [§4.14](#414-file-upload-commands) for the full file-upload model.
 
 ---
 
-## 3.5 Session and user identity handling
+## 4.5 Session and user identity handling
 
-### 3.5.1 Session scoping
+### 4.5.1 Session scoping
 
 - The Command Queue is scoped to the **current session user**.
 
@@ -137,7 +150,7 @@ Each persisted command record includes at least:
 
 ---
 
-### 3.5.2 Offline-first startup
+### 4.5.2 Offline-first startup
 
 - The library may initialize with authentication state unknown.
 
@@ -153,7 +166,7 @@ This allows:
 
 ---
 
-### 3.5.3 User identity change handling
+### 4.5.3 User identity change handling
 
 When the application signals authentication with a `userId` that differs from the persisted session user:
 
@@ -171,40 +184,43 @@ No command from a previous user may be retained or executed.
 
 ---
 
-## 3.6 Dependency and post-processing model
+## 4.6 Dependency and post-processing model
 
-### 3.6.1 Dependencies
+### 4.6.1 Dependencies
 
-- Commands may declare dependencies via `dependsOn`.
+Commands may declare dependencies via `dependsOn`.
+A command may not transition to `sending` until all dependencies have succeeded.
 
-- A command may not transition to `sending` until all dependencies have succeeded.
-
----
-
-### 3.6.2 Post-processing
-
-When a command succeeds, dependent commands may require transformation:
-
-`postProcess(parentCommands, parentResponses, childCommand) -> updatedChildCommand`
-
-Typical uses include:
-
-- replacing temporary IDs with server-assigned IDs
-
-- rewriting payload references
-
-- updating anticipated events
-
-Post-processing must be deterministic and idempotent.
+The library auto-populates `dependsOn` from `EntityRef.commandId` values found at the paths declared in the handler's `commandIdReferences` (see [0014 §14.6.1](0014-entity-ref.md#1461-automatic-dependson)).
+Consumers do not need to declare `dependsOn` explicitly for cross-command entity references.
+Explicit `dependsOn` declarations remain available for non-EntityRef ordering constraints.
 
 ---
 
-## 3.7 Anticipated event handling
+### 4.6.2 Post-processing
+
+When a command succeeds, the Command Queue reconciles its temporary IDs with the server-assigned IDs and propagates the changes to dependent commands and their anticipated events.
+
+Reconciliation is driven by declarative path metadata on the command handler registration:
+
+- `commandIdReferences` declares JSONPath positions in the command (`$.data.*`, `$.path.*`) where entity IDs appear, paired with the `AggregateConfig` each ID belongs to. The `EntityRef.commandId` on each value identifies the producing create command, which feeds both auto-`dependsOn` ([§4.6.1](#461-dependencies)) and field rewriting on reconcile.
+- `responseIdReferences` declares JSONPath positions in the server response where server-assigned IDs appear, paired with the same `AggregateConfig`. The library walks both sides, builds a `clientId → serverId` map, and rewrites pending command data and anticipated events accordingly. When neither `responseIdReferences` nor `responseIdMapping` is provided and the registration names a primary `aggregate`, the library auto-populates `responseIdReferences` with `[{ aggregate, path: '$.id', revisionPath: '$.nextExpectedRevision' }]`.
+- `responseIdMapping?(ctx)` is a callback alternative for computing the mapping from arbitrary response shapes (computed ids, response events, multi-step logic).
+
+See [0014 §14.6.2](0014-entity-ref.md#1462-automatic-field-rewriting) and [0015 §15.3](0015-aggregate-config.md#153-reconciliation).
+
+The generic `postProcess?: PostProcessPlan` field on the command record ([§4.4.1](#441-entityref-and-aggregate-integration-fields)) is reserved for non-aggregate post-processing concerns; EntityRef and aggregate-driven reconciliation does not require explicit `postProcess` entries.
+
+Reconciliation must be deterministic and idempotent.
+
+---
+
+## 4.7 Anticipated event handling
 
 - Anticipated events are produced by executing the Domain Layer.
 
 - They:
-  - match server event type names and payload shapes
+  - match server event **type names and overall payload shape**, with one exception: ID fields referencing locally-created entities may carry `EntityRef` values per [0014 §14.5.1](0014-entity-ref.md#1451-entityref-in-anticipated-events), where server-originated events always carry plain strings
 
   - omit server-only fields (e.g., `position`)
 
@@ -224,7 +240,7 @@ When a command succeeds or is cancelled, the Command Queue is responsible for en
 
 ---
 
-## 3.8 Retry and backoff policy
+## 4.8 Retry and backoff policy
 
 - Retry policy is implementation-defined.
 
@@ -239,37 +255,36 @@ When a command succeeds or is cancelled, the Command Queue is responsible for en
 
 ---
 
-## 3.9 Reconciliation with server results
+## 4.9 Reconciliation with server results
 
-The Command Queue requires a deterministic mapping between commands and server-produced events.
+The Command Queue reconciles each succeeded command against its server response by walking declarative path metadata on the handler registration ([§4.6.2](#462-post-processing)).
 
-Supported strategies include:
+The reconciliation pass:
 
-- server responses include produced event IDs
+1. Reads the command response and resolves server-assigned ID(s) at paths declared by `responseIdReferences`, or via the `responseIdMapping` callback when provided.
+2. Builds a per-aggregate `idMap` of `{ clientId → { serverId, nextExpectedRevision? } }`.
+3. Walks each pending command's `commandIdReferences` paths, replacing matching client IDs with server IDs in the command data.
+4. Updates the cache key system ([`0003 §3.2.4`](0003-cache-manager.md#324-entityref-driven-inputs-and-reconciliation)) with the same ID mappings so cache key identities reconcile and `CacheKeyReconciled` events fire.
+5. Regenerates anticipated events for affected commands by re-running their handlers with the rewritten data.
+6. Discards the original anticipated events; the regenerated events flow through the Event Cache → read model in their place.
 
-- server responses include produced events directly
+Each aggregate's `lastKnownRevision` is updated from the response's revision path so subsequent operations see consistent revision tracking.
 
-- server guarantees `commandId` propagation onto events
-
-Until such guarantees are standardized:
-
-- reconciliation may fall back to refetching authoritative read models
-
-- anticipated events must be discarded once authoritative state is known
+When the consumer's response shape doesn't expose IDs at predictable paths, `responseIdMapping` provides the escape hatch — it returns explicit `{ clientId: EntityRef; serverId: string; nextExpectedRevision? }` entries.
 
 ---
 
-## 3.10 Interaction with cache eviction
+## 4.10 Interaction with cache eviction
 
 - Cache eviction **never deletes or cancels commands**.
 
 - Commands remain valid regardless of which cache keys are currently resident.
 
-**Exception:** a user identity change triggers a full local data wipe, which includes the Command Queue (see §3.5.3).
+**Exception:** a user identity change triggers a full local data wipe, which includes the Command Queue (see [§4.5.3](#453-user-identity-change-handling)).
 
 ---
 
-## 3.11 Optional command-driven cache behavior (configurable)
+## 4.11 Optional command-driven cache behavior (configurable)
 
 The Command Queue may be configured with an optional callback:
 
@@ -285,25 +300,38 @@ This behavior is optional and not required for correctness.
 
 ---
 
-## 3.12 Events
+## 4.12 Events
 
-The Command Queue emits the following events:
+The Command Queue emits the following events.
+TypeScript event type names below; runtime keys are kebab-case under the `command:` and `commandqueue:` namespaces and map mechanically except where called out.
 
 - `CommandEnqueued`
 
 - `CommandStatusChanged`
 
-- `CommandSucceeded`
+- `CommandCompleted` — emitted on success.
 
 - `CommandFailed`
 
 - `CommandCancelled`
 
-These events are informational only; consumers must query current command state directly.
+- `CommandSent` — emitted when a command is dispatched to the server (after dependencies are satisfied, before the response arrives).
+
+- `CommandResponse` — emitted when a server response arrives for a sent command.
+
+- `CommandQueuePaused` *(runtime key: `commandqueue:paused` — namespace is `commandqueue:`, not `command:`)*
+
+- `CommandQueueResumed` *(runtime key: `commandqueue:resumed` — namespace is `commandqueue:`, not `command:`)*
+
+These events are informational; consumers needing current command state should query it directly.
+
+The terminal event types `CommandCompleted` / `CommandFailed` / `CommandCancelled` fire **after** post-processing completes (id reconciliation, dependent unblocking, anticipated event cleanup).
+A `CommandStatusChanged` event whose `status` is terminal fires at the status flip — **before** post-processing.
+Consumers that need to observe fully-settled state (e.g. `waitForSucceeded`) should subscribe to the terminal event types, not the status change.
 
 ---
 
-## 3.13 Failure and recovery guarantees
+## 4.13 Failure and recovery guarantees
 
 The Command Queue must ensure:
 
@@ -319,45 +347,47 @@ The Command Queue must ensure:
 
 ---
 
-## 3.14 File upload commands
+## 4.14 File upload commands
 
 The Command Queue natively supports commands that include file uploads.
 
-### 3.14.1 File storage model
+### 4.14.1 File storage model
 
 Files attached to commands are stored **separately from the command record**:
 
-- The command record in SQLite stores a `fileRefs: FileRef[]` — metadata and OPFS path references for each attached file.
-- The actual file bytes are stored in:
-  - **OPFS** (Mode B and C) — written by the window context using the async OPFS API before the command is enqueued. Files persist across page reloads and browser restarts.
-  - **In-memory** (Mode A / online-only) — files are held as `Blob` references in the command payload. Not persisted. Lost on reload, which is acceptable since Mode A makes no persistence guarantees.
+- The command record in SQLite stores `fileRefs: FileRef[]` — metadata and storage-path references for each attached file ([§4.14.2](#4142-fileref-schema)).
+- The actual file bytes are stored via an `ICommandFileStore` abstraction with three first-party implementations:
+  - **OPFS** (Mode B and C, browser) — `OpfsCommandFileStore`. Window context writes via the async OPFS API before the command is enqueued; the worker reads when executing. Files persist across page reloads and browser restarts.
+  - **In-memory** (Mode A, browser online-only) — `InMemoryCommandFileStore`. Held as `Blob` references in a runtime map. Not persisted; lost on reload, which is acceptable since Mode A makes no persistence guarantees.
+  - **`node:fs`** (Electron) — `FsCommandFileStore` in `@cqrs-toolkit/client-electron`, writing to the OS filesystem inside the utility process. Browser-side renderer windows reach the store through `ElectronCommandFileStore` (IPC bridge to the utility process). Files persist across app restarts.
+
+The abstraction is deliberate: each runtime environment provides the file store implementation appropriate to its persistence and IPC model, and downstream code (Command Queue, command sender) operates against the interface uniformly.
 
 This separation ensures SQLite remains fast (no large blobs in the database), and that files can be cleaned up independently of command records.
 
-### 3.14.2 FileRef schema
+### 4.14.2 FileRef schema
 
 ```ts
 interface FileRef {
-  id: string // Unique file identifier (e.g. uuid)
-  commandId: string // Owning command
-  filename: string // Original filename
-  mimeType: string // MIME type
-  sizeBytes: number // File size in bytes
-  checksum?: string // Optional integrity check (e.g. SHA-256 hex)
-  storagePath: string // OPFS path — e.g. /cqrs-client/uploads/{commandId}/{fileId}
-  createdAt: number // Unix timestamp ms
+  id: string         // Unique file identifier (UUID) — used for the storage path and per-file operations
+  filename: string   // Original filename
+  mimeType: string   // MIME type
+  sizeBytes: number  // File size in bytes
+  storagePath: string // Path from the storage root (e.g. `cqrs-client/uploads/{commandId}/{fileId}` for OPFS)
+  checksum?: string  // Optional integrity check (e.g. SHA-256 hex)
+  data?: Blob        // Hydrated by the library before send(); undefined at rest
 }
 ```
 
-`FileRef` is only persisted in SQLite in Mode B/C.
-In Mode A, file references are held in memory alongside the command and carry no `storagePath`.
+`FileRef` is persisted in SQLite in Mode B/C with `data` undefined; the library hydrates `data` from the active file store before passing the command to the sender.
+In Mode A, `FileRef` is held in memory alongside the command and `data` is populated directly with the consumer-provided `File`/`Blob`.
 
-### 3.14.3 OPFS file storage (Mode B and C)
+### 4.14.3 OPFS file storage (Mode B and C)
 
 The window context is responsible for writing files to OPFS **before** enqueuing the command.
 The async OPFS API (`navigator.storage.getDirectory()`, `getFileHandle()`, `createWritable()`) is available on the main thread and is used for this write.
 
-Path scheme: `/cqrs-client/uploads/{commandId}/{fileId}`
+**Path scheme.** OPFS layout: `/cqrs-client/uploads/{commandId}/{fileId}`. `FileRef.storagePath` stores this relative to the storage root (i.e. `cqrs-client/uploads/{commandId}/{fileId}` — no leading slash).
 
 The worker never writes to the uploads directory.
 It reads files from OPFS by path (using `getFileHandle()` from `navigator.storage.getDirectory()`) when executing or retrying the upload command.
@@ -366,11 +396,11 @@ It reads files from OPFS by path (using `getFileHandle()` from `navigator.storag
 
 1. Window writes file bytes to OPFS path, obtains the path string.
 2. Window enqueues command with `fileRefs` referencing the OPFS path.
-3. If command enqueue fails after the file has been written, the file is orphaned — see §3.14.5 (orphan cleanup).
+3. If command enqueue fails after the file has been written, the file is orphaned — see [§4.14.5](#4145-orphan-cleanup) (orphan cleanup).
 4. Worker reads file from OPFS path when executing the upload.
 5. **Files are deleted when their owning command is deleted.** Command deletion is the single cleanup trigger, regardless of the reason for deletion (success, failure, cancellation, session reset, or debug mode expiry). There are no separate per-outcome cleanup rules.
 
-### 3.14.4 In-memory file storage (Mode A)
+### 4.14.4 In-memory file storage (Mode A)
 
 In online-only mode, files are held as `Blob` references directly in the in-memory command record.
 No OPFS write occurs.
@@ -379,64 +409,43 @@ Files are lost on page reload, which is acceptable — Mode A makes no persisten
 There is no `storagePath` in Mode A file references.
 The command payload carries the blob directly.
 
-### 3.14.5 Orphan cleanup
+### 4.14.5 Orphan cleanup
 
-An orphaned file is a file present in `/cqrs-client/uploads/` with no corresponding command record in SQLite.
+An orphaned file is a file present in the file store with no corresponding command record in SQLite.
 Orphans can occur if:
 
-- The window wrote a file to OPFS but the subsequent command enqueue failed.
+- The window staged a file but the subsequent command enqueue failed.
 - A crash occurred between the file write and the SQLite commit.
 
-On library startup (Mode B/C), the library must scan `/cqrs-client/uploads/` and delete any files whose `commandId` path segment does not correspond to an existing command record in SQLite.
-This scan is performed by the worker after SQLite is initialized.
+The `ICommandFileStore` interface exposes orphan-cleanup capability; on library startup, after SQLite is initialized, the Command Queue invokes it with the current set of valid command IDs and the file store deletes any files whose owning command no longer exists.
 
-### 3.14.6 Upload strategies
+### 4.14.6 Upload execution
 
-File upload execution is delegated to a consumer-configured upload strategy.
-The library provides two first-party strategies:
+The Command Queue does not own upload execution and is deliberately free of upload conventions.
+Its responsibility ends at hydrating `FileRef.data` with a Blob (read via the active `ICommandFileStore` implementation — see [§4.14.1](#4141-file-storage-model)) and passing the command — including its hydrated `fileRefs` — to the consumer-injected command sender, which decides how to transmit the file content.
 
-**Direct API upload**
+This separation keeps `@cqrs-toolkit/client` agnostic to upload conventions (direct multipart, S3 presigned, custom transports, etc.).
+Convention-bearing implementations live one layer up:
 
-The library POSTs the file directly to a consumer-configured endpoint.
+- `@cqrs-toolkit/hypermedia-client` auto-wires upload behavior when the server's Hydra documentation declares a workflow the toolkit recognizes — consumers using the hypermedia command sender need no upload boilerplate. The first-party `svc:PresignedPostUpload` convention (S3 presigned form upload) is wired in by default; future conventions slot in alongside it.
+- Consumers not using hypermedia-client (or whose server doesn't follow the conventions) implement upload directly in their command sender, working from the hydrated `fileRefs` on each command.
 
-```ts
-interface DirectUploadStrategy {
-  type: 'direct'
-  url: string | ((command: Command) => string)
-  headers?: Record<string, string> | ((command: Command) => Record<string, string>)
-}
-```
+In all cases, the active upload behavior is whatever the consumer's command sender does with the hydrated `fileRefs` — the Command Queue does not enumerate or select among approaches.
 
-**S3 presigned upload**
+### 4.14.7 File store write failure
 
-The library fetches a presigned URL or presigned form fields from a consumer-configured endpoint, then uploads the file directly to S3 (or compatible storage).
-
-```ts
-interface S3PresignedUploadStrategy {
-  type: 's3-presigned'
-  presignEndpoint: string | ((command: Command) => string)
-  // Library fetches presign response, then POSTs directly to S3
-}
-```
-
-The active strategy is provided at library initialization and applies to all file upload commands.
-The library passes the file — either read from OPFS by path or from the in-memory blob — to the strategy implementation. The strategy is not aware of how the file was stored.
-
-### 3.14.7 OPFS write failure
-
-If the OPFS write fails when the window attempts to stage a file (quota exceeded, permission error, or any other reason):
+If a file store write fails when staging a file (quota exceeded, permission error, disk full, or any other reason):
 
 - The command enqueue is rejected with an appropriate error.
 - No partial state is written — if the file write fails, the command is never submitted to the worker.
 - The library emits a storage error event the host application can handle (e.g. to inform the user).
 
-There is no per-file fallback from OPFS to in-memory in worker modes.
-The storage backend is determined at startup by mode selection.
-Silent per-file fallback would produce inconsistent state across the command queue and is not supported.
+There is no per-file fallback between file store backends.
+The active backend is determined at startup by the runtime environment (see [§4.14.1](#4141-file-storage-model)); silent per-file fallback would produce inconsistent state across the command queue and is not supported.
 
 ---
 
-### 3.14.8 File persistence guarantees
+### 4.14.8 File persistence guarantees
 
 The library supports two levels of file persistence guarantee.
 The weak guarantee is the current implementation target.

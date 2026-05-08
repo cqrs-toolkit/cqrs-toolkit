@@ -265,7 +265,7 @@ export class WorkerOrchestrator<
     registerCacheManagerMethods(this.messageHandler, cacheManager)
     registerSyncManagerMethods(this.messageHandler, syncManager, sessionManager)
 
-    // 14. Wire stale window cleanup (§10.5) — when heartbeat detects a dead window,
+    // 14. Wire stale window cleanup (§21.5) — when heartbeat detects a dead window,
     // release all its cache key holds so ephemeral keys can be evicted.
     // TODO: also wire cacheManager.registerWindow(windowId) on window connect
     // for capacity tracking (currently only tracked in online-only mode)
@@ -273,7 +273,7 @@ export class WorkerOrchestrator<
       await cacheManager.unregisterWindow(windowId)
     })
 
-    // 15. Register hold restoration handler (§10.6.4) — windows restore their
+    // 15. Register hold restoration handler (§21.6.4) — windows restore their
     // held cache keys after detecting a worker restart.
     this.messageHandler.setRestoreHoldsHandler(async (data) => {
       const restoredKeys: string[] = []

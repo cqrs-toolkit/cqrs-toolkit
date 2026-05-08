@@ -1,12 +1,12 @@
-# 14. DevTools
+# 13. DevTools
 
-## 14.1 Library-Side Prep
+## 13.1 Library-Side Prep
 
 This section describes what the library needs **before** the extension exists.
 These changes are small, low-risk, and make the library more debuggable in general.
 Build these incrementally as you work on the library — don't batch them.
 
-### 14.1.1 DevTools Config Entry Point
+### 13.1.1 DevTools Config Entry Point
 
 The `debug` config option already exists in `CqrsClientConfig` but is unused.
 Repurpose it as the devtools gate:
@@ -57,7 +57,7 @@ If the hook isn't there, the client does nothing.
 If the hook is there but `debug` is false, the client does nothing.
 Both sides must opt in.
 
-### 14.1.2 Tab Role Awareness
+### 13.1.2 Tab Role Awareness
 
 In SharedWorker mode, SQLite and sync live in the dedicated worker of the leader tab.
 The SharedWorker itself has no `window`, so debug event streams originate from the leader tab's window context.
@@ -68,40 +68,33 @@ The panel shows a banner on standby tabs:
 
 > "This tab is in standby mode — attach DevTools to the leader tab for full visibility."
 
-### 14.1.3 Debug Events to Close the Gap
+### 13.1.3 Events for DevTools Coverage
 
-`adapter.events$` (the existing `LibraryEvent` stream) covers ~80% of what devtools needs.
-The remaining 20% requires new debug-only events.
-These are only emitted when `debug: true`.
+`adapter.events$` (the existing `LibraryEvent` stream) covers most of what devtools needs. Implementation has filled in the remainder by adding events under their natural namespaces (`sync:*`, `command:*`, `cache:*`) rather than under a separate `debug:` prefix as originally sketched. These events are always emitted (not gated on `debug: true`); the `debug` config flag gates only the DevTools registration on `window.__CQRS_TOOLKIT_DEVTOOLS__` and the worker debug RPC methods ([§13.1.4](#1314-worker-debug-rpc-methods)).
 
-Add these to `LibraryEventType`:
-
-| Event                        | Payload                                                                    | Why                                                                                                |
-| ---------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `debug:ws-event-received`    | `{ event: ParsedEvent }`                                                   | Raw WebSocket event before processing — the events tab needs this                                  |
-| `debug:ws-event-processed`   | `{ event: ParsedEvent, results: ProcessorResult[], invalidated: boolean }` | What the event processor did with it                                                               |
-| `debug:gap-detected`         | `{ streamId, expected, received }`                                         | Revision gap detected on a stream                                                                  |
-| `debug:gap-repair-started`   | `{ streamId, fromRevision, toRevision }`                                   | Fetching missing events                                                                            |
-| `debug:gap-repair-completed` | `{ streamId, eventCount }`                                                 | Gap filled                                                                                         |
-| `debug:cache-key-acquired`   | `{ key, collection, params, evictionPolicy }`                              | Cache key created/touched — **this is how devtools maps opaque UUIDs back to collection + params** |
-| `debug:refetch-scheduled`    | `{ collection, debounceMs }`                                               | Debounced refetch queued                                                                           |
-| `debug:refetch-executed`     | `{ collection, recordCount }`                                              | Refetch completed                                                                                  |
-| `debug:command-sent`         | `{ commandId, correlationId, service, type, payload }`                     | Command dispatched to server                                                                       |
-| `debug:command-response`     | `{ commandId, correlationId, response, events }`                           | Server response with extracted events                                                              |
+| Event                            | Payload                                                                  | Why                                                                                                                |
+| -------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `sync:ws-event-received`         | `{ event: IPersistedEvent }`                                             | Raw WebSocket event before processing — the events tab needs this                                                  |
+| `sync:ws-event-processed`        | `{ event: IPersistedEvent, updatedIds: string[], invalidated: boolean }` | What the event processor did with it                                                                               |
+| `sync:gap-detected`              | `{ streamId, expected, received }`                                       | Revision gap detected on a stream                                                                                  |
+| `sync:gap-repair-started`        | `{ streamId, fromRevision }`                                             | Fetching missing events                                                                                            |
+| `sync:gap-repair-completed`      | `{ streamId, eventCount }`                                               | Gap filled                                                                                                         |
+| `cache:key-added`                | `{ cacheKey: CacheKeyIdentity }`                                         | Cache key registered — devtools maps the opaque UUID back to collection + params via the carried `CacheKeyIdentity` |
+| `sync:refetch-scheduled`         | `{ collection, debounceMs }`                                             | Debounced refetch queued                                                                                           |
+| `sync:refetch-executed`          | `{ collection }`                                                         | Refetch completed                                                                                                  |
+| `command:sent`                   | `{ commandId, correlationId, ... }` (see [`§4.12`](0004-command-queue.md#412-events))                   | Command dispatched to server                                                                                       |
+| `command:response`               | `{ commandId, correlationId, response }` (see [`§4.12`](0004-command-queue.md#412-events))               | Server response                                                                                                    |
 
 **Cache key mapping note:**
-Cache keys are UUIDv5 hashes — collection and params cannot be recovered from the key alone.
-The `debug:cache-key-acquired` event is the mechanism for the devtools to build a reverse lookup.
-This is emitted from `CacheManager.acquire()` and carries the original collection + params.
+Cache keys are opaque UUIDs (per [`§3.2.1`](0003-cache-manager.md#221-cache-keys-and-cache-scopes)). Collection and params cannot be recovered from the key alone. The `cache:key-added` event's `CacheKeyIdentity` payload provides the reverse-lookup data the devtools needs — no separate event required.
 
 **Payload size note:**
-`debug:ws-event-received` carries raw `ParsedEvent` objects which may be large on high-throughput streams.
-Consider a `debugPayloadTruncation` config option, or truncate in the hook before posting through the `postMessage` chain, to avoid serialization overhead at volume.
+`sync:ws-event-received` carries raw `IPersistedEvent` objects which may be large on high-throughput streams. Truncate payloads in the hook before posting through the `postMessage` chain to avoid serialization overhead at volume.
 
 **Command correlation note:**
-`debug:command-sent` and `debug:command-response` both carry a `correlationId` to support end-to-end tracing across retries and batched responses.
+`command:sent` and `command:response` both carry a `correlationId` to support end-to-end tracing across retries and batched responses.
 
-### 14.1.4 Worker Debug RPC Methods
+### 13.1.4 Worker Debug RPC Methods
 
 In dedicated-worker and shared-worker modes, storage and sync live in the worker.
 The existing `WorkerMessageHandler.registerMethod()` protocol supports adding debug methods.
@@ -122,7 +115,7 @@ The worker already has `storage.getCommands()`, `storage.getAllCacheKeys()`, etc
 
 Debug events from worker-side components (SyncManager, etc.) are broadcast to all connected windows via the existing `messageHandler.broadcastEvent()` path.
 
-### 14.1.5 What NOT to Build Yet
+### 13.1.5 What NOT to Build Yet
 
 - No `window.__CQRS_TOOLKIT_DEVTOOLS__` hook implementation (the extension provides this).
 - No UI, panel, or visualization code.
@@ -133,7 +126,7 @@ These make the library more observable in general (console debugging benefits to
 
 ---
 
-## 14.2 Monorepo Package
+## 13.2 Monorepo Package
 
 The devtools extension lives in this monorepo as a workspace package.
 This keeps shared types (`CommandRecord`, `CacheKeyRecord`, `LibraryEvent`, etc.) in sync with the client — no version drift.
@@ -152,7 +145,7 @@ Both the hook and the extension panel import types from `@cqrs-toolkit/client` a
 `packages/devtools` is `"private": true` — it's a built Chrome extension, not published to npm.
 Same pattern as `demos/todo-demo`.
 
-### 14.2.1 Package Structure
+### 13.2.1 Package Structure
 
 ```
 packages/devtools/
@@ -184,7 +177,7 @@ packages/devtools/
 └── dist/                      # Built extension (load unpacked from here)
 ```
 
-### 14.2.2 Build Pipeline
+### 13.2.2 Build Pipeline
 
 Vite with `build.rollupOptions.input` for four separate entry points:
 
@@ -195,7 +188,7 @@ Vite with `build.rollupOptions.input` for four separate entry points:
 
 The hook receives a live Observable instance passed in from the already-loaded client and calls `.subscribe()` directly on it. It imports nothing at runtime. This is intentional — do not add runtime imports to hook.ts.
 
-### 14.2.3 Communication Flow
+### 13.2.3 Communication Flow
 
 ```
 ┌─────────────┐    window.postMessage    ┌────────────────┐    chrome.runtime    ┌──────────────┐
@@ -217,7 +210,7 @@ The hook receives a live Observable instance passed in from the already-loaded c
 3. **DevTools panel** receives events and renders.
    Sends commands back (retry, evict, force sync) through the same channel in reverse.
 
-### 14.2.4 Activation Guard
+### 13.2.4 Activation Guard
 
 The hook sets an `active` flag, initially `false`.
 When the DevTools panel opens, it sends an `activate` message through the chain.
@@ -226,7 +219,7 @@ When the panel closes, `deactivate` is sent and subscriptions are torn down.
 
 This means **zero overhead when DevTools is closed** — no subscriptions, no message serialization.
 
-### 14.2.5 Session Model and Buffer Persistence
+### 13.2.5 Session Model and Buffer Persistence
 
 The background service worker holds the event buffer in plain JS memory (not IndexedDB or any storage API).
 This is intentional: debug data has different retention semantics than application data and must never touch the client's SQLite database.
@@ -255,16 +248,16 @@ Chrome may terminate the background service worker after inactivity.
 If the buffer is lost due to service worker restart, the panel shows: "Session data was cleared — service worker restarted."
 This is acceptable behaviour; do not over-engineer around it.
 
-### 14.2.6 Multi-Client Support
+### 13.2.6 Multi-Client Support
 
 One `createCqrsClient` instance per domain is enforced by the library.
 The hook handles exactly one registered client. No client selector UI is needed.
 
 ---
 
-## 14.3 Panel UI
+## 13.3 Panel UI
 
-### 14.3.1 Framework and State Management
+### 13.3.1 Framework and State Management
 
 **Framework:** SolidJS — consistent with the demo app, and fine-grained reactivity is well-suited to streaming event logs where individual rows update without re-rendering the whole list.
 
@@ -274,7 +267,7 @@ The hook handles exactly one registered client. No client selector UI is needed.
 - `createStore` for structured objects (snapshots, collection sync state).
 - Signal-wrapped arrays for append-only logs (Events Tab, activity logs) — unbounded per session, windowed via virtual scrolling for rendering.
 
-### 14.3.2 Theming
+### 13.3.2 Theming
 
 `chrome.devtools.panels.themeName` returns `"dark"` or `"default"`.
 Inject this as a class on the panel root element and define two CSS themes using custom properties.
@@ -289,7 +282,7 @@ Target Chrome DevTools condensed aesthetics:
 
 ---
 
-## 14.4 List Behaviour
+## 13.4 List Behaviour
 
 All lists and log views across every tab share the same baseline behaviour:
 
@@ -327,9 +320,9 @@ All filter state is local to the panel session — not persisted across DevTools
 
 ---
 
-## 14.5 Panel Tabs
+## 13.5 Panel Tabs
 
-### 14.5.1 Commands Tab
+### 13.5.1 Commands Tab
 
 **Data sources:**
 
@@ -350,7 +343,7 @@ All filter state is local to the panel session — not persisted across DevTools
 - Holds all commands for the current session (cleared on auth change).
 - Clear button to manually reset.
 
-### 14.5.2 Events Tab
+### 13.5.2 Events Tab
 
 **Data sources:**
 
@@ -359,7 +352,7 @@ All filter state is local to the panel session — not persisted across DevTools
 
 **UI:**
 
-- Streaming log view — log-tail style as per §14.4 (newest at bottom, auto-scroll while at bottom)
+- Streaming log view — log-tail style as per [§13.4](#134-list-behaviour) (newest at bottom, auto-scroll while at bottom)
 - Columns: timestamp, event type, stream ID, revision, persistence (badge), processed (checkmark)
 - Persistence filter: Permanent / Stateful / Anticipated
 - Type filter: text input with autocomplete from seen types
@@ -373,7 +366,7 @@ All filter state is local to the panel session — not persisted across DevTools
 - Holds all events for the current session (cleared on auth change). Virtual scrolling renders the tail without a DOM cap.
 - Export button (JSON).
 
-### 14.5.3 Cache Tab
+### 13.5.3 Cache Tab
 
 **Data sources:**
 
@@ -390,7 +383,7 @@ All filter state is local to the panel session — not persisted across DevTools
 - Click row → detail: full key, all params, hold breakdown by window, associated read model count
 - Actions: evict, freeze/unfreeze
 
-### 14.5.4 Read Models Tab
+### 13.5.4 Read Models Tab
 
 **Data sources:**
 
@@ -403,14 +396,14 @@ All filter state is local to the panel session — not persisted across DevTools
 - Main area: entity table for selected collection
 - Columns: id (truncated), has local changes (indicator), cache key, updated at
 - Click row → two-pane view:
-  - Left: `server_data` (JSON tree)
-  - Right: `effective_data` (JSON tree)
+  - Left: `serverData` (JSON tree)
+  - Right: `effectiveData` (JSON tree)
   - Fields that differ are highlighted
 - Filter: has local changes only, search by ID
 
 > **Scope note:** Phase 5 ships two JSON trees with field-level highlights. Inline unified diff can be added later. Do not let diff renderer complexity block the tab shipping — use an existing library (`jsondiffpatch` or equivalent) or defer inline diffing entirely.
 
-### 14.5.5 Sync Tab
+### 13.5.5 Sync Tab
 
 **Data sources:**
 
@@ -427,7 +420,7 @@ All filter state is local to the panel session — not persisted across DevTools
 - Force sync button per collection
 - Session reset divider inserted on auth change
 
-### 14.5.6 Storage Explorer Tab
+### 13.5.6 Storage Explorer Tab
 
 **Data sources:**
 
@@ -444,9 +437,9 @@ All filter state is local to the panel session — not persisted across DevTools
 
 ---
 
-## 14.6 Testing
+## 13.6 Testing
 
-### 14.6.1 Strategy
+### 13.6.1 Strategy
 
 The `chrome.devtools.*` APIs are only available when the panel is running inside a real DevTools context, which cannot be opened programmatically. Testing is therefore split across three layers that together cover the meaningful surface area without requiring a live DevTools session.
 
@@ -459,7 +452,7 @@ The panel is a SolidJS app with a clean internal message interface boundary — 
 **Layer 3 — Unit (Vitest):**
 The background buffer logic (append, clear on auth change, windowed slice), filter predicates, and any pure utility functions. Fast, no browser.
 
-### 14.6.2 Package Location
+### 13.6.2 Package Location
 
 Extension tests live in `demos/todo-demo` alongside the existing Playwright suite, in a separate config file:
 
@@ -476,7 +469,7 @@ demos/todo-demo/
         └── ...
 ```
 
-### 14.6.3 Playwright Extension Config
+### 13.6.3 Playwright Extension Config
 
 The extension config differs from the existing `playwright.config.ts` in three ways: it uses a persistent browser context with `--load-extension`, it requires headed mode (Chromium extensions do not load in headless), and it has a `globalSetup` that fails fast if `packages/devtools/dist/` does not exist.
 
@@ -534,7 +527,7 @@ The `webServer` entries reuse the same three processes as the existing config �
 "test:extension": "playwright test --config playwright.extension.config.ts"
 ```
 
-### 14.6.4 Extension Test Fixture
+### 13.6.4 Extension Test Fixture
 
 Relay tests need a persistent context with the extension loaded. A shared fixture handles setup and teardown:
 
@@ -563,7 +556,7 @@ export const test = base.extend({
 export { expect } from '@playwright/test'
 ```
 
-### 14.6.5 Global Setup
+### 13.6.5 Global Setup
 
 ```typescript
 // tests/extension/global-setup.ts
@@ -581,7 +574,7 @@ export default function globalSetup() {
 }
 ```
 
-### 14.6.6 CI
+### 13.6.6 CI
 
 Extension tests run as a separate CI job from the app e2e suite:
 
@@ -591,9 +584,9 @@ Extension tests run as a separate CI job from the app e2e suite:
 
 ---
 
-## 14.7 Build Sequence
+## 13.7 Build Sequence
 
-### 14.7.1 Phase 1: Library Prep
+### 13.7.1 Phase 1: Library Prep
 
 1. Gate debug behavior on `resolvedConfig.debug`.
 2. Emit `debug:cache-key-acquired` from `CacheManager.acquire()`.
@@ -604,7 +597,7 @@ Extension tests run as a separate CI job from the app e2e suite:
 7. Register `debug.*` RPC methods in worker entry points (behind debug flag).
 8. Define `CqrsDebugAPI` interface (including `role: 'leader' | 'standby'`) and register on `window.__CQRS_TOOLKIT_DEVTOOLS__` when debug + hook present.
 
-### 14.7.2 Phase 2: Extension Scaffold
+### 13.7.2 Phase 2: Extension Scaffold
 
 1. Create `packages/devtools` workspace package (`"private": true`).
 2. Manifest V3 setup, devtools page, panel HTML, package README with build and load-unpacked instructions.
@@ -616,17 +609,17 @@ Extension tests run as a separate CI job from the app e2e suite:
 8. Vite multi-entry build config (hook as IIFE, content-script as IIFE, background, panel as ESM).
 9. Standby tab banner wired up.
 
-### 14.7.3 Phase 3: Commands Tab
+### 13.7.3 Phase 3: Commands Tab
 
 - Most self-contained — `listCommands()` + command events give everything needed.
 - Good first tab to validate the full data flow from client → hook → panel.
 - Imports `CommandRecord` type directly from `@cqrs-toolkit/client`.
 
-### 14.7.3 Phase 4: Test Setup
+### 13.7.3 Phase 4: Test Setup
 
 Add the extension test suite to `demos/todo-demo` before building further tabs, so subsequent phases can be validated incrementally rather than tested all at once at the end.
 
-1. Add `playwright.extension.config.ts` to `demos/todo-demo` (see §14.6.3).
+1. Add `playwright.extension.config.ts` to `demos/todo-demo` (see [§13.6.3](#1363-playwright-extension-config)).
 2. Add `test:extension` script to `demos/todo-demo/package.json` and a delegating script to root `package.json`.
 3. Add `tests/extension/global-setup.ts` — fails fast if `packages/devtools/dist/` is absent.
 4. Add `tests/extension/fixtures.ts` — persistent context fixture with extension loaded.
@@ -634,14 +627,14 @@ Add the extension test suite to `demos/todo-demo` before building further tabs, 
 6. Write Layer 2 panel UI tests for the Commands Tab against `panel.html` directly.
 7. Confirm CI can run headed Chromium (Xvfb if Linux); wire extension job as separate from app e2e job.
 
-### 14.7.4 Phase 5: Events Tab
+### 13.7.4 Phase 5: Events Tab
 
 - Needs `debug:ws-event-*` events from Phase 1.
 - High debugging value — this is where sync issues become visible.
 - Establish the virtual-scrolling list component pattern here; reuse across all subsequent log views.
 - Add Layer 2 panel tests for Events Tab.
 
-### 14.7.5 Phase 6: Cache + Read Models + Sync Tabs
+### 13.7.5 Phase 6: Cache + Read Models + Sync Tabs
 
 - These share the same infrastructure built in Phases 2–5.
 - Cache tab needs the reverse key map from `debug:cache-key-acquired`.
@@ -649,7 +642,7 @@ Add the extension test suite to `demos/todo-demo` before building further tabs, 
 - Sync tab is mostly an activity log from existing events.
 - Add Layer 2 panel tests per tab.
 
-### 14.7.6 Phase 7: Storage Explorer
+### 13.7.6 Phase 7: Storage Explorer
 
 - Most generic, lowest priority.
 - Useful as a fallback when the structured tabs don't show what you need.

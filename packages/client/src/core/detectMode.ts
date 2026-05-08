@@ -1,7 +1,7 @@
 /**
  * Auto-detection of the best execution mode for the current environment.
  *
- * Detection order (spec §0.1.2):
+ * Detection order (spec §1.1.2):
  * 1. OPFS API available + Web Locks available
  * 2. SharedWorker available → 'shared-worker' (Mode C, multi-tab)
  * 3. Worker available → 'dedicated-worker' (Mode B, single-tab)
@@ -11,7 +11,7 @@
  * check is the in-worker `createSyncAccessHandle()` probe — Stage 1 just avoids
  * spawning a worker that will immediately fail.
  *
- * Mode cache (§0.1.7): After a successful Stage 2 probe, the resolved mode is
+ * Mode cache (§1.1.7): After a successful Stage 2 probe, the resolved mode is
  * cached in localStorage so subsequent page loads skip Stage 1 detection.
  * The cache is invalidated by browser updates (userAgent change) or schema
  * version bumps. Mode A is never cached.
@@ -53,7 +53,7 @@ export function detectMode(): ExecutionMode {
 }
 
 // ---------------------------------------------------------------------------
-// Mode cache (§0.1.7)
+// Mode cache (§1.1.7)
 // ---------------------------------------------------------------------------
 
 const MODE_CACHE_KEY = 'cqrs:mode-cache:v1'

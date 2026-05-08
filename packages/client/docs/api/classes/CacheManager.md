@@ -692,7 +692,7 @@ Called after construction by the orchestrator.
 > **touch**(`cacheKey`): `Promise`\<`void`\>
 
 Touch a cache key to update its access time.
-Creates the key if it does not exist (spec §2.5.1).
+Creates the key if it does not exist (spec §3.5.1).
 Does not place a hold.
 
 #### Parameters

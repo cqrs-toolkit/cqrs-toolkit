@@ -50,6 +50,12 @@ npm run format:all
 npm run format
 ```
 
+## Contributors / agents
+
+Project documentation lives at [`docs/`](docs/) — vision, architectural decisions (ADRs), conventions, per-package castles.
+Start at [`docs/map.md`](docs/map.md).
+The repo-root [`CLAUDE.md`](CLAUDE.md) holds operational guidance.
+
 ## Demos
 
 ### Todo Demo

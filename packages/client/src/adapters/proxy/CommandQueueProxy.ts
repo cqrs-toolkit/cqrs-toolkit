@@ -74,7 +74,7 @@ export class CommandQueueProxy<
   async enqueue<TData, TEvent>(
     params: EnqueueParams<TLink, TData>,
   ): Promise<EnqueueResult<TEvent>> {
-    // Write files to OPFS from the window side before sending to worker (spec §3.14.3)
+    // Write files to OPFS from the window side before sending to worker (spec §4.14.3)
     if (params.command.files?.length && this.fileStore) {
       const commandId = params.commandId ?? generateId()
       params.commandId = commandId

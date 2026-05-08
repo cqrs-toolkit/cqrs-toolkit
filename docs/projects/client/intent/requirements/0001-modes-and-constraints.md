@@ -1,10 +1,10 @@
-# 0. Modes, Execution Environment, and Core Constraints
+# 1. Modes, Execution Environment, and Core Constraints
 
 This section defines the execution modes, trust boundaries, and invariants that apply across all components of the CQRS Client library.
 
 ---
 
-## 0.1 Supported execution modes
+## 1.1 Supported execution modes
 
 The CQRS Client supports multiple execution modes with identical public APIs.
 The choice of mode affects **where state is stored, which execution context owns writes, and whether multiple tabs are permitted**, but does not affect API shape or consumer behavior.
@@ -19,13 +19,13 @@ Mode C is preferred over Mode B. The letter names reflect the order in which mod
 
 **The application is always fully functional in Mode A.** Offline capability is an enhancement, not a requirement. Stage 1 and Stage 2 exist to confirm that offline capability is actually available in the current environment — if either fails, the app falls immediately to Mode A and continues operating normally using JS data structures and RxJS observables. No degraded state, no partial initialization.
 
-On startup, before running any checks, the library reads the **mode cache** from `localStorage` (see §0.1.6). On a cache hit both stages are skipped and the library proceeds directly to mode initialization. On a cache miss the full two-stage detection sequence runs.
+On startup, before running any checks, the library reads the **mode cache** from `localStorage` (see [§1.1.7](#117-mode-cache)). On a cache hit both stages are skipped and the library proceeds directly to mode initialization. On a cache miss the full two-stage detection sequence runs.
 
 > **Note on a simpler SharedWorker architecture:** A natural simplification would be for the SharedWorker to own the SQLite instance directly, eliminating per-tab DedicatedWorkers. This is blocked by two hard browser constraints: (1) `createSyncAccessHandle()` — required by `opfs-sahpool` — is unavailable in `SharedWorkerGlobalScope`; (2) `sqlite3_vfs`, which does not use `createSyncAccessHandle()`, instead requires `SharedArrayBuffer`, which requires `crossOriginIsolated === true` inside the worker — but `crossOriginIsolated` is hardcoded to `false` in `SharedWorkerGlobalScope` in all current browsers regardless of COOP/COEP headers (confirmed Firefox bug [#1984864](https://bugzilla.mozilla.org/show_bug.cgi?id=1984864); same behavior in Chrome). As of early 2026 there is no browser in which SQLite with persistent OPFS storage can run directly inside a SharedWorker.
 
 ---
 
-### 0.1.1 Mode A — online-only
+### 1.1.1 Mode A — online-only
 
 - State is managed in **JS data structures and RxJS observables**.
 - No SQLite. No WASM. No workers.
@@ -50,7 +50,7 @@ Public APIs are identical to offline modes and remain asynchronous.
 
 ---
 
-### 0.1.2 Stage 1 — synchronous capability detection
+### 1.1.2 Stage 1 — synchronous capability detection
 
 Stage 1 runs **synchronously on the main thread** before anything is spawned or loaded. It checks only whether the required browser APIs exist in this environment. No workers are created, no I/O is performed, no async operations run.
 
@@ -83,7 +83,7 @@ If Stage 1 returns `'C'` or `'B'`, proceed to Stage 2.
 
 ---
 
-### 0.1.3 Stage 2 — live environment test
+### 1.1.3 Stage 2 — live environment test
 
 Stage 2 runs **inside a DedicatedWorker** and actually exercises the APIs that Stage 1 confirmed exist. It spawns a worker, loads the SQLite WASM module, and attempts a real `createSyncAccessHandle()` call. Only if all of this succeeds is the environment confirmed safe to use for offline operation.
 
@@ -116,7 +116,7 @@ Stage 1 returns 'C'
 
 ```
 Stage 1 returns 'B'
-  → Main thread acquires tab lock (see §0.1.5)
+  → Main thread acquires tab lock (see [§1.1.5](#115-mode-b--dedicated-worker))
   → Lock not acquired: another tab is active → show blocking modal → stop
   → Lock acquired:
       Main thread spawns DedicatedWorker
@@ -151,7 +151,7 @@ async function probeOPFS(): Promise<boolean> {
 
 ---
 
-### 0.1.4 Mode C — shared-worker
+### 1.1.4 Mode C — shared-worker
 
 **Entered when:** Stage 1 returns `'C'` and Stage 2 passes.
 
@@ -199,7 +199,7 @@ Samsung Internet does not support SharedWorker → Stage 1 returns `'B'`.
 
 ---
 
-### 0.1.5 Mode B — dedicated-worker
+### 1.1.5 Mode B — dedicated-worker
 
 **Entered when:** Stage 1 returns `'B'` and Stage 2 passes.
 
@@ -241,7 +241,7 @@ async function acquireTabLock(): Promise<boolean> {
 
 ---
 
-### 0.1.6 SQLite WASM implementation
+### 1.1.6 SQLite WASM implementation
 
 The library uses **`@sqlite.org/sqlite-wasm`** for SQLite WASM support.
 
@@ -261,7 +261,7 @@ Key constraints:
 
 ---
 
-### 0.1.7 Mode cache
+### 1.1.7 Mode cache
 
 After a mode is confirmed working (first successful DB operation completing Stage 2), the library writes the detected mode to `localStorage`. Subsequent tab startups read this cache and skip both Stage 1 and Stage 2 entirely, proceeding directly to mode initialization.
 
@@ -352,7 +352,7 @@ A Mode B cache hit skips detection but does not skip the tab lock. The tab still
 
 ---
 
-### 0.1.8 Execution stack topology
+### 1.1.8 Execution stack topology
 
 The execution stack — WebSocket connection, command queue, sync manager, and event processor — is placed differently in each mode. The placement is determined by two constraints: (1) which context survives tab changes, and (2) which context can hold the WebSocket open.
 
@@ -406,7 +406,7 @@ Main thread
 
 ---
 
-### 0.1.9 SharedWorker lifetime and cold-start behaviour
+### 1.1.9 SharedWorker lifetime and cold-start behaviour
 
 The SharedWorker is alive as long as at least one tab holds a reference to it via `new SharedWorker(...)`. When its owner set becomes empty the browser terminates the worker and the WebSocket connection closes.
 
@@ -428,9 +428,9 @@ The command queue's `dispatch()` promise must not resolve until the OPFS write i
 
 ---
 
-## 0.2 Session model and identity constraints
+## 1.2 Session model and identity constraints
 
-### 0.2.1 Single-session invariant
+### 1.2.1 Single-session invariant
 
 - The CQRS Client supports **exactly one active user session at a time**.
 - All persisted client data belongs to that session.
@@ -440,7 +440,7 @@ There is no support for concurrent or overlapping user sessions.
 
 ---
 
-### 0.2.2 Session persistence
+### 1.2.2 Session persistence
 
 - The library persists a minimal **session record** containing:
   - `userId`
@@ -455,7 +455,7 @@ There is no support for concurrent or overlapping user sessions.
 
 ---
 
-### 0.2.3 Offline-first unauthenticated startup
+### 1.2.3 Offline-first unauthenticated startup
 
 - The library **may be initialized with unknown or unauthenticated user identity**.
 
@@ -472,7 +472,7 @@ Cached data may be read, but **no network synchronization may occur** until auth
 
 ---
 
-### 0.2.4 Authentication signaling
+### 1.2.4 Authentication signaling
 
 - Authentication is **externally owned** by the host application.
 - The application must explicitly signal authentication to the library, including the authenticated `userId`.
@@ -484,7 +484,7 @@ The library does not perform authentication itself and does not attempt to infer
 
 ---
 
-### 0.2.5 User identity change handling
+### 1.2.5 User identity change handling
 
 When authentication is signaled with a `userId`:
 
@@ -506,7 +506,7 @@ A user identity change always results in a **hard reset** of local state.
 
 ---
 
-## 0.3 Cross-component invariants
+## 1.3 Cross-component invariants
 
 The following invariants apply across all components:
 
@@ -526,13 +526,25 @@ The following invariants apply across all components:
 - **Deterministic recovery**
   All components must be resumable without data corruption across reloads, crashes, offline periods, and restarts.
 
+- **EntityRef boundary**
+  `EntityRef` is a client-side anticipated-event-only construct. Server-originated events and snapshots must always carry plain string IDs; `EntityRef` must not appear in server-seeded read model data.
+
+- **Single-session isolation**
+  All persisted client state belongs to exactly one user session. Data from different users must never be mixed; user identity changes trigger a full local data wipe (see [§1.2.5](#125-user-identity-change-handling)).
+
+- **Offline-first correctness**
+  The library must function correctly when offline or unauthenticated, and must not require server availability to serve cached data or accept commands. Network reconnection produces eventual consistency, never corrupts state.
+
+- **First-class push and pull**
+  Both consumption patterns are equally supported: snapshot queries (pull) for one-shot reads, and event subscriptions (push) for reacting to state changes. Future extensions must preserve both as first-class.
+
 ---
 
-## 0.4 Event persistence semantics
+## 1.4 Event persistence semantics
 
 Events may originate from the server or from local optimistic execution.
 
-### 0.4.1 Permanent events
+### 1.4.1 Permanent events
 
 - If `event.persistence` is **missing**, the event is treated as **`Permanent`**.
 - Permanent events:
@@ -543,7 +555,7 @@ Events may originate from the server or from local optimistic execution.
 
 ---
 
-### 0.4.2 Stateful events
+### 1.4.2 Stateful events
 
 - Identified by `event.persistence = 'Stateful'`
 - Stateful events:
@@ -554,7 +566,14 @@ Events may originate from the server or from local optimistic execution.
 
 ---
 
-### 0.4.3 Normalization requirement
+### 1.4.3 Normalization requirement
 
 - The library must treat a missing `event.persistence` field as `'Permanent'`.
 - Implementations may normalize events on ingress, but this is not required as long as behavior is correct.
+
+---
+
+## Referenced from
+
+- [`_overview.md`](_overview.md) — this requirement is indexed there as `0001 Modes and Constraints`.
+- [`/docs/intent/glossary.md`](../../../../intent/glossary.md) — the glossary's "worker mode" entry points here for the canonical definition.

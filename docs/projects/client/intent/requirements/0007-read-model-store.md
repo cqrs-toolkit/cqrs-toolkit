@@ -1,6 +1,6 @@
-# 6\. Read Model Store (Authoritative Snapshot + Effective Overlay)
+# 7\. Read Model Store (Authoritative Snapshot + Effective Overlay)
 
-## 6.1 Purpose
+## 7.1 Purpose
 
 The Read Model Store provides **authoritative, queryable state** for the UI.
 It represents the **latest effective view** of domain data, derived from:
@@ -16,7 +16,7 @@ Consumers must never reconstruct state by replaying events.
 
 ---
 
-## 6.2 Core principles
+## 7.2 Core principles
 
 The Read Model Store adheres to the following principles:
 
@@ -32,43 +32,52 @@ The Read Model Store adheres to the following principles:
 
 ---
 
-## 6.3 Data model requirements
+## 7.3 Data model requirements
 
-Each read model record must include:
+Each read model record (`ReadModelRecord`) carries:
 
-- `id: string`  
-  Domain identifier for the record.
+- `id: string` — domain identifier.
+- `collection: string` — the collection this record belongs to.
+- `cacheKeys: string[]` — cache keys this record is associated with (junction table in SQL, array in memory). Multi-attribution is supported — a record may legitimately associate with multiple cache keys.
+- `serverData: string | null` — JSON-serialized server baseline. Null for locally-created records that have no server confirmation yet.
+- `effectiveData: string` — JSON-serialized effective state (server baseline plus optimistic overlay; equal to `serverData` when no local changes are pending).
+- `hasLocalChanges: boolean` — flags whether `effectiveData` diverges from `serverData`.
+- `updatedAt: number` — last update timestamp.
+- `revision: string | null` — stream revision of the last event that updated this record (BigInt-as-string). Null for locally-created entries before reconciliation.
+- `position: string | null` — global position of the last event that updated this record (BigInt-as-string).
+- `_clientMetadata: ClientMetadata | null` — client-side identity tracking metadata, set when an anticipated event creates a read model entry from a command with `creates.idStrategy === 'temporary'` (see [0014 §24.4](0014-entity-ref.md#144-id-strategy)). Persists through reconciliation so consumer UI can maintain stable references (selection, URLs) when the server assigns a different permanent ID. Null for server-seeded entries and non-create commands.
 
-- `cacheKey: string`  
-  The cache key (entity or scope) this record belongs to.
-
-- `data: T`  
-  The **effective state** (server baseline plus optimistic overlay).
-
-- `server?: T`  
-  Optional server-only baseline when optimistic overlays are present.
-
-This structure allows deterministic recomputation of effective state.
+This structure allows deterministic recomputation of effective state from `serverData` and the relevant overlay events, and supports stable identity references across temp-ID reconciliation.
 
 ---
 
-## 6.4 Server baseline vs effective overlay semantics
+## 7.4 Server baseline vs effective overlay semantics
 
-### 6.4.1 Baseline storage rules
+### 7.4.1 Baseline storage rules
+
+**Intent.** Keep `serverData` populated only when an overlay exists. When the record has no anticipated events affecting it, `effectiveData` alone is sufficient — duplicating server state into a separate `serverData` field doubles per-record storage for the common case (overlays are rare; on the high end ~1% of records carry one). For an offline-capable client where storage quota is tight, this duplication is undesirable.
+
+**Current implementation deviates** for code simplicity: it keeps `serverData` populated alongside `effectiveData` for confirmed records (so that if an overlay arrives later, the server baseline is already at hand). This is a tolerated deviation, not the design preference. Storage pressure is already a known concern on some platforms (notably iOS), so revisiting is a matter of when we prioritize it — not a wait-for-evidence trigger.
+
+Storage rules under intent:
 
 - When no anticipated events affect a record:
-  - store the server snapshot directly in `data`
+  - `effectiveData` holds the server snapshot
 
-  - ensure `server` is absent
+  - `serverData` is absent
+
+  - `hasLocalChanges` is false
 
 - When anticipated events affect a record:
-  - store the authoritative snapshot in `server`
+  - `serverData` holds the authoritative server baseline (or null if the entity is locally-created and not yet confirmed)
 
-  - compute `data` by applying anticipated events over `server`
+  - `effectiveData` is computed by applying anticipated events over `serverData` (or directly from anticipated events when `serverData` is null)
+
+  - `hasLocalChanges` is true
 
 ---
 
-### 6.4.2 Update order
+### 7.4.2 Update order
 
 For a given record, updates must be applied in the following order:
 
@@ -82,15 +91,19 @@ This order must be preserved across reloads and retries.
 
 ---
 
-## 6.5 Deletes and link-table handling
+## 7.5 Deletes and update operations
 
-Reducers must explicitly signal record changes via operations:
+Reducers signal record changes via `UpdateOperation<T>`:
 
-- `{ op: 'upsert', modified: boolean, value: T }`
+- `{ type: 'set', data: T }` — replace the record's effective state with `data`.
 
-- `{ op: 'delete' }`
+- `{ type: 'merge', data: Partial<T> }` — shallow-merge `data` into the record's effective state.
 
-- `{ op: 'none' }`
+- `{ type: 'delete' }` — remove the record.
+
+Reducers wrap the update in a `ProcessorResult<T>` carrying `{ collection, id, update, isServerUpdate }`. The `isServerUpdate` flag distinguishes baseline updates (from server snapshots or permanent events) from optimistic updates (from anticipated events).
+
+A processor that cannot apply an event signals `{ invalidate: true }` (`InvalidateSignal`); the Sync Manager schedules a debounced refetch in response (see [§5.7](0005-sync-manager.md#57-stateful-event-handling)).
 
 For many-to-many relationships:
 
@@ -100,25 +113,27 @@ For many-to-many relationships:
 
 ---
 
-## 6.6 Storage layout
+## 7.6 Storage layout
 
-- Each read model collection is stored in a SQLite table.
+- Each read model collection is stored as a separate logical store (a SQLite table in worker modes; an in-memory Map in Mode A — see [0001 §1.1](0001-modes-and-constraints.md#11-supported-execution-modes) and the `IStorage` abstraction).
 
 - Aggregated or page-specific views may be implemented as additional tables or views.
 
-- Many-to-many relationships use dedicated link tables.
+- Many-to-many relationships use dedicated link tables (or equivalent in-memory structures).
 
-- All records must be attributable to a `cacheKey` (indexed column).
+- All records are attributable to one or more cache keys via the `cacheKeys` junction (indexed in SQL).
 
 The Read Model Store does **not** store events.
 
 ---
 
-## 6.7 Interaction with cache eviction
+## 7.7 Interaction with cache eviction
 
 On `CacheKeyEvicted(key)`:
 
-- All read model records with `cacheKey === key` must be deleted.
+- For each read model record whose `cacheKeys` array includes the evicted key, remove the key from the array.
+
+- If a record's `cacheKeys` array becomes empty after removal, delete the record. Records still attributed to other live cache keys are retained.
 
 - This includes:
   - primary records
@@ -131,7 +146,7 @@ Eviction must leave the Read Model Store in a consistent state.
 
 ---
 
-## 6.8 Interaction with anticipated events
+## 7.8 Interaction with anticipated events
 
 - Anticipated events may affect:
   - records already present in the Read Model Store
@@ -152,7 +167,7 @@ When authoritative state arrives:
 
 ---
 
-## 6.9 Session reset handling
+## 7.9 Session reset handling
 
 When a session user mismatch occurs:
 
@@ -166,7 +181,7 @@ This wipe is unconditional and independent of cache eviction.
 
 ---
 
-## 6.10 Failure and recovery guarantees
+## 7.10 Failure and recovery guarantees
 
 The Read Model Store must ensure:
 
