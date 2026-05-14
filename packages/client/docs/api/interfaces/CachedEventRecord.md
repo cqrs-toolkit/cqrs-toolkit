@@ -50,6 +50,14 @@ Event ID
 
 ---
 
+### metadata
+
+> **metadata**: `string` \| `null`
+
+Event metadata (JSON serialized). Null when the source event had no metadata.
+
+---
+
 ### persistence
 
 > **persistence**: [`EventPersistence`](../type-aliases/EventPersistence.md)

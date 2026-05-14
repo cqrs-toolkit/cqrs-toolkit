@@ -11,7 +11,7 @@ Before this change, `AnticipatedEventHandler.cleanup(commandId, 'succeeded')` ra
 For each tracked overlay row it called `readModelStore.clearLocalChanges`, and for creates (no server baseline) `clearLocalChanges` deletes the row outright.
 
 Server response events flow through `SyncManager.handleCommandResponseEvents`, which pushes onto `pendingWsEvents` and schedules a `reconcile-ws-events` write-queue op — fire-and-forget by contract.
-The cleanup thus ran *first* (wiping the optimistic overlay), and the drain wrote server data *after*.
+The cleanup thus ran _first_ (wiping the optimistic overlay), and the drain wrote server data _after_.
 Between those two points the entity was visibly gone from the UI, especially on creates.
 
 The same gap existed on the WS-only path.
@@ -23,7 +23,7 @@ The fix had to preserve three pre-existing invariants:
 2. **Submit-time anticipated event application stays** — `AnticipatedEventHandler.onApplyAnticipatedOp` must remain (per [ADR 0001 (client)](0001-anticipated-event-submit-vs-pipeline.md); the previous fold-attempt cost a day of wasted work).
 3. **`anticipatedUpdates` ownership** stays on `AnticipatedEventHandler`.
 
-A second concern was *when* cleanup of the optimistic overlay should happen.
+A second concern was _when_ cleanup of the optimistic overlay should happen.
 The natural answer — "after the server's effects are reflected in `serverData`" — is not detectable at the `'succeeded'` transition; it depends on subsequent WS events arriving and being applied.
 The pipeline is the only component that knows when that has happened.
 
@@ -47,7 +47,7 @@ The old `cleanup(commandId, terminalStatus)` is removed.
 
 ### `pendingAggregateCoverage` on `CommandRecord`
 
-A new optional `pendingAggregateCoverage?: string` column (nullable `TEXT` in SQLite) carries the success-time hint about *what coverage is needed* before the command can be marked applied.
+A new optional `pendingAggregateCoverage?: string` column (nullable `TEXT` in SQLite) carries the success-time hint about _what coverage is needed_ before the command can be marked applied.
 Two encodings:
 
 - `JSON.stringify('events')` — the "rule 1 marker." Set when the command's response carried events; the pipeline waits for one of those events (matched by `metadata.commandId`) to be drained, then transitions to `'applied'`.
@@ -110,21 +110,48 @@ Used in `toCompletionResult`, `eventToCompletionResult`, and submit-idempotency 
 
 ## Consequences
 
-**Easier:**
+### Implementation impact
+
+- New `'applied'` post-terminal status added to `CommandStatus` and `TerminalCommandStatus`; `isTerminalStatus` extended.
+- New `pendingAggregateCoverage?: string` column on `CommandRecord` (nullable `TEXT` in SQLite).
+- Split of `IAnticipatedEventHandler.cleanup` into three methods: `cleanupOnSucceeded`, `cleanupOnAppliedBatch`, `cleanupOnFailure`. Old `cleanup(commandId, terminalStatus)` removed.
+- New `SyncManager.evaluateCoverageForBatch` (private) implementing rules 1 / 2a / 2b.
+- Command-status filter widened to include `'succeeded'` in the reconcile batch.
+- New `CommandQueue.batchUpdateSyncStatus({ applied?, updated? })` API issuing a single `storage.updateCommands` for both sets.
+- `LibraryEventType` / `LibraryEventData` gain `sync:invalidate-requested`.
+- Public `InvalidationScheduler.invalidateAggregate({ streamId, cacheKey, commandId, reason })` method on the previously-private scheduler.
+- New `ReadModelStore.commit(mutations, preloaded?)` as the single pipeline write entry point; `ReadModelMutation` discriminated union (`setServer` / `mergeServer` / `setLocal` / `applyLocal` / `delete` / `migrateId` / `setClientMetadata`).
+- Phase 3 of `reconcileFromWsEvents` no longer writes to storage; processor results staged into `DeferredApplication[]` on `ServerStateChangeResult.pendingApplications`.
+- New `isConfirmedStatus(s): s is 'succeeded' | 'applied'` helper used in `toCompletionResult`, `eventToCompletionResult`, and submit-idempotency.
+- Pre-release schema migration: drop pre-existing `'succeeded'` records (no safe backfill of coverage for in-flight commands at upgrade time).
+- Audit and update of seven call-sites that previously checked `isTerminalStatus`.
+- **Deferred:** `cleanupOnAppliedBatch` ships looping internally with a `TODO(batch)` marker. A real batch primitive on `EventCache` is the closing follow-up.
+
+### Operational implications
+
+#### Gains
+
 - No window of overlay absence between `'succeeded'` and the next pipeline drain.
   The optimistic overlay survives until the pipeline confirms server effects landed; create-then-assert flows no longer flicker.
 - The pipeline owns the applied transition — a single decision point with batch-local visibility into events, revisions, and cache-key state.
+
+#### Costs
+
+- The `pendingAggregateCoverage` column adds a per-row payload during the brief succeeded → applied window.
+- Rule 2b ("cache key absent → whole map covered") is a soft cover. If a cache key is evicted _during_ the brief succeeded → applied window, all coverage entries are absorbed even if revisions never advance. This is a deliberate design choice: cache-key scope already absorbed the dependency on those streams; chasing absent data is wasted work.
+
+### Coding implications
+
+#### Gains
+
 - Invalidation is decoupled via the event bus.
   `CommandQueue` has zero references to `InvalidationScheduler` / `SyncManager` / collections-for-invalidation purposes. No bootstrap wiring, no construction-order coupling.
 - The "all reads up front, all writes at the end" contract for the reconcile pipeline is now structural (every write goes through `ReadModelStore.commit`).
 - A future `TimedAggregateInvalidationHook` (wait-for-WS-then-invalidate) becomes a subscriber-side change inside `InvalidationScheduler.invalidateAggregate`, not a cross-component interface swap.
 
-**Harder:**
-- `'applied'` is added to `TerminalCommandStatus` and `isTerminalStatus` because consumer-facing guards (cascade-cancel, dependency `blockedBy`, etc.) need to treat applied commands as done. This means *seven* call-sites that previously checked `isTerminalStatus` are now exercised against an additional status; auditing each was required (resolved in Step 9).
-- The `pendingAggregateCoverage` column adds a per-row payload during the brief succeeded → applied window. Pre-release, the migration deletes pre-existing `'succeeded'` records (no safe backfill of coverage for in-flight commands at upgrade time).
+#### Costs
+
 - Two encodings for `pendingAggregateCoverage` (string `'events'` marker vs `Record<streamId, bigint-string>`) increase the serialization complexity. Discrimination at parse time is `typeof === 'string' && value === 'events'` vs object — straightforward but requires a defensive parser.
-- Rule 2b ("cache key absent → whole map covered") is a soft cover. If a cache key is evicted *during* the brief succeeded → applied window, all coverage entries are absorbed even if revisions never advance. This is a deliberate design choice: cache-key scope already absorbed the dependency on those streams; chasing absent data is wasted work.
-- `cleanupOnAppliedBatch` loops internally with a `TODO(batch)` marker; a real batch primitive on `EventCache` is deferred.
 
 ## Notes
 

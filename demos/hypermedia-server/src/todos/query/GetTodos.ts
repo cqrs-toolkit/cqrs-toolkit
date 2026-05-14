@@ -35,6 +35,10 @@ export namespace GetTodos {
     reply: FastifyReply,
     todoRepo: TodoRepository,
   ): Promise<void> {
-    return handleProfileHandler(reply, profileHandler.resolve(request, reply, todoRepo, undefined))
+    return handleProfileHandler(
+      request,
+      reply,
+      profileHandler.resolve(request, reply, todoRepo, undefined),
+    )
   }
 }

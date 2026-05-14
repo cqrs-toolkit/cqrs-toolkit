@@ -27,7 +27,7 @@ Grouped by namespace, ordered to match [LibraryEventType](../type-aliases/Librar
 
 #### reason
 
-> **reason**: `"lru"` \| `"explicit"` \| `"expired"` \| `"session-change"`
+> **reason**: `"explicit"` \| `"lru"` \| `"expired"` \| `"session-change"`
 
 ---
 

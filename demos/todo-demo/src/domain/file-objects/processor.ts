@@ -15,7 +15,7 @@ export const fileObjectCommandEndpoints: Record<string, string> = {
 export const fileObjectProcessors: ProcessorRegistration[] = [
   {
     eventTypes: 'FileObjectCreated',
-    processor: (data: FileObjectCreatedEvent['data'], _state, ctx) => ({
+    processor: ({ data }: FileObjectCreatedEvent, _state, ctx) => ({
       collection: fileObjectsCollection.name,
       id: data.id,
       update: {
@@ -33,10 +33,10 @@ export const fileObjectProcessors: ProcessorRegistration[] = [
       },
       isServerUpdate: ctx.persistence !== 'Anticipated',
     }),
-  } satisfies ProcessorRegistration<FileObjectCreatedEvent['data'], FileObject>,
+  } satisfies ProcessorRegistration<FileObjectCreatedEvent, FileObject>,
   {
     eventTypes: 'FileObjectDeleted',
-    processor: (data: FileObjectDeletedEvent['data']) => ({
+    processor: ({ data }: FileObjectDeletedEvent) => ({
       collection: fileObjectsCollection.name,
       id: data.id,
       update: { type: 'delete' },

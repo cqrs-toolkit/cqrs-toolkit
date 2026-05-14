@@ -9,6 +9,11 @@
 HTTP command sender interface.
 Abstracted for testability and different transport implementations.
 
+Receives the wire-shaped SendableCommandRecord: identical to
+[CommandRecord](CommandRecord.md) except `headers` is `Record<string, string>` —
+the library resolves declared [EntityRef](EntityRef.md) headers via the cascade
+before invoking the sender, so transports never have to flatten.
+
 ## Type Parameters
 
 ### TLink
@@ -37,7 +42,7 @@ Send a command to the server.
 
 ##### command
 
-[`CommandRecord`](CommandRecord.md)\<`TLink`, `TCommand`, `TResponse`\>
+`SendableCommandRecord`\<`TLink`, `TCommand`, `TResponse`\>
 
 Command record to send
 

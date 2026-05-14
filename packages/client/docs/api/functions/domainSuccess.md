@@ -6,9 +6,9 @@
 
 # Function: domainSuccess()
 
-> **domainSuccess**\<`TEvent`\>(`anticipatedEvents`, `postProcessPlan?`): [`DomainExecutionResult`](../type-aliases/DomainExecutionResult.md)\<`TEvent`\>
+> **domainSuccess**\<`TEvent`\>(`events`, `postProcessPlan?`): [`DomainExecutionOutcome`](../type-aliases/DomainExecutionOutcome.md)\<`TEvent`\>
 
-Helper to create a successful domain execution result.
+Helper to create a `'success'` outcome.
 
 ## Type Parameters
 
@@ -18,7 +18,7 @@ Helper to create a successful domain execution result.
 
 ## Parameters
 
-### anticipatedEvents
+### events
 
 `TEvent`[]
 
@@ -28,4 +28,4 @@ Helper to create a successful domain execution result.
 
 ## Returns
 
-[`DomainExecutionResult`](../type-aliases/DomainExecutionResult.md)\<`TEvent`\>
+[`DomainExecutionOutcome`](../type-aliases/DomainExecutionOutcome.md)\<`TEvent`\>

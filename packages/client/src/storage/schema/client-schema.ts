@@ -60,9 +60,11 @@ CREATE TABLE commands (
   creates TEXT,
   revision TEXT,
   path TEXT,
+  headers TEXT,
   file_refs TEXT,
   command_id_paths TEXT,
   affected_aggregates TEXT,
+  model_state TEXT,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 )`
@@ -80,6 +82,7 @@ CREATE TABLE cached_events (
   stream_id TEXT NOT NULL,
   persistence TEXT NOT NULL,
   data TEXT NOT NULL,
+  metadata TEXT,
   position TEXT,
   revision TEXT,
   command_id TEXT,

@@ -4,7 +4,7 @@
 
 ## Context
 
-Before this change, `Collection` and *aggregate* were conflated.
+Before this change, `Collection` and _aggregate_ were conflated.
 `getStreamId` lived directly on `Collection` and there was no explicit declaration of which fields in read-model data referenced which aggregates.
 Two failure modes followed from the conflation:
 
@@ -39,7 +39,7 @@ After resolution, every collection's `idReferences` contains its own self-id ref
 For each `IdReference` whose declared aggregate matches the reconciled aggregate, it walks the path (with full JSONPath wildcard support via `findMatchingPaths`) and rewrites every leaf whose `entityIdToString(value)` equals the old id.
 References targeting other aggregates are intentionally skipped — they reconcile when their own aggregates reconcile.
 
-**`EventProcessorRunner` receives a `collectionsByName: Map<string, Collection<TLink>>` map** built from the *resolved* config.
+**`EventProcessorRunner` receives a `collectionsByName: Map<string, Collection<TLink>>` map** built from the _resolved_ config.
 `reconcileAnticipatedCreate` looks up the tracked collection and `assert`s presence — a miss is a programming error, not a runtime fallback.
 
 **EntityId-aware ID extraction:** `extractAggregateIdFromEvents`, `extractPayloadId`, `ReadModelStore` methods (`getById`, `getByIds`, `exists`, `clearLocalChanges`, `setClientMetadata`, `delete`), `ProcessorResult.id`, `ProcessorContext.getCurrentState`, and `QueryManager` `GetById*` types accept `EntityId` and resolve to string via `entityIdToString` at the boundary with storage.
@@ -52,19 +52,39 @@ Defensive `if (collection?.aggregate.getStreamId)` and `if (!collection.aggregat
 
 ## Consequences
 
-**Easier:**
+### Implementation impact
+
+- Required `aggregate: AggregateConfig<TLink>` field on `Collection`; removal of top-level `getStreamId`.
+- Optional `idReferences: readonly IdReference<TLink>[]` on `Collection` (DirectIdReference + LinkIdReference discriminated union).
+- `resolveConfig` injection of `{ aggregate: c.aggregate, path: '$.id' }` self-reference into every aggregate-bearing collection's `idReferences`.
+- New `patchEntityIds(data, oldId, newId, idReferences, reconciledAggregate)` walking all IdReferences uniformly (the conceptual shape; the landed equivalent is split across `resolveCommandIds` / `reconcileAggregateIds` / `applyIdRewritesToLocalOverlay` — see Naming reconciliation below).
+- `collectionsByName: Map<string, Collection<TLink>>` plumbing through reconciliation, built from the resolved config.
+- EntityId-aware widening across `extractAggregateIdFromEvents`, `extractPayloadId`, `ReadModelStore` methods (`getById`, `getByIds`, `exists`, `clearLocalChanges`, `setClientMetadata`, `delete`), `ProcessorResult.id`, `ProcessorContext.getCurrentState`, and `QueryManager` `GetById*` types — resolution to string via `entityIdToString` at storage boundaries.
+- New `isEntityIdLink(value)` type guard distinguishing a local Link (with `EntityId`) from the server-side `Link` (with `string`).
+- Removal of defensive `if (collection?.aggregate.getStreamId)` and `if (!collection.aggregate.getStreamId) continue` branches in `SyncManager` and `GapRepairCoordinator`.
+
+### Operational implications
+
+#### Gains
+
 - Reconciliation patches all cross-aggregate references in one pass.
   A Note carrying `notebookId`, an `attachments[*].fileObjectId` array, and a self-id all converge through the same `patchEntityIds` walk.
-- A future `CompositeCollection` — one collection assembled from events of multiple aggregates — has a clean home.
-  `idReferences` is the only declaration of which aggregate IDs appear in the data; `Collection` keeps a 1:1 `aggregate` field, and `CompositeCollection` becomes a separate type with multiple aggregates and a per-aggregate revision map.
 - EntityRef IDs flow through internal APIs without silent skips.
   Anticipated-event data carrying `EntityRef` at id positions is read via `entityIdToString` and replaced with confirmed server IDs on reconciliation.
+
+### Coding implications
+
+#### Gains
+
+- A future `CompositeCollection` — one collection assembled from events of multiple aggregates — has a clean home.
+  `idReferences` is the only declaration of which aggregate IDs appear in the data; `Collection` keeps a 1:1 `aggregate` field, and `CompositeCollection` becomes a separate type with multiple aggregates and a per-aggregate revision map.
 - The injected `$.id` reference removes the self-ID special case from `patchEntityIds` — all references are uniform.
 
-**Harder:**
+#### Costs
+
 - Consumers must declare `aggregate` on every Collection and `idReferences` for cross-aggregate fields.
   Demo collections gained both fields; existing consumers will need to add them when migrating.
-  `injectCollectionDefaults` adds `$.id` automatically — consumers do *not* declare it themselves.
+  `injectCollectionDefaults` adds `$.id` automatically — consumers do _not_ declare it themselves.
 - The `LinkIdReference` branch needs both a static check (does the declared `aggregates` list include the reconciled one?) and a runtime check (does the actual `Link.type` at this path match?).
   The static-and-runtime split is a real distinction — sibling types in a Link union can carry different aggregate identities at different array elements.
 - The dead-code cleanup in `SyncManager` and `GapRepairCoordinator` means the `aggregate.getStreamId` invariant is now load-bearing; a future change that re-introduces optionality breaks the inferred behavior.
@@ -96,10 +116,11 @@ For present-day readers:
   - `applyIdRewritesToLocalOverlay` (private method on `CommandQueue`) — applies the resulting id map to read-model rows via `ReadModelStore.migrateEntityIds`.
 
   The conceptual shape (`IdReference[]`-walked id replacement; references targeting other aggregates skipped to reconcile when their own aggregates do) is what landed; the single-function signature in the Decision section is iteration-time framing, not current API.
+
 - **`reconcileAnticipatedCreate`** existed in the ADR-shipping commit (`707b14b`, 2026-04-22) and was removed shortly after.
   The collection-lookup-and-assert behavior the ADR describes now lives inside the post-rework anticipated-event path; the name no longer matches anything in the tree.
 - **`EventProcessorRunner`** existed at acceptance and was removed on 2026-04-27 (commit `84dc12f`) during a server-data-processing rewrite.
   Its responsibilities now live across `SyncManager` (pipeline orchestration) and `EventProcessorRegistry` (processor lookup).
   The `collectionsByName` map the ADR describes is still the right shape; it's just plumbed through the post-rework pipeline rather than into a `Runner` class.
 
-Context references in this ADR (`extractPayloadId` etc.) describe the *prior* state that motivated the decision and are not affected by the renaming.
+Context references in this ADR (`extractPayloadId` etc.) describe the _prior_ state that motivated the decision and are not affected by the renaming.

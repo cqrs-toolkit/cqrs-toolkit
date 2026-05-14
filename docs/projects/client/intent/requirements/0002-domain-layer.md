@@ -97,7 +97,7 @@ All such concerns are owned by downstream components.
 The Domain Layer exposes a pure execution interface:
 
 ```ts
-execute(command) -> {
+execute(command, currentState?) -> {
   anticipatedEvents: Event[];
   postProcessPlan?: PostProcessPlan;
 }
@@ -105,11 +105,33 @@ execute(command) -> {
 
 Where:
 
-- `anticipatedEvents` is an ordered list of domain events representing the optimistic outcome
+- `command` is the submitted command record (type, data, path, fileRefs).
 
-- `postProcessPlan` (optional) describes how commands and anticipated events should be transformed once server results are known
+- `currentState` is the consumer-provided read-model snapshot the user was operating against when the command was submitted. The consumer is expected to pass this whenever the command is being submitted against an existing entity (mutate, transition, soft-delete) — it lets state-dependent handlers reflect what the user actually saw. It is omitted when the command targets nothing yet (e.g. a create against an unseeded collection). The Domain Layer treats it as input data: if absent, the handler must still produce well-defined output for that case.
 
-The Domain Layer **must be deterministic**: given the same command input, it must always produce the same output.
+- `anticipatedEvents` is an ordered list of domain events representing the optimistic outcome.
+
+- `postProcessPlan` (optional) describes how commands and anticipated events should be transformed once server results are known.
+
+`currentState` becomes the durable `initial` snapshot on the persisted command record (see [`0004 §4.4.2`](0004-command-queue.md#442-submit-time-inputs)). At the implementation level the Domain Layer sees a discriminated union `state: HandlerState`:
+
+- `{ mode: 'initial'; initial }` — first invocation, at enqueue time. Only `initial` is meaningful.
+- `{ mode: 'regenerate'; initial; current }` — any subsequent invocation, regardless of trigger (server-event delta during reconciliation, id-rewrite cascade after a parent command resolves, AutoRevision resolution). The library always populates `current` with the latest read-model view of the command's primary entity, so handler behavior is consistent across triggers.
+
+`initial` is constant for the command's lifetime. `current` may be `undefined` only when the entity isn't yet in the read-model store (no overlay folded yet, outside active cache); it is never `undefined` as a "trigger-based" signal. With both views in hand, a handler that wants to detect "the field I was editing has been changed by someone else since I queued my edit" has the data it needs.
+
+This shape applies to the command-level functions (validate, validateAsync, handler). Event Processors ([`0008`](0008-event-processors.md)) are an entity-level reducer fed an event and the current entity state by the fold; the "what the user saw at submit" concept does not apply to them, and their state argument stays unchanged.
+
+**Outcome shape — flat algebraic union.** The handler's output is not a binary success/failure: it discriminates on a `kind` field over four variants:
+
+- `'success'` — produced anticipated events (and optional `postProcessPlan`).
+- `'validation-error'` — structural validation failed; the command is rejected at submit and not persisted.
+- `'unknown-command'` — the executor has no registration for this command type; rejected at submit.
+- `'conflict'` — the handler detected a state conflict (using `{ initial, current }`) and is signaling a categorized failure (`category: FailureCategory`). Routing depends on **when** the conflict surfaces (see [`0004 §4.8.3`](0004-command-queue.md#483-pluggable-failure-mapping)): at submit time (handler's first call) the conflict rejects the submit identical to a validation rejection; at pipeline time (regenerate during reconcile / id-rewrite / revision-resolution) the persisted command transitions to `'failed'` with the category accessible to the UI.
+
+`validate` keeps `Result<unknown, ValidationException>` — it has no read-model access and validation is binary. `validateAsync` widens to `Result<unknown, ValidationException | ConflictException>` because it has `queryManager` access and is a natural place to detect conflicts ("another entity already has this name"). Submit-time conflicts and validation errors flow through the same `Err` path on `submit()`; consumers discriminate via the exception type if they care.
+
+The Domain Layer **must be deterministic**: given the same `(command, state)` input, it must always produce the same outcome. Determinism explicitly includes the state argument — a handler that produces different outcomes for `{ mode: 'initial', initial: A }` vs `{ mode: 'regenerate', initial: A, current: B }` is correct precisely because the inputs differ.
 
 ---
 

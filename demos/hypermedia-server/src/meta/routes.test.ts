@@ -237,12 +237,12 @@ describe('header documentation in generated docs', () => {
     expect(r307.headers['X-Correlation-Id'].schema).toEqual({ type: 'string' })
   })
 
-  it('download 404 response refs nb.Error schema and carries the global response header', async () => {
+  it('download 404 response refs nb.Problem schema and carries the global response header', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/meta/openapi' })
     const doc = res.json()
     const r404 = doc.paths['/api/file-objects/{id}/download']?.get?.responses['404']
-    const ref = r404?.content?.['application/json']?.schema?.$ref as string
-    expect(ref).toMatch(/\/api\/meta\/schemas\/urn\/schema\/nb\.Error\/1\.0\.0\.json$/)
+    const ref = r404?.content?.['application/problem+json']?.schema?.$ref as string
+    expect(ref).toMatch(/\/api\/meta\/schemas\/urn\/schema\/nb\.Problem\/1\.0\.0\.json$/)
     expect(r404.headers['X-Correlation-Id']).toBeDefined()
   })
 

@@ -3,7 +3,6 @@
  */
 
 import { DemoEventStore } from '@cqrs-toolkit/demo-base/common/server'
-import type { CommandResponse } from '@cqrs-toolkit/demo-base/common/shared'
 import {
   NotebookAggregate,
   type NotebookRepository,
@@ -11,7 +10,7 @@ import {
 } from '@cqrs-toolkit/demo-base/notebooks/server'
 import { DuplicateNotebookNameException } from '@cqrs-toolkit/demo-base/notebooks/shared'
 import type { EventCursorPagination, HypermediaTypes } from '@cqrs-toolkit/hypermedia'
-import { Hypermedia } from '@cqrs-toolkit/hypermedia/server'
+import { BadRequestException, Hypermedia, NotFoundException } from '@cqrs-toolkit/hypermedia/server'
 import { EventExistenceRevision, type ISerializedEvent } from '@meticoeus/ddd-es'
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
 import { v4 as uuidv4 } from 'uuid'
@@ -19,10 +18,10 @@ import {
   commandRouteConfig,
   createRouteConfig,
   extractCommandMetadata,
-  handleErr,
   toCommandSuccess,
   toSerializedEvent,
 } from '../command-utils.js'
+import { handleErrorReply } from '../problems/index.js'
 import {
   GetAggregateEventsRequest,
   GetByIdRequest,
@@ -158,7 +157,7 @@ export function notebookRoutes(
       createRouteConfig,
       async (request, reply) => {
         const metadataRes = extractCommandMetadata(request)
-        if (!metadataRes.ok) return handleErr(metadataRes, reply)
+        if (!metadataRes.ok) return handleErrorReply(request, reply, metadataRes.error)
         const metadata = metadataRes.value
 
         const valRes = NOTEBOOK_COMMANDS.parse<{ name: string }>(
@@ -167,30 +166,23 @@ export function notebookRoutes(
           request.body,
           NotebookCommandIds.CreateNotebook,
         )
-        if (!valRes.ok) {
-          reply.code(400)
-          return { message: valRes.error.message } satisfies CommandResponse
-        }
+        if (!valRes.ok) return handleErrorReply(request, reply, valRes.error)
         if (valRes.value.kind === 'replied') return
 
         const existingByName = notebookRepo.findByName(valRes.value.value.name)
         if (existingByName) {
-          const err = new DuplicateNotebookNameException(valRes.value.value.name)
-          reply.code(400)
-          return {
-            message: err.message,
-            details: { errors: err.details },
-          } satisfies CommandResponse
+          return handleErrorReply(
+            request,
+            reply,
+            new DuplicateNotebookNameException(valRes.value.value.name),
+          )
         }
 
         const id = uuidv4()
         const aggregate = new NotebookAggregate()
         aggregate.create(valRes.value.value, id, metadata)
         const result = await notebookRepo.save(aggregate, EventExistenceRevision.NoStream)
-        if (!result.ok) {
-          reply.code(result.error.code ?? 500)
-          return { message: result.error.message } satisfies CommandResponse
-        }
+        if (!result.ok) return handleErrorReply(request, reply, result.error)
         return toCommandSuccess(id, result.value.nextExpectedRevision, result.value.events ?? [])
       },
     )
@@ -202,7 +194,7 @@ export function notebookRoutes(
       Body: { type: string; data: unknown; revision?: string }
     }>(NotebookCommands.mustSurface('command').path, commandRouteConfig, async (request, reply) => {
       const metadataRes = extractCommandMetadata(request)
-      if (!metadataRes.ok) return handleErr(metadataRes, reply)
+      if (!metadataRes.ok) return handleErrorReply(request, reply, metadataRes.error)
       const metadata = metadataRes.value
 
       const { type, data, revision } = request.body
@@ -212,10 +204,7 @@ export function notebookRoutes(
         data,
         type,
       )
-      if (!res.ok) {
-        reply.code(400)
-        return { message: res.error.message } satisfies CommandResponse
-      }
+      if (!res.ok) return handleErrorReply(request, reply, res.error)
       if (res.value.kind === 'replied') return
 
       const expectedRevision = revision !== undefined ? BigInt(revision) : undefined
@@ -225,24 +214,19 @@ export function notebookRoutes(
         case NotebookCommandIds.UpdateNotebookName: {
           const nameConflict = notebookRepo.findByName(res.value.data.name)
           if (nameConflict && nameConflict.id !== request.params.id) {
-            const err = new DuplicateNotebookNameException(res.value.data.name)
-            reply.code(400)
-            return {
-              message: err.message,
-              details: { errors: err.details },
-            } satisfies CommandResponse
+            return handleErrorReply(
+              request,
+              reply,
+              new DuplicateNotebookNameException(res.value.data.name),
+            )
           }
           const aggregate = await notebookRepo.getById(request.params.id)
           if (!aggregate) {
-            reply.code(404)
-            return { message: 'Notebook not found' } satisfies CommandResponse
+            return handleErrorReply(request, reply, new NotFoundException('Notebook not found'))
           }
           aggregate.updateName(res.value.data, metadata)
           const saveRes = await notebookRepo.save(aggregate, expectedRevision ?? 0n)
-          if (!saveRes.ok) {
-            reply.code(saveRes.error.code ?? 500)
-            return { message: saveRes.error.message } satisfies CommandResponse
-          }
+          if (!saveRes.ok) return handleErrorReply(request, reply, saveRes.error)
           return toCommandSuccess(
             request.params.id,
             saveRes.value.nextExpectedRevision,
@@ -256,10 +240,7 @@ export function notebookRoutes(
             expectedRevision ?? 0n,
             metadata,
           )
-          if (!result.ok) {
-            reply.code(result.error.code ?? 500)
-            return { message: result.error.message } satisfies CommandResponse
-          }
+          if (!result.ok) return handleErrorReply(request, reply, result.error)
           return toCommandSuccess(
             request.params.id,
             result.value.nextExpectedRevision,
@@ -270,15 +251,11 @@ export function notebookRoutes(
         case NotebookCommandIds.AddNotebookTag: {
           const aggregate = await notebookRepo.getById(request.params.id)
           if (!aggregate) {
-            reply.code(404)
-            return { message: 'Notebook not found' } satisfies CommandResponse
+            return handleErrorReply(request, reply, new NotFoundException('Notebook not found'))
           }
           aggregate.addTag(res.value.data.tag, metadata)
           const saveRes = await notebookRepo.save(aggregate, expectedRevision ?? 0n)
-          if (!saveRes.ok) {
-            reply.code(saveRes.error.code ?? 500)
-            return { message: saveRes.error.message } satisfies CommandResponse
-          }
+          if (!saveRes.ok) return handleErrorReply(request, reply, saveRes.error)
           return toCommandSuccess(
             request.params.id,
             saveRes.value.nextExpectedRevision,
@@ -289,15 +266,11 @@ export function notebookRoutes(
         case NotebookCommandIds.RemoveNotebookTag: {
           const aggregate = await notebookRepo.getById(request.params.id)
           if (!aggregate) {
-            reply.code(404)
-            return { message: 'Notebook not found' } satisfies CommandResponse
+            return handleErrorReply(request, reply, new NotFoundException('Notebook not found'))
           }
           aggregate.removeTag(res.value.data.tag, metadata)
           const saveRes = await notebookRepo.save(aggregate, expectedRevision ?? 0n)
-          if (!saveRes.ok) {
-            reply.code(saveRes.error.code ?? 500)
-            return { message: saveRes.error.message } satisfies CommandResponse
-          }
+          if (!saveRes.ok) return handleErrorReply(request, reply, saveRes.error)
           return toCommandSuccess(
             request.params.id,
             saveRes.value.nextExpectedRevision,
@@ -306,8 +279,11 @@ export function notebookRoutes(
         }
 
         default:
-          reply.code(400)
-          return { message: `Unknown command: ${stableId}` } satisfies CommandResponse
+          return handleErrorReply(
+            request,
+            reply,
+            new BadRequestException(`Unknown command: ${stableId}`),
+          )
       }
     })
   }

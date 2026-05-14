@@ -29,6 +29,11 @@ import { findMatchingPaths, setAtPath } from './ref-path.js'
 export interface ResolveCommandIdsResult {
   data: unknown
   path: unknown
+  /** Submit-stage shape: values are `EntityId` because resolution may replace
+   *  some entries with plain server-id strings while others (declared but
+   *  unresolved) remain {@link EntityRef}s. Strip happens downstream in the
+   *  queue, before the record is built. */
+  headers: Record<string, EntityId> | undefined
   /**
    * Paths whose EntityRef values could not be resolved. The entries carry the
    * original EntityRef (with `commandId` linkage) so downstream dependency
@@ -40,11 +45,11 @@ export interface ResolveCommandIdsResult {
 }
 
 export function resolveCommandIds<TLink extends Link>(
-  command: { data: unknown; path?: unknown },
+  command: { data: unknown; path?: unknown; headers?: Record<string, EntityId> },
   idReferences: readonly IdReference<TLink>[],
   mappingStore: ICommandIdMappingStore,
 ): ResolveCommandIdsResult {
-  let commandView: unknown = { data: command.data, path: command.path }
+  let commandView: unknown = { data: command.data, path: command.path, headers: command.headers }
   const commandIdPaths: Record<JSONPathExpression, EntityRef> = {}
   let changed = false
 
@@ -92,10 +97,15 @@ export function resolveCommandIds<TLink extends Link>(
     }
   }
 
-  const view = commandView as { data: unknown; path?: unknown }
+  const view = commandView as {
+    data: unknown
+    path?: unknown
+    headers?: Record<string, EntityId>
+  }
   return {
     data: view.data,
     path: view.path,
+    headers: view.headers,
     commandIdPaths: Object.keys(commandIdPaths).length > 0 ? commandIdPaths : undefined,
     changed,
   }

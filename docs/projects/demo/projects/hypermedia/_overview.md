@@ -23,3 +23,7 @@ Uses the same default-shared-worker execution mode as the todo demo.
 - Web e2e tests: `demos/hypermedia-web/src/**/tests/*.e2e.ts`
 - Run web: `npm run dev -w @cqrs-toolkit/hypermedia-web` (starts both server and Vite)
 - Run server only: `npm run server -w @cqrs-toolkit/hypermedia-server`
+
+## Wings
+
+- [evolution](evolution/_overview.md) — changelog of significant changes to this sub-project

@@ -146,6 +146,32 @@ shared config and both sides install it.
 
 ---
 
+### mapFailure?
+
+> `optional` **mapFailure**: [`FailureMapper`](../type-aliases/FailureMapper.md)
+
+Project-wide pluggable mapping from [ServerErrorResponse](ServerErrorResponse.md) (parsed
+server error) to [FailureDescriptor](FailureDescriptor.md). Runs when no per-command
+`mapFailure` on a [CommandHandlerRegistration](../type-aliases/CommandHandlerRegistration.md) is defined for the
+failing command type. Defaults to `defaultProblemJsonMapper` (RFC 9457
+problem+json — the project's canonical error format) when omitted.
+
+Consumers using a different convention (ld+json, bespoke `body.name`,
+etc.) supply their own implementation. Library-shipped helpers in
+`core/failure-mapper` (`defaultStatusMapper`, `defaultLdJsonMapper`,
+etc.) compose into custom mappers.
+
+Resolution: per-command `mapFailure` is the sole arbiter when defined
+(no automatic cascade). Consumers wanting "global behaviour for non-
+special cases" import this function reference directly inside the
+per-command handler and call it explicitly.
+
+#### Inherited from
+
+[`CqrsConfig`](CqrsConfig.md).[`mapFailure`](CqrsConfig.md#mapfailure)
+
+---
+
 ### mode?
 
 > `optional` **mode**: [`ExecutionModeConfig`](../type-aliases/ExecutionModeConfig.md)

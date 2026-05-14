@@ -502,12 +502,125 @@ describe('AnticipatedEventHandler', () => {
       expect(handler.getTrackedEntries('cmd-1')).toBeUndefined()
     })
   })
+
+  describe('getAnticipatedEvents (metadata round-trip)', () => {
+    it('returns events with metadata when handler emitted it', async () => {
+      const { handler } = await bootstrap()
+      await handler.cache<TestEvent>({
+        command: mockCommand(),
+        events: [
+          {
+            type: 'TodoCreated',
+            data: { id: 'todo-1', title: 'Buy milk' },
+            streamId: 'nb.Todo-todo-1',
+            metadata: { inTenant: 't-1', inWorkspace: 'w-1' },
+          },
+        ],
+      })
+
+      const events = await handler.getAnticipatedEvents('cmd-1')
+      expect(events).toHaveLength(1)
+      expect(events[0]?.metadata).toEqual({ inTenant: 't-1', inWorkspace: 'w-1' })
+    })
+
+    it('returns events with metadata undefined when handler did not emit it', async () => {
+      const { handler } = await bootstrap()
+      await handler.cache<TestEvent>({
+        command: mockCommand(),
+        events: [
+          {
+            type: 'TodoCreated',
+            data: { id: 'todo-1', title: 'Buy milk' },
+            streamId: 'nb.Todo-todo-1',
+          },
+        ],
+      })
+
+      const events = await handler.getAnticipatedEvents('cmd-1')
+      expect(events).toHaveLength(1)
+      expect(events[0]?.metadata).toBeUndefined()
+    })
+
+    it('round-trips EntityRef-shaped values in metadata as plain JSON shape', async () => {
+      const { handler } = await bootstrap()
+      const tenantRef = {
+        kind: 'entity-ref',
+        entityId: 'temp-tenant-1',
+        commandId: 'cmd-create-tenant',
+      }
+      await handler.cache<TestEvent>({
+        command: mockCommand(),
+        events: [
+          {
+            type: 'TodoCreated',
+            data: { id: 'todo-1', title: 'Buy milk' },
+            streamId: 'nb.Todo-todo-1',
+            metadata: { inTenant: tenantRef },
+          },
+        ],
+      })
+
+      const events = await handler.getAnticipatedEvents('cmd-1')
+      expect(events[0]?.metadata).toEqual({ inTenant: tenantRef })
+    })
+
+    it('passes metadata through to the projector via event.metadata', async () => {
+      const captured: Array<Record<string, unknown> | undefined> = []
+      const storage = new InMemoryStorage<ServiceLink, EnqueueCommand>()
+      await storage.initialize()
+      const eventBus = new EventBus<ServiceLink>()
+      const eventCache = new EventCache<ServiceLink, EnqueueCommand>(storage)
+      const mappingStore = new CommandIdMappingStore<ServiceLink, EnqueueCommand>(storage)
+      await mappingStore.initialize()
+      const readModelStore = new ReadModelStore<ServiceLink, EnqueueCommand>(
+        eventBus,
+        storage,
+        mappingStore,
+      )
+      const registry = new EventProcessorRegistry()
+      registry.register({
+        eventTypes: 'TodoCreated',
+        processor: ({ data, metadata }: TodoCreatedEvent) => {
+          captured.push(metadata)
+          return {
+            collection: 'todos',
+            id: data.id,
+            update: { type: 'set', data },
+            isServerUpdate: false,
+          }
+        },
+      })
+      const wq = createTestWriteQueue(eventBus, cleanup, ['apply-anticipated'])
+      const handler = new AnticipatedEventHandler<ServiceLink, EnqueueCommand>(
+        eventBus,
+        eventCache,
+        registry,
+        readModelStore,
+        COLLECTIONS,
+        wq,
+      )
+
+      await handler.cache<TestEvent>({
+        command: mockCommand(),
+        events: [
+          {
+            type: 'TodoCreated',
+            data: { id: 'todo-1', title: 'Buy milk' },
+            streamId: 'nb.Todo-todo-1',
+            metadata: { inTenant: 't-1' },
+          },
+        ],
+      })
+
+      expect(captured).toEqual([{ inTenant: 't-1' }])
+    })
+  })
 })
 
-function todoProcessor(): ProcessorRegistration<{ id: string; title: string }> {
+function todoProcessor(): ProcessorRegistration<{ data: { id: string; title: string } }> {
   return {
     eventTypes: 'TodoCreated',
-    processor: (data) => ({
+    processor: ({ data }) => ({
       collection: 'todos',
       id: data.id,
       update: { type: 'set', data },

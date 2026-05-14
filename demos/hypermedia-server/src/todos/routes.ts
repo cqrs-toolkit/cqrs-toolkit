@@ -3,10 +3,9 @@
  */
 
 import { DemoEventStore } from '@cqrs-toolkit/demo-base/common/server'
-import type { CommandResponse } from '@cqrs-toolkit/demo-base/common/shared'
 import { TodoAggregate, TodoRepository } from '@cqrs-toolkit/demo-base/todos/server'
 import type { EventCursorPagination, HypermediaTypes } from '@cqrs-toolkit/hypermedia'
-import { Hypermedia } from '@cqrs-toolkit/hypermedia/server'
+import { BadRequestException, Hypermedia, NotFoundException } from '@cqrs-toolkit/hypermedia/server'
 import { EventExistenceRevision, type ISerializedEvent } from '@meticoeus/ddd-es'
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
 import { v4 as uuidv4 } from 'uuid'
@@ -14,10 +13,10 @@ import {
   commandRouteConfig,
   createRouteConfig,
   extractCommandMetadata,
-  handleErr,
   toCommandSuccess,
   toSerializedEvent,
 } from '../command-utils.js'
+import { handleErrorReply } from '../problems/index.js'
 import {
   GetAggregateEventsRequest,
   GetByIdRequest,
@@ -149,7 +148,7 @@ export function todoRoutes(
 
     app.post(TodoCommands.mustSurface('create').path, createRouteConfig, async (request, reply) => {
       const metadataRes = extractCommandMetadata(request)
-      if (!metadataRes.ok) return handleErr(metadataRes, reply)
+      if (!metadataRes.ok) return handleErrorReply(request, reply, metadataRes.error)
       const metadata = metadataRes.value
 
       const valRes = TODO_COMMANDS.parse<{ content: string }>(
@@ -158,20 +157,14 @@ export function todoRoutes(
         request.body,
         TodoCommandIds.CreateTodo,
       )
-      if (!valRes.ok) {
-        reply.code(400)
-        return { message: valRes.error.message } satisfies CommandResponse
-      }
+      if (!valRes.ok) return handleErrorReply(request, reply, valRes.error)
       if (valRes.value.kind === 'replied') return
 
       const id = uuidv4()
       const aggregate = new TodoAggregate()
       aggregate.create(valRes.value.value, id, metadata)
       const result = await todoRepo.save(aggregate, EventExistenceRevision.NoStream)
-      if (!result.ok) {
-        reply.code(result.error.code ?? 500)
-        return { message: result.error.message } satisfies CommandResponse
-      }
+      if (!result.ok) return handleErrorReply(request, reply, result.error)
       return toCommandSuccess(id, result.value.nextExpectedRevision, result.value.events ?? [])
     })
 
@@ -182,7 +175,7 @@ export function todoRoutes(
       Body: { type: string; data: unknown; revision?: string }
     }>(TodoCommands.mustSurface('command').path, commandRouteConfig, async (request, reply) => {
       const metadataRes = extractCommandMetadata(request)
-      if (!metadataRes.ok) return handleErr(metadataRes, reply)
+      if (!metadataRes.ok) return handleErrorReply(request, reply, metadataRes.error)
       const metadata = metadataRes.value
 
       const { type, data, revision } = request.body
@@ -192,16 +185,12 @@ export function todoRoutes(
         data,
         type,
       )
-      if (!res.ok) {
-        reply.code(400)
-        return { message: res.error.message } satisfies CommandResponse
-      }
+      if (!res.ok) return handleErrorReply(request, reply, res.error)
       if (res.value.kind === 'replied') return
 
       const aggregate = await todoRepo.getById(request.params.id)
       if (!aggregate) {
-        reply.code(404)
-        return { message: 'Todo not found' } satisfies CommandResponse
+        return handleErrorReply(request, reply, new NotFoundException('Todo not found'))
       }
 
       const expectedRevision = revision !== undefined ? BigInt(revision) : undefined
@@ -218,15 +207,15 @@ export function todoRoutes(
           aggregate.markDeleted(metadata)
           break
         default:
-          reply.code(400)
-          return { message: `Unknown command: ${stableId}` } satisfies CommandResponse
+          return handleErrorReply(
+            request,
+            reply,
+            new BadRequestException(`Unknown command: ${stableId}`),
+          )
       }
 
       const saveRes = await todoRepo.save(aggregate, expectedRevision ?? 0n)
-      if (!saveRes.ok) {
-        reply.code(saveRes.error.code ?? 500)
-        return { message: saveRes.error.message } satisfies CommandResponse
-      }
+      if (!saveRes.ok) return handleErrorReply(request, reply, saveRes.error)
       return toCommandSuccess(
         request.params.id,
         saveRes.value.nextExpectedRevision,

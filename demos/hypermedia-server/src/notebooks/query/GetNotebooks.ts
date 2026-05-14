@@ -36,6 +36,7 @@ export namespace GetNotebooks {
     notebookRepo: NotebookRepository,
   ): Promise<void> {
     return handleProfileHandler(
+      request,
       reply,
       profileHandler.resolve(request, reply, notebookRepo, undefined),
     )

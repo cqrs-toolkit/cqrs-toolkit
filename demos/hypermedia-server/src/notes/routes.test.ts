@@ -108,7 +108,12 @@ describe('POST /api/notes/:id/command', () => {
       })
 
       expect(res.statusCode).toBe(404)
-      expect(res.json()).toMatchObject({ message: 'Note not found' })
+      expect(res.headers['content-type']).toContain('application/problem+json')
+      expect(res.json()).toMatchObject({
+        type: 'urn:problem:nb.NotFound:1.0.0',
+        status: 404,
+        detail: 'Note not found',
+      })
     })
   })
 

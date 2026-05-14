@@ -23,6 +23,19 @@ export * from './types/index.js'
 // Anticipated event shape
 export type { IAnticipatedEvent } from './core/command-lifecycle/AnticipatedEventShape.js'
 
+// Failure mapping — default mappers and body-shape helpers for consumer
+// `mapFailure` callbacks (per-command on `CommandHandlerRegistration` or
+// global on `CqrsConfig`).
+export {
+  defaultLdJsonMapper,
+  defaultProblemJsonMapper,
+  defaultStatusMapper,
+  hasJsonLdType,
+  hasProblemType,
+  readJsonLdType,
+  readProblemType,
+} from './core/failure-mapper/index.js'
+
 // Storage
 export {
   InMemoryStorage,
@@ -152,8 +165,10 @@ export * as protocol from './protocol/index.js'
 
 // Utilities
 export {
+  AssertionError,
   CACHE_KEY_NAMESPACE,
   DEFAULT_RETRY_CONFIG,
+  assert,
   calculateBackoffDelay,
   deriveCacheKey,
   deriveId,

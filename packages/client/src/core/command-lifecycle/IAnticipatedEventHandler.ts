@@ -67,6 +67,19 @@ export interface IAnticipatedEventHandler<TLink extends Link, TCommand extends E
   /** Get tracked read model entries for a command (e.g., ["todos:client-abc"]). */
   getTrackedEntries(commandId: string): string[] | undefined
   /**
+   * Get the anticipated events still cached for a command, reconstructed as
+   * {@link IAnticipatedEvent} instances. Returns an empty array when the
+   * cache has no entries for the command — including after the lifecycle
+   * cleanup has fired ({@link cleanupOnSucceeded} / {@link cleanupOnFailure}
+   * / {@link cleanupOnAppliedBatch}), or for commands that never reached the
+   * point where anticipated events were cached.
+   *
+   * Used by the cascade walk to populate `ClassifierInput.events` when
+   * consulting a registration's `classifyDependency`. Callers should retrieve
+   * before any code path that invokes the cleanup hooks for the command.
+   */
+  getAnticipatedEvents(commandId: string): Promise<IAnticipatedEvent[]>
+  /**
    * Replace the tracked read model entries for a command. Used by the reconcile
    * pipeline when anticipated events are rebuilt outside the `cache`/`regenerate`
    * paths — the pipeline computes the new tracked set from the recomputed events

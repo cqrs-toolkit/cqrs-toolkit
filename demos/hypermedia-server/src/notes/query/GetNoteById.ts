@@ -39,6 +39,10 @@ export namespace GetNoteById {
     reply: FastifyReply,
     noteRepo: NoteRepository,
   ): Promise<void> {
-    return handleProfileHandler(reply, profileHandler.resolve(request, reply, noteRepo, undefined))
+    return handleProfileHandler(
+      request,
+      reply,
+      profileHandler.resolve(request, reply, noteRepo, undefined),
+    )
   }
 }

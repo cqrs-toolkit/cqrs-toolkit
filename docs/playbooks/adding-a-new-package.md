@@ -30,11 +30,11 @@ The cqrs-toolkit monorepo is not expected to grow multi-language; if a new packa
 
 ### 1. Decide kind and location
 
-| Kind | Location | Examples |
-|---|---|---|
-| Publishable library package | `packages/<name>/` | `client`, `hypermedia`, `realtime`, `schema` |
-| Internal demo composing-package | `demos/<name>/` | `demos/todo-demo`, `demos/hypermedia-server` |
-| Internal demo shared-base (not a logical demo on its own) | `demos/<name>/` | `demos/base`, `demos/hypermedia-base` |
+| Kind                                                      | Location           | Examples                                     |
+| --------------------------------------------------------- | ------------------ | -------------------------------------------- |
+| Publishable library package                               | `packages/<name>/` | `client`, `hypermedia`, `realtime`, `schema` |
+| Internal demo composing-package                           | `demos/<name>/`    | `demos/todo-demo`, `demos/hypermedia-server` |
+| Internal demo shared-base (not a logical demo on its own) | `demos/<name>/`    | `demos/base`, `demos/hypermedia-base`        |
 
 The rest of this playbook assumes a publishable library package under `packages/<name>/`.
 Demo packages follow the same patterns minus the LICENSE / README-as-consumer-doc / docs/api/ generation; see [`/docs/projects/demo/_overview.md`](../projects/demo/_overview.md) "What belongs here" for demo-specific guidance.
@@ -166,6 +166,11 @@ Add it to the parallel docs job in the `docs:` aggregate target.
 
 Reference: existing Makefile entries for `build-realtime`, `docs-realtime`.
 
+**The dep list MUST mirror `package.json`.**
+List every `@cqrs-toolkit/*` entry from `dependencies` / `devDependencies` / `peerDependencies` (with the prefix stripped) — same applies to the `docs-<name>` target. The build cache hashes upstream-dep hashes into the package's own hash; if a dep is missing, an upstream change won't invalidate the cache and downstream builds silently use stale type definitions. Type errors in downstream consumers then only surface in a clean build or when running `docs`, which is hard to diagnose.
+
+The Makefile header has the audit one-liner; run it whenever you touch package deps.
+
 ### 10. Wire up the workspace
 
 Run from repo root:
@@ -193,7 +198,7 @@ Optional sections, omit unless they apply:
 - **Always Read entries** (cap ~3) — wing entries every contributor must know about regardless of task; surface load-bearing ADRs / mindset framings here once they exist.
 - **Wings** — pointers to populated wing `_overview.md` files (`decisions/_overview.md`, `intent/requirements/_overview.md`, etc.). Omit until at least one wing has a meaningful entry; pre-created empty wings are anti-pattern.
 
-Castle wings (`intent/`, `decisions/`, `evolution/`, `patterns/`, `mindset/`) and their `_overview.md` indexes are *not* pre-created; they grow lazily when there's content to put in them.
+Castle wings (`intent/`, `decisions/`, `evolution/`, `patterns/`, `mindset/`) and their `_overview.md` indexes are _not_ pre-created; they grow lazily when there's content to put in them.
 
 ### 12. Update repo-level files
 
@@ -247,7 +252,7 @@ Before first publish of the new package, you'll need to add to its `package.json
 
 These are tracked separately from package creation; they don't need to exist for the package to build, test, or be developed against in the workspace.
 
-A publishing playbook will eventually live in this directory; until then the publishing checklist material is in `publishing-checklist.md` at the repo root (locally excluded — pending archeological pass into a proper playbook).
+A publishing playbook will eventually live in this directory; until then the publishing checklist material is in `publishing-checklist.md` at the repo root.
 
 ## Rollback
 

@@ -5,25 +5,20 @@
  * command envelope: `{ type, data, revision }` instead of `{ command: { type, data, revision } }`.
  */
 
-import type {
-  CommandErrorResponse,
-  CommandSuccessResponse,
-} from '@cqrs-toolkit/demo-base/common/shared'
+import type { CommandSuccessResponse } from '@cqrs-toolkit/demo-base/common/shared'
 import type { HydraDoc } from '@cqrs-toolkit/hypermedia'
 import type { CommandDispatchExtractor } from '@cqrs-toolkit/hypermedia/server'
 import { type FieldError, SchemaException } from '@cqrs-toolkit/schema'
 import {
   Err,
-  type ErrResult,
   type EventMetadata,
-  Exception,
   type IEvent,
   type ISerializedEvent,
   Ok,
   type Persisted,
   type Result,
 } from '@meticoeus/ddd-es'
-import type { FastifyReply, FastifyRequest, FastifySchema, RouteShorthandOptions } from 'fastify'
+import type { FastifyRequest, FastifySchema, RouteShorthandOptions } from 'fastify'
 import type { JSONSchema7 } from 'json-schema'
 import assert from 'node:assert'
 
@@ -168,8 +163,6 @@ const responseSchema: JSONSchema7 = {
     id: { type: 'string' },
     nextExpectedRevision: { type: 'string' },
     events: { type: 'array' },
-    message: { type: 'string' },
-    details: {},
   },
 }
 
@@ -279,24 +272,4 @@ export function extractCommandMetadata(
 
   const metadata: EventMetadata = { correlationId: requestId, commandId }
   return Ok(metadata)
-}
-
-// ---------------------------------------------------------------------------
-// Error handling
-// ---------------------------------------------------------------------------
-
-/**
- * Handle an error Result by setting the reply status code and returning a CommandErrorResponse.
- */
-export function handleErr(res: ErrResult, reply: FastifyReply): CommandErrorResponse {
-  if (res.error instanceof Exception) {
-    reply.code(res.error.code ?? 400)
-    return { message: res.error.userMessage, details: res.error.details }
-  }
-  if (res.error instanceof Error) {
-    reply.code(400)
-    return { message: res.error.message }
-  }
-  reply.code(500)
-  return { message: 'Something went wrong' }
 }

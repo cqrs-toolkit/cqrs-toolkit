@@ -3,7 +3,7 @@
 **Status:** Accepted (Documented retroactively 2026-05-06; decision taken in mid-April 2026 ahead of the first landing commit `707b14b` on 2026-04-22)
 
 This ADR documents the umbrella rewrite that ADRs [0004](0004-aggregates-as-first-class.md), [0005](0005-reconcile-entry-point-split.md), [0006](0006-command-store.md), [0007](0007-applied-status-split.md), and [0008](0008-applied-detection-simplification-and-wait-api-split.md) each describe a slice of.
-It exists to capture the meta-decision in its own decision-of-record so the *why* of the rewrite is not scattered across five ADRs (and only mentioned incidentally in [ADR 0001](0001-anticipated-event-submit-vs-pipeline.md)'s Related section and [ADR 0008](0008-applied-detection-simplification-and-wait-api-split.md)'s "EventProcessorRunner deleted" subsection).
+It exists to capture the meta-decision in its own decision-of-record so the _why_ of the rewrite is not scattered across five ADRs (and only mentioned incidentally in [ADR 0001](0001-anticipated-event-submit-vs-pipeline.md)'s Related section and [ADR 0008](0008-applied-detection-simplification-and-wait-api-split.md)'s "EventProcessorRunner deleted" subsection).
 The rewrite was decided before any of ADRs [0004](0004-aggregates-as-first-class.md), [0005](0005-reconcile-entry-point-split.md), [0006](0006-command-store.md), [0007](0007-applied-status-split.md), and [0008](0008-applied-detection-simplification-and-wait-api-split.md) was authored; this ADR's number (0003) is creation order, not decision order.
 
 ## Context
@@ -73,23 +73,45 @@ The rewrite decomposes into the following sub-decisions, each documented in its 
   Removes the previous pattern where command-record memory was scattered across the queue, the storage layer, and ad-hoc caches.
 - **[ADR 0007 (client)](0007-applied-status-split.md)** — `'applied'` status split: relocate anticipated-event cleanup off the success transition.
   Closes problem (4) — the cleanup-before-write race — by moving overlay cleanup into the pipeline, where the decision "the server's effects are reflected in `serverData`" is detectable.
-  *Superseded by [ADR 0008](0008-applied-detection-simplification-and-wait-api-split.md).*
+  _Superseded by [ADR 0008](0008-applied-detection-simplification-and-wait-api-split.md)._
 - **[ADR 0008 (client)](0008-applied-detection-simplification-and-wait-api-split.md)** — Simplify `'applied'` coverage detection; split command-wait API into `waitForSucceeded` / `waitForApplied`.
   Replaces the elaborate `pendingAggregateCoverage` design from [ADR 0007](0007-applied-status-split.md) with a primary-aggregate revision check, and exposes the post-terminal `applied` transition to consumers.
   Deletes `EventProcessorRunner`, closing problem (6) — its lookup-only residue collapses into `EventProcessorRegistry`, and its orchestration responsibilities move onto `SyncManager`.
 
 **One invariant held across the rewrite.**
-The submit-time anticipated-event application stays — `AnticipatedEventHandler.onApplyAnticipatedOp` is *not* folded into the pipeline.
+The submit-time anticipated-event application stays — `AnticipatedEventHandler.onApplyAnticipatedOp` is _not_ folded into the pipeline.
 This was attempted in a prior cleanup-timing redesign, broke things badly, and was restored.
 [ADR 0001 (client)](0001-anticipated-event-submit-vs-pipeline.md) is the load-bearing ADR for this invariant; the rewrite does not touch it.
 
 ## Consequences
 
-**Easier:**
+### Implementation impact
+
+The rewrite landed bundled in commit `707b14b` (2026-04-22), supersession `84dc12f` (2026-04-27). Per-slice implementation impact is documented in [ADRs 0004](0004-aggregates-as-first-class.md), [0005](0005-reconcile-entry-point-split.md), [0006](0006-command-store.md), [0007](0007-applied-status-split.md), and [0008](0008-applied-detection-simplification-and-wait-api-split.md). At the umbrella level:
+
+- Decomposition of `reconcileAfterServerEvents` into an entry-point split + pure shared fold.
+- Removal of `EventProcessorRunner` (the closing slice; see [ADR 0008](0008-applied-detection-simplification-and-wait-api-split.md)).
+- Introduction of `CommandStore` as sole owner of `CommandRecord` lifecycle ([ADR 0006](0006-command-store.md)).
+- Promotion of aggregates to first-class on `Collection` with `idReferences` declarations ([ADR 0004](0004-aggregates-as-first-class.md)).
+- Relocation of overlay cleanup off the success transition via the `'applied'` post-terminal status ([ADRs 0007](0007-applied-status-split.md)/[0008](0008-applied-detection-simplification-and-wait-api-split.md)).
+- **Outstanding:** legacy cascade methods `rewriteCommandsWithStaleIds` and `resolveDependentRevision` remain as private methods on `CommandQueue`. Both rewrite entry points are wired (the precondition [ADR 0005](0005-reconcile-entry-point-split.md) set); removing the legacy methods is the closing follow-up. See [ADR 0005](0005-reconcile-entry-point-split.md)'s "Naming and shape reconciliation for current readers" section for current status.
+
+The bundled landing was deliberate — the structural problems above were entangled enough that fixing them in isolation would have left half-rewrites in tree. A consequence is that the rewrite is not bisectable into the per-slice ADRs in git history; reviewing the rewrite means reviewing the umbrella.
+
+### Operational implications
+
+#### Gains
 
 - **One owner of write ordering.**
   Every server-data write goes through `reconcileAndPersist`, which builds a single mutation list (per-command updates → read-model mutations → anticipated-event updates) and issues one batch.
   The "all reads up front, all writes at the end" contract is structural, not a convention to be remembered.
+- **The applied-status mechanism gives consumers a wait semantic that matches reality.**
+  Fast confirmation (`succeeded`) and data-reflected (`applied`) are exposed as separate waiters (per [ADR 0008](0008-applied-detection-simplification-and-wait-api-split.md)); the cleanup-before-write race is gone.
+
+### Coding implications
+
+#### Gains
+
 - **The reconcile fold is unit-testable.**
   `reconcilePendingCommands` takes explicit inputs and returns explicit outputs.
   No storage stub.
@@ -102,25 +124,16 @@ This was attempted in a prior cleanup-timing redesign, broke things badly, and w
 - **Lookup-only concerns are not classes.**
   `EventProcessorRegistry` is a registry; the orchestration that lived in `EventProcessorRunner` lives in `SyncManager`.
   No per-event runner state to keep in sync.
-- **The applied-status mechanism gives consumers a wait semantic that matches reality.**
-  Fast confirmation (`succeeded`) and data-reflected (`applied`) are exposed as separate waiters (per [ADR 0008](0008-applied-detection-simplification-and-wait-api-split.md)); the cleanup-before-write race is gone.
 
-**Harder:**
+#### Costs
 
 - **`SyncManager` is bigger.**
-  Centralising load → apply → reconcile → persist into one body trades surface area between classes for vertical depth in one class.
+  Centralizing load → apply → reconcile → persist into one body trades surface area between classes for vertical depth in one class.
   Subsequent work has had to be careful about not letting `reconcileAndPersist` accrete unrelated phases — see, for example, the discipline of staging Phase 3 writes into `DeferredApplication[]` so that `reconcileAndPersist`'s mutation list is the single write entry point ([ADR 0007](0007-applied-status-split.md)).
 - **Two entry points means duplicated loading.**
   `reconcileFromWsEvents` and `onApplyRecords` each own their own loading strategy.
   A future need to change "what's loaded for a given server change" requires touching both (or extracting a load helper).
   Acceptable today; flagged in [ADR 0005](0005-reconcile-entry-point-split.md)'s Consequences.
-- **The legacy cascade removal is unfinished.**
-  Both rewrite entry points are wired (the precondition [ADR 0005](0005-reconcile-entry-point-split.md) set), but `rewriteCommandsWithStaleIds` and `resolveDependentRevision` remain as private methods on `CommandQueue`.
-  See [ADR 0005](0005-reconcile-entry-point-split.md)'s "Naming and shape reconciliation for current readers" section for current status.
-- **The bundled landing.**
-  ADRs [0004](0004-aggregates-as-first-class.md), [0005](0005-reconcile-entry-point-split.md), [0006](0006-command-store.md), and [0007](0007-applied-status-split.md) all landed in the same commit (`707b14b`, 2026-04-22), with [ADR 0008](0008-applied-detection-simplification-and-wait-api-split.md) superseding [0007](0007-applied-status-split.md) five days later (`84dc12f`, 2026-04-27).
-  The rewrite is not bisectable into smaller decisions in git history; reviewing the rewrite means reviewing the umbrella, not isolated slices.
-  This was a deliberate trade — the structural problems above were entangled enough that fixing them in isolation would have left half-rewrites in tree.
 
 ## Notes
 

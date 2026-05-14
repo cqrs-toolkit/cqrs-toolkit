@@ -3,11 +3,10 @@
  */
 
 import { DemoEventStore } from '@cqrs-toolkit/demo-base/common/server'
-import type { CommandResponse } from '@cqrs-toolkit/demo-base/common/shared'
 import { type NotebookRepository } from '@cqrs-toolkit/demo-base/notebooks/server'
 import { NoteAggregate, type NoteRepository } from '@cqrs-toolkit/demo-base/notes/server'
 import type { EventCursorPagination, HypermediaTypes } from '@cqrs-toolkit/hypermedia'
-import { Hypermedia } from '@cqrs-toolkit/hypermedia/server'
+import { BadRequestException, Hypermedia, NotFoundException } from '@cqrs-toolkit/hypermedia/server'
 import { EventExistenceRevision, type ISerializedEvent } from '@meticoeus/ddd-es'
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
 import { v4 as uuidv4 } from 'uuid'
@@ -15,10 +14,10 @@ import {
   commandRouteConfig,
   createRouteConfig,
   extractCommandMetadata,
-  handleErr,
   toCommandSuccess,
   toSerializedEvent,
 } from '../command-utils.js'
+import { handleErrorReply } from '../problems/index.js'
 import {
   GetAggregateEventsRequest,
   GetByIdRequest,
@@ -151,7 +150,7 @@ export function noteRoutes(
 
     app.post(NoteCommands.mustSurface('create').path, createRouteConfig, async (request, reply) => {
       const metadataRes = extractCommandMetadata(request)
-      if (!metadataRes.ok) return handleErr(metadataRes, reply)
+      if (!metadataRes.ok) return handleErrorReply(request, reply, metadataRes.error)
       const metadata = metadataRes.value
 
       const valRes = NOTE_COMMANDS.parse<{ notebookId: string; title: string; body: string }>(
@@ -160,26 +159,19 @@ export function noteRoutes(
         request.body,
         NoteCommandIds.CreateNote,
       )
-      if (!valRes.ok) {
-        reply.code(400)
-        return { message: valRes.error.message } satisfies CommandResponse
-      }
+      if (!valRes.ok) return handleErrorReply(request, reply, valRes.error)
       if (valRes.value.kind === 'replied') return
 
       const notebook = notebookRepo.findById(valRes.value.value.notebookId)
       if (!notebook) {
-        reply.code(404)
-        return { message: 'Notebook not found' } satisfies CommandResponse
+        return handleErrorReply(request, reply, new NotFoundException('Notebook not found'))
       }
 
       const id = uuidv4()
       const aggregate = new NoteAggregate()
       aggregate.create(valRes.value.value, id, metadata)
       const result = await noteRepo.save(aggregate, EventExistenceRevision.NoStream)
-      if (!result.ok) {
-        reply.code(result.error.code ?? 500)
-        return { message: result.error.message } satisfies CommandResponse
-      }
+      if (!result.ok) return handleErrorReply(request, reply, result.error)
       return toCommandSuccess(id, result.value.nextExpectedRevision, result.value.events ?? [])
     })
 
@@ -190,7 +182,7 @@ export function noteRoutes(
       Body: { type: string; data: unknown; revision?: string }
     }>(NoteCommands.mustSurface('command').path, commandRouteConfig, async (request, reply) => {
       const metadataRes = extractCommandMetadata(request)
-      if (!metadataRes.ok) return handleErr(metadataRes, reply)
+      if (!metadataRes.ok) return handleErrorReply(request, reply, metadataRes.error)
       const metadata = metadataRes.value
 
       const { type, data, revision } = request.body
@@ -200,16 +192,12 @@ export function noteRoutes(
         data,
         type,
       )
-      if (!res.ok) {
-        reply.code(400)
-        return { message: res.error.message } satisfies CommandResponse
-      }
+      if (!res.ok) return handleErrorReply(request, reply, res.error)
       if (res.value.kind === 'replied') return
 
       const aggregate = await noteRepo.getById(request.params.id)
       if (!aggregate) {
-        reply.code(404)
-        return { message: 'Note not found' } satisfies CommandResponse
+        return handleErrorReply(request, reply, new NotFoundException('Note not found'))
       }
 
       const expectedRevision = revision !== undefined ? BigInt(revision) : undefined
@@ -226,15 +214,15 @@ export function noteRoutes(
           aggregate.markDeleted(metadata)
           break
         default:
-          reply.code(400)
-          return { message: `Unknown command: ${stableId}` } satisfies CommandResponse
+          return handleErrorReply(
+            request,
+            reply,
+            new BadRequestException(`Unknown command: ${stableId}`),
+          )
       }
 
       const saveRes = await noteRepo.save(aggregate, expectedRevision ?? 0n)
-      if (!saveRes.ok) {
-        reply.code(saveRes.error.code ?? 500)
-        return { message: saveRes.error.message } satisfies CommandResponse
-      }
+      if (!saveRes.ok) return handleErrorReply(request, reply, saveRes.error)
       return toCommandSuccess(
         request.params.id,
         saveRes.value.nextExpectedRevision,

@@ -17,6 +17,11 @@ Two consumer-facing entry points (`.` runtime helpers, `./config` consumer confi
 Runtime surface includes a hypermedia-driven command sender, `createCollection` for read-model wiring, AJV-backed schema validators with a `SchemaRegistry`, event-page and stream-event fetch helpers, and a presigned-upload handler.
 The `cli/` tree houses the apidoc-parsing, code-generation, and `init`/`pull` workflows that the CLI tool drives.
 
+## Wings
+
+- [`explorations/`](explorations/_overview.md) — design alternatives under evaluation; open questions and candidate approaches not yet committed.
+- [`decisions/`](decisions/_overview.md) — ADRs scoped to this project.
+
 ## Where things live
 
 - Code: `packages/hypermedia-client/`

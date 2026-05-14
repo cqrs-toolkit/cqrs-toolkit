@@ -16,28 +16,35 @@ import {
 } from '../../types/aggregates.js'
 import type {
   CommandCompletionError,
+  CommandDependency,
   CommandEvent,
   CommandFilter,
   CommandRecord,
   CommandStatus,
+  DependencySource,
   EnqueueAndWaitParams,
   EnqueueAndWaitResult,
   EnqueueCommand,
   EnqueueParams,
+  EnqueueRejection,
   EnqueueResult,
+  FailureDescriptor,
+  FailureMapper,
+  HandlerState,
   WaitOptions,
 } from '../../types/commands.js'
 import {
   CommandFailedException,
   CommandNotFoundException,
+  ConflictException,
   InvalidCommandStatusException,
   isTerminalStatus,
 } from '../../types/commands.js'
 import type { Collection, RetryConfig } from '../../types/config.js'
 import type {
+  ClassifierInput,
   CommandHandlerRegistration,
-  DomainExecutionError,
-  DomainExecutionResult,
+  DomainExecutionOutcome,
   HandlerContext,
   IDomainExecutor,
   PostProcessPlan,
@@ -60,6 +67,7 @@ import { resolveCommandIds } from '../entity-ref/resolve-command-ids.js'
 import type { RewriteIdEntry } from '../entity-ref/rewrite-command.js'
 import { rewriteCommandWithIdMap } from '../entity-ref/rewrite-command.js'
 import type { EventBus } from '../events/EventBus.js'
+import { defaultProblemJsonMapper } from '../failure-mapper/index.js'
 import type { EntityIdMigration, ReadModelStore } from '../read-model-store/ReadModelStore.js'
 import { AggregateChainRegistry } from './AggregateChainRegistry.js'
 import type { ICommandFileStore } from './file-store/ICommandFileStore.js'
@@ -83,6 +91,14 @@ export interface CommandQueueConfig<
   onCommandResponse?: (command: CommandRecord<TLink, TCommand>, response: unknown) => Promise<void>
   /** When true, terminal commands are retained in storage instead of being cleaned up. */
   retainTerminal?: boolean
+  /**
+   * Global pluggable mapping from {@link ServerErrorResponse} to
+   * {@link FailureDescriptor}. Used when no per-command `mapFailure` on the
+   * registration is defined for the failing command. Defaults to
+   * `defaultProblemJsonMapper` at the construction site (`createCqrsClient`
+   * resolves the config defaults via `resolveConfig`).
+   */
+  mapFailure?: FailureMapper
 }
 
 /**
@@ -134,6 +150,7 @@ export class CommandQueue<
 > implements ICommandQueueInternal<TLink, TCommand> {
   private readonly domainExecutor?: IDomainExecutor<TLink, TCommand, TSchema, TEvent>
   private readonly commandSender?: ICommandSender<TLink, TCommand>
+  private readonly globalMapFailure: FailureMapper
   private readonly retryConfig: RetryConfig
   private readonly defaultService: string
   private readonly onCommandResponse?: (
@@ -182,6 +199,7 @@ export class CommandQueue<
   ) {
     this.domainExecutor = config.domainExecutor
     this.commandSender = config.commandSender
+    this.globalMapFailure = config.mapFailure ?? defaultProblemJsonMapper
     this.retryConfig = config.retryConfig ?? {}
     this.defaultService = config.defaultService ?? 'default'
     this.onCommandResponse = config.onCommandResponse
@@ -247,7 +265,7 @@ export class CommandQueue<
           modelState,
           fileRefs,
         )
-      : Ok<PreparedCommand<TLink, TCommand, TData, TEvent>, DomainExecutionError>({
+      : Ok<PreparedCommand<TLink, TCommand, TData, TEvent>, EnqueueRejection>({
           preparedCommand: command,
           commandIdPaths: undefined,
           anticipatedEvents: [],
@@ -271,14 +289,22 @@ export class CommandQueue<
       creates,
     } = prepared.value
 
+    // Submit-time gate: every EntityRef header value must sit at a path
+    // declared in `commandIdReferences`. Declared positions ride through to
+    // the record and the cascade rewrites them to server-id strings when
+    // the producing command resolves; undeclared Refs would silently leak
+    // to the sender as non-strings, so we surface the wiring bug here.
+    assertHeaderRefsAreDeclared(command.type, preparedCommand.headers, commandIdPaths)
+
     const explicitDeps = command.dependsOn ?? []
-    const allDeps = [...new Set([...explicitDeps, ...autoDeps, ...refCommandIds])]
+    const allDeps = buildCommandDependencies({ explicitDeps, autoDeps, refCommandIds })
 
     // Calculate blockedBy from all dependencies (only non-terminal commands).
     // Single batch lookup — in-memory hits resolve synchronously, any misses
     // go through one `IStorage.getCommandsByIds` query.
-    const depCommands = await this.commandStore.getByIds(allDeps)
-    const blockedBy = allDeps.filter((id) => {
+    const depCommandIds = allDeps.map((d) => d.commandId)
+    const depCommands = await this.commandStore.getByIds(depCommandIds)
+    const blockedBy = depCommandIds.filter((id) => {
       const dep = depCommands.get(id)
       return dep !== undefined && !isTerminalStatus(dep.status)
     })
@@ -286,7 +312,11 @@ export class CommandQueue<
     // Determine initial status based on unresolved dependencies
     const initialStatus: CommandStatus = blockedBy.length > 0 ? 'blocked' : 'pending'
 
-    // Create command record
+    // Create command record. Headers carry EntityRefs through to the
+    // record at declared positions; the cascade rewrites them to server-id
+    // strings when the producing command resolves. At send time the queue
+    // asserts the resulting shape is plain strings before invoking the
+    // sender — see `dispatchToSender`.
     const record: CommandRecord<TLink, TCommand> = {
       commandId,
       cacheKey,
@@ -294,6 +324,7 @@ export class CommandQueue<
       type: command.type,
       data: preparedCommand.data,
       path: preparedCommand.path,
+      headers: preparedCommand.headers,
       status: initialStatus,
       dependsOn: allDeps,
       blockedBy,
@@ -383,7 +414,7 @@ export class CommandQueue<
     skipValidation: boolean | undefined,
     modelState: unknown,
     fileRefs: CommandRecord<TLink, TCommand>['fileRefs'],
-  ): Promise<Result<PreparedCommand<TLink, TCommand, TData, TEvent>, DomainExecutionError>> {
+  ): Promise<Result<PreparedCommand<TLink, TCommand, TData, TEvent>, EnqueueRejection>> {
     // Registration implies a domainExecutor — getRegistration is what produced it.
     assert(this.domainExecutor, 'prepareCommandWithRegistration requires a domainExecutor')
 
@@ -397,7 +428,12 @@ export class CommandQueue<
 
     const hasRefs = commandIdPaths !== undefined
 
-    // 2. Strip EntityRefs from the command view for validation / handler input.
+    // 2. Strip EntityRefs from the data + path view for validation / handler
+    //    input. Headers are not user-validated, so they ride through with
+    //    their EntityRefs intact — both on the record and on the
+    //    HandlerCommand the handler receives. The cascade later rewrites
+    //    declared header EntityRefs to server-id strings in place when the
+    //    producing command resolves.
     const commandView = { data: patchedCommand.data, path: patchedCommand.path }
     const strippedView = hasRefs ? stripEntityRefs(commandView, commandIdPaths) : commandView
     const strippedCommand: EnqueueCommand<TData> = hasRefs
@@ -431,7 +467,9 @@ export class CommandQueue<
     }
 
     // 4. Validate with stripped data (plain strings).
-    const validationResult = await this.domainExecutor.validate(strippedCommand, modelState)
+    // First-call state — handler hasn't seen this command before.
+    const initialState: HandlerState = { mode: 'initial', initial: modelState }
+    const validationResult = await this.domainExecutor.validate(strippedCommand, initialState)
     if (!validationResult.ok) return Err(validationResult.error)
 
     // 5. Re-inject EntityRefs into validated/hydrated data + path.
@@ -456,16 +494,24 @@ export class CommandQueue<
         type: command.type,
         data: restoredView.data,
         path: restoredView.path,
+        headers: patchedCommand.headers,
         fileRefs,
       },
-      modelState,
+      initialState,
       initialContext,
-    ) as DomainExecutionResult<TEvent>
+    ) as DomainExecutionOutcome<TEvent>
 
-    if (!handleResult.ok) return Err(handleResult.error)
+    // Submit-time conflicts (handler first call) reject the submit, identical
+    // to validation rejections from the consumer's view — the command does
+    // not persist. Conflicts that surface later during pipeline regenerate
+    // (reconcile / id-rewrite / revision-resolution) route through
+    // `markFailedFromConflict` because the command already exists by then.
+    if (handleResult.kind !== 'success') {
+      return Err(handleResult.exception)
+    }
 
-    const anticipatedEvents = handleResult.value.anticipatedEvents
-    const postProcess = handleResult.value.postProcessPlan
+    const anticipatedEvents = handleResult.events
+    const postProcess = handleResult.postProcessPlan
 
     // 7. Derive affected aggregates from the anticipated events. A parse failure
     //    is an invariant violation: the app produced an anticipated event whose
@@ -590,6 +636,11 @@ export class CommandQueue<
       )
     }
 
+    // Capture anticipated events BEFORE the `'cancelled'` transition triggers
+    // `cleanupOnFailure` — the cascade walk's classifier input needs them.
+    const cancelledEvents = await this.anticipatedEventHandler.getAnticipatedEvents(
+      command.commandId,
+    )
     const cancelledCommand = await this.updateCommandStatus(command, 'cancelled')
     this.eventBus.emit('command:cancelled', {
       commandId: cancelledCommand.commandId,
@@ -597,6 +648,12 @@ export class CommandQueue<
       cacheKey: cancelledCommand.cacheKey,
     })
     this.emitCommandEvent('cancelled', cancelledCommand)
+
+    // User-initiated cancellation propagates through the same cascade walk as
+    // failure-driven cancellation (ADR-0009): hard dependents cancel, soft
+    // dependents unblock for an independent attempt against the server.
+    await this.cascadeFromTerminal(cancelledCommand, cancelledEvents)
+
     return Ok()
   }
 
@@ -748,7 +805,16 @@ export class CommandQueue<
       }
     }
 
-    const result = await this.commandSender.send(sendCommand)
+    // Narrow headers to the wire shape just before invoking the sender.
+    // By this point any declared EntityRef has been rewritten by the
+    // cascade (the command was blocked until its parents resolved); any
+    // remaining non-string value is a wiring bug (undeclared EntityRef in
+    // headers) and the assert surfaces it loudly.
+    const { headers: rawHeaders, ...rest } = sendCommand
+    assertWireHeaders(sendCommand.type, rawHeaders)
+    const sendableCommand = { ...rest, headers: rawHeaders }
+
+    const result = await this.commandSender.send(sendableCommand)
 
     // Clear hydrated file data — it's transient for the send operation only.
     // Blobs must not leak into event broadcasts or storage updates.
@@ -939,18 +1005,51 @@ export class CommandQueue<
     await this.anticipatedEventHandler.cleanupOnAppliedBatch([command.commandId])
   }
 
+  /**
+   * Resolve a {@link FailureDescriptor} for a sender failure via the
+   * pluggable mapping pipeline. Per-command `mapFailure` on the command's
+   * registration is the **sole arbiter** when defined — no automatic
+   * fallback to the global. When the per-command override is absent, the
+   * global `mapFailure` runs (which itself defaults to
+   * `defaultProblemJsonMapper`). When the sender failure is transport-level
+   * (no parsed response), there's nothing to map; falls back to
+   * `isRetryable`-based classification, which the sender determined.
+   */
+  private resolveFailureDescriptor(
+    command: CommandRecord<TLink, TCommand>,
+    exception: CommandSendException,
+  ): FailureDescriptor {
+    if (exception.response === undefined) {
+      // Transport error — no response shape to inspect.
+      return { category: exception.isRetryable ? 'transient' : 'permanent' }
+    }
+    const registration = this.domainExecutor?.getRegistration(command.type)
+    const mapper = registration?.mapFailure ?? this.globalMapFailure
+    return mapper(exception.response)
+  }
+
   private async processCommandFailure(params: {
     current: CommandRecord<TLink, TCommand>
     updatedCommand: CommandRecord<TLink, TCommand>
     exception: CommandSendException
   }) {
     const { current, exception, updatedCommand } = params
+    // Resolve the failure descriptor through the pluggable mapper pipeline:
+    // per-command `mapFailure` if defined (sole arbiter), else the global
+    // `mapFailure` (which itself defaults to `defaultProblemJsonMapper` at
+    // resolveConfig time). When the sender returns a transport-level error
+    // (no response), fall back to `isRetryable`-based classification —
+    // mappers operate on parsed responses.
+    const descriptor = this.resolveFailureDescriptor(current, exception)
     const error = new CommandFailedException('server', exception.message, {
-      errorCode: exception.errorCode,
-      details: exception.details,
+      category: descriptor.category,
+      errorCode: descriptor.errorCode ?? exception.errorCode,
+      validationErrors: descriptor.validationErrors,
+      details: descriptor.details ?? exception.details,
     })
 
-    const canRetry = exception.isRetryable && shouldRetry(updatedCommand.attempts, this.retryConfig)
+    const canRetry =
+      descriptor.category === 'transient' && shouldRetry(updatedCommand.attempts, this.retryConfig)
 
     if (canRetry) {
       // Back to pending for retry
@@ -966,11 +1065,16 @@ export class CommandQueue<
       }, delay)
       this.retryTimers.add(timerId)
     } else {
+      // Capture anticipated events BEFORE the `'failed'` transition triggers
+      // `cleanupOnFailure` — the cascade walk's classifier input needs them.
+      const failedEvents = await this.anticipatedEventHandler.getAnticipatedEvents(
+        updatedCommand.commandId,
+      )
       // Mark as failed
       const failedCommand = await this.updateCommandStatus(updatedCommand, 'failed', { error })
 
-      // Cancel dependent commands
-      await this.cancelDependentCommands(current.commandId)
+      // Walk dependents — hard cancel, soft unblock per edge classification.
+      await this.cascadeFromTerminal(failedCommand, failedEvents)
 
       this.eventBus.emit('command:failed', {
         commandId: current.commandId,
@@ -982,6 +1086,62 @@ export class CommandQueue<
     }
   }
 
+  /**
+   * Route a handler-returned `'conflict'` outcome (surfacing during pipeline
+   * regenerate — reconcile, id-rewrite cascade, AutoRevision resolution) into
+   * the command record's `error?: IException` field and emit `command:failed`.
+   *
+   * Submit-time conflicts (handler's first call, validateAsync) take the
+   * normal `Err` rejection path on `submit()` and never reach this method.
+   * This method is for conflicts detected after the command was already
+   * persisted in the queue.
+   *
+   * `enqueueAndWait`-style awaiters resolve through the existing terminal-
+   * status event subscription — no special wiring needed for them; the
+   * `command:failed` emit triggers the watcher, which reads the persisted
+   * `CommandFailedException` and resolves `Err(...)` with its category.
+   */
+  async markFailedFromConflict(commandId: string, exception: ConflictException): Promise<void> {
+    const command = await this.commandStore.get(commandId)
+    if (!command) {
+      logProvider.log.warn(
+        { commandId },
+        'markFailedFromConflict: command not found (already cleaned up?)',
+      )
+      return
+    }
+    if (isTerminalStatus(command.status)) {
+      // Already terminal (succeeded / failed / cancelled / applied) — don't
+      // overwrite the existing terminal state with a stale conflict.
+      return
+    }
+
+    const error = new CommandFailedException('local', exception.message, {
+      category: exception.category,
+      errorCode: exception.errorCode,
+      details: exception.details,
+    })
+    // Capture anticipated events BEFORE the `'failed'` transition triggers
+    // `cleanupOnFailure` — the cascade walk's classifier input needs them.
+    const failedEvents = await this.anticipatedEventHandler.getAnticipatedEvents(command.commandId)
+    const failedCommand = await this.updateCommandStatus(command, 'failed', { error })
+
+    // Walk dependents — hard cancel, soft unblock per edge classification.
+    // Soft cascade is especially relevant for `'redundant'` conflicts where
+    // the user's intent is already satisfied by another path; dependents
+    // that only ordered on the same aggregate may still be valid against
+    // current state.
+    await this.cascadeFromTerminal(failedCommand, failedEvents)
+
+    this.eventBus.emit('command:failed', {
+      commandId,
+      type: command.type,
+      error: error.message,
+      cacheKey: command.cacheKey,
+    })
+    this.emitCommandEvent('failed', failedCommand)
+  }
+
   private async unblockDependentCommands(
     parentCommand: CommandRecord<TLink, TCommand>,
   ): Promise<void> {
@@ -991,12 +1151,21 @@ export class CommandQueue<
     // Extract the latest revision from the parent's response for AUTO_REVISION resolution
     const parentRevision = this.extractRevisionFromResponse(parentCommand)
 
+    // Batch-fetch current entity views up front for any AutoRevision-resolution
+    // re-runs that need `HandlerState.current`. Per design-pitfalls.md, one
+    // storage call instead of an N-iteration `for..await getById`.
+    const currentByCommandId = await this.fetchCurrentForRegenerateForBlocked(blockedCommands)
+
     for (const blocked of blockedCommands) {
       const newBlockedBy = blocked.blockedBy.filter((id) => id !== parentCommand.commandId)
 
       // Resolve AUTO_REVISION with the parent's revision
       // (ID replacement is already handled by rewriteCommandsWithStaleIds)
-      await this.resolveDependentRevision(blocked, parentRevision)
+      await this.resolveDependentRevision(
+        blocked,
+        parentRevision,
+        currentByCommandId.get(blocked.commandId),
+      )
 
       if (newBlockedBy.length === 0 && blocked.status === 'blocked') {
         // No longer blocked
@@ -1032,6 +1201,20 @@ export class CommandQueue<
 
     const allCommands = await this.commandStore.getByStatus(['pending', 'blocked', 'sending'])
 
+    // Pass 1: rewrite each command's data and collect those that need their
+    // anticipated events regenerated. Persist the rewrite eagerly; the
+    // regenerate is independent of any other command's rewrite.
+    interface RegenerateItem {
+      command: CommandRecord<TLink, TCommand>
+      registration: CommandHandlerRegistration<TLink, TCommand, TSchema, TEvent>
+      data: unknown
+      path: unknown
+      headers: CommandRecord<TLink, TCommand>['headers']
+      commandIdPaths: CommandRecord<TLink, TCommand>['commandIdPaths']
+      entityId: string
+    }
+    const regenerateItems: RegenerateItem[] = []
+
     for (const command of allCommands) {
       const registration = this.domainExecutor?.getRegistration(command.type)
       if (!registration) continue
@@ -1044,9 +1227,14 @@ export class CommandQueue<
       )
       if (!result.changed) continue
 
+      // No assert here: the record's headers were already validated as plain
+      // strings at submit and the rewrite walker only substitutes string id
+      // values at declared paths — registered headers get updated in place
+      // when the producing command resolves.
       this.commandStore.update(command.commandId, {
         data: result.data as CommandRecord<TLink, TCommand>['data'],
         path: result.path,
+        headers: result.headers,
         commandIdPaths: result.commandIdPaths,
       })
 
@@ -1059,39 +1247,175 @@ export class CommandQueue<
         : extractPrimaryAggregateId({ data: result.data, path: result.path }, registration)
       if (entityId === undefined) continue
 
+      regenerateItems.push({
+        command,
+        registration,
+        data: result.data,
+        path: result.path,
+        headers: result.headers,
+        commandIdPaths: result.commandIdPaths,
+        entityId,
+      })
+    }
+
+    // Pass 2: batch-fetch current entity views for HandlerState.current. One
+    // storage call covers all regenerate items (per design-pitfalls.md, no
+    // `for..await` of single-item reads).
+    const currentByCommandId = await this.fetchCurrentForRegenerate(
+      regenerateItems.map(({ command, entityId, registration }) => ({
+        command,
+        entityId,
+        registration,
+      })),
+    )
+
+    // Pass 3: regenerate anticipated events per item using the prefetched
+    // current view. `regenerateItems` is populated only when domainExecutor
+    // exists (Pass 1's `continue` gate); short-circuit if for some reason it
+    // is undefined here so the type narrows without an escape hatch.
+    if (regenerateItems.length === 0 || !this.domainExecutor) return
+    const domainExecutor = this.domainExecutor
+
+    for (const item of regenerateItems) {
+      // Stale-id rewrites are a regenerate trigger; the command's data was
+      // refreshed (temp ids → server ids). The trigger isn't a server-event
+      // delta on the entity, but the handler still gets the latest read-model
+      // view as `current` so behavior is consistent with reconcile-triggered
+      // regenerates: `state.current` always reflects the latest view in any
+      // regenerate-mode invocation.
       const context: HandlerContext = {
         phase: 'updating',
-        entityId,
-        commandId: command.commandId,
-        idStrategy: command.creates?.idStrategy,
+        entityId: item.entityId,
+        commandId: item.command.commandId,
+        idStrategy: item.command.creates?.idStrategy,
       }
-      const cmdView = { data: result.data, path: result.path }
-      const restoredCmdView = result.commandIdPaths
-        ? restoreEntityRefs(cmdView, result.commandIdPaths)
+      const cmdView = { data: item.data, path: item.path }
+      const restoredCmdView = item.commandIdPaths
+        ? restoreEntityRefs(cmdView, item.commandIdPaths)
         : cmdView
-      const handleResult = this.domainExecutor.handle(
+      const handlerState: HandlerState = {
+        mode: 'regenerate',
+        initial: item.command.modelState,
+        current: currentByCommandId.get(item.command.commandId),
+      }
+      const handleResult = domainExecutor.handle(
         {
-          type: command.type,
+          type: item.command.type,
           data: restoredCmdView.data,
           path: restoredCmdView.path,
-          fileRefs: command.fileRefs,
+          headers: item.headers,
+          fileRefs: item.command.fileRefs,
         },
-        // TODO: this should be getting updated local model from the caller
-        // modelState,
-        undefined,
+        handlerState,
         context,
       )
-      if (!handleResult.ok) continue
+      if (handleResult.kind === 'conflict') {
+        // Pipeline-time conflict: regenerate after id-rewrite detected that
+        // the command can't proceed cleanly. Persist the categorized failure
+        // and skip event regeneration.
+        await this.markFailedFromConflict(item.command.commandId, handleResult.exception)
+        continue
+      }
+      // 'validation-error' / 'unknown-command' are bug-shaped on this path
+      // (the command was already validated at submit). Skip silently; the
+      // command keeps its existing anticipated events.
+      if (handleResult.kind !== 'success') continue
 
       try {
-        await this.anticipatedEventHandler.regenerate(command, handleResult.value.anticipatedEvents)
+        await this.anticipatedEventHandler.regenerate(item.command, handleResult.events)
       } catch (err) {
         logProvider.log.error(
-          { err, commandId: command.commandId },
+          { err, commandId: item.command.commandId },
           'Failed to regenerate anticipated events during stale ID rewrite',
         )
       }
     }
+  }
+
+  /**
+   * Batch-fetch current read-model views for a set of commands needing
+   * `HandlerState.current` on regenerate-mode invocations. Returns a Map
+   * keyed by `commandId` to the latest read-model `data` for that command's
+   * primary entity (or `undefined` when the registration has no aggregate,
+   * no matching collection is registered, or the entity isn't yet in the
+   * store).
+   *
+   * Batched form because both call sites (`rewriteCommandsWithStaleIds`,
+   * `unblockDependentCommands`) iterate over many commands; per-item
+   * `await getById` would be a `for..await` smell per
+   * `docs/patterns/design-pitfalls.md`. One `getManyByCollectionIds` call
+   * lets the storage layer satisfy all reads in a single pass when the
+   * underlying SQL backend supports it.
+   */
+  /**
+   * Convenience wrapper over {@link fetchCurrentForRegenerate} for the
+   * `unblockDependentCommands` path: derives `(entityId, registration)` per
+   * blocked command from its registration + data, then delegates.
+   */
+  private async fetchCurrentForRegenerateForBlocked(
+    blocked: ReadonlyArray<CommandRecord<TLink, TCommand>>,
+  ): Promise<Map<string, unknown>> {
+    const items: Array<{
+      command: CommandRecord<TLink, TCommand>
+      entityId: string
+      registration: CommandHandlerRegistration<TLink, TCommand, TSchema, TEvent>
+    }> = []
+    for (const command of blocked) {
+      if (!isAutoRevision(command.revision)) continue
+      const registration = this.domainExecutor?.getRegistration(command.type)
+      if (!registration) continue
+      const data = command.data as Record<string, unknown>
+      const entityId = command.creates
+        ? this.getOriginalCreateId(command.commandId)
+        : (data.id as string | undefined)
+      if (typeof entityId !== 'string') continue
+      items.push({ command, entityId, registration })
+    }
+    return this.fetchCurrentForRegenerate(items)
+  }
+
+  private async fetchCurrentForRegenerate(
+    items: ReadonlyArray<{
+      command: CommandRecord<TLink, TCommand>
+      entityId: string
+      registration: CommandHandlerRegistration<TLink, TCommand, TSchema, TEvent>
+    }>,
+  ): Promise<Map<string, unknown>> {
+    const result = new Map<string, unknown>()
+    if (items.length === 0) return result
+
+    interface PendingFetch {
+      commandId: string
+      collectionName: string
+      entityId: string
+    }
+    const pending: PendingFetch[] = []
+    for (const item of items) {
+      if (!item.registration.aggregate) continue
+      const aggregate = item.registration.aggregate
+      const collection = this.collections.find((c) =>
+        matchesAggregate(c.aggregate.getLinkMatcher(), aggregate),
+      )
+      if (!collection) continue
+      pending.push({
+        commandId: item.command.commandId,
+        collectionName: collection.name,
+        entityId: item.entityId,
+      })
+    }
+    if (pending.length === 0) return result
+
+    const records = await this.readModelStore.getManyByCollectionIds<unknown>(
+      pending.map(({ collectionName, entityId }) => ({
+        collection: collectionName,
+        id: entityId,
+      })),
+    )
+    for (const { commandId, collectionName, entityId } of pending) {
+      const record = records.get(`${collectionName}:${entityId}`)
+      result.set(commandId, record?.data)
+    }
+    return result
   }
 
   /**
@@ -1630,10 +1954,14 @@ export class CommandQueue<
   /**
    * Resolve AUTO_REVISION in a dependent command after its dependency succeeded.
    * ID replacement is handled by rewriteCommandsWithStaleIds — this only handles revision.
+   *
+   * `current` is provided by the caller (`unblockDependentCommands` batch-fetches
+   * up front) so this method does no per-call read-model lookups.
    */
   private async resolveDependentRevision(
     command: CommandRecord<TLink, TCommand>,
     parentRevision: string | undefined,
+    current: unknown,
   ): Promise<void> {
     if (command.revision === undefined || parentRevision === undefined) return
     if (!isAutoRevision(command.revision)) return
@@ -1649,21 +1977,34 @@ export class CommandQueue<
       const restoredCmdView = command.commandIdPaths
         ? restoreEntityRefs(cmdView, command.commandIdPaths)
         : cmdView
+      // Revision-resolution is a regenerate trigger; the trigger isn't a
+      // server-event delta on the entity, but the handler still gets the
+      // latest read-model view as `current` (precomputed by caller) so
+      // behavior is consistent with reconcile-triggered regenerates.
+      const handlerState: HandlerState = {
+        mode: 'regenerate',
+        initial: command.modelState,
+        current,
+      }
       const result = this.domainExecutor.handle(
         {
           type: command.type,
           data: restoredCmdView.data,
           path: restoredCmdView.path,
+          headers: command.headers,
           fileRefs: command.fileRefs,
         },
-        // TODO: this should be getting updated local model from the caller
-        // modelState,
-        undefined,
+        handlerState,
         context,
       )
-      if (result.ok) {
+      if (result.kind === 'conflict') {
+        // Pipeline-time conflict: regenerate after AutoRevision resolution
+        // detected that the command can't proceed cleanly. Persist the
+        // categorized failure and skip event regeneration.
+        await this.markFailedFromConflict(command.commandId, result.exception)
+      } else if (result.kind === 'success') {
         try {
-          await this.anticipatedEventHandler.regenerate(command, result.value.anticipatedEvents)
+          await this.anticipatedEventHandler.regenerate(command, result.events)
         } catch (err) {
           logProvider.log.error(
             { err, commandId: command.commandId },
@@ -1671,37 +2012,188 @@ export class CommandQueue<
           )
         }
       }
+      // 'validation-error' / 'unknown-command' are bug-shaped on this path;
+      // skip silently.
     }
   }
 
-  private async cancelDependentCommands(commandId: string): Promise<void> {
-    const blockedCommands = await this.commandStore.getBlockedBy(commandId)
+  /**
+   * Walk a parent's direct dependents after the parent has transitioned to a
+   * terminal non-success status, classifying each edge as hard or soft and
+   * acting per-strength:
+   *
+   * - **Hard** edges (`'entity-ref'` or `'explicit'` source; or
+   *   `'aggregate-chain'` with the dependent's `classifyDependency` returning
+   *   `'hard'`) batch-cancel the dependents and recurse.
+   * - **Soft** edges (`'aggregate-chain'` with no classifier registered, or
+   *   the classifier returning `'soft'`) remove the parent's commandId from
+   *   the dependent's `blockedBy` and flip the dependent from `'blocked'` to
+   *   `'pending'` when the gating set empties — mirroring the success-path
+   *   unblock mechanic.
+   *
+   * **`parentEvents`** must be the parent's anticipated events captured
+   * *before* the transition that triggered cleanup. They're forwarded to the
+   * classifier callbacks; without pre-capture the events would already be
+   * purged by `cleanupOnFailure`. Same constraint applies inside the
+   * recursion — the snapshot for each hard-cancelled dependent is captured
+   * here and forwarded as the next layer's `parentEvents`.
+   */
+  private async cascadeFromTerminal(
+    parent: CommandRecord<TLink, TCommand>,
+    parentEvents: IAnticipatedEvent[],
+  ): Promise<void> {
+    const blockedCommands = await this.commandStore.getBlockedBy(parent.commandId)
     const active = blockedCommands.filter((blocked) => !isTerminalStatus(blocked.status))
     if (active.length === 0) return
 
-    // Siblings go through one batch: single store write, parallel terminal
-    // cleanup, one pass of event emission.
-    const cancelledCommands = await this.batchUpdateCommandStatus(active, 'cancelled', {
-      error: new CommandFailedException('local', `Dependency ${commandId} failed`),
-    })
+    // Snapshot anticipated events for every active dependent BEFORE any of
+    // them transitions to a terminal status (which would trigger
+    // `cleanupOnFailure` and purge them). Reused both for classifier input
+    // at this layer AND as parentEvents on the next recursion layer.
+    const dependentEventsByCommandId = new Map<string, IAnticipatedEvent[]>()
+    for (const b of active) {
+      dependentEventsByCommandId.set(
+        b.commandId,
+        await this.anticipatedEventHandler.getAnticipatedEvents(b.commandId),
+      )
+    }
 
-    // Fire terminal CommandEvents + broadcast library events after the batch
-    // status flip. These signal "fully settled" to waitForSucceeded
-    // subscribers; cancelled commands have no post-processing of their own.
-    for (const command of cancelledCommands) {
-      this.eventBus.emit('command:cancelled', {
-        commandId: command.commandId,
-        type: command.type,
-        cacheKey: command.cacheKey,
+    const hard: CommandRecord<TLink, TCommand>[] = []
+    const soft: Array<{
+      command: CommandRecord<TLink, TCommand>
+      newBlockedBy: string[]
+    }> = []
+
+    for (const b of active) {
+      const edge = b.dependsOn.find((d) => d.commandId === parent.commandId)
+      // Defensive default: an active dependent of `parent.commandId` should
+      // always carry an edge to it (that's how it landed in `blockedBy`).
+      // A missing edge implies storage corruption; treat as `'explicit'`
+      // (strongest non-entity-ref strength) so corruption fails loud at the
+      // cascade boundary rather than silently absorbing the dependent.
+      const source: DependencySource = edge?.source ?? 'explicit'
+      const strength = this.classifyDependencyEdge(
+        source,
+        b,
+        dependentEventsByCommandId.get(b.commandId) ?? [],
+        parent,
+        parentEvents,
+      )
+
+      if (strength === 'hard') {
+        hard.push(b)
+      } else {
+        soft.push({
+          command: b,
+          newBlockedBy: b.blockedBy.filter((id) => id !== parent.commandId),
+        })
+      }
+    }
+
+    if (hard.length > 0) {
+      const hardEventsByCommandId = new Map<string, IAnticipatedEvent[]>()
+      for (const b of hard) {
+        hardEventsByCommandId.set(b.commandId, dependentEventsByCommandId.get(b.commandId) ?? [])
+      }
+
+      // Siblings go through one batch: single store write, parallel terminal
+      // cleanup, one pass of event emission.
+      const cancelledCommands = await this.batchUpdateCommandStatus(hard, 'cancelled', {
+        // Cascade-cancellation: the dependent itself isn't in error — its
+        // dependency was. `'permanent'` reflects "no retry path"; the
+        // command transitions to `'cancelled'` (not `'failed'`) so UI can
+        // distinguish dep-cascade from primary failure.
+        error: new CommandFailedException('local', `Dependency ${parent.commandId} failed`, {
+          category: 'permanent',
+        }),
       })
-      this.emitCommandEvent('cancelled', command)
+
+      // Fire terminal CommandEvents + broadcast library events after the
+      // batch status flip. These signal "fully settled" to waitForSucceeded
+      // subscribers; cancelled commands have no post-processing of their own.
+      for (const command of cancelledCommands) {
+        this.eventBus.emit('command:cancelled', {
+          commandId: command.commandId,
+          type: command.type,
+          cacheKey: command.cacheKey,
+        })
+        this.emitCommandEvent('cancelled', command)
+      }
+
+      // Recurse sequentially so each level's cancellation finishes before
+      // the next level's `getBlockedBy` runs. Pass the pre-cleanup snapshot
+      // forward — the cancellation we just did has already triggered the
+      // recursing parents' `cleanupOnFailure`.
+      for (const blocked of cancelledCommands) {
+        await this.cascadeFromTerminal(blocked, hardEventsByCommandId.get(blocked.commandId) ?? [])
+      }
     }
 
-    // Recurse sequentially so each level's cancellation finishes before the
-    // next level's `getBlockedBy` runs.
-    for (const blocked of cancelledCommands) {
-      await this.cancelDependentCommands(blocked.commandId)
+    // Soft branch: drop the parent's commandId from each dependent's
+    // `blockedBy` and flip `'blocked'` → `'pending'` when the gating set
+    // empties. The server then arbitrates — if the dependent's precondition
+    // was genuinely required by the now-failed parent, the server rejects
+    // it loudly. Same transition mechanic as `unblockDependentCommands`,
+    // sans AutoRevision resolution (no parent revision to apply).
+    if (soft.length > 0) {
+      let unblockedAny = false
+      for (const { command, newBlockedBy } of soft) {
+        if (newBlockedBy.length === 0 && command.status === 'blocked') {
+          await this.updateCommandStatus(command, 'pending', { blockedBy: newBlockedBy })
+          unblockedAny = true
+        } else {
+          this.commandStore.update(command.commandId, { blockedBy: newBlockedBy })
+        }
+      }
+
+      // A soft cascade can transition dependents from `'blocked'` to
+      // `'pending'` mid-drain. The outer `processPendingCommands` snapshot
+      // was taken before the flip and won't include them, so kick the
+      // queue to pick them up. Same mechanic as the post-enqueue trigger.
+      if (unblockedAny && !this._paused) {
+        this.processPendingCommands().catch((err) => {
+          logProvider.log.error(
+            { err },
+            'Failed to process pending commands after soft-cascade unblock',
+          )
+        })
+      }
     }
+  }
+
+  private classifyDependencyEdge(
+    source: DependencySource,
+    dependent: CommandRecord<TLink, TCommand>,
+    dependentEvents: IAnticipatedEvent[],
+    parent: CommandRecord<TLink, TCommand>,
+    parentEvents: IAnticipatedEvent[],
+  ): 'hard' | 'soft' {
+    if (source === 'entity-ref' || source === 'explicit') return 'hard'
+    // source === 'aggregate-chain' — defer to the dependent's registered
+    // classifier; default to soft when none is registered. The server is
+    // the arbiter on misclassification.
+    const registration = this.domainExecutor?.getRegistration(dependent.type) as
+      | CommandHandlerRegistration<TLink, TCommand, TSchema, TEvent>
+      | undefined
+    const classify = registration?.classifyDependency
+    if (!classify) return 'soft'
+    // Trust boundary: events are cast to the registration's narrow TEvent.
+    // CommandQueue is generic in TEvent at the queue level; the consumer's
+    // registration is the source of truth for shape. Same boundary as the
+    // domainExecutor.handle cast at submit. A classifier throw propagates
+    // and halts the cascade walk at the point of the exception — there is
+    // no defaulted-to-soft fallback that would silently mask a classifier
+    // bug, consistent with how `validate` / `validateAsync` / `handler`
+    // throws are treated.
+    const dependentInput: ClassifierInput<TLink, EnqueueCommand, IAnticipatedEvent> = {
+      command: dependent,
+      events: dependentEvents,
+    }
+    const parentInput: ClassifierInput<TLink, EnqueueCommand, IAnticipatedEvent> = {
+      command: parent,
+      events: parentEvents,
+    }
+    return classify(dependentInput, parentInput)
   }
 
   /**
@@ -1727,7 +2219,7 @@ export class CommandQueue<
     commandIdPaths: Record<JSONPathExpression, EntityRef> | undefined
   } {
     const resolved = resolveCommandIds(
-      { data: command.data, path: command.path },
+      { data: command.data, path: command.path, headers: command.headers },
       registration.commandIdReferences,
       this.mappingStore,
     )
@@ -1757,6 +2249,7 @@ export class CommandQueue<
           ...command,
           data: resolved.data as TData,
           path: resolved.path,
+          headers: resolved.headers,
           revision: patchedRevision,
         }
       : command
@@ -2241,6 +2734,123 @@ export interface IdMappingCandidate<TLink extends Link> {
 export interface CollectedIdMappings<TLink extends Link> {
   candidates: IdMappingCandidate<TLink>[]
   uncoveredStreams: string[]
+}
+
+/**
+ * Merge the three dependency origins into one source-tagged list, applying
+ * the strictest-strength precedence rule: when the same `commandId` appears
+ * in more than one origin, the entry stored carries the strongest source
+ * (`entity-ref > explicit > aggregate-chain`).
+ *
+ * Result order matches submit-time ordering — explicit deps first (caller's
+ * declared sequence), then auto-deps, then ref-deps — with duplicates
+ * dropped at first sighting. The order is mostly cosmetic (cascade walks
+ * look up entries by `commandId`), but stable output keeps debug logs
+ * readable.
+ */
+export function buildCommandDependencies(input: {
+  explicitDeps: readonly string[]
+  autoDeps: readonly string[]
+  refCommandIds: readonly string[]
+}): CommandDependency[] {
+  const result: CommandDependency[] = []
+  const indexByCommandId = new Map<string, number>()
+
+  const upsert = (commandId: string, source: DependencySource): void => {
+    const existingIndex = indexByCommandId.get(commandId)
+    if (existingIndex === undefined) {
+      indexByCommandId.set(commandId, result.length)
+      result.push({ commandId, source })
+      return
+    }
+    const existing = result[existingIndex]!
+    if (rankSource(source) > rankSource(existing.source)) {
+      existing.source = source
+    }
+  }
+
+  for (const commandId of input.explicitDeps) upsert(commandId, 'explicit')
+  for (const commandId of input.autoDeps) upsert(commandId, 'aggregate-chain')
+  for (const commandId of input.refCommandIds) upsert(commandId, 'entity-ref')
+
+  return result
+}
+
+/** Precedence rank for {@link DependencySource}: higher rank wins on collision. */
+function rankSource(source: DependencySource): number {
+  switch (source) {
+    case 'entity-ref':
+      return 2
+    case 'explicit':
+      return 1
+    case 'aggregate-chain':
+      return 0
+  }
+}
+
+/** Regex for header names that serialize as `.name` in JSONPath; anything
+ *  else uses bracket notation `['name']` — matches the rules in `ref-path.ts`'s
+ *  segmentsToPath. */
+const HEADER_NAME_IS_SIMPLE_IDENTIFIER = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/
+
+/**
+ * Submit-time gate: every {@link EntityRef} header value must sit at a path
+ * declared in the registration's `commandIdReferences` (rooted at `$.headers`).
+ *
+ * Declared Refs are recorded in `commandIdPaths` by `resolveCommandIds` and
+ * ride through to the record + handler; the cascade later rewrites them to
+ * server-id strings when the producing command resolves. An EntityRef at an
+ * undeclared header path has nothing wiring it into `dependsOn` or the
+ * cascade and would silently leak to the sender as a non-string — the assert
+ * surfaces the wiring bug at submit instead of much later at the send
+ * boundary.
+ */
+function assertHeaderRefsAreDeclared(
+  commandType: string,
+  headers: Record<string, EntityId> | undefined,
+  commandIdPaths: Record<JSONPathExpression, EntityRef> | undefined,
+): void {
+  if (!headers) return
+  for (const [name, value] of Object.entries(headers)) {
+    if (typeof value === 'string') continue
+    const declaredPath = HEADER_NAME_IS_SIMPLE_IDENTIFIER.test(name)
+      ? `$.headers.${name}`
+      : `$.headers['${name}']`
+    assert(
+      commandIdPaths !== undefined && declaredPath in commandIdPaths,
+      `Command "${commandType}" header "${name}" carries an EntityRef but ${declaredPath} is not declared in commandIdReferences`,
+    )
+  }
+}
+
+/**
+ * Send-boundary narrower for {@link ICommandSender.send}: header values are
+ * `Record<string, string>` by the time the queue hands the record off.
+ *
+ * The submit gate ({@link assertHeaderRefsAreDeclared}) already rejects
+ * undeclared EntityRefs, and the cascade rewrites every declared EntityRef
+ * to a server-id string before the command becomes unblocked. This assert
+ * is the narrowing belt for that runtime invariant; a non-string here is a
+ * library bug (a missed cascade rewrite), surfaced loudly rather than
+ * silently coerced.
+ */
+function assertWireHeaders(
+  commandType: string,
+  headers: unknown,
+): asserts headers is Record<string, string> | undefined {
+  if (headers === undefined) return
+  assert(
+    typeof headers === 'object' && headers !== null && !Array.isArray(headers),
+    `Command "${commandType}" headers must be a Record<string, string>, got ${typeof headers}`,
+  )
+  for (const [name, value] of Object.entries(headers as Record<string, unknown>)) {
+    assert(
+      typeof value === 'string',
+      `Command "${commandType}" header "${name}" is not a plain string after preparation — ` +
+        `declare a commandIdReferences entry for $.headers['${name}'] so the EntityRef is ` +
+        `resolved before the sender runs`,
+    )
+  }
 }
 
 /**

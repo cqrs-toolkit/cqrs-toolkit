@@ -38,7 +38,7 @@ The `'succeeded'` → `'applied'` transition is decided by `SyncManager.evaluate
 `evaluateCoverageForBatch` returns `{ applied: CommandRecord[] }` only.
 There is no `updated` set, no per-aggregate map shrink/rewrite, no `'events'` marker.
 
-`CommandQueue` mirrors the same primary-aggregate check at success time so a command whose target revision is *already present* in `knownRevisions` doesn't get stuck at `'succeeded'`; the success path can transition directly to `'applied'` via `batchUpdateSyncStatus({ applied: [command] })`.
+`CommandQueue` mirrors the same primary-aggregate check at success time so a command whose target revision is _already present_ in `knownRevisions` doesn't get stuck at `'succeeded'`; the success path can transition directly to `'applied'` via `batchUpdateSyncStatus({ applied: [command] })`.
 
 ### Removed surface
 
@@ -85,23 +85,48 @@ Comments in `GapRepairCoordinator`, `write-queue/operations`, and `reconcilePend
 
 ## Consequences
 
-**Easier:**
+### Implementation impact
+
+- `SyncManager.evaluateCoverageForBatch` simplified to a primary-aggregate revision check (returns `{ applied: CommandRecord[] }` only).
+- `CommandQueue` success-time mirror of the primary-aggregate check to allow direct `'succeeded'` → `'applied'` transitions when the target revision is already present in `knownRevisions`.
+- Removal of `pendingAggregateCoverage?: string` field from `CommandRecord`, the SQLite schema, the storage record type, and round-trip tests.
+- `collectIdMappingCandidates` return shape simplified to `{ candidates, uncoveredStreams }` (removed `expectedRevisionsByStream`).
+- `batchUpdateSyncStatus(params)` accepts only `{ applied?: Iterable<CommandRecord> }` (no `updated` set, no `'updated'` shrink branch).
+- Removal of per-batch `commandIdsWithDrainedEvents` tracking.
+- Replacement of `waitForCompletion` with two explicit waiters: `waitForSucceeded(commandId)` and `waitForApplied(commandId)`.
+- `enqueueAndWait` default changed to `'applied'`; opt-back-in via `params.waitFor: 'succeeded'`.
+- `CqrsClient.submit` waits for `'applied'` when online; offline / disconnected-with-prior-`'succeeded'` returns cached server response.
+- `waitForTerminal` shared helper extracted; used by both `CommandQueue` and `CommandQueueProxy`. Events act as signals only; results derived from authoritative state via `getCommand`.
+- `CollectionSignal.updated.commandIds` field added; propagation through `QueryManager` and `QueryManagerProxy`.
+- `EventProcessorRunner` class, public re-export, `ProcessEventResult` export, and bootstrap construction removed.
+- `EventProcessor.test.ts` renamed to `EventProcessorRegistry.test.ts`.
+- Comments in `GapRepairCoordinator`, `write-queue/operations`, and `reconcilePendingCommands` updated to point at the reconcile pipeline (away from `EventProcessorRunner`).
+- Pre-release schema migration: drop pre-existing `'succeeded'` records.
+
+### Operational implications
+
+#### Gains
 
 - Simpler coverage model — one rule per command instead of three; no per-row coverage payload to serialize, parse, or migrate.
 - The `'applied'` transition is a batch-local decision against `knownRevisions` and `CacheManager.existsSync`; no historical state on the row is needed.
-- Consumers can pick the wait semantics that match their UI: fast confirmation (`succeeded`) or data-reflected (`applied`).
-- `CollectionSignal.updated.commandIds` lets consumers render command-level "still applying" UI without polling status.
-- `EventProcessorRunner` deletion removes a vestigial class that future contributors would have to reason about.
 
-**Harder:**
+#### Costs
 
 - Primary-aggregate-only coverage means commands whose response touches multiple aggregates are marked `'applied'` when only the primary stream's revision has caught up.
   Secondary-aggregate effects may not be reflected when the optimistic overlay is cleaned up.
   In practice this is acceptable because the cache-key-eviction slip absorbs out-of-scope advances, and current command shapes have a clean primary aggregate.
   If a future workload makes multi-aggregate coverage load-bearing, the rejected design from [ADR 0007](0007-applied-status-split.md) (per-aggregate map, `'updated'` shrink branch) is the documented starting point for revival.
 - The cache-key-evicted slip is a soft cover.
-  If a cache key is evicted *during* the brief `'succeeded'` → `'applied'` window, the command is marked applied without revision confirmation.
+  If a cache key is evicted _during_ the brief `'succeeded'` → `'applied'` window, the command is marked applied without revision confirmation.
   Deliberate: cache-key scope already absorbed the dependency.
+
+### Coding implications
+
+#### Gains
+
+- Consumers can pick the wait semantics that match their UI: fast confirmation (`succeeded`) or data-reflected (`applied`).
+- `CollectionSignal.updated.commandIds` lets consumers render command-level "still applying" UI without polling status.
+- `EventProcessorRunner` deletion removes a vestigial class that future contributors would have to reason about.
 
 ## Notes
 

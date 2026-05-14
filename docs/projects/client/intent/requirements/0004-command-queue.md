@@ -98,6 +98,7 @@ Each persisted command record (`CommandRecord<TLink, TCommand, TResponse>`) incl
 - `type: string` — command type (e.g. `CreateTodo`).
 - `data: object` — command payload.
 - `path?: unknown` — URL path template values for command-sender URL expansion.
+- `headers?: Record<string, EntityId>` — escape-hatch envelope headers (e.g. `x-tenant-id`, propagation hints). Values are `EntityId` (string | `EntityRef`); declared `EntityRef` positions (see [0014 §14.5.7](0014-entity-ref.md#1457-envelope-headers)) ride through to the record and the handler, and the cascade rewrites them to server-id strings when the producing command resolves. Submit-time gate: an `EntityRef` at a header path **not** declared in `commandIdReferences` is rejected with a package-local `assert`. At the send boundary the queue narrows the type to `Record<string, string>` — see [§4.4.4](#444-send-boundary).
 
 **Lifecycle:**
 
@@ -106,13 +107,13 @@ Each persisted command record (`CommandRecord<TLink, TCommand, TResponse>`) incl
   - `'applied'` — pipeline-owned post-terminal state. The sync pipeline transitions `'succeeded'` → `'applied'` after observing either the command's response events or per-aggregate revision/eviction coverage. Terminal-status checks (file cleanup, chain detachment, `waitForSucceeded`) fire at `'succeeded'`; `'applied'` is post-terminal and not part of `TerminalCommandStatus`.
 - `attempts: number`
 - `lastAttemptAt?: number`
-- `error?: IException` — present on failed commands (typed exception from `@meticoeus/ddd-es`).
+- `error?: IException` — present on failed commands. Carries a `category: FailureCategory` field ([§4.8.2](#482-failure-category-taxonomy)) that drives retry, user-intervention, and cancellation decisions; UI consumers switch on `category` rather than parsing status codes. The exception itself is a typed instance from `@meticoeus/ddd-es` (`CommandFailedException`, `ConflictException`, etc.).
 - `serverResponse?: TResponse` — set on success.
 
 **Dependencies:**
 
-- `dependsOn: string[]` — commandIds this command waits for. Auto-derived from `EntityRef.commandId` values in command data; explicit declarations for entity references are unnecessary (see [0014 §14.6.1](0014-entity-ref.md#1461-automatic-dependson)).
-- `blockedBy: string[]` — back-reference to dependents.
+- `dependsOn: CommandDependency[]` — source-tagged edges this command waits for. Each entry is `{ commandId, source }` where `source: 'entity-ref' | 'aggregate-chain' | 'explicit'` records which origin produced the edge (see [§4.6.1](#461-dependencies) for the three origins and the cascade semantics that depend on the tag). Auto-derived from `EntityRef.commandId` values in command data ([0014 §14.6.1](0014-entity-ref.md#1461-automatic-dependson)) and from same-aggregate ordering; explicit declarations remain available for non-EntityRef ordering constraints. The submit-time API (`EnqueueCommand.dependsOn?: string[]`) stays a flat string array; the library tags entries with `'explicit'` at enqueue and merges them with auto-derived origins under the precedence rule in [§4.6.1](#461-dependencies).
+- `blockedBy: string[]` — runtime-narrowed subset of `dependsOn` commandIds still gating this command (those that have not yet reached terminal status). Entries drop off as deps complete; when this list empties, status flips from `'blocked'` to `'pending'`. Stored flat — the source for any entry here can be looked up by joining with the matching `dependsOn` record.
 
 **Bookkeeping:**
 
@@ -124,17 +125,31 @@ Each persisted command record (`CommandRecord<TLink, TCommand, TResponse>`) incl
 
 - `creates?: CreateCommandConfig` — present only for commands that create an aggregate. Carries `{ eventType, idStrategy }` declaring which response event type carries the server-assigned ID and whether the client-generated ID is `'temporary'` or `'permanent'` (see [0014 §14.4](0014-entity-ref.md#144-id-strategy)).
 - `affectedAggregates?: AffectedAggregate<TLink>[]` — derived at enqueue time. Each entry carries the canonical `streamId` (chain/concurrency key) and an `EntityId`-aware `TLink` for reconciliation across `EntityRef` lifecycles. See [0015](0015-aggregate-config.md).
-- `commandIdPaths?: Record<JSONPathExpression, EntityRef>` — resolved JSONPath positions of `EntityRef` values in the command record, captured at enqueue time. Keyed by JSONPath rooted at the command object (e.g. `$.data.notebookId`, `$.path.id`). Used to strip and restore `EntityRef` values for storage and handler re-runs, derive auto-dependencies from `ref.commandId`, and prune entries as temporary IDs resolve to server IDs (see [0014 §14.5.2](0014-entity-ref.md#1452-command-submission-entityref-extraction-point)).
+- `commandIdPaths?: Record<JSONPathExpression, EntityRef>` — resolved JSONPath positions of `EntityRef` values in the command record, captured at enqueue time. Keyed by JSONPath rooted at the command object (e.g. `$.data.notebookId`, `$.path.id`, `$.headers['x-tenant-id']`). Used to strip and restore `EntityRef` values for storage and handler re-runs, derive auto-dependencies from `ref.commandId`, and prune entries as temporary IDs resolve to server IDs (see [0014 §14.5.2](0014-entity-ref.md#1452-command-submission-entityref-extraction-point) and [§14.5.7](0014-entity-ref.md#1457-envelope-headers)).
 - `postProcess?: PostProcessPlan` — optional generic post-processing instructions from the domain executor (`{ kind, tempIds? }`). EntityRef-driven field rewriting ([`0014 §14.6.2`](0014-entity-ref.md#1462-automatic-field-rewriting)) and aggregate-config-driven ID reconciliation ([`0015 §15.3`](0015-aggregate-config.md#153-reconciliation)) are auto-wired and do not require explicit `postProcess` entries.
 
 ### 4.4.2 Submit-time inputs
 
 - `revision?: string | AutoRevision` — provided by the consumer for mutate commands; absent for creates. `AutoRevision` is a serializable marker the library resolves before send (substituting the read model's current revision, with optional fallback).
-- `modelState?: unknown` — read-model snapshot the user had when the command was submitted, captured at submit time and immutable thereafter. Anticipated event handlers receive this as their initial state so the optimistic event reflects what the user saw at submit. The Command Queue does not read the Read Model Store at runtime — this snapshot is consumer-passed at enqueue and persisted with the command record ([§4.3](#43-responsibilities)).
+- `modelState?: unknown` — read-model snapshot the user had when the command was submitted. Captured at submit time, **persisted durably** in the command record (survives reload), and immutable thereafter. The Command Queue does not read the Read Model Store at runtime — this snapshot is consumer-passed at enqueue and persisted with the command record ([§4.3](#43-responsibilities)).
+
+  This persisted value is the **`initial`** field of the `HandlerState` discriminated union the command-level handler functions (`validate`, `validateAsync`, `handler`) receive. On the first call (at enqueue), `state` is `{ mode: 'initial', initial }`. On every subsequent invocation — server-event delta during reconciliation, id-rewrite cascade after a parent command resolves, AutoRevision resolution — `state` is `{ mode: 'regenerate', initial, current }`, where `current` is the latest read-model view of the command's primary entity at the moment of regenerate. The library always populates `current` so handler behavior is consistent across triggers; handlers don't have to special-case why they were re-invoked.
+
+  The conceptual contract is documented in [`0002 §2.4`](0002-domain-layer.md#24-public-contract-conceptual). Event Processors ([`0008`](0008-event-processors.md)) are out of scope for this shape change — they are entity-level reducers, not command-level functions, and their `state: TModel | undefined` argument stays as-is.
 
 ### 4.4.3 File attachments
 
 - `fileRefs?: FileRef[]` — file attachment metadata. At rest, each `FileRef.data` is undefined; the library hydrates `data: Blob` before send. See [§4.14](#414-file-upload-commands) for the full file-upload model.
+
+### 4.4.4 Send boundary
+
+`ICommandSender.send` receives a `SendableCommandRecord<TLink, TCommand, TResponse>` — identical to `CommandRecord` except `headers` is narrowed to `Record<string, string>`.
+The narrowing is the runtime consequence of two upstream invariants:
+
+- the submit gate rejects `EntityRef`s at undeclared header paths ([0014 §14.5.7](0014-entity-ref.md#1457-envelope-headers));
+- declared `EntityRef` headers are rewritten in place to server-id strings by the cascade ([0014 §14.6.2](0014-entity-ref.md#1462-automatic-field-rewriting)) before the command becomes unblocked.
+
+Just before invoking the sender, the queue asserts every header value is a plain string with the package-local `assert`. A non-string at this point is a library bug (a missed cascade rewrite); the assert surfaces it loudly rather than silently coercing. Transports never have to flatten or coerce header values.
 
 ---
 
@@ -189,11 +204,29 @@ No command from a previous user may be retained or executed.
 ### 4.6.1 Dependencies
 
 Commands may declare dependencies via `dependsOn`.
-A command may not transition to `sending` until all dependencies have succeeded.
+A command may not transition to `sending` until all dependencies have reached terminal status (success path; the soft-cascade path below also allows a chain-only dependent to proceed when its dep terminates non-success).
 
-The library auto-populates `dependsOn` from `EntityRef.commandId` values found at the paths declared in the handler's `commandIdReferences` (see [0014 §14.6.1](0014-entity-ref.md#1461-automatic-dependson)).
-Consumers do not need to declare `dependsOn` explicitly for cross-command entity references.
-Explicit `dependsOn` declarations remain available for non-EntityRef ordering constraints.
+**Origins.** Each `CommandDependency` entry carries an explicit `source` so the cascade walk ([§4.8.2](#482-failure-category-taxonomy)) can decide whether the edge propagates a cancellation. Three origins:
+
+| Origin              | Where it comes from                                                                                                               | Strength on cascade                                                                                                                                                                                                                    |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `'entity-ref'`      | `EntityRef.commandId` resolved at a `commandIdReferences` path (see [0014 §14.6.1](0014-entity-ref.md#1461-automatic-dependson)). | **Hard** by construction — the dependent's payload references an id this create produces. If the create doesn't land, the reference has no meaning.                                                                                    |
+| `'explicit'`        | Consumer-declared in `EnqueueCommand.dependsOn` at submit. The library tags those entries `'explicit'` at enqueue.                | **Hard**. A caller writing `dependsOn: [...]` has gone out of their way to declare an ordering the library wouldn't otherwise derive — by construction the case where the caller knows the dependent requires the dependency's effect. |
+| `'aggregate-chain'` | Auto-derived from same-aggregate ordering (commands touching the same aggregate chain via `affectedAggregates`).                  | **Classified at cascade time.** The dependent's `CommandHandlerRegistration.classifyDependency` returns `'hard'` or `'soft'`; default when no classifier is registered is **soft**.                                                    |
+
+The submit-time API (`EnqueueCommand.dependsOn?: string[]`) stays a flat string array. Consumers do not write the wrapper.
+
+**Source precedence on collision.** When the same `commandId` would be produced by multiple origins for the same command, the stored entry carries the strongest source: `entity-ref > explicit > aggregate-chain`. Concretely:
+
+- `entity-ref` + `aggregate-chain` → stored as `entity-ref` (the chain edge is redundant under the EntityRef signal).
+- `explicit` + `aggregate-chain` → stored as `explicit` (the caller's deliberate declaration outranks chain-derived ordering).
+- `entity-ref` + `explicit` (rare) → stored as `entity-ref`. Both short-circuit to hard, so the classification outcome is identical; the picked source is the more specific signal for debugging/logging.
+
+The stored `source` is the **origin**, not a separate strength field. The classifier still owns hard/soft for `'aggregate-chain'` entries; `source` provides the short-circuit when origin alone determines hardness.
+
+**Why `'explicit'` is always hard.** Soft same-aggregate ordering is expressed by _not_ declaring the dep and letting the chain handle it. There is no escape hatch for "explicit but soft" — explicit is always hard, full stop. If a soft cross-aggregate case appears that the existing origins can't express, the library would revisit by adding a declarative form rather than weakening the explicit-is-hard guarantee.
+
+**Missing-declaration handling.** A real state-precondition hard that the classifier doesn't catch becomes soft → dependent attempts → server rejects → the dependent fails with the normal failure pathway. Loud, late, but recovered correctly. Misclassifying a real hard as soft costs N server round-trips and N rejections instead of one local cancel — that is the deliberate failure mode, loud at the server boundary rather than silently absorbed. The opposite (silent over-cancel) is the failure mode the hard/soft split exists to avoid.
 
 ---
 
@@ -238,20 +271,85 @@ Anticipated events:
 
 When a command succeeds or is cancelled, the Command Queue is responsible for ensuring associated anticipated events are removed or rebased.
 
+### 4.7.1 Handler state input — first call vs regenerate
+
+The command-level handler functions (`validate`, `validateAsync`, `handler`) receive a discriminated-union `state: HandlerState`:
+
+- **`{ mode: 'initial', initial }`** — first invocation, at enqueue. `initial` is the snapshot the consumer passed to `submit({ ..., modelState })`. The handler produces the optimistic anticipated event(s) against `initial`.
+
+- **`{ mode: 'regenerate', initial, current }`** — any subsequent invocation. `initial` is unchanged across regenerates. `current` is the latest read-model view of the command's primary entity at the moment of regenerate, populated consistently regardless of what triggered the regenerate:
+  - **Reconcile after a server-event delta** ([`0005 §5.6`](0005-sync-manager.md#56-permanent-event-handling-ordering--gap-repair)) — `current` is the post-server-event baseline of the entity from the reconcile fold (pure server truth with no client overlays mixed in; chain continuity for downstream dirty commands is preserved through the fold's `clientState` output, not through handler input).
+  - **Id-rewrite cascade** after a parent command's create resolved its temp id to a server id — `current` is `readModelStore.getById(collection, entityId).data`.
+  - **AutoRevision resolution** after a dependency succeeded with a revision — `current` is the same store-fetched view.
+
+  `current` is `T | undefined`; it can be `undefined` only when the entity isn't yet in the read-model store (no overlay folded yet, outside active cache) — never as a "trigger-based" signal.
+
+A handler that compares `initial` and `current` can detect "the field I was editing has been changed by someone else since I queued my edit." A handler that doesn't care about the comparison can read `state.mode === 'regenerate' ? (state.current ?? state.initial) : state.initial` as "the most current view available."
+
+A handler that detects a conflict against `current` returns a `'conflict'`-kinded `DomainExecutionOutcome` with a `category: FailureCategory` ([§4.8](#48-retry-and-failure-handling)). The Command Queue persists the command and routes the conflict's category through the same dispatch as server-derived categories.
+
 ---
 
-## 4.8 Retry and backoff policy
+## 4.8 Retry and failure handling
 
-- Retry policy is implementation-defined.
+Failure handling is driven by a typed `FailureCategory` that classifies _why_ a command failed. The category determines retry, user-intervention, and cancellation behaviour, and is visible to the UI on the persisted exception so consumers don't string-match status codes.
 
-- Recommended behavior:
-  - exponential backoff with jitter
+### 4.8.1 Retry policy
 
-  - bounded retries for transient failures
+- Retry is gated by `category === 'transient'`. Other categories never auto-retry.
+- Recommended retry behaviour for transient failures: exponential backoff with jitter, bounded attempt count.
+- Dependency ordering must always be preserved across retries.
+- The category-based retry rule subsumes the prior boolean `isRetryable` flag — `isRetryable` remains as a derived alias (`category === 'transient'`) for source compatibility.
 
-- Commands requiring user intervention must not be retried automatically.
+### 4.8.2 Failure category taxonomy
 
-- Dependency ordering must always be preserved.
+`FailureCategory` is a string-literal union, designed to be extended as new behaviours emerge. Adding a member is a single edit; the compiler enforces exhaustive handling at every dispatch site.
+
+| Category              | Meaning                                                                                                                                | Library response                                                                                                                                                                    |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `'transient'`         | Network blip, server-side glitch the client should retry through.                                                                      | Retry per [§4.8.1](#481-retry-policy).                                                                                                                                              |
+| `'requires-review'`   | The user needs to make a decision (server conflict, validation rejection, stale-data conflict the handler detected during regenerate). | Command terminates as `'failed'` with `category` accessible to the UI; UI prompts. Hard-and-soft cascade per the rule below. (A dedicated lifecycle status is a future graduation.) |
+| `'redundant'`         | The user's intent is already satisfied (duplicate edit, idempotent no-op — the world is already in the desired state).                 | Command terminates as `'failed'` with `category: 'redundant'`; UI silently dismisses. Hard-and-soft cascade per the rule below. (Auto-cleanup is a future graduation.)              |
+| `'unauthenticated'`   | Session expired / not signed in.                                                                                                       | Command terminates as `'failed'`; UI prompts re-auth. Hard-and-soft cascade per the rule below. (Hold-and-retry-after-reauth is a future graduation.)                               |
+| `'permission-denied'` | Authenticated but not authorized for this action.                                                                                      | Command terminates as `'failed'`; hard-and-soft cascade per the rule below.                                                                                                         |
+| `'permanent'`         | Invalid in a way the user can't fix (typically a client/protocol bug).                                                                 | Command terminates as `'failed'`; hard-and-soft cascade per the rule below.                                                                                                         |
+
+Categories distinguish UX decisions, not transport details: `'unauthenticated'` (re-auth fixes it) is intentionally distinct from `'permission-denied'` (re-auth does not), and `'redundant'` is distinct from `'requires-review'` because nothing needs reviewing.
+
+**Hard-and-soft cascade rule.** When a command reaches a terminal non-success status — any non-`'transient'` failure, a user-initiated cancellation via `cancelCommand`, or a cancellation propagated from an upstream cascade — the Command Queue walks the command's direct dependents and classifies each edge per [§4.6.1](#461-dependencies):
+
+- **Hard dependents** (`source: 'entity-ref'` or `source: 'explicit'`, or `source: 'aggregate-chain'` with the dependent's `classifyDependency` returning `'hard'`) auto-cancel. The walk recurses into their dependents.
+- **Soft dependents** (`source: 'aggregate-chain'` with no classifier registered, or the classifier returning `'soft'`) **do not cancel**. The parent's commandId is removed from each soft dependent's `blockedBy`; when the gating set empties, status flips `'blocked'` → `'pending'` and the dependent gets an independent attempt. The server then arbitrates — if the dependent's precondition was genuinely required by the now-failed parent, the server rejects it loudly.
+
+The classifier is consulted at the moment a cascade decision is needed against current state — its result is not stored; each evaluation re-runs the callback. A classifier throw propagates and halts the cascade walk at the point of the exception, consistent with how `validate` / `validateAsync` / `handler` throws are treated. Cancellation propagates synchronously: by the time the walk visits the next layer, the in-between command's chain has already been detached via the existing terminal-status cleanup, so the classifier sees the restitched chain rather than the dead intermediate command.
+
+### 4.8.3 Pluggable failure mapping
+
+Server responses are translated into `FailureDescriptor` values (`{ category, errorCode?, validationErrors?, details? }`) by a pluggable `FailureMapper`. The library ships category-defaults grounded in RFC 9110 status codes and recommended body conventions; consumers override per-command or globally to encode their own semantic identifiers (problem+json `type` URIs, ld+json `@type`, bespoke `body.name` strings, etc.).
+
+**Resolution rule (presence-based, no automatic cascade).** When a per-command `mapFailure` is defined on `CommandHandlerRegistration`, it is the sole arbiter for that command's response — the library does not fall through to the global. A consumer who wants the global's behaviour for non-special cases imports the same function reference and calls it explicitly.
+
+When per-command is absent, the global `CqrsConfig.mapFailure` runs (which defaults to a problem+json-aware library helper).
+
+**Library-provided defaults.** Composable mappers exported from the library:
+
+- `defaultStatusMapper` — RFC 9110 status → category, no body inspection.
+- `defaultProblemJsonMapper` — RFC 9457 problem+json: lifts `type` into `errorCode`, delegates to `defaultStatusMapper` for category. Behaves identically to `defaultStatusMapper` when the body isn't a problem document.
+- `defaultLdJsonMapper` — JSON-LD shape: lifts `@type` into `errorCode`, otherwise delegates.
+
+Consumers building against bespoke error formats supply their own `FailureMapper` reading whatever shape their server emits.
+
+**Handler-returned categorized failures.** In addition to server-derived categories, the `handler` function returns a flat algebraic outcome (`DomainExecutionOutcome<TEvent>`) with variants for `'success'`, `'validation-error'`, `'unknown-command'`, and `'conflict'`. The `'conflict'` variant carries a `ConflictException` with a `category: FailureCategory` — this is how a handler reports a _conflict it detected against its `{ initial, current }` state_ ([§4.7.1](#471-handler-state-input--first-call-vs-regenerate)).
+
+Routing depends on **when** the conflict surfaces:
+
+- **Submit-time** — the handler's first call (or `validateAsync` returning `Err(ConflictException)`) at enqueue. The `submit()` Promise rejects with `Err(ConflictException)`, identical in external shape to a validation rejection. The command **does not persist**. From the consumer's view: the operation didn't proceed, same as any other validation rejection. Consumers discriminate via the exception type (`isConflict(err)` vs `isValidationException(err)`) if they care.
+
+- **Pipeline-time** — regenerate during reconcile, id-rewrite cascade after a parent command resolves, or AutoRevision resolution. By definition the command was already persisted (submit returned Ok long ago). The Command Queue routes the conflict via `markFailedFromConflict(commandId, exception)`: the command transitions to `'failed'` with a `CommandFailedException` carrying the `category` and `errorCode` from the `ConflictException`; `command:failed` fires; dependents fan out per the hard-and-soft cascade rule ([§4.8.2](#482-failure-category-taxonomy)) — hard dependents auto-cancel, soft dependents unblock for an independent attempt. (Particularly relevant for `'redundant'` conflicts where the user's intent is already satisfied by another path: chain-only dependents may still be valid against current state.) `enqueueAndWait`-style awaiters resolve `Err(CommandFailedException)` through the existing terminal-status subscription — no special wiring on the awaiter side.
+
+This split aligns with the broader queue contract: `submit()` returns `Ok` when the command persists in the queue, `Err` when it didn't. Conflicts that arrive after the command is already persisted surface via the persisted command record and the event bus, not via the original submit promise.
+
+`validate` keeps `Result<unknown, ValidationException>` (sync, no read-model access — can't usefully detect conflicts). `validateAsync` widens to `Result<unknown, ValidationException | ConflictException>` because it has `queryManager` access and is a natural place to surface conflicts ("another entity already has this name").
 
 ---
 
@@ -319,9 +417,9 @@ TypeScript event type names below; runtime keys are kebab-case under the `comman
 
 - `CommandResponse` — emitted when a server response arrives for a sent command.
 
-- `CommandQueuePaused` *(runtime key: `commandqueue:paused` — namespace is `commandqueue:`, not `command:`)*
+- `CommandQueuePaused` _(runtime key: `commandqueue:paused` — namespace is `commandqueue:`, not `command:`)_
 
-- `CommandQueueResumed` *(runtime key: `commandqueue:resumed` — namespace is `commandqueue:`, not `command:`)*
+- `CommandQueueResumed` _(runtime key: `commandqueue:resumed` — namespace is `commandqueue:`, not `command:`)_
 
 These events are informational; consumers needing current command state should query it directly.
 
@@ -369,13 +467,13 @@ This separation ensures SQLite remains fast (no large blobs in the database), an
 
 ```ts
 interface FileRef {
-  id: string         // Unique file identifier (UUID) — used for the storage path and per-file operations
-  filename: string   // Original filename
-  mimeType: string   // MIME type
-  sizeBytes: number  // File size in bytes
+  id: string // Unique file identifier (UUID) — used for the storage path and per-file operations
+  filename: string // Original filename
+  mimeType: string // MIME type
+  sizeBytes: number // File size in bytes
   storagePath: string // Path from the storage root (e.g. `cqrs-client/uploads/{commandId}/{fileId}` for OPFS)
-  checksum?: string  // Optional integrity check (e.g. SHA-256 hex)
-  data?: Blob        // Hydrated by the library before send(); undefined at rest
+  checksum?: string // Optional integrity check (e.g. SHA-256 hex)
+  data?: Blob // Hydrated by the library before send(); undefined at rest
 }
 ```
 

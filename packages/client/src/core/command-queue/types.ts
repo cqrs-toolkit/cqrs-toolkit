@@ -16,6 +16,8 @@ import {
   EnqueueParams,
   EnqueueResult,
   InvalidCommandStatusException,
+  type SendableCommandRecord,
+  type ServerErrorResponse,
   WaitOptions,
 } from '../../types/commands.js'
 import { EntityId } from '../../types/index.js'
@@ -209,6 +211,11 @@ export interface ICommandQueueInternal<
 /**
  * HTTP command sender interface.
  * Abstracted for testability and different transport implementations.
+ *
+ * Receives the wire-shaped {@link SendableCommandRecord}: identical to
+ * {@link CommandRecord} except `headers` is `Record<string, string>` —
+ * the library resolves declared {@link EntityRef} headers via the cascade
+ * before invoking the sender, so transports never have to flatten.
  */
 export interface ICommandSender<TLink extends Link, TCommand extends EnqueueCommand> {
   /**
@@ -218,24 +225,53 @@ export interface ICommandSender<TLink extends Link, TCommand extends EnqueueComm
    * @returns Result with server response or CommandSendException on expected failure
    */
   send<TResponse>(
-    command: CommandRecord<TLink, TCommand, TResponse>,
+    command: SendableCommandRecord<TLink, TCommand, TResponse>,
   ): Promise<Result<TResponse, CommandSendException>>
 }
 
 /**
  * Expected domain failure from command sending.
  * Returned via Result, never thrown.
+ *
+ * Carries the parsed {@link ServerErrorResponse} when the failure was a
+ * server response (HTTP error status); absent for transport-level errors
+ * where there is no response (network failure, fetch threw). The queue uses
+ * `response` to drive its pluggable failure-mapping pipeline when present;
+ * for transport errors it falls back to `isRetryable` (defaults to `false`).
+ *
+ * The exception itself does **not** carry a `FailureCategory` — categorization
+ * happens at the queue, where per-command and global `mapFailure` overrides
+ * compose with the library's default mappers (see `0004 §4.8.3`). Consumers
+ * reading the persisted `error?: IException` on a `CommandRecord` get a
+ * `CommandFailedException` with `category` populated.
  */
-export class CommandSendException extends Exception {
-  readonly errorCode: string
+export class CommandSendException extends Exception<{
+  errorCode?: string
+  isRetryable: boolean
+  response?: ServerErrorResponse
+  details?: unknown
+}> {
+  readonly errorCode?: string
   readonly isRetryable: boolean
+  readonly response?: ServerErrorResponse
 
-  constructor(message: string, errorCode: string, isRetryable: boolean, details?: unknown) {
-    super('CommandSendException', message)
-    this.errorCode = errorCode
-    this.isRetryable = isRetryable
-    if (details !== undefined) {
-      this._details = details
+  constructor(args: {
+    message: string
+    errorCode?: string
+    /** Only consulted when `response` is undefined (transport-level errors). Defaults to false. */
+    isRetryable?: boolean
+    response?: ServerErrorResponse
+    details?: unknown
+  }) {
+    super('CommandSendException', args.message)
+    this.errorCode = args.errorCode
+    this.isRetryable = args.isRetryable ?? false
+    this.response = args.response
+    this._details = {
+      errorCode: args.errorCode,
+      isRetryable: this.isRetryable,
+      response: args.response,
+      details: args.details,
     }
   }
 }

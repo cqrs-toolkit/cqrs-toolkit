@@ -1,11 +1,11 @@
 # Code style
 
-Conventions for how code is written — file organisation, naming, formatting.
+Conventions for how code is written — file organization, naming, formatting.
 Formatting itself is enforced by Prettier (no semi, single quotes, trailing commas, 100 print width); this document covers what Prettier doesn't.
 
-## File organisation
+## File organization
 
-Organise code in this order:
+Organize code in this order:
 
 1. **Imports** — external and internal dependencies.
 2. **Private constants** — only constants go here; they are not hoisted and are important to keep visible at the top.
@@ -13,7 +13,7 @@ Organise code in this order:
 4. **Private implementation** — internal helper functions, unexported types, implementation details.
 
 **Test files** (`.test.ts`) treat the test blocks as the public interface.
-Organise test files in this order:
+Organize test files in this order:
 
 1. **Imports**
 2. **Constants** — dummy IDs, fixed values.

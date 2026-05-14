@@ -5,6 +5,99 @@ Newest entries at the top; dates in ISO `YYYY-MM-DD`.
 
 ---
 
+## 2026-05-11 — Hard/soft `dependsOn` cascade split with source-tagged origins **(DRAFT — ADR 0009 Proposed)**
+
+**Status.** Draft. Tracks [ADR-0009](../../decisions/0009-hard-soft-dependency-classification.md). Section text settles as the ADR moves from Proposed to Accepted; this entry will become a final-form changelog item then.
+
+**Reason.** Every `dependsOn` edge was treated as hard at cascade time — if A failed, every dependent cancelled. Correct for identity-existence ("B's payload references an id A creates") and explicit caller-declared deps, but over-cancelling for chain-only edges where two commands share an aggregate chain but address unrelated state. The exploration ([`command-dependency-hard-soft-classification.md`](../../explorations/command-dependency-hard-soft-classification.md)) decomposes the problem and lands on a per-origin strength rule plus an opt-in classifier callback for the chain-only case.
+
+**Changes.**
+
+- §4.4 — `CommandRecord.dependsOn` documented as `CommandDependency[]` (each entry `{ commandId, source }`). The submit-API `EnqueueCommand.dependsOn?: string[]` stays a flat string array; the library tags entries with `'explicit'` at enqueue. `blockedBy` is clarified as a runtime-narrowed subset of `dependsOn` commandIds (not the inverse view, despite the name).
+- §4.6.1 — rewritten to enumerate the three origins (`'entity-ref'`, `'aggregate-chain'`, `'explicit'`), strength rules per origin, the strictest-strength-wins precedence on dedup (`entity-ref > explicit > aggregate-chain`), and the "explicit is always hard" guarantee.
+- §4.8.2 — failure-category taxonomy table rewords the `'cancel-cascade'` cells to "hard-and-soft cascade per the rule below"; a new "Hard-and-soft cascade rule" paragraph captures the runtime behaviour, classifier semantics, and chain-stitching that falls out of the existing terminal-status cleanup. The rule's preamble enumerates the three terminal-non-success transitions that trigger the walk — non-`'transient'` failure, user-initiated `cancelCommand`, and cascade-propagated cancellation — so the user-cancellation path isn't read as a gap.
+- §4.8.3 — pipeline-time conflict routing reworded: "dependents cascade-cancel" → "hard dependents auto-cancel, soft dependents unblock for an independent attempt"; the `'redundant'` case is called out as the prime example of soft-cascade utility.
+
+**Implementation notes.**
+
+- `IAnticipatedEventHandler` gains `getAnticipatedEvents(commandId): Promise<IAnticipatedEvent[]>` so the cascade walk can populate `ClassifierInput.events` before the terminal-status transition triggers `cleanupOnFailure` and purges the cache.
+- Cascade entry points (`processCommandFailure`, `markFailedFromConflict`, `cancelCommand`) snapshot the parent's anticipated events **before** `updateCommandStatus` and forward them into the cascade walk. The walk applies the same pre-snapshot rule for each layer of hard-recursion.
+- Soft cascade fires `processPendingCommands()` (fire-and-forget) after flipping any dependent to `'pending'`, which sets `_pendingReprocess = true` on the in-flight drain so freshly-unblocked dependents are picked up in the same drain rather than waiting for the next external trigger.
+- The `classifyDependency` callback is declared as a method (not a property arrow) so that per-variant `C` in `myCommand: ClassifierInput<TLink, C, IAnticipatedEvent>` survives method-parameter bivariance — same approach the existing `handler` callback already uses on the same registration. `dependsOnCommand` is broadly typed (`EnqueueCommand`); the consumer runtime-narrows on `command.type` when specific upstream data matters. See ADR-0009 _Alternatives considered_ for the variance regressions that ruled out narrower events typing or a property-arrow declaration.
+- One TODO marker placed at the consumer-side devtools `DependencyList` to render the `source` tag in tooltips.
+
+**Tests.**
+
+- `CommandQueue.test.ts` — new `buildCommandDependencies (helper)`, `source tagging at submit`, and `cascade walk — hard vs soft` describe blocks (+9 tests): origin tagging, precedence on collision, hard cascade preserved for explicit/entity-ref, soft cascade flips `'blocked'` → `'pending'`, classifier consulted only for `'aggregate-chain'`, classifier throw halts the walk. Two additional tests in the `cancelCommand` describe block cover the user-initiated cancellation path through the same cascade walk (hard dep cascades, chain-only dep soft-unblocks).
+- `commands.integration.test.ts` — `'soft cascade on aggregate-chain edge'` end-to-end: chain-only second update independently succeeds after the first update's server rejection.
+- Existing `chain-rebuild.integration.test.ts` assertions updated to match the source-tagged `CommandDependency` shape.
+
+---
+
+## 2026-05-08 — Failure category taxonomy + pluggable mapping API + handler-returned conflicts **(DRAFT — Part 3 in progress)**
+
+**Status.** Draft. Reflects Part 3's implementation as of the current landed slice (categories + mapping API + conflict routing). Text may be refined as later slices reveal further refinements; the demo-server problem+json migration is being handled in a parallel session.
+
+**Reason.** Three threads needed alignment:
+
+1. **Failure routing was binary, not categorized.** Today's `CommandSendException.isRetryable: boolean` and `CommandFailedException.errorCode?: string` give one retry/no-retry axis and an opaque string. The UI ends up string-matching HTTP status codes to discriminate prompt-vs-toast-vs-silent — fragile, and ties UI to transport details.
+2. **No way for a handler to signal a categorized failure.** Part 1 gave handlers `{ initial, current }` so they can detect conflicts on regenerate, but the handler's output was `Result<DomainExecutionSuccess, ValidationException | UnknownCommandException>` — no slot for a "conflict, please prompt the user" or "redundant, silently dismiss" signal.
+3. **Server failures, while category-shaped at the wire, weren't typed at the API.** Different error formats (problem+json `type` URI, ld+json `@type`, bespoke `body.name`) required ad-hoc string-matching at every consumer; no library-blessed mapping API.
+
+Part 3 establishes the _vocabulary_ and _plumbing_: a `FailureCategory` string-literal union, a pluggable `FailureMapper` API, library defaults for RFC 9110 and recommended body conventions, and a handler-return path that signals categorized failures alongside server-derived ones. The lifecycle response per category is intentionally minimal at this slice — every non-`transient` category transitions to the existing `'failed'` status with `category` accessible to the UI; richer behaviours (a dedicated `'needs-review'` lifecycle, hold-and-retry on `'unauthenticated'`, auto-cleanup for `'redundant'`) graduate as separate slices later.
+
+**Changes.**
+
+- §4.4 — extended the `error?: IException` field description to call out that the persisted exception carries a `category: FailureCategory` field, with cross-reference to the new §4.8 taxonomy.
+- §4.7.1 — replaced the trailing "until-then" handler-options note with a forward reference to the new algebraic outcome shape: a handler that detects a conflict on regenerate returns a `'conflict'` outcome carrying a `ConflictException` with a category.
+- §4.8 — restructured from "Retry and backoff policy" into "Retry and failure handling" with three sub-sections:
+  - §4.8.1 Retry policy — gates retry on `category === 'transient'`; `isRetryable` becomes a derived alias.
+  - §4.8.2 Failure category taxonomy — the six-member union (`'transient'`, `'requires-review'`, `'redundant'`, `'unauthenticated'`, `'permission-denied'`, `'permanent'`) with library response per category. Notes the union is extensible.
+  - §4.8.3 Pluggable failure mapping — `FailureMapper` shape, `FailureDescriptor` payload, presence-based dispatch (registration → global, no automatic cascade), library-provided defaults (`defaultStatusMapper`, `defaultProblemJsonMapper`, `defaultLdJsonMapper`).
+- §4.8.3 also documents **handler-returned conflict routing** with the explicit submit-time vs pipeline-time split:
+  - **Submit-time** conflicts (handler first call OR `validateAsync`) reject the submit promise with `Err(ConflictException)`. Command does **not** persist. Same external shape as a validation rejection.
+  - **Pipeline-time** conflicts (regenerate during reconcile / id-rewrite cascade / AutoRevision resolution) route via a new `markFailedFromConflict(commandId, exception)` method on `CommandQueue`. The persisted command transitions to `'failed'` with the `category` and `errorCode` from the `ConflictException`; `command:failed` fires; dependents cascade-cancel. `enqueueAndWait`-style awaiters resolve `Err(CommandFailedException)` through the existing terminal-status subscription — no special wiring needed (validated by a new integration test, "pipeline-time conflict transitions command to failed with category accessible").
+- §4.8.3 also notes that `validate` keeps `Result<unknown, ValidationException>` (sync, no read-model access) while `validateAsync` widens to `Result<unknown, ValidationException | ConflictException>` (has `queryManager` access; "another entity already has this name" is a natural validateAsync conflict surface).
+
+**Implementation notes.**
+
+- `reconcilePendingCommands` (pure) gains a `conflicts: Map<commandId, ConflictException>` field on `ReconcileOutput`. The caller (SyncManager) iterates the map after the persist phase completes and calls `markFailedFromConflict` for each — keeps the pure function pure and the I/O at the dispatch boundary.
+- The two CommandQueue regenerate paths (`rewriteCommandsWithStaleIds`, `resolveDependentRevision`) already inside the queue call `markFailedFromConflict` directly when their re-run returns `'conflict'`.
+- Two `TODO(part-2 hard/soft)` markers added at cancel-cascade sites — when hard/soft dep distinction lands, soft (chain-only) dependents should not cascade through; particularly relevant for `'redundant'` conflicts where the user's intent is already satisfied by another path.
+
+**Scope notes.**
+
+- This change captures the _data and routing surface_. Lifecycle changes (new `'needs-review'` status, hold-and-retry, auto-cleanup) are deferred to later slices.
+- §4.4 status enum (`'pending' | 'blocked' | 'sending' | 'succeeded' | 'applied' | 'failed' | 'cancelled'`) is unchanged in Part 3.
+- Cross-references [`0002 §2.4`](0002-domain-layer.md#24-public-contract-conceptual) which describes the handler's algebraic outcome shape from the Domain Layer perspective.
+
+---
+
+## 2026-05-08 — Persist `modelState` durably; document handler `HandlerState` discriminated union
+
+**Reason.** Two threads in §4.4.2 / §4.7 needed alignment with the Part 1 design:
+
+1. **`modelState` was typed but not durable.** The 2026-05-07 §4.4 schema-alignment entry recorded `modelState` as a submit-time input, but the actual SQL `commands` table (`packages/client/src/storage/schema/client-schema.ts`) had no column for it. It survived only as long as the in-memory record object — a fresh worker reload effectively lost it. This drift was tolerable because nothing in the existing flows depended on the snapshot post-reload, but Part 1 makes the snapshot the durable `initial` field of the handler state input, which forces it to actually persist. Pre-release, the `commands.model_state TEXT` column is added directly to the `init` library step (no separate migration — see the no-new-migrations rule in the repo-root `CLAUDE.md`).
+
+2. **Handler state shape was not documented.** §4.7 described anticipated event production but said nothing about the state argument the consumer's handler receives. The previous signature was `state: T | undefined`; Part 1 changes it to a discriminated-union `HandlerState`: `{ mode: 'initial', initial }` on first call, `{ mode: 'regenerate', initial, current }` on every subsequent invocation. The library always populates `current` with the latest read-model view of the command's primary entity, regardless of what triggered the regenerate (server-event delta, id-rewrite cascade, AutoRevision resolution) — handler behavior is consistent across triggers. Without this in the spec, the regenerate-mode view that handlers depend on is undocumented.
+
+**Changes.**
+
+- §4.4.2 — rewrote the `modelState` description to call out durable persistence (survives reload), and to document its role as the `initial` field of the `HandlerState` union. Spells out that on regenerate the library always populates `current` with the latest read-model view, so handlers don't have to special-case why they were re-invoked. Cross-references the conceptual contract in [`0002 §2.4`](0002-domain-layer.md#24-public-contract-conceptual). Explicit note that Event Processors ([`0008`](0008-event-processors.md)) are out of scope for this shape change — they're entity-level reducers, not command-level functions.
+
+- §4.7.1 — new sub-section "Handler state input — first call vs regenerate." Spells out the two variants:
+  - `{ mode: 'initial', initial }` at enqueue.
+  - `{ mode: 'regenerate', initial, current }` on every subsequent invocation. `current` is the latest read-model view of the entity, populated consistently across triggers: the reconcile fold's `initialServerState[primaryKey]` for server-event-delta-triggered regenerates (chain continuity for downstream dirty commands flows through the fold's `clientState` output, not through handler input); `readModelStore.getById(...).data` for id-rewrite-cascade and AutoRevision-resolution regenerates.
+
+  Documents that `current` may be `undefined` only when the entity isn't yet in the read-model store, never as a trigger-based signal. Suggests `state.mode === 'regenerate' ? (state.current ?? state.initial) : state.initial` for handlers that just want "the most current view available." Notes the data-shape change is intentionally scoped to data only — the lifecycle decision a handler can make on top of that data (signal "this command needs user review") is deferred to a future spec update aligned with Part 3b.
+
+**Scope notes.**
+
+- This change captures the _data shape_ and _durability requirement_. The lifecycle/exception side (new `'needs-review'` status, typed `ConflictException` family, soft-skip behavior for dependents) is deferred to a later requirement update.
+- The §4.4 status enum (`'pending' | 'blocked' | 'sending' | 'succeeded' | 'applied' | 'failed' | 'cancelled'`) is unchanged in Part 1 — the new `'needs-review'` status will be added by Part 3b.
+
+---
+
 ## 2026-05-07 — Align §4.4 command record schema with current code
 
 **Reason.** The persisted command record schema in §4.4 / §4.4.1 had drifted significantly from the implementation in `packages/client/src/types/commands.ts`. Three categories of drift:

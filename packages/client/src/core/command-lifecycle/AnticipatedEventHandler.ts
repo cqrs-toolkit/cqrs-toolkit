@@ -16,6 +16,21 @@ import { type IAnticipatedEvent, isAnticipatedEvent } from './AnticipatedEventSh
 import type { IAnticipatedEventHandler } from './IAnticipatedEventHandler.js'
 
 /**
+ * Narrow a CommandRecord.modelState (typed `unknown`) to the shape an
+ * EventProcessor expects (`Record<string, unknown> | undefined`). Non-object
+ * snapshots — primitives, arrays, null — collapse to `undefined`; processors
+ * are entity-level reducers and the processor contract requires an object
+ * state shape. This boundary check is the runtime counterpart to the
+ * processor's static `TModel extends object` constraint.
+ */
+function narrowToProcessorState(value: unknown): Record<string, unknown> | undefined {
+  if (value === undefined || value === null) return undefined
+  if (typeof value !== 'object') return undefined
+  if (Array.isArray(value)) return undefined
+  return value as Record<string, unknown>
+}
+
+/**
  * Handles anticipated (optimistic) events for in-flight commands.
  *
  * For each valid anticipated event, finds the matching collection via matchesStream,
@@ -83,7 +98,13 @@ export class AnticipatedEventHandler<
       }
 
       await this.eventCache.cacheAnticipatedEvent(
-        { type: raw.type, data: raw.data, streamId: raw.streamId, commandId },
+        {
+          type: raw.type,
+          data: raw.data,
+          streamId: raw.streamId,
+          metadata: raw.metadata,
+          commandId,
+        },
         { cacheKeys: [cacheKey], commandId },
       )
 
@@ -98,10 +119,14 @@ export class AnticipatedEventHandler<
       // will fail the entire apply-anticipated op. Same gap exists in Phase 3 of
       // reconcileFromWsEvents. Both need try/catch with logging + continue.
       const processors = this.eventProcessorRegistry.getProcessors(raw.type, 'Anticipated')
+      // EventProcessor's `state` parameter is `TModel | undefined` where
+      // `TModel extends object`. CommandRecord.modelState is `unknown` (consumer-
+      // supplied snapshot, library does not constrain its shape). Narrow to the
+      // processor's expected `object | undefined` shape with a runtime check;
+      // non-object snapshots become undefined for the processor.
+      const processorState = narrowToProcessorState(command.modelState)
       for (const processor of processors) {
-        // TODO(types): modelState is `unknown` on CommandRecord, processor expects `TModel | undefined`.
-        // These are incompatible — needs a proper solution for typing model state through the command lifecycle.
-        const result = processor(raw.data, command.modelState as any, context)
+        const result = processor(raw, processorState, context)
         if (!result) continue
         if ('invalidate' in result) continue
         const results: ProcessorResult[] = Array.isArray(result) ? result : [result]
@@ -217,6 +242,29 @@ export class AnticipatedEventHandler<
 
   getTrackedEntries(commandId: string): string[] | undefined {
     return this.anticipatedUpdates.get(commandId)
+  }
+
+  async getAnticipatedEvents(commandId: string): Promise<IAnticipatedEvent[]> {
+    const records = await this.eventCache.getAnticipatedEventsByCommand(commandId)
+    const events: IAnticipatedEvent[] = []
+    for (const record of records) {
+      const data =
+        typeof record.data === 'string' ? (JSON.parse(record.data) as unknown) : record.data
+      if (!data || typeof data !== 'object') continue
+      const event: IAnticipatedEvent = {
+        type: record.type,
+        streamId: record.streamId,
+        data: data as IAnticipatedEvent['data'],
+      }
+      if (record.metadata !== null) {
+        const metadata = JSON.parse(record.metadata) as unknown
+        if (metadata !== null && typeof metadata === 'object') {
+          event.metadata = metadata as Record<string, unknown>
+        }
+      }
+      events.push(event)
+    }
+    return events
   }
 
   setTrackedEntries(commandId: string, entries: string[]): void {

@@ -8,6 +8,7 @@ import type { Querystring } from '@cqrs-toolkit/hypermedia'
 import type { RepliedValue } from '@cqrs-toolkit/hypermedia/server'
 import type { IException, Result } from '@meticoeus/ddd-es'
 import type { FastifyReply } from 'fastify'
+import { handleErrorReply, type ProblemRequest } from './problems/index.js'
 
 // ---------------------------------------------------------------------------
 // Fastify route generic types
@@ -45,20 +46,15 @@ export interface GetByIdRequestParams {
 /**
  * Unwrap a ProfileHandler.resolve() result.
  * On success the response is already sent (kind: 'replied').
- * On error, send a structured error response.
+ * On error, emit a problem+json response.
  */
 export async function handleProfileHandler(
+  request: ProblemRequest,
   reply: FastifyReply,
   promise: Promise<Result<RepliedValue, IException>>,
 ): Promise<void> {
   const res = await promise
   if (!res.ok) {
-    reply
-      .code(res.error.code ?? 500)
-      .type('application/json')
-      .send({
-        message: res.error.userMessage,
-        details: res.error.details,
-      })
+    handleErrorReply(request, reply, res.error)
   }
 }

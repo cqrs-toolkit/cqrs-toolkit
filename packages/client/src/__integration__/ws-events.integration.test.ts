@@ -94,7 +94,7 @@ describe.each(bootstrapVariants)('$name ws-events', ({ bootstrap }) => {
           processors: [
             {
               eventTypes: 'TodoCreated',
-              processor: (data, _state, pctx) => {
+              processor: ({ data }, _state, pctx) => {
                 const typed = data as { id: string; title: string }
                 return [
                   {
@@ -152,7 +152,7 @@ describe.each(bootstrapVariants)('$name ws-events', ({ bootstrap }) => {
             todoCreatedProcessor(),
             {
               eventTypes: 'TodoDeleted',
-              processor: (data, _state, pctx) => ({
+              processor: ({ data }, _state, pctx) => ({
                 collection: 'todos',
                 id: (data as { id: string }).id,
                 update: { type: 'delete' },
@@ -493,7 +493,7 @@ describe.each(bootstrapVariants)('$name ws-events', ({ bootstrap }) => {
           processors: [
             {
               eventTypes: 'NoteCreated',
-              processor: (data: { id: string }, _state: unknown, pctx) => ({
+              processor: ({ data }: { data: { id: string } }, _state: unknown, pctx) => ({
                 collection: 'notes',
                 id: data.id,
                 update: { type: 'set' as const, data },

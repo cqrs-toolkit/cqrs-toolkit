@@ -40,6 +40,15 @@ Anticipated event produced by local command execution.
 
 ---
 
+### metadata?
+
+> `optional` **metadata**: `Record`\<`string`, `unknown`\>
+
+Optional metadata; mirrors the server's persisted-event metadata locations
+(e.g. `inTenant`) so projector code reads from the same place uniformly.
+
+---
+
 ### persistence
 
 > **persistence**: `"Anticipated"`

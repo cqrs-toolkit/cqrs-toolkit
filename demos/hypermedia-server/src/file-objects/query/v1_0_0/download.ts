@@ -3,7 +3,7 @@
  */
 
 import { HydraDoc } from '@cqrs-toolkit/hypermedia'
-import { ErrorSchema } from '../../../error-schema.js'
+import { PROBLEM_CONTENT_TYPE, ProblemSchema } from '../../../problems/index.js'
 
 export const FileObjectDownloadOpV1_0_0 = new HydraDoc.OperationLink({
   id: 'urn:representation:storage.FileObjectDownload:1.0.0',
@@ -26,8 +26,8 @@ export const FileObjectDownloadOpV1_0_0 = new HydraDoc.OperationLink({
       },
       {
         code: 404,
-        contentType: 'application/json',
-        schema: ErrorSchema,
+        contentType: PROBLEM_CONTENT_TYPE,
+        schema: ProblemSchema,
         description: 'File object not found.',
       },
     ],

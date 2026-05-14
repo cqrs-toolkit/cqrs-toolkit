@@ -30,6 +30,7 @@ export namespace GetFileObjects {
     fileObjectRepo: FileObjectRepository,
   ): Promise<void> {
     return handleProfileHandler(
+      request,
       reply,
       profileHandler.resolve(request, reply, fileObjectRepo, undefined),
     )

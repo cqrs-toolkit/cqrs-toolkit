@@ -2065,8 +2065,8 @@ export class SyncManager<
         // baseline for the target entity (not the client overlay) — the
         // server processor is producing new server truth.
         const inputState = serverStateByKey.get(targetKey)
-        // Processors receive the event's `data` payload
-        const result = processor(event.data, inputState as any, context)
+        // Processors receive the full event (extract event.data / event.metadata as needed)
+        const result = processor(event, inputState as any, context)
         if (!result) continue
         if ('invalidate' in result) {
           invalidated = true
@@ -2648,6 +2648,7 @@ export class SyncManager<
             streamId: event.streamId,
             persistence: 'Anticipated',
             data: JSON.stringify(event.data),
+            metadata: event.metadata ? JSON.stringify(event.metadata) : null,
             position: null,
             revision: null,
             commandId,
@@ -2809,6 +2810,19 @@ export class SyncManager<
       await this.commandQueue.batchUpdateSyncStatus({ applied: coverage.applied })
       const appliedIds = coverage.applied.map((c) => c.commandId)
       await this.anticipatedEventHandler.cleanupOnAppliedBatch(appliedIds)
+    }
+
+    // Route handler-detected conflicts surfaced by reconcile re-runs into
+    // the persisted command record. Run AFTER the main reconcile output is
+    // persisted so conflict-marked commands aren't part of the same op.
+    // `markFailedFromConflict` transitions the command to `'failed'`,
+    // emits `command:failed` (which existing `enqueueAndWait`-style
+    // awaiters consume via the terminal-status subscription with no special
+    // handling), and cascade-cancels dependents.
+    if (output && output.conflicts.size > 0) {
+      for (const [commandId, exception] of output.conflicts) {
+        await this.commandQueue.markFailedFromConflict(commandId, exception)
+      }
     }
 
     // Flush any command store changes accumulated during this pipeline run

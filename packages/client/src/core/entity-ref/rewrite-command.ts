@@ -23,24 +23,29 @@ export interface RewriteIdEntry<TLink extends Link> {
 export interface RewriteCommandResult {
   data: unknown
   path: unknown
+  /** Same shape as the input headers — `EntityRef` values at declared
+   *  positions are substituted with their resolved server-id strings;
+   *  un-touched positions are preserved. By the time the queue invokes
+   *  the sender, all declared values have been rewritten to strings. */
+  headers: Record<string, EntityId> | undefined
   commandIdPaths: Record<JSONPathExpression, EntityRef> | undefined
   changed: boolean
 }
 
 /**
- * Rewrite a command's data and path fields using resolved id mappings,
- * guided by declared `commandIdReferences`.
+ * Rewrite a command's data, path, and headers fields using resolved id
+ * mappings, guided by declared `commandIdReferences`.
  *
- * Walks each idReference path against a virtual `{ data, path }` root,
- * matching each `RewriteIdEntry`'s clientId against values at those paths.
- * DirectIdReference leaves are replaced with the serverId string.
+ * Walks each idReference path against a virtual `{ data, path, headers }`
+ * root, matching each `RewriteIdEntry`'s clientId against values at those
+ * paths. DirectIdReference leaves are replaced with the serverId string.
  * LinkIdReference leaves have their `id` field replaced, preserving the
  * Link wrapper (service + type) for wire-format correctness.
  *
  * Also prunes resolved entries from `commandIdPaths`.
  */
 export function rewriteCommandWithIdMap<TLink extends Link>(
-  command: { data: unknown; path?: unknown },
+  command: { data: unknown; path?: unknown; headers?: Record<string, EntityId> },
   commandIdPaths: Record<JSONPathExpression, EntityRef> | undefined,
   entries: readonly RewriteIdEntry<TLink>[],
   idReferences: readonly IdReference<TLink>[],
@@ -49,12 +54,13 @@ export function rewriteCommandWithIdMap<TLink extends Link>(
     return {
       data: command.data,
       path: command.path,
+      headers: command.headers,
       commandIdPaths,
       changed: false,
     }
   }
 
-  let commandView: unknown = { data: command.data, path: command.path }
+  let commandView: unknown = { data: command.data, path: command.path, headers: command.headers }
   let changed = false
 
   for (const entry of entries) {
@@ -103,10 +109,15 @@ export function rewriteCommandWithIdMap<TLink extends Link>(
     prunedPaths = Object.keys(kept).length > 0 ? kept : undefined
   }
 
-  const view = commandView as { data: unknown; path?: unknown }
+  const view = commandView as {
+    data: unknown
+    path?: unknown
+    headers?: Record<string, EntityId>
+  }
   return {
     data: view.data,
     path: view.path,
+    headers: view.headers,
     commandIdPaths: prunedPaths,
     changed,
   }

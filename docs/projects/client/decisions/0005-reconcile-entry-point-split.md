@@ -7,7 +7,7 @@
 A single `reconcileAfterServerEvents` previously bundled three concerns:
 
 1. **Loading** — pull pending commands and the affected read models out of storage.
-2. **Applying** — fold the incoming server change (a WS event batch *or* a read-model snapshot) into the loaded data.
+2. **Applying** — fold the incoming server change (a WS event batch _or_ a read-model snapshot) into the loaded data.
 3. **Reconciling** — walk pending commands in queue order, rewriting tempIds via the idMap, re-running domain executors for dirty commands, regenerating anticipated events.
 
 The two server-change shapes — WS event batches arriving on the live socket and read-model snapshots arriving from seed/sync — share concerns 1 and 3 but differ in concern 2.
@@ -57,20 +57,34 @@ The shared helper can be extracted later if the duplication grows costly.
 
 ## Consequences
 
-**Easier:**
+### Implementation impact
+
+- Two entry points: `reconcileFromWsEvents` and the snapshot side (planned as `reconcileFromSnapshot`; shipped split into `onApplyRecords` for record-snapshot pages and `onApplySeedEvents` for seed-events — see Naming reconciliation).
+- Pure `reconcilePendingCommands` fold accepting preloaded inputs and returning `ReconcileOutput` — no IO, no async.
+- Shared `reconcileAndPersist` helper extracted eagerly (not deferred as planned).
+- WS entry point absorbing pre-existing bookkeeping (dedup, gap detection, revision tracking, seed status updates, `markProcessed`, debug emits) into the batched drain.
+- Two-step command rewrite phase: command-rewrite tracking via `rewrittenCommandIds` + dirty-set collection for the fold's downstream regenerate logic.
+
+### Operational implications
+
+#### Gains
+
 - Each entry point's loading and applying logic is local to that entry point.
   WS-event-specific handling (event caching/dedup, gap detection, revision tracking, stateful vs permanent branch, gap-buffer cleanup, seed status updates, `markProcessed` on EventCache, debug emits) lives in the WS entry point and is not entangled with snapshot handling.
+
+### Coding implications
+
+#### Gains
+
 - `reconcilePendingCommands` is unit-testable as a pure fold.
   Inputs are explicit; outputs are explicit; no storage stub required.
 - The `idReferences` reconciliation walk from [ADR 0004](0004-aggregates-as-first-class.md) fits cleanly inside the entry point's command-rewrite step (5).
 - The legacy cascade (`reconcileCreateIds` + `rewriteCommandsWithStaleIds` + `resolveDependentRevision` in `CommandQueue`) becomes removable once both entry points are wired into the WS receive path and command-response flows.
 
-**Harder:**
-- Persistence is duplicated until the shared helper is extracted.
-  Write ordering (commands → read models → anticipated events) must be kept consistent across both entry points; a drift produces subtle reconcile bugs.
+#### Costs
+
 - The entry points each own their own loading strategy.
   A future need to change "what's loaded for a given server change" requires touching both entry points (or extracting a load helper).
-- The WS entry point absorbs significant pre-existing bookkeeping (dedup, gap detection, revision tracking, seed status). The `handleNewWsEvent` wiring is gated on porting this bookkeeping into the batched drain — a multi-slice piece of work, not a single-commit migration.
 
 ## Notes
 
@@ -86,7 +100,7 @@ Crash atomicity is provided by WriteQueue serialization at the storage layer —
 - [ADR 0004 (client)](0004-aggregates-as-first-class.md) — Aggregates as a first-class concept on `Collection`.
   The `idReferences` walk used to rewrite cross-aggregate IDs in the entry point's command-rewrite step (5).
 - [ADR 0003 (client)](0003-server-data-pipeline-rewrite.md) — Server data pipeline rewrite.
-  The structural inversion this ADR describes (split entry points + pure shared fold + single-owner persist) is the centerpiece of that umbrella rewrite; [ADR 0003](0003-server-data-pipeline-rewrite.md) captures the *why* across all the slices.
+  The structural inversion this ADR describes (split entry points + pure shared fold + single-owner persist) is the centerpiece of that umbrella rewrite; [ADR 0003](0003-server-data-pipeline-rewrite.md) captures the _why_ across all the slices.
 
 ### Naming and shape reconciliation for current readers
 
@@ -102,10 +116,11 @@ For present-day readers:
   `git log -S` shows no commits on any branch. Both were planning-time names.
 - **The snapshot side shipped split into two sub-flavors**, not the single mirror this ADR described:
   - **`onApplyRecords`** (registered as the `'apply-records'` write-queue op) — the entry point for read-model snapshot pages from seed and refetch. It stages records into a `pendingApplications` list, builds the dirty set + cache-key map, advances `knownRevisions`, and hands off to the shared body (below). This carries the behavior the Decision section's Entry point B was responsible for.
-  - **`onApplySeedEvents`** — the entry point for *seed events* (server events arriving as part of seeding). It caches the events and delegates to `reconcileFromWsEvents`, since seed events have the same shape as live WS events.
+  - **`onApplySeedEvents`** — the entry point for _seed events_ (server events arriving as part of seeding). It caches the events and delegates to `reconcileFromWsEvents`, since seed events have the same shape as live WS events.
 
   The records-vs-events split is intentional and not anticipated by this ADR: snapshots arrive as records, but seeding can also surface server events that need WS-style handling.
   Future contributors should not consolidate the two back into a single mirror without understanding why both shapes coexist.
+
 - **The shared helper was extracted eagerly, not "later if costly."**
   The Decision section's Persistence subsection (line 53) said the persist step would be duplicated initially and extracted later if the duplication grew costly.
   In practice, **`reconcileAndPersist`** was extracted up-front as the shared body that both `reconcileFromWsEvents` and `onApplyRecords` delegate to.

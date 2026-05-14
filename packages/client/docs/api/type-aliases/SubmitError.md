@@ -6,6 +6,6 @@
 
 # Type Alias: SubmitError
 
-> **SubmitError** = [`DomainExecutionError`](DomainExecutionError.md) \| [`CommandCompletionError`](CommandCompletionError.md)
+> **SubmitError** = [`EnqueueRejection`](EnqueueRejection.md) \| [`CommandCompletionError`](CommandCompletionError.md)
 
 Error union for submit — enqueue validation or completion failure.

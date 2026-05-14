@@ -10,6 +10,12 @@ Details carried by a CommandFailedException.
 
 ## Properties
 
+### category
+
+> **category**: [`FailureCategory`](../type-aliases/FailureCategory.md)
+
+---
+
 ### details?
 
 > `optional` **details**: `unknown`

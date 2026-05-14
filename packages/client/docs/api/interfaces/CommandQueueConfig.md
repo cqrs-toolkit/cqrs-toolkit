@@ -46,6 +46,18 @@ Command queue configuration.
 
 ---
 
+### mapFailure?
+
+> `optional` **mapFailure**: [`FailureMapper`](../type-aliases/FailureMapper.md)
+
+Global pluggable mapping from [ServerErrorResponse](ServerErrorResponse.md) to
+[FailureDescriptor](FailureDescriptor.md). Used when no per-command `mapFailure` on the
+registration is defined for the failing command. Defaults to
+`defaultProblemJsonMapper` at the construction site (`createCqrsClient`
+resolves the config defaults via `resolveConfig`).
+
+---
+
 ### onCommandResponse()?
 
 > `optional` **onCommandResponse**: (`command`, `response`) => `Promise`\<`void`\>

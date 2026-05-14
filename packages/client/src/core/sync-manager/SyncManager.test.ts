@@ -160,6 +160,7 @@ describe('SyncManager', () => {
       regenerate: vi.fn().mockResolvedValue(undefined),
       getTrackedEntries: vi.fn().mockReturnValue(undefined),
       setTrackedEntries: vi.fn(),
+      getAnticipatedEvents: vi.fn().mockResolvedValue([]),
       clearAll: vi.fn().mockResolvedValue(undefined),
     }
 

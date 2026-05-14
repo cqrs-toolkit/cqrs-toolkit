@@ -9,8 +9,13 @@
 > **EventProcessor**\<`TEvent`, `TModel`\> = (`event`, `state`, `context`) => [`ProcessorReturn`](ProcessorReturn.md)\<`TModel`\>
 
 Event processor function signature.
-Receives an event and returns zero or more read model updates, or an invalidation signal.
+Receives the full event (with `data`, `metadata`, `type`, `streamId`) and
+returns zero or more read model updates, or an invalidation signal.
 May be sync or async.
+
+`TEvent` is the full event shape — extract `event.data` for the payload,
+`event.metadata` for app-domain context (e.g. ancestor ids the handler
+stamped, mirroring server-side `IPersistedEvent.metadata` locations).
 
 ## Type Parameters
 

@@ -46,9 +46,9 @@
         "responses": {
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -106,9 +106,9 @@
         "responses": {
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -166,9 +166,9 @@
         "responses": {
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -226,9 +226,9 @@
         "responses": {
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -318,9 +318,9 @@
           },
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -388,9 +388,9 @@
           },
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -464,9 +464,9 @@
           },
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -545,9 +545,9 @@
           },
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -617,9 +617,9 @@
           },
           "404": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -635,9 +635,9 @@
           },
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -705,9 +705,9 @@
         "responses": {
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -789,9 +789,9 @@
           },
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -859,9 +859,9 @@
           },
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -935,9 +935,9 @@
           },
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -1029,9 +1029,9 @@
           },
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -1098,9 +1098,9 @@
         "responses": {
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -1182,9 +1182,9 @@
           },
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -1252,9 +1252,9 @@
           },
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -1328,9 +1328,9 @@
           },
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -1419,9 +1419,9 @@
           },
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -1488,9 +1488,9 @@
         "responses": {
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -1572,9 +1572,9 @@
           },
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -1642,9 +1642,9 @@
           },
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -1718,9 +1718,9 @@
           },
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -1809,9 +1809,9 @@
           },
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },
@@ -1878,9 +1878,9 @@
         "responses": {
           "500": {
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "urn:schema:nb.Error:1.0.0"
+                  "$ref": "urn:schema:nb.Problem:1.0.0"
                 }
               }
             },

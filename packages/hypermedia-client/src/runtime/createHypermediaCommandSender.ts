@@ -44,11 +44,11 @@ export function createHypermediaCommandSender<TLink extends Link, TCommand exten
       const routing = manifest.commands[command.type]
       if (!routing) {
         return Err(
-          new CommandSendException(
-            `No routing found for command type '${command.type}'`,
-            'UNKNOWN_COMMAND',
-            false,
-          ),
+          new CommandSendException({
+            message: `No routing found for command type '${command.type}'`,
+            errorCode: 'UNKNOWN_COMMAND',
+            isRetryable: false,
+          }),
         )
       }
 
@@ -62,6 +62,7 @@ export function createHypermediaCommandSender<TLink extends Link, TCommand exten
         'Content-Profile': routing.urn,
         'x-command-id': command.commandId,
         'x-request-id': crypto.randomUUID(),
+        ...(command.headers ?? {}),
       }
 
       let res: Response
@@ -74,24 +75,21 @@ export function createHypermediaCommandSender<TLink extends Link, TCommand exten
         })
       } catch (err) {
         return Err(
-          new CommandSendException(
-            `Network error: ${err instanceof Error ? err.message : String(err)}`,
-            'NETWORK',
-            true,
-          ),
+          new CommandSendException({
+            message: `Network error: ${err instanceof Error ? err.message : String(err)}`,
+            errorCode: 'NETWORK',
+            isRetryable: true,
+          }),
         )
       }
 
       if (!res.ok) {
-        const isRetryable = res.status >= 500 || res.status === 429
-        const details = await safeParseJson(res)
+        const body = await safeParseJson(res)
         return Err(
-          new CommandSendException(
-            `Command ${command.type} failed: ${res.status}`,
-            String(res.status),
-            isRetryable,
-            details,
-          ),
+          new CommandSendException({
+            message: `Command ${command.type} failed: ${res.status}`,
+            response: { status: res.status, headers: res.headers, body },
+          }),
         )
       }
 
@@ -134,11 +132,11 @@ function expandTemplate(
     const value = record[mapping.variable]
     if (value === undefined && mapping.required) {
       return Err(
-        new CommandSendException(
-          `Missing required path variable '${mapping.variable}' for command template '${routing.template}'`,
-          'MISSING_TEMPLATE_VAR',
-          false,
-        ),
+        new CommandSendException({
+          message: `Missing required path variable '${mapping.variable}' for command template '${routing.template}'`,
+          errorCode: 'MISSING_TEMPLATE_VAR',
+          isRetryable: false,
+        }),
       )
     }
     if (value !== undefined) {

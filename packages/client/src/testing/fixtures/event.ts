@@ -21,6 +21,7 @@ export function createTestCachedEvent(
     streamId: 'test-stream-1',
     persistence: 'Permanent',
     data: JSON.stringify({ value: 'test' }),
+    metadata: null,
     position: null,
     revision: null,
     commandId: null,

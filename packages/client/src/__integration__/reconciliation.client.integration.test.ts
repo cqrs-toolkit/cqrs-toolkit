@@ -36,7 +36,7 @@ import {
 import type { EnqueueCommand } from '../types/commands.js'
 import type { Collection } from '../types/config.js'
 import type { CommandHandlerRegistration } from '../types/domain.js'
-import { createEntityId } from '../types/domain.js'
+import { createEntityId, domainSuccess } from '../types/domain.js'
 import { entityIdToString } from '../types/entities.js'
 import type { LibraryEvent } from '../types/events.js'
 
@@ -83,16 +83,17 @@ describe.each(bootstrapVariants)('$name reconciliation (client)', ({ bootstrap }
               commandIdReferences: [{ aggregate: TodoAggregate, path: '$.data.id' }],
               handler(command, state, _context) {
                 const { id, suffix } = command.data as { id: string; suffix: string }
-                const currentTitle = (state as { title?: string } | undefined)?.title ?? ''
-                return Ok({
-                  anticipatedEvents: [
-                    {
-                      type: 'TodoUpdated',
-                      data: { id, title: `${currentTitle}${suffix}` },
-                      streamId: `nb.Todo-${id}`,
-                    } as IAnticipatedEvent,
-                  ],
-                })
+                const view = (
+                  state.mode === 'regenerate' ? (state.current ?? state.initial) : state.initial
+                ) as { title?: string } | undefined
+                const currentTitle = view?.title ?? ''
+                return domainSuccess([
+                  {
+                    type: 'TodoUpdated',
+                    data: { id, title: `${currentTitle}${suffix}` },
+                    streamId: `nb.Todo-${id}`,
+                  } as IAnticipatedEvent,
+                ])
               },
             } satisfies CommandHandlerRegistration<ServiceLink>,
           ],
@@ -176,9 +177,9 @@ describe.each(bootstrapVariants)('$name reconciliation (client)', ({ bootstrap }
           id: string
           tags: string[]
         }
-        const todoTaggedProcessor: ProcessorRegistration<TagsData, TagsData> = {
+        const todoTaggedProcessor: ProcessorRegistration<{ data: TagsData }, TagsData> = {
           eventTypes: 'TodoTagged',
-          processor: (data, _state, pctx) => ({
+          processor: ({ data }, _state, pctx) => ({
             collection: 'todos',
             id: data.id,
             update: { type: 'merge', data: { tags: data.tags } },
@@ -197,15 +198,13 @@ describe.each(bootstrapVariants)('$name reconciliation (client)', ({ bootstrap }
           commandIdReferences: [{ aggregate: TodoAggregate, path: '$.data.id' }],
           handler(command) {
             const { id, tags } = command.data as { id: string; tags: string[] }
-            return Ok({
-              anticipatedEvents: [
-                {
-                  type: 'TodoTagged',
-                  data: { id, tags },
-                  streamId: `nb.Todo-${id}`,
-                } as IAnticipatedEvent,
-              ],
-            })
+            return domainSuccess([
+              {
+                type: 'TodoTagged',
+                data: { id, tags },
+                streamId: `nb.Todo-${id}`,
+              } as IAnticipatedEvent,
+            ])
           },
         }
 
@@ -220,16 +219,17 @@ describe.each(bootstrapVariants)('$name reconciliation (client)', ({ bootstrap }
           commandIdReferences: [{ aggregate: TodoAggregate, path: '$.data.id' }],
           handler(command, state, _context) {
             const { id, suffix } = command.data as { id: string; suffix: string }
-            const currentTitle = (state as { title?: string } | undefined)?.title ?? ''
-            return Ok({
-              anticipatedEvents: [
-                {
-                  type: 'TodoUpdated',
-                  data: { id, title: `${currentTitle}${suffix}` },
-                  streamId: `nb.Todo-${id}`,
-                } as IAnticipatedEvent,
-              ],
-            })
+            const view = (
+              state.mode === 'regenerate' ? (state.current ?? state.initial) : state.initial
+            ) as { title?: string } | undefined
+            const currentTitle = view?.title ?? ''
+            return domainSuccess([
+              {
+                type: 'TodoUpdated',
+                data: { id, title: `${currentTitle}${suffix}` },
+                streamId: `nb.Todo-${id}`,
+              } as IAnticipatedEvent,
+            ])
           },
         }
 
@@ -330,15 +330,13 @@ describe.each(bootstrapVariants)('$name reconciliation (client)', ({ bootstrap }
           handler(command, _state, context) {
             const id = createEntityId(context)
             const { title } = command.data as { title: string }
-            return Ok({
-              anticipatedEvents: [
-                {
-                  type: 'TodoCreated',
-                  data: { id, title },
-                  streamId: `nb.Todo-${entityIdToString(id)}`,
-                } as IAnticipatedEvent,
-              ],
-            })
+            return domainSuccess([
+              {
+                type: 'TodoCreated',
+                data: { id, title },
+                streamId: `nb.Todo-${entityIdToString(id)}`,
+              } as IAnticipatedEvent,
+            ])
           },
         }
 
@@ -449,15 +447,13 @@ describe.each(bootstrapVariants)('$name reconciliation (client)', ({ bootstrap }
           handler(command, _state, context) {
             const id = createEntityId(context)
             const { title } = command.data as { title: string }
-            return Ok({
-              anticipatedEvents: [
-                {
-                  type: 'TodoCreated',
-                  data: { id, title },
-                  streamId: `nb.Todo-${entityIdToString(id)}`,
-                } as IAnticipatedEvent,
-              ],
-            })
+            return domainSuccess([
+              {
+                type: 'TodoCreated',
+                data: { id, title },
+                streamId: `nb.Todo-${entityIdToString(id)}`,
+              } as IAnticipatedEvent,
+            ])
           },
         }
 
@@ -592,15 +588,13 @@ describe.each(bootstrapVariants)('$name reconciliation (client)', ({ bootstrap }
           handler(command, _state, context) {
             const id = createEntityId(context)
             const { title } = command.data as { title: string }
-            return Ok({
-              anticipatedEvents: [
-                {
-                  type: 'NoteCreated',
-                  data: { id, title },
-                  streamId: `nb.Note-${entityIdToString(id)}`,
-                } as IAnticipatedEvent,
-              ],
-            })
+            return domainSuccess([
+              {
+                type: 'NoteCreated',
+                data: { id, title },
+                streamId: `nb.Note-${entityIdToString(id)}`,
+              } as IAnticipatedEvent,
+            ])
           },
         }
 
@@ -617,21 +611,19 @@ describe.each(bootstrapVariants)('$name reconciliation (client)', ({ bootstrap }
           handler(command, _state, context) {
             const id = createEntityId(context)
             const { noteId } = command.data as { noteId: string }
-            return Ok({
-              anticipatedEvents: [
-                {
-                  type: 'TodoCreated',
-                  data: { id, noteId },
-                  streamId: `nb.Todo-${entityIdToString(id)}`,
-                } as IAnticipatedEvent,
-              ],
-            })
+            return domainSuccess([
+              {
+                type: 'TodoCreated',
+                data: { id, noteId },
+                streamId: `nb.Todo-${entityIdToString(id)}`,
+              } as IAnticipatedEvent,
+            ])
           },
         }
 
         const noteCreatedProcessor: ProcessorRegistration = {
           eventTypes: 'NoteCreated',
-          processor: (data: { id: string; title: string }, _state, ctx) => ({
+          processor: ({ data }: { data: { id: string; title: string } }, _state, ctx) => ({
             collection: 'notes',
             id: data.id,
             update: { type: 'set', data },

@@ -41,10 +41,14 @@ Custom command ID (defaults to generated UUID)
 
 > `optional` **modelState**: `unknown`
 
-Read-model snapshot at submission time, passed to the domain executor as
-the handler's initial state. State-dependent anticipated event handlers
-use this so the optimistic event reflects what the user saw when they
-submitted.
+Read-model snapshot the user was operating against at submission time.
+Persisted durably on the command record and surfaced as the `initial`
+half of [HandlerState](../type-aliases/HandlerState.md) to validate / validateAsync / handler. On
+reconciliation re-runs the queue computes a post-server-event `updated`
+companion so a state-dependent handler can decide whether the user's
+edit is still valid. Pass it whenever the command is being submitted
+against an existing entity; omit when there is no relevant prior state
+(e.g. a create against an unseeded collection).
 
 ---
 

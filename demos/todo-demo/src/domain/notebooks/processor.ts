@@ -20,7 +20,7 @@ export const notebookCommandEndpoints: Record<string, string> = {
 export const notebookProcessors: ProcessorRegistration[] = [
   {
     eventTypes: 'NotebookCreated',
-    processor: (data: NotebookCreatedEvent['data'], _state, ctx) => ({
+    processor: ({ data }: NotebookCreatedEvent, _state, ctx) => ({
       collection: 'notebooks',
       id: data.id,
       update: {
@@ -35,10 +35,10 @@ export const notebookProcessors: ProcessorRegistration[] = [
       },
       isServerUpdate: ctx.persistence !== 'Anticipated',
     }),
-  } satisfies ProcessorRegistration<NotebookCreatedEvent['data'], Notebook>,
+  } satisfies ProcessorRegistration<NotebookCreatedEvent, Notebook>,
   {
     eventTypes: 'NotebookNameUpdated',
-    processor: (data: NotebookNameUpdatedEvent['data'], _state, ctx) => ({
+    processor: ({ data }: NotebookNameUpdatedEvent, _state, ctx) => ({
       collection: 'notebooks',
       id: data.id,
       update: {
@@ -53,7 +53,7 @@ export const notebookProcessors: ProcessorRegistration[] = [
   },
   {
     eventTypes: 'NotebookTagAdded',
-    processor: (data: NotebookTagAddedEvent['data'], state, ctx) => {
+    processor: ({ data }: NotebookTagAddedEvent, state, ctx) => {
       const current = state as Notebook | undefined
       const existingTags = current?.tags ?? []
       if (existingTags.includes(data.tag)) return undefined
@@ -70,7 +70,7 @@ export const notebookProcessors: ProcessorRegistration[] = [
   },
   {
     eventTypes: 'NotebookTagRemoved',
-    processor: (data: NotebookTagRemovedEvent['data'], state, ctx) => {
+    processor: ({ data }: NotebookTagRemovedEvent, state, ctx) => {
       const current = state as Notebook | undefined
       const existingTags = current?.tags ?? []
       if (!existingTags.includes(data.tag)) return undefined
@@ -89,7 +89,7 @@ export const notebookProcessors: ProcessorRegistration[] = [
   },
   {
     eventTypes: 'NotebookDeleted',
-    processor: (data: NotebookDeletedEvent['data']) => ({
+    processor: ({ data }: NotebookDeletedEvent) => ({
       collection: 'notebooks',
       id: data.id,
       update: { type: 'delete' },

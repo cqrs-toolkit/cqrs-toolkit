@@ -52,10 +52,11 @@ Event type produced by the executor
 
 ### handle()
 
-> **handle**(`command`, `state`, `context`): [`DomainExecutionResult`](../type-aliases/DomainExecutionResult.md)\<`TEvent`\>
+> **handle**(`command`, `state`, `context`): [`DomainExecutionOutcome`](../type-aliases/DomainExecutionOutcome.md)\<`TEvent`\>
 
 Run the handler only. No validation.
-Produces anticipated events from the (possibly transformed) command data.
+Produces anticipated events, a conflict signal, or an executor-level
+error from the (possibly transformed) command data.
 
 #### Parameters
 
@@ -67,7 +68,10 @@ The command envelope with data ready for the handler
 
 ##### state
 
-`unknown`
+[`HandlerState`](../type-aliases/HandlerState.md)
+
+[HandlerState](../type-aliases/HandlerState.md) carrying `initial` (submit-time snapshot)
+and `current` (post-server-event view on regenerate)
 
 ##### context
 
@@ -77,20 +81,22 @@ Execution context (phase and entity ID for regeneration)
 
 #### Returns
 
-[`DomainExecutionResult`](../type-aliases/DomainExecutionResult.md)\<`TEvent`\>
+[`DomainExecutionOutcome`](../type-aliases/DomainExecutionOutcome.md)\<`TEvent`\>
 
-Success with anticipated events, or failure
+A [DomainExecutionOutcome](../type-aliases/DomainExecutionOutcome.md) discriminated on `kind`.
 
 ---
 
 ### validate()
 
-> **validate**(`command`, `state`): `Promise`\<`Result`\<`unknown`, [`DomainExecutionError`](../type-aliases/DomainExecutionError.md)\>\>
+> **validate**(`command`, `state`): `Promise`\<`Result`\<`unknown`, [`ValidationException`](../classes/ValidationException.md) \| [`UnknownCommandException`](../classes/UnknownCommandException.md) \| [`ConflictException`](../classes/ConflictException.md)\>\>
 
 Run validation phases (schema, validate, validateAsync) on the command data.
 Returns the validated/hydrated data on success, or a validation error.
 
-Does NOT run the handler.
+Does NOT run the handler. Validation is binary (succeeded with hydrated
+data, or failed); the algebraic outcome shape only applies at the handler
+boundary where 3+ outcomes are legitimately distinct.
 
 #### Parameters
 
@@ -100,8 +106,8 @@ Does NOT run the handler.
 
 ##### state
 
-`unknown`
+[`HandlerState`](../type-aliases/HandlerState.md)
 
 #### Returns
 
-`Promise`\<`Result`\<`unknown`, [`DomainExecutionError`](../type-aliases/DomainExecutionError.md)\>\>
+`Promise`\<`Result`\<`unknown`, [`ValidationException`](../classes/ValidationException.md) \| [`UnknownCommandException`](../classes/UnknownCommandException.md) \| [`ConflictException`](../classes/ConflictException.md)\>\>

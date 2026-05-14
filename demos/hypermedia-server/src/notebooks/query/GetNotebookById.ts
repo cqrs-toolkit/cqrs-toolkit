@@ -40,6 +40,7 @@ export namespace GetNotebookById {
     notebookRepo: NotebookRepository,
   ): Promise<void> {
     return handleProfileHandler(
+      request,
       reply,
       profileHandler.resolve(request, reply, notebookRepo, undefined),
     )

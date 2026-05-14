@@ -13,7 +13,7 @@ Two pressures came out of this:
    Stale in-memory snapshots persisted across async gaps, while concurrent storage writes mutated the same rows.
    The narrow race in `processCommand` (loop holding stale records, `updateCommandStatus` blindly overwriting a `cancelled` status) was the canonical example, but the same shape recurred across the call sites.
 2. **Storage-redundant work in the sync pipeline.**
-   Reconcile loaded commands, mutated them in memory, and then called `storage.updateCommands(...)` with a fresh snapshot — when the in-memory references the pipeline already held *were* the system of record after the load.
+   Reconcile loaded commands, mutated them in memory, and then called `storage.updateCommands(...)` with a fresh snapshot — when the in-memory references the pipeline already held _were_ the system of record after the load.
 
 A second concern was submit ordering.
 Commands had to be processed in submit order, but `createdAt` timestamps were non-monotonic across rapid submits (clock granularity) and were vulnerable to clock drift.
@@ -65,7 +65,7 @@ Callers arriving before `initialize()` resolves are naturally delayed — no exp
 `seq: number` becomes a required field on `CommandRecord`.
 
 - SQLite: `seq INTEGER PRIMARY KEY AUTOINCREMENT` is authoritative.
-  `saveCommand()` does *not* include `seq` in the INSERT column list — autoincrement assigns it.
+  `saveCommand()` does _not_ include `seq` in the INSERT column list — autoincrement assigns it.
   `IStorage.getCommandSequence(): Promise<number>` reads from `sqlite_sequence` (`SELECT seq FROM sqlite_sequence WHERE name = 'commands'`) so deleted tail rows do not cause the counter to regress; falls back to `0` when no row has been inserted yet.
 - InMemory: stores whatever `seq` the record carries (assigned by `CommandStore`); `getCommandSequence()` returns the highest `seq` across stored records, or `0` if none.
 - On `initialize()`, `CommandStore` reads `getCommandSequence()` and sets `nextSeq = result + 1`.
@@ -75,20 +75,44 @@ Callers arriving before `initialize()` resolves are naturally delayed — no exp
 
 ## Consequences
 
-**Easier:**
-- Race conditions between sync pipeline mutations and storage writes are gone — the pipeline mutates the same in-memory object the store holds; the flush queue serializes durable persistence.
-- Sync pipeline Phase 6 step 1 ("save rewritten commands") is now `commandStore.batchUpdate(...)` — synchronous mutation in memory, single flush at end of pipeline. Eliminates redundant load-then-save round-trips.
-- Submit ordering is monotonic and authoritative via `seq`. Clock drift, fast submits, and timestamp granularity stop affecting order.
-- `CommandQueue` and `SyncManager` no longer call `IStorage` for command records. Both classes retain `IStorage` access only for *other* concerns (event cache, command-id mappings); command-record IO is fully through `CommandStore`.
+### Implementation impact
 
-**Harder:**
-- Two layers (active map + TTL cache) mean `get()` has three places to check. Performance cost is negligible (in-memory lookups), but the mental model is non-trivial.
+- New `CommandStore` class (`packages/client/src/core/command-store/CommandStore.ts`) as sole owner of `CommandRecord` lifecycle in memory.
+- Active map + TTL cache for terminal commands + flush queue (single-flight, set-coalesced).
+- `seq: number` required field on `CommandRecord`.
+- `seq INTEGER PRIMARY KEY AUTOINCREMENT` column in SQLite; `saveCommand` excludes `seq` from INSERT column list (autoincrement assigns).
+- New `IStorage.getCommandSequence(): Promise<number>` reading from `sqlite_sequence`; InMemory implementation returns highest `seq` across stored records.
+- Initialization gate via internal `ready` promise; all read/write methods await it.
+- Migration of all command-record IO from `CommandQueue` and `SyncManager` to go through `CommandStore`.
+- `InMemoryStorage.getCommands()` ordering changed from `createdAt` to `seq`; all list / `getByStatus` / `list` results sort by `seq`.
+
+### Operational implications
+
+#### Gains
+
+- Race conditions between sync pipeline mutations and storage writes are gone — the pipeline mutates the same in-memory object the store holds; the flush queue serializes durable persistence.
+- Submit ordering is monotonic and authoritative via `seq`. Clock drift, fast submits, and timestamp granularity stop affecting order.
+
+#### Costs
+
 - The TTL on terminal commands is a memory tradeoff. Too short → frequent re-loads from storage; too long → unbounded memory growth on long sessions. Configurable; default chosen empirically.
+
+### Coding implications
+
+#### Gains
+
+- Sync pipeline Phase 6 step 1 ("save rewritten commands") is now `commandStore.batchUpdate(...)` — synchronous mutation in memory, single flush at end of pipeline. Eliminates redundant load-then-save round-trips.
+- `CommandQueue` and `SyncManager` no longer call `IStorage` for command records. Both classes retain `IStorage` access only for _other_ concerns (event cache, command-id mappings); command-record IO is fully through `CommandStore`.
+
+#### Costs
+
+- Two layers (active map + TTL cache) mean `get()` has three places to check. Performance cost is negligible (in-memory lookups), but the mental model is non-trivial.
 - `update()` returning `boolean` means callers must consciously decide what `false` signifies in their context. Two callers with two interpretations is an intentional split — `SyncManager` is post-load and tolerates evictions; `CommandQueue` is the authoritative path and a `false` may indicate a bug.
 
 ## Notes
 
 The `CommandIdMappingStore` (`packages/client/src/core/command-id-mapping-store/`) follows the same memory-first peer-of-IStorage pattern for the command-id-mapping cache:
+
 - Sync `get` / `getByServerId` / `getMany` against in-memory indices.
 - Lazy-flush writes through `mappingStore.save`.
 - TTL sweep.

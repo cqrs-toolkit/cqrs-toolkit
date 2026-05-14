@@ -84,6 +84,8 @@ export interface CachedEventRecord {
   persistence: EventPersistence
   /** Event data (JSON serialized) */
   data: string
+  /** Event metadata (JSON serialized). Null when the source event had no metadata. */
+  metadata: string | null
   /** Global position (for Permanent events) */
   position: string | null // BigInt as string
   /** Stream revision (for Permanent events) */

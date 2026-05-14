@@ -2,7 +2,7 @@
  * Utility exports.
  */
 
-export { assert } from './assert.js'
+export { AssertionError, assert } from './assert.js'
 export { serializeBigint } from './bigint.js'
 // do not publicly re-export
 export { noop } from './noop.js'

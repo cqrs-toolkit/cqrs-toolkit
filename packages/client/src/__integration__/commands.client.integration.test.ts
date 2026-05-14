@@ -29,7 +29,7 @@ import {
 } from '../testing/index.js'
 import type { EnqueueCommand } from '../types/commands.js'
 import type { CommandHandlerRegistration } from '../types/domain.js'
-import { createEntityId } from '../types/domain.js'
+import { createEntityId, domainSuccess } from '../types/domain.js'
 import { entityIdToString } from '../types/entities.js'
 import type { LibraryEvent } from '../types/events.js'
 import { isValidationException } from '../types/validation.js'
@@ -310,15 +310,13 @@ describe.each(bootstrapVariants)('$name commands (client)', ({ bootstrap }) => {
           handler(command, _state, context) {
             const id = createEntityId(context)
             const { title } = command.data as { title: string }
-            return Ok({
-              anticipatedEvents: [
-                {
-                  type: 'TodoCreated',
-                  data: { id, title },
-                  streamId: `nb.Todo-${entityIdToString(id)}`,
-                } as IAnticipatedEvent,
-              ],
-            })
+            return domainSuccess([
+              {
+                type: 'TodoCreated',
+                data: { id, title },
+                streamId: `nb.Todo-${entityIdToString(id)}`,
+              } as IAnticipatedEvent,
+            ])
           },
         }
 
@@ -426,15 +424,13 @@ describe.each(bootstrapVariants)('$name commands (client)', ({ bootstrap }) => {
           handler(command, _state, context) {
             const id = createEntityId(context)
             const { title } = command.data as { title: string }
-            return Ok({
-              anticipatedEvents: [
-                {
-                  type: 'TodoCreated',
-                  data: { id, title },
-                  streamId: `nb.Todo-${entityIdToString(id)}`,
-                } as IAnticipatedEvent,
-              ],
-            })
+            return domainSuccess([
+              {
+                type: 'TodoCreated',
+                data: { id, title },
+                streamId: `nb.Todo-${entityIdToString(id)}`,
+              } as IAnticipatedEvent,
+            ])
           },
         }
 

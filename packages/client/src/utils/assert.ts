@@ -5,7 +5,7 @@
  * This provides the same invariant-checking behavior used throughout the client package.
  */
 
-class AssertionError extends Error {
+export class AssertionError extends Error {
   readonly code = 'ERR_ASSERTION'
 
   constructor(message: string) {

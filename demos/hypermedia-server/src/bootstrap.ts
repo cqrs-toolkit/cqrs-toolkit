@@ -4,7 +4,6 @@
  */
 
 import { DemoEventStore, TempFileStore } from '@cqrs-toolkit/demo-base/common/server'
-import type { CommandResponse } from '@cqrs-toolkit/demo-base/common/shared'
 import { FileObjectRepository } from '@cqrs-toolkit/demo-base/file-objects/server'
 import { NotebookRepository, NotebookService } from '@cqrs-toolkit/demo-base/notebooks/server'
 import { NoteRepository } from '@cqrs-toolkit/demo-base/notes/server'
@@ -23,13 +22,15 @@ import { fileObjectRoutes } from './file-objects/routes.js'
 import { uploadRoute } from './file-objects/upload-route.js'
 import { notebookRoutes } from './notebooks/routes.js'
 import { noteRoutes } from './notes/routes.js'
+import { setupCorrelationIdHook, setupErrorHandler } from './problems/index.js'
 import { FakeUserStore, sessionRoutes } from './session/routes.js'
 import { todoRoutes } from './todos/routes.js'
 import { websocketPlugin } from './websocket.js'
 
 interface CachedResponse {
   statusCode: number
-  body: CommandResponse
+  contentType: string
+  body: unknown
   cachedAt: number
 }
 
@@ -55,19 +56,8 @@ export function createApp(options?: { logLevel?: string }): AppContext {
     },
   })
 
-  app.setErrorHandler((err: unknown, request, reply) => {
-    if (
-      err instanceof Error &&
-      'statusCode' in err &&
-      typeof err.statusCode === 'number' &&
-      err.statusCode !== 500
-    ) {
-      reply.send(err)
-      return
-    }
-    request.log.error({ err }, 'Unhandled error')
-    reply.code(500).send({ message: 'Something went wrong' })
-  })
+  setupCorrelationIdHook(app)
+  setupErrorHandler(app)
 
   logProvider.setLogger(app.log)
 
@@ -113,21 +103,19 @@ export function createApp(options?: { logLevel?: string }): AppContext {
       const cached = responseCache.get(requestId)
       if (cached) {
         request.log.info({ requestId }, 'Returning cached response for request')
-        reply.code(cached.statusCode).send(cached.body)
+        reply.code(cached.statusCode).type(cached.contentType).send(cached.body)
       }
     }
   }
 
-  function cacheResponse(
-    request: FastifyRequest,
-    reply: FastifyReply,
-    response: CommandResponse,
-  ): void {
+  function cacheResponse(request: FastifyRequest, reply: FastifyReply, response: unknown): void {
     const requestId = request.headers['x-request-id']
 
     if (typeof requestId === 'string' && requestId.length > 0) {
+      const contentType = reply.getHeader('content-type')
       responseCache.set(requestId, {
         statusCode: reply.statusCode,
+        contentType: typeof contentType === 'string' ? contentType : 'application/json',
         body: response,
         cachedAt: Date.now(),
       })
@@ -148,7 +136,7 @@ export function createApp(options?: { logLevel?: string }): AppContext {
     server.addHook('onSend', async (request, reply, data) => {
       if (request.method === 'POST' && typeof data === 'string') {
         try {
-          const response = JSON.parse(data) as CommandResponse
+          const response = JSON.parse(data) as unknown
           cacheResponse(request, reply, response)
         } catch {
           // Not JSON, skip caching

@@ -46,7 +46,12 @@ Number of send attempts
 
 > **blockedBy**: `string`[]
 
-Commands blocked by this command
+Subset of `dependsOn` commandIds still gating this command — those that
+have not yet reached terminal status. Entries drop off as deps complete;
+when this list empties, status flips from 'blocked' to 'pending'.
+
+Stored flat (no source tag) — the source for any entry here can be
+looked up by joining with the matching `dependsOn` record.
 
 ---
 
@@ -104,9 +109,13 @@ Command data
 
 ### dependsOn
 
-> **dependsOn**: `string`[]
+> **dependsOn**: [`CommandDependency`](CommandDependency.md)[]
 
-Commands this command depends on (must complete first)
+Source-tagged dependencies this command must wait on. Each entry carries
+the upstream `commandId` and the [origin](../type-aliases/DependencySource.md) that
+produced it, which the cascade walk uses to decide whether a non-success
+terminal upstream propagates as a cancellation (hard) or simply unblocks
+this command for an independent attempt (soft).
 
 ---
 
@@ -126,6 +135,20 @@ File attachments — metadata at rest, hydrated with Blob data before send().
 
 ---
 
+### headers?
+
+> `optional` **headers**: `Record`\<`string`, [`EntityId`](../type-aliases/EntityId.md)\>
+
+Escape-hatch envelope headers — same shape as
+[HandlerCommand.headers](EnqueueCommand.md#headers).
+
+Stored with [EntityRef](EntityRef.md)s intact at declared positions; the cascade
+rewrites them in-place to server-id strings when the producing
+command resolves. By the time the command is dispatched to
+[ICommandSender.send](ICommandSender.md#send) every value is a plain string.
+
+---
+
 ### lastAttemptAt?
 
 > `optional` **lastAttemptAt**: `number`
@@ -138,7 +161,11 @@ Timestamp of last send attempt
 
 > `optional` **modelState**: `unknown`
 
-Read model snapshot the user had when the command was submitted. Used by anticipated event processors as input state.
+Read-model snapshot the user was operating against when the command was submitted.
+Captured at submit, persisted durably with the command record, and immutable thereafter.
+This becomes the `initial` half of the [HandlerState](../type-aliases/HandlerState.md) the command-level handler
+functions (validate, validateAsync, handler) receive. Re-runs receive the post-server-event
+view as a separate `updated` companion (see [HandlerState](../type-aliases/HandlerState.md)).
 
 ---
 

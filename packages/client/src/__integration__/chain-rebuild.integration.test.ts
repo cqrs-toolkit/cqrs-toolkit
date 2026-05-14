@@ -12,7 +12,7 @@
  * code path is exercised.
  */
 
-import { Ok, type ServiceLink } from '@meticoeus/ddd-es'
+import { type ServiceLink } from '@meticoeus/ddd-es'
 import { describe, expect, it } from 'vitest'
 import type { IAnticipatedEvent } from '../core/command-lifecycle/AnticipatedEventShape.js'
 import {
@@ -30,7 +30,7 @@ import {
 } from '../testing/index.js'
 import type { CommandRecord, EnqueueCommand } from '../types/commands.js'
 import type { CommandHandlerRegistration } from '../types/domain.js'
-import { autoRevision } from '../types/domain.js'
+import { autoRevision, domainSuccess } from '../types/domain.js'
 
 function makeSeededCommand(
   overrides: Partial<CommandRecord<ServiceLink, EnqueueCommand>> & {
@@ -98,7 +98,10 @@ describe.each(bootstrapVariants)('$name chain rebuild', ({ bootstrap }) => {
         if (!result.ok) return
 
         const stored = await ctx.client.commandQueue.getCommand(result.value.commandId)
-        expect(stored?.dependsOn).toContain('seeded-update')
+        expect(stored?.dependsOn).toContainEqual({
+          commandId: 'seeded-update',
+          source: 'aggregate-chain',
+        })
         expect(stored?.blockedBy).toContain('seeded-update')
       },
     ),
@@ -162,7 +165,10 @@ describe.each(bootstrapVariants)('$name chain rebuild', ({ bootstrap }) => {
         if (!result.ok) return
 
         const stored = await ctx.client.commandQueue.getCommand(result.value.commandId)
-        expect(stored?.dependsOn).toContain('seeded-update')
+        expect(stored?.dependsOn).toContainEqual({
+          commandId: 'seeded-update',
+          source: 'aggregate-chain',
+        })
         expect(stored?.blockedBy).toContain('seeded-update')
       },
     ),
@@ -192,15 +198,13 @@ describe.each(bootstrapVariants)('$name chain rebuild', ({ bootstrap }) => {
         ],
         handler(command) {
           const { id, title } = command.data as { id: string; title: string }
-          return Ok({
-            anticipatedEvents: [
-              {
-                type: 'TodoUpdated' as const,
-                data: { id, title },
-                streamId: `nb.Todo-${id}`,
-              } as IAnticipatedEvent,
-            ],
-          })
+          return domainSuccess([
+            {
+              type: 'TodoUpdated' as const,
+              data: { id, title },
+              streamId: `nb.Todo-${id}`,
+            } as IAnticipatedEvent,
+          ])
         },
       }
 

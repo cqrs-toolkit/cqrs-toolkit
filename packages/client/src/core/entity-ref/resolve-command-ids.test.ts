@@ -60,6 +60,35 @@ describe('resolveCommandIds', () => {
       expect(result.commandIdPaths).toBeUndefined()
     })
 
+    it('rewrites a headers-side path when the client id resolves', () => {
+      const refs: IdReference<ServiceLink>[] = [
+        { aggregate: notebookAggregate, path: "$.headers['x-tenant-id']" },
+      ]
+      const result = resolveCommandIds(
+        { data: { title: 'hello' }, headers: { 'x-tenant-id': 'tmp-1' } },
+        refs,
+        storeFrom({ 'tmp-1': 'server-1' }),
+      )
+      expect(result.changed).toBe(true)
+      expect(result.headers).toEqual({ 'x-tenant-id': 'server-1' })
+      expect(result.data).toEqual({ title: 'hello' })
+      expect(result.commandIdPaths).toBeUndefined()
+    })
+
+    it('records unresolved EntityRef in headers in commandIdPaths', () => {
+      const refs: IdReference<ServiceLink>[] = [
+        { aggregate: notebookAggregate, path: "$.headers['x-tenant-id']" },
+      ]
+      const result = resolveCommandIds(
+        { data: { title: 'hello' }, headers: { 'x-tenant-id': unresolvedRef } },
+        refs,
+        storeFrom({}),
+      )
+      expect(result.changed).toBe(false)
+      expect(result.headers).toEqual({ 'x-tenant-id': unresolvedRef })
+      expect(result.commandIdPaths).toEqual({ "$.headers['x-tenant-id']": unresolvedRef })
+    })
+
     it('unwraps EntityRef at the declared path when resolved', () => {
       const refs: IdReference<ServiceLink>[] = [
         { aggregate: notebookAggregate, path: '$.data.notebookId' },

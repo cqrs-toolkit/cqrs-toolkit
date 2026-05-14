@@ -15,10 +15,10 @@ import type { AffectedAggregate } from './aggregates.js'
 import type {
   AutoRevision,
   CreateCommandConfig,
-  DomainExecutionError,
   PostProcessPlan,
+  UnknownCommandException,
 } from './domain.js'
-import { type EntityRef } from './entities.js'
+import { type EntityId, type EntityRef } from './entities.js'
 import type { JSONPathExpression } from './json-path.js'
 import { ValidationError, ValidationException } from './validation.js'
 
@@ -75,10 +75,87 @@ export function isInvalidCommandStatus(e: unknown): e is InvalidCommandStatusExc
 }
 
 /**
+ * Typed classification for a command failure. Drives retry, user-intervention,
+ * and cancellation decisions in one place; UI consumers switch on this rather
+ * than parsing status codes or matching `errorCode` strings.
+ *
+ * The union is **extensible** — new categories graduate as new behaviours
+ * emerge. Adding a member is a single edit; the compiler enforces exhaustive
+ * handling at every dispatch site.
+ *
+ * Distinctions:
+ * - `'unauthenticated'` (re-auth fixes it) is intentionally distinct from
+ *   `'permission-denied'` (re-auth does not).
+ * - `'redundant'` is distinct from `'requires-review'` because nothing needs
+ *   reviewing — the user's intent is already satisfied (duplicate edit,
+ *   idempotent no-op).
+ */
+export type FailureCategory =
+  | 'transient'
+  | 'requires-review'
+  | 'redundant'
+  | 'unauthenticated'
+  | 'permission-denied'
+  | 'permanent'
+
+/**
+ * Parsed shape of an error response from the server, handed to a
+ * {@link FailureMapper}. HTTP-shaped because that's the dominant transport;
+ * non-HTTP senders may pass synthetic values where appropriate.
+ */
+export interface ServerErrorResponse {
+  /** HTTP status code (RFC 9110 aligned). */
+  status: number
+  /** Response headers — for Retry-After-aware classification, content-type sniffing, etc. */
+  headers: Headers
+  /**
+   * Parsed body if the sender parsed it (problem+json document, ld+json
+   * document, or bespoke shape); raw text if parsing failed; undefined when
+   * there is no body.
+   */
+  body: unknown
+}
+
+/**
+ * Result of mapping a {@link ServerErrorResponse} (or a handler-detected
+ * conflict) to library-actionable failure data.
+ *
+ * `category` is the primary axis of dispatch. `errorCode` is a stable
+ * identifier for the specific failure kind (typically a problem+json `type`
+ * URI, ld+json `@type`, or bespoke identifier) that the UI dispatches on for
+ * sub-types beyond the broad category.
+ */
+export interface FailureDescriptor {
+  /** Drives retry decision, lifecycle status routing, cascade behaviour, and UI signaling. */
+  category: FailureCategory
+  /** Stable identifier for the specific failure kind. */
+  errorCode?: string
+  /** Field-level validation errors when the response carries them. */
+  validationErrors?: ValidationError[]
+  /** Free-form payload for the UI; the library does not interpret. */
+  details?: unknown
+}
+
+/**
+ * Function shape for translating a server error response into a
+ * {@link FailureDescriptor}. The library exports composable defaults
+ * (`defaultStatusMapper`, `defaultProblemJsonMapper`, `defaultLdJsonMapper`).
+ *
+ * Resolution at the queue: per-command `mapFailure` on
+ * `CommandHandlerRegistration` is the sole arbiter when defined (no automatic
+ * cascade); otherwise the global `CqrsConfig.mapFailure` runs (defaulting to
+ * `defaultProblemJsonMapper`). A consumer that wants the global's behaviour
+ * for non-special cases imports the same function reference and calls it
+ * explicitly.
+ */
+export type FailureMapper = (response: ServerErrorResponse) => FailureDescriptor
+
+/**
  * Details carried by a CommandFailedException.
  */
 export interface CommandFailedDetails {
   source: CommandErrorSource
+  category: FailureCategory
   errorCode?: string
   validationErrors?: ValidationError[]
   details?: unknown
@@ -86,28 +163,108 @@ export interface CommandFailedDetails {
 
 /**
  * A command failed during processing (server rejection, validation, or local error).
+ *
+ * Carries a {@link FailureCategory} so consumers dispatch on a typed axis
+ * rather than parsing status codes or matching `errorCode` strings.
  */
 export class CommandFailedException extends Exception<CommandFailedDetails> {
+  readonly category: FailureCategory
   readonly errorCode?: string
 
   constructor(
     source: CommandErrorSource,
     message: string,
-    opts?: Omit<CommandFailedDetails, 'source'>,
+    opts: Omit<CommandFailedDetails, 'source'>,
   ) {
     super('CommandFailed', message)
-    this.errorCode = opts?.errorCode
+    this.category = opts.category
+    this.errorCode = opts.errorCode
     this._details = {
       source,
-      errorCode: opts?.errorCode,
-      validationErrors: opts?.validationErrors,
-      details: opts?.details,
+      category: opts.category,
+      errorCode: opts.errorCode,
+      validationErrors: opts.validationErrors,
+      details: opts.details,
     }
   }
 }
 
 export function isCommandFailed(e: unknown): e is CommandFailedException {
   return typeof e === 'object' && e !== null && 'name' in e && e.name === 'CommandFailed'
+}
+
+/**
+ * The handler detected that the command cannot proceed cleanly against the
+ * current state — either the user's edit conflicts with a server change, or
+ * the user's intent is already satisfied, or a precondition has shifted.
+ *
+ * Returned as the `'conflict'` variant of `DomainExecutionOutcome` (see
+ * `types/domain.ts`). The library routes the carried `category` through the
+ * same dispatch as server-derived failures.
+ */
+export class ConflictException extends Exception<{
+  category: FailureCategory
+  errorCode?: string
+  details?: unknown
+}> {
+  readonly category: FailureCategory
+  readonly errorCode?: string
+
+  constructor(opts: {
+    message: string
+    category: FailureCategory
+    errorCode?: string
+    details?: unknown
+  }) {
+    super('Conflict', opts.message)
+    this.category = opts.category
+    this.errorCode = opts.errorCode
+    this._details = {
+      category: opts.category,
+      errorCode: opts.errorCode,
+      details: opts.details,
+    }
+  }
+}
+
+export function isConflict(e: unknown): e is ConflictException {
+  return typeof e === 'object' && e !== null && 'name' in e && e.name === 'Conflict'
+}
+
+// ---------------------------------------------------------------------------
+// Category predicates — typed checks that keep UI / queue code free of
+// string comparisons. Each accepts any value with a category-bearing shape.
+// ---------------------------------------------------------------------------
+
+interface HasCategory {
+  readonly category: FailureCategory
+}
+
+function hasCategory(e: unknown): e is HasCategory {
+  if (typeof e !== 'object' || e === null) return false
+  if (!('category' in e)) return false
+  return typeof (e as { category: unknown }).category === 'string'
+}
+
+export function isTransient(e: unknown): e is HasCategory & { category: 'transient' } {
+  return hasCategory(e) && e.category === 'transient'
+}
+export function requiresReview(e: unknown): e is HasCategory & { category: 'requires-review' } {
+  return hasCategory(e) && e.category === 'requires-review'
+}
+export function isRedundant(e: unknown): e is HasCategory & { category: 'redundant' } {
+  return hasCategory(e) && e.category === 'redundant'
+}
+export function isUnauthenticated(e: unknown): e is HasCategory & { category: 'unauthenticated' } {
+  return hasCategory(e) && e.category === 'unauthenticated'
+}
+export function isPermissionDenied(
+  e: unknown,
+): e is HasCategory & { category: 'permission-denied' } {
+  return hasCategory(e) && e.category === 'permission-denied'
+}
+export function isPermanent(e: unknown): e is HasCategory & { category: 'permanent' } {
+  return hasCategory(e) && e.category === 'permanent'
 }
 
 /**
@@ -145,6 +302,36 @@ export type CommandCompletionError =
   | CommandTimeoutException
 
 /**
+ * Origin of a {@link CommandDependency} entry. Determines whether the cascade
+ * walk consults the dependent's `classifyDependency` callback at decision time
+ * or short-circuits to a known strength.
+ *
+ * - `'entity-ref'`: derived from an `EntityRef.commandId` at a path declared in
+ *   `commandIdReferences`. Always **hard** — B's payload references an id A
+ *   creates; if A doesn't land, B's reference has no meaning.
+ * - `'explicit'`: caller wrote `dependsOn: [...]` at submit. Always **hard** —
+ *   the caller has out-of-band domain knowledge that B requires A's effect.
+ *   Soft same-aggregate ordering is expressed by *not* declaring the dep.
+ * - `'aggregate-chain'`: auto-derived from same-aggregate ordering. The queue
+ *   cannot decide hard vs soft on its own; the dependent's
+ *   `classifyDependency` callback (if registered) decides; default is soft.
+ */
+export type DependencySource = 'entity-ref' | 'aggregate-chain' | 'explicit'
+
+/**
+ * A single edge in {@link CommandRecord.dependsOn}, tagged with the origin
+ * that produced it. The `source` informs the cascade walk how to treat the
+ * edge when the dependency reaches a non-success terminal status — see
+ * {@link DependencySource}. Multiple origins for the same `commandId`
+ * collapse to one entry under the strictest-strength rule:
+ * `entity-ref > explicit > aggregate-chain`.
+ */
+export interface CommandDependency {
+  commandId: string
+  source: DependencySource
+}
+
+/**
  * Persisted command record.
  */
 export interface CommandRecord<
@@ -164,11 +351,28 @@ export interface CommandRecord<
   data: TCommand['data']
   /** URL path template values for command sender URL expansion. */
   path?: unknown
+  /** Escape-hatch envelope headers — same shape as
+   *  {@link HandlerCommand.headers}.
+   *
+   *  Stored with {@link EntityRef}s intact at declared positions; the cascade
+   *  rewrites them in-place to server-id strings when the producing
+   *  command resolves. By the time the command is dispatched to
+   *  {@link ICommandSender.send} every value is a plain string. */
+  headers?: Record<string, EntityId>
   /** Current status */
   status: CommandStatus
-  /** Commands this command depends on (must complete first) */
-  dependsOn: string[]
-  /** Commands blocked by this command */
+  /** Source-tagged dependencies this command must wait on. Each entry carries
+   *  the upstream `commandId` and the {@link DependencySource origin} that
+   *  produced it, which the cascade walk uses to decide whether a non-success
+   *  terminal upstream propagates as a cancellation (hard) or simply unblocks
+   *  this command for an independent attempt (soft). */
+  dependsOn: CommandDependency[]
+  /** Subset of `dependsOn` commandIds still gating this command — those that
+   *  have not yet reached terminal status. Entries drop off as deps complete;
+   *  when this list empties, status flips from 'blocked' to 'pending'.
+   *
+   *  Stored flat (no source tag) — the source for any entry here can be
+   *  looked up by joining with the matching `dependsOn` record. */
   blockedBy: string[]
   /** Number of send attempts */
   attempts: number
@@ -186,7 +390,11 @@ export interface CommandRecord<
   revision?: string | AutoRevision
   /** File attachments — metadata at rest, hydrated with Blob data before send(). */
   fileRefs?: FileRef[]
-  /** Read model snapshot the user had when the command was submitted. Used by anticipated event processors as input state. */
+  /** Read-model snapshot the user was operating against when the command was submitted.
+   *  Captured at submit, persisted durably with the command record, and immutable thereafter.
+   *  This becomes the `initial` half of the {@link HandlerState} the command-level handler
+   *  functions (validate, validateAsync, handler) receive. Re-runs receive the post-server-event
+   *  view as a separate `updated` companion (see {@link HandlerState}). */
   modelState?: unknown
   /** Aggregates affected by this command's anticipated events, derived at enqueue time.
    *  Each entry carries the canonical streamId (the chain/concurrency key from the
@@ -207,6 +415,24 @@ export interface CommandRecord<
   createdAt: number
   /** Last update timestamp */
   updatedAt: number
+}
+
+/**
+ * Wire-shaped {@link CommandRecord} handed to {@link ICommandSender.send}.
+ *
+ * Identical to {@link CommandRecord} except {@link CommandRecord.headers} is
+ * narrowed to `Record<string, string>`: by the time the queue invokes the
+ * sender, the cascade has flattened every declared {@link EntityRef} header
+ * to a server-id string and the queue asserts (via package-local `assert`)
+ * that any remaining values are plain strings. Senders never see
+ * `EntityRef`s — they never have to flatten.
+ */
+export type SendableCommandRecord<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+  TResponse = unknown,
+> = Omit<CommandRecord<TLink, TCommand, TResponse>, 'headers'> & {
+  headers?: Record<string, string>
 }
 
 /**
@@ -234,16 +460,31 @@ export interface FileRef {
 
 /**
  * Command shape received by command handlers to produce anticipated events.
- * Contains the command identity, payload, and file metadata — but NOT File
- * blobs, revision, service, or dependency info (those are submit/send concerns).
+ * Contains the command identity, payload, file metadata, and the envelope
+ * headers (with any {@link EntityRef}s visible) — but NOT File blobs,
+ * revision, service, or dependency info (those are submit/send concerns).
  */
-export interface HandlerCommand<TData = unknown> {
+export interface HandlerCommand<TData = unknown, TPath = unknown> {
   /** Command type */
   type: string
   /** Command data (HTTP body payload) */
   data: TData
   /** URL path template values (e.g. `{ id: '...' }`). */
-  path?: unknown
+  path?: TPath
+  /** Escape-hatch envelope headers.
+   *
+   *  Values may be plain strings or {@link EntityId} (string | {@link EntityRef}).
+   *  EntityRef positions must be declared on the registration's
+   *  `commandIdReferences` (e.g. `$.headers['x-tenant-id']`) so the queue
+   *  auto-wires a `dependsOn` on the producing command and rewrites the
+   *  temp id to the server id in place once the parent resolves.
+   *
+   *  Headers are not user-validated; they are not stripped at submit and
+   *  the handler sees the same `EntityRef`s the consumer submitted. By
+   *  send-time the cascade has flattened every declared {@link EntityRef}
+   *  to a server-id string and the queue narrows the type to
+   *  `Record<string, string>` for the sender. */
+  headers?: Record<string, EntityId>
   /** File attachment metadata (library-populated from `files` at enqueue time).
    *  Available to handlers for producing anticipated events that reference file
    *  properties (filename, mimeType, etc.). */
@@ -277,13 +518,73 @@ export interface EnqueueOptions<TLink extends Link> {
   /** Cache key identity — associates anticipated events and response events with the correct data scope. */
   cacheKey: CacheKeyIdentity<TLink>
   /**
-   * Read-model snapshot at submission time, passed to the domain executor as
-   * the handler's initial state. State-dependent anticipated event handlers
-   * use this so the optimistic event reflects what the user saw when they
-   * submitted.
+   * Read-model snapshot the user was operating against at submission time.
+   * Persisted durably on the command record and surfaced as the `initial`
+   * half of {@link HandlerState} to validate / validateAsync / handler. On
+   * reconciliation re-runs the queue computes a post-server-event `updated`
+   * companion so a state-dependent handler can decide whether the user's
+   * edit is still valid. Pass it whenever the command is being submitted
+   * against an existing entity; omit when there is no relevant prior state
+   * (e.g. a create against an unseeded collection).
    */
   modelState?: unknown
 }
+
+/**
+ * Read-model state surfaced to command-level handler functions
+ * (validate, validateAsync, handler).
+ *
+ * Discriminated union on `mode`:
+ *
+ * - `'initial'` — first invocation at enqueue. Only `initial` is meaningful;
+ *   the handler produces optimistic anticipated events against what the user
+ *   just submitted.
+ * - `'regenerate'` — any subsequent invocation, regardless of trigger
+ *   (server-event delta, id-rewrite cascade, AutoRevision resolution). The
+ *   library always populates `current` with the latest read-model view of the
+ *   command's primary entity so handler behavior is consistent across
+ *   triggers — handlers don't have to special-case why they were re-invoked.
+ *
+ * `initial` is the consumer-supplied snapshot from submit, persisted durably
+ * on the command record, constant for the command's lifetime.
+ *
+ * `current` is `T | undefined` because the entity may not be in the read
+ * model store yet (e.g. a freshly-created entity whose anticipated events
+ * haven't been folded yet, or an entity outside the active cache). Handlers
+ * tolerate this the same way they did before the shape change — by
+ * defaulting or branching when state is absent.
+ *
+ * Handlers that just want "the most current view available" can read
+ * `state.mode === 'regenerate' ? (state.current ?? state.initial) : state.initial`.
+ *
+ * Note: this shape applies only to command-level functions. Event Processors
+ * receive a single `state: TModel | undefined` since they're entity-level
+ * reducers and the "what the user saw at submit" concept doesn't apply.
+ */
+export type HandlerState<T = unknown> =
+  | {
+      /** First invocation — produced at enqueue. */
+      mode: 'initial'
+      /** Snapshot the consumer passed at submit. */
+      initial: T | undefined
+    }
+  | {
+      /**
+       * Any subsequent invocation. Trigger may be a server-event delta, an
+       * id-rewrite cascade after a parent command succeeded, or AutoRevision
+       * resolution — handlers don't distinguish.
+       */
+      mode: 'regenerate'
+      /** Snapshot the consumer passed at submit. Unchanged from the first call. */
+      initial: T | undefined
+      /**
+       * Latest read-model view of the command's primary entity at the moment of
+       * regenerate. `undefined` only when the entity isn't yet in the read-model
+       * store (no overlay folded yet, outside active cache, etc.) — not a
+       * trigger-based signal.
+       */
+      current: T | undefined
+    }
 
 /**
  * Parameters for {@link ICommandQueue.enqueue}.
@@ -341,9 +642,21 @@ export interface EnqueueSuccess<TEvent> {
 }
 
 /**
+ * Reasons the enqueue operation can fail.
+ *
+ * Validation failure (`ValidationException`) and missing handler registration
+ * (`UnknownCommandException`) prevent the command from entering the queue.
+ * Handler-returned `'conflict'` outcomes (`ConflictException`) currently flow
+ * out the same path while the queue lacks a "persist as failed" routing —
+ * task #13 will narrow this union back to validation/unknown when conflicts
+ * are persisted instead of rejected.
+ */
+export type EnqueueRejection = ValidationException | UnknownCommandException | ConflictException
+
+/**
  * Result of enqueue operation.
  */
-export type EnqueueResult<TEvent> = Result<EnqueueSuccess<TEvent>, DomainExecutionError>
+export type EnqueueResult<TEvent> = Result<EnqueueSuccess<TEvent>, EnqueueRejection>
 
 /**
  * Successful enqueueAndWait data.
@@ -358,7 +671,7 @@ export interface EnqueueAndWaitSuccess<TResponse> {
 /**
  * Error union for enqueueAndWait — enqueue validation or completion failure.
  */
-export type EnqueueAndWaitError = DomainExecutionError | CommandCompletionError
+export type EnqueueAndWaitError = EnqueueRejection | CommandCompletionError
 
 /**
  * Result of enqueueAndWait operation.
@@ -528,7 +841,7 @@ export type SubmitSuccess<TResponse> =
 /**
  * Error union for submit — enqueue validation or completion failure.
  */
-export type SubmitError = DomainExecutionError | CommandCompletionError
+export type SubmitError = EnqueueRejection | CommandCompletionError
 
 /**
  * Result of the network-aware submit operation.

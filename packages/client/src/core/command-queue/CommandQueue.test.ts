@@ -17,11 +17,22 @@ import {
   TodoAggregate,
 } from '../../testing/index.js'
 import { IClientAggregates } from '../../types/aggregates.js'
-import type { CommandEvent, CommandRecord, EnqueueCommand } from '../../types/commands.js'
-import { CommandFailedException } from '../../types/commands.js'
-import { autoRevision, domainFailure, domainSuccess, IDomainExecutor } from '../../types/domain.js'
+import type {
+  CommandEvent,
+  CommandRecord,
+  EnqueueCommand,
+  FailureMapper,
+  ServerErrorResponse,
+} from '../../types/commands.js'
+import {
+  CommandFailedException,
+  ConflictException,
+  isCommandFailed,
+  isConflict,
+} from '../../types/commands.js'
+import { autoRevision, domainConflict, domainSuccess, IDomainExecutor } from '../../types/domain.js'
 import { Collection } from '../../types/index.js'
-import { isValidationException } from '../../types/validation.js'
+import { isValidationException, ValidationException } from '../../types/validation.js'
 import { deriveScopeKey } from '../cache-manager/CacheKey.js'
 import { CacheManager } from '../cache-manager/index.js'
 import { CommandIdMappingStore } from '../command-id-mapping-store/CommandIdMappingStore.js'
@@ -29,9 +40,10 @@ import { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventShape.js
 import type { IAnticipatedEventHandler } from '../command-lifecycle/IAnticipatedEventHandler.js'
 import { CommandStore } from '../command-store/CommandStore.js'
 import { EventBus } from '../events/EventBus.js'
+import { readProblemType } from '../failure-mapper/index.js'
 import { ReadModelStore } from '../read-model-store/ReadModelStore.js'
 import type { CommandQueueConfig } from './CommandQueue.js'
-import { CommandQueue } from './CommandQueue.js'
+import { buildCommandDependencies, CommandQueue } from './CommandQueue.js'
 import type { ICommandFileStore } from './file-store/ICommandFileStore.js'
 import { InMemoryCommandFileStore } from './file-store/InMemoryCommandFileStore.js'
 import type { ICommandSender } from './types.js'
@@ -100,6 +112,7 @@ describe('CommandQueue', () => {
       cleanupOnSucceeded: ReturnType<typeof vi.fn>
       cleanupOnAppliedBatch: ReturnType<typeof vi.fn>
       cleanupOnFailure: ReturnType<typeof vi.fn>
+      getAnticipatedEvents: ReturnType<typeof vi.fn>
       clearAll: ReturnType<typeof vi.fn>
     }
     fileStore: ICommandFileStore
@@ -151,6 +164,7 @@ describe('CommandQueue', () => {
       regenerate: vi.fn().mockResolvedValue(undefined),
       getTrackedEntries: vi.fn().mockReturnValue(undefined),
       setTrackedEntries: vi.fn(),
+      getAnticipatedEvents: vi.fn().mockResolvedValue([]),
       clearAll: vi.fn().mockResolvedValue(undefined),
     }
     const collections: Collection<ServiceLink>[] = []
@@ -299,9 +313,11 @@ describe('CommandQueue', () => {
       const { commandQueue } = await bootstrap({ domainExecutor })
       vi.mocked(domainExecutor.validate).mockReturnValue(
         Promise.resolve(
-          domainFailure([
-            { path: 'title', code: 'required', message: 'Title is required', params: {} },
-          ]),
+          Err(
+            new ValidationException([
+              { path: 'title', code: 'required', message: 'Title is required', params: {} },
+            ]),
+          ),
         ),
       )
 
@@ -374,9 +390,11 @@ describe('CommandQueue', () => {
       }
       const { commandQueue } = await bootstrap({ domainExecutor })
       vi.mocked(domainExecutor.validate).mockResolvedValue(
-        domainFailure([
-          { path: 'title', code: 'required', message: 'Title is required', params: {} },
-        ]),
+        Err(
+          new ValidationException([
+            { path: 'title', code: 'required', message: 'Title is required', params: {} },
+          ]),
+        ),
       )
 
       const result = await commandQueue.enqueue({
@@ -412,7 +430,10 @@ describe('CommandQueue', () => {
       })
 
       expect(domainExecutor.validate).toHaveBeenCalledTimes(1)
-      expect(vi.mocked(domainExecutor.validate).mock.calls[0]?.[1]).toBe(snapshot)
+      expect(vi.mocked(domainExecutor.validate).mock.calls[0]?.[1]).toEqual({
+        mode: 'initial',
+        initial: snapshot,
+      })
     })
 
     it('forwards modelState from params to domainExecutor.handle', async () => {
@@ -436,7 +457,10 @@ describe('CommandQueue', () => {
       })
 
       expect(domainExecutor.handle).toHaveBeenCalledTimes(1)
-      expect(vi.mocked(domainExecutor.handle).mock.calls[0]?.[1]).toBe(snapshot)
+      expect(vi.mocked(domainExecutor.handle).mock.calls[0]?.[1]).toEqual({
+        mode: 'initial',
+        initial: snapshot,
+      })
     })
 
     it('persists modelState on the command record for pipeline re-runs', async () => {
@@ -484,9 +508,15 @@ describe('CommandQueue', () => {
       })
 
       expect(domainExecutor.validate).toHaveBeenCalledTimes(1)
-      expect(vi.mocked(domainExecutor.validate).mock.calls[0]?.[1]).toBeUndefined()
+      expect(vi.mocked(domainExecutor.validate).mock.calls[0]?.[1]).toEqual({
+        mode: 'initial',
+        initial: undefined,
+      })
       expect(domainExecutor.handle).toHaveBeenCalledTimes(1)
-      expect(vi.mocked(domainExecutor.handle).mock.calls[0]?.[1]).toBeUndefined()
+      expect(vi.mocked(domainExecutor.handle).mock.calls[0]?.[1]).toEqual({
+        mode: 'initial',
+        initial: undefined,
+      })
     })
   })
 
@@ -587,7 +617,7 @@ describe('CommandQueue', () => {
         blockedBy: [],
         attempts: 1,
         seq: 0,
-        error: new CommandFailedException('server', 'Bad request'),
+        error: new CommandFailedException('server', 'Bad request', { category: 'permanent' }),
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }
@@ -673,7 +703,11 @@ describe('CommandQueue', () => {
         IAnticipatedEvent
       > = {
         validate: async () =>
-          domainFailure([{ path: 'email', code: 'invalid', message: 'Invalid email', params: {} }]),
+          Err(
+            new ValidationException([
+              { path: 'email', code: 'invalid', message: 'Invalid email', params: {} },
+            ]),
+          ),
         handle: vi.fn(),
         getRegistration: vi.fn().mockReturnValue(mockRegistration),
       }
@@ -816,6 +850,75 @@ describe('CommandQueue', () => {
         },
       })
     })
+
+    it('hard cascade: cancelling parent force-cancels an explicit dependent', async () => {
+      // Explicit dep is hard by construction (Part 2 / ADR-0009). User-
+      // initiated cancellation routes through `cascadeFromTerminal` exactly
+      // like a failure-driven cancellation, so the dependent must transition
+      // from `'blocked'` to `'cancelled'`.
+      const { commandQueue, storage } = await bootstrap()
+      const first = await commandQueue.enqueue({
+        command: { type: 'First', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!first.ok) throw new Error('Expected success')
+
+      const second = await commandQueue.enqueue({
+        command: { type: 'Second', data: {}, dependsOn: [first.value.commandId] },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!second.ok) throw new Error('Expected success')
+
+      const cancelResult = await commandQueue.cancelCommand(first.value.commandId)
+      expect(cancelResult.ok).toBe(true)
+
+      const firstStored = await storage.getCommand(first.value.commandId)
+      const secondStored = await storage.getCommand(second.value.commandId)
+      expect(firstStored?.status).toBe('cancelled')
+      expect(secondStored?.status).toBe('cancelled')
+    })
+
+    it('soft cascade: cancelling parent leaves a chain-only dependent un-cancelled', async () => {
+      // Aggregate-chain edge with no `classifyDependency` registered defaults
+      // to soft. User-initiated cancellation of the parent should NOT
+      // cascade-cancel the dependent — it should remove the parent from the
+      // dependent's `blockedBy` and flip the dependent to `'pending'`.
+      const { commandQueue, storage, commandStore } = await bootstrap({
+        domainExecutor: {
+          validate: vi.fn().mockResolvedValue(Ok({})),
+          handle: vi.fn().mockReturnValue(domainSuccess([])),
+          getRegistration: vi.fn().mockReturnValue(mockRegistration),
+        },
+      })
+
+      const first = await commandQueue.enqueue({
+        command: { type: 'First', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!first.ok) throw new Error('Expected success')
+      const second = await commandQueue.enqueue({
+        command: { type: 'Second', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!second.ok) throw new Error('Expected success')
+
+      // The mock executor produces no `affectedAggregates`, so synthesize a
+      // chain-only edge directly through CommandStore.
+      commandStore.update(second.value.commandId, {
+        status: 'blocked',
+        dependsOn: [{ commandId: first.value.commandId, source: 'aggregate-chain' }],
+        blockedBy: [first.value.commandId],
+      })
+
+      const cancelResult = await commandQueue.cancelCommand(first.value.commandId)
+      expect(cancelResult.ok).toBe(true)
+
+      const firstStored = await storage.getCommand(first.value.commandId)
+      const secondStored = await storage.getCommand(second.value.commandId)
+      expect(firstStored?.status).toBe('cancelled')
+      expect(secondStored?.status).not.toBe('cancelled')
+      expect(secondStored?.blockedBy).not.toContain(first.value.commandId)
+    })
   })
 
   describe('retryCommand', () => {
@@ -832,7 +935,7 @@ describe('CommandQueue', () => {
         blockedBy: [],
         attempts: 1,
         seq: 0,
-        error: new CommandFailedException('server', 'Failed'),
+        error: new CommandFailedException('server', 'Failed', { category: 'permanent' }),
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }
@@ -913,8 +1016,24 @@ describe('CommandQueue', () => {
       const { commandSender } = config
       const { commandQueue, storage } = await bootstrap(config)
       vi.mocked(commandSender.send)
-        .mockResolvedValueOnce(Err(new CommandSendException('Network error', 'NETWORK', true)))
-        .mockResolvedValueOnce(Err(new CommandSendException('Network error', 'NETWORK', true)))
+        .mockResolvedValueOnce(
+          Err(
+            new CommandSendException({
+              message: 'Network error',
+              errorCode: 'NETWORK',
+              isRetryable: true,
+            }),
+          ),
+        )
+        .mockResolvedValueOnce(
+          Err(
+            new CommandSendException({
+              message: 'Network error',
+              errorCode: 'NETWORK',
+              isRetryable: true,
+            }),
+          ),
+        )
         .mockResolvedValueOnce(Ok({ id: '123' }))
 
       const result = await commandQueue.enqueue({
@@ -939,7 +1058,13 @@ describe('CommandQueue', () => {
       const { commandSender } = config
       const { commandQueue, storage } = await bootstrap(config)
       vi.mocked(commandSender.send).mockResolvedValue(
-        Err(new CommandSendException('Network error', 'NETWORK', true)),
+        Err(
+          new CommandSendException({
+            message: 'Network error',
+            errorCode: 'NETWORK',
+            isRetryable: true,
+          }),
+        ),
       )
 
       const result = await commandQueue.enqueue({
@@ -964,7 +1089,13 @@ describe('CommandQueue', () => {
       const { commandSender } = config
       const { commandQueue, storage } = await bootstrap(config)
       vi.mocked(commandSender.send).mockResolvedValue(
-        Err(new CommandSendException('Validation error', 'VALIDATION', false)),
+        Err(
+          new CommandSendException({
+            message: 'Validation error',
+            errorCode: 'VALIDATION',
+            isRetryable: false,
+          }),
+        ),
       )
 
       const result = await commandQueue.enqueue({
@@ -1112,7 +1243,13 @@ describe('CommandQueue', () => {
       })
 
       vi.mocked(commandSender.send).mockResolvedValue(
-        Err(new CommandSendException('Network error', 'NETWORK', true)),
+        Err(
+          new CommandSendException({
+            message: 'Network error',
+            errorCode: 'NETWORK',
+            isRetryable: true,
+          }),
+        ),
       )
 
       const result = await commandQueue.enqueue({
@@ -1183,7 +1320,7 @@ describe('CommandQueue', () => {
       const { commandSender } = config
       const { commandQueue, storage } = await bootstrap(config)
       vi.mocked(commandSender.send).mockResolvedValue(
-        Err(new CommandSendException('Error', 'ERROR', false)),
+        Err(new CommandSendException({ message: 'Error', errorCode: 'ERROR', isRetryable: false })),
       )
 
       const first = await commandQueue.enqueue({
@@ -1206,6 +1343,264 @@ describe('CommandQueue', () => {
 
       const storedSecond = await storage.getCommand(second.value.commandId)
       expect(storedSecond?.status).toBe('cancelled')
+    })
+  })
+
+  describe('failure mapping (Part 3)', () => {
+    /**
+     * Bootstrap a queue with a sender that returns a 422 response carrying a
+     * problem+json `type` so each test can assert which mapper handled it.
+     * The registration is loose — these tests only exercise the failure
+     * dispatch, not enqueue validation.
+     */
+    function buildMappingBootstrap(opts: {
+      registrationMapFailure?: FailureMapper
+      globalMapFailure?: FailureMapper
+    }) {
+      const response: ServerErrorResponse = {
+        status: 422,
+        headers: new Headers(),
+        body: { type: 'urn:errors:title-already-taken', title: 'Conflict' },
+      }
+      const commandSender: ICommandSender<ServiceLink, EnqueueCommand> = {
+        send: vi.fn().mockResolvedValue(
+          Err(
+            new CommandSendException({
+              message: 'Server rejected',
+              errorCode: '422',
+              response,
+            }),
+          ),
+        ),
+      }
+      const registration = {
+        ...mockRegistration,
+        mapFailure: opts.registrationMapFailure,
+      }
+      const domainExecutor: IDomainExecutor<
+        ServiceLink,
+        EnqueueCommand,
+        unknown,
+        IAnticipatedEvent
+      > = {
+        validate: vi.fn().mockResolvedValue(Ok({})),
+        handle: vi.fn().mockReturnValue(domainSuccess([])),
+        getRegistration: vi.fn().mockReturnValue(registration),
+      }
+      return {
+        commandSender,
+        domainExecutor,
+        retryConfig: { maxAttempts: 1, initialDelay: 1 },
+        mapFailure: opts.globalMapFailure,
+      } satisfies BootstrapParams
+    }
+
+    it('uses the library-default global mapper when no override is configured', async () => {
+      // No registration mapFailure, no global mapFailure → CommandQueue's
+      // default global is `defaultProblemJsonMapper`. The body carries
+      // `type: 'urn:errors:title-already-taken'`, so the persisted error
+      // should carry the URI as `errorCode` and category `'requires-review'`.
+      const config = buildMappingBootstrap({})
+      const { commandQueue, storage } = await bootstrap(config)
+      const enqueued = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!enqueued.ok) throw new Error('Expected enqueue success')
+
+      await commandQueue.resume()
+      await new Promise((resolve) => setTimeout(resolve, 30))
+
+      const stored = await storage.getCommand(enqueued.value.commandId)
+      expect(stored?.status).toBe('failed')
+      expect(isCommandFailed(stored?.error)).toBe(true)
+      if (!isCommandFailed(stored?.error)) return
+      expect(stored.error.category).toBe('requires-review')
+      expect(stored.error.errorCode).toBe('urn:errors:title-already-taken')
+    })
+
+    it('uses the configured global mapper when no per-command override is set', async () => {
+      // Global lifts the URI but tags it as `'redundant'` for this hypothetical project.
+      const globalMapFailure: FailureMapper = (response) => ({
+        category: 'redundant',
+        errorCode: readProblemType(response.body) ?? 'unknown',
+        details: response.body,
+      })
+      const config = buildMappingBootstrap({ globalMapFailure })
+      const { commandQueue, storage } = await bootstrap(config)
+      const enqueued = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!enqueued.ok) throw new Error('Expected enqueue success')
+
+      await commandQueue.resume()
+      await new Promise((resolve) => setTimeout(resolve, 30))
+
+      const stored = await storage.getCommand(enqueued.value.commandId)
+      expect(isCommandFailed(stored?.error)).toBe(true)
+      if (!isCommandFailed(stored?.error)) return
+      expect(stored.error.category).toBe('redundant')
+      expect(stored.error.errorCode).toBe('urn:errors:title-already-taken')
+    })
+
+    it('per-command mapper is the sole arbiter — global is NOT consulted', async () => {
+      // The registration's mapFailure returns `'permanent'`. The global
+      // mapper would have returned `'redundant'`. Per-command must win
+      // and the global must not be invoked at all.
+      const globalMapFailure = vi.fn<FailureMapper>().mockReturnValue({
+        category: 'redundant',
+      })
+      const registrationMapFailure: FailureMapper = (response) => ({
+        category: 'permanent',
+        errorCode: readProblemType(response.body) ?? 'pc-default',
+      })
+      const config = buildMappingBootstrap({ globalMapFailure, registrationMapFailure })
+      const { commandQueue, storage } = await bootstrap(config)
+      const enqueued = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!enqueued.ok) throw new Error('Expected enqueue success')
+
+      await commandQueue.resume()
+      await new Promise((resolve) => setTimeout(resolve, 30))
+
+      const stored = await storage.getCommand(enqueued.value.commandId)
+      expect(isCommandFailed(stored?.error)).toBe(true)
+      if (!isCommandFailed(stored?.error)) return
+      expect(stored.error.category).toBe('permanent')
+      expect(stored.error.errorCode).toBe('urn:errors:title-already-taken')
+      expect(globalMapFailure).not.toHaveBeenCalled()
+    })
+
+    it('transport-level error (no response) skips the mapper and uses isRetryable', async () => {
+      // No response on the exception — pure network/transport failure.
+      // The queue does NOT invoke any mapper (there's nothing to map).
+      // Falls back to `isRetryable`-based classification.
+      const globalMapFailure = vi.fn<FailureMapper>().mockReturnValue({
+        category: 'redundant',
+      })
+      const commandSender: ICommandSender<ServiceLink, EnqueueCommand> = {
+        send: vi.fn().mockResolvedValue(
+          Err(
+            new CommandSendException({
+              message: 'Network error',
+              errorCode: 'NETWORK',
+              isRetryable: false,
+            }),
+          ),
+        ),
+      }
+      const domainExecutor: IDomainExecutor<
+        ServiceLink,
+        EnqueueCommand,
+        unknown,
+        IAnticipatedEvent
+      > = {
+        validate: vi.fn().mockResolvedValue(Ok({})),
+        handle: vi.fn().mockReturnValue(domainSuccess([])),
+        getRegistration: vi.fn().mockReturnValue(mockRegistration),
+      }
+      const { commandQueue, storage } = await bootstrap({
+        commandSender,
+        domainExecutor,
+        retryConfig: { maxAttempts: 1, initialDelay: 1 },
+        mapFailure: globalMapFailure,
+      })
+      const enqueued = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!enqueued.ok) throw new Error('Expected enqueue success')
+
+      await commandQueue.resume()
+      await new Promise((resolve) => setTimeout(resolve, 30))
+
+      const stored = await storage.getCommand(enqueued.value.commandId)
+      expect(isCommandFailed(stored?.error)).toBe(true)
+      if (!isCommandFailed(stored?.error)) return
+      expect(stored.error.category).toBe('permanent')
+      expect(globalMapFailure).not.toHaveBeenCalled()
+    })
+
+    it('submit-time conflict (handler returns conflict) returns Err and does not persist', async () => {
+      // Handler returns `'conflict'` on first call. Submit must reject with
+      // the ConflictException (same external shape as a validation rejection).
+      // Command must NOT persist.
+      const conflictDomainExecutor: IDomainExecutor<
+        ServiceLink,
+        EnqueueCommand,
+        unknown,
+        IAnticipatedEvent
+      > = {
+        validate: vi.fn().mockResolvedValue(Ok({})),
+        handle: vi.fn().mockReturnValue(
+          domainConflict({
+            message: 'Title already taken',
+            category: 'requires-review',
+            errorCode: 'urn:errors:title-already-taken',
+          }),
+        ),
+        getRegistration: vi.fn().mockReturnValue(mockRegistration),
+      }
+      const { commandQueue, storage } = await bootstrap({
+        domainExecutor: conflictDomainExecutor,
+      })
+      const enqueued = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+
+      expect(enqueued.ok).toBe(false)
+      if (enqueued.ok) return
+      expect(isConflict(enqueued.error)).toBe(true)
+      if (!isConflict(enqueued.error)) return
+      expect(enqueued.error.category).toBe('requires-review')
+      expect(enqueued.error.errorCode).toBe('urn:errors:title-already-taken')
+
+      // Command must not be persisted.
+      const all = await storage.getCommands()
+      expect(all).toHaveLength(0)
+    })
+
+    it('validateAsync returning a conflict rejects the submit identically to a validation error', async () => {
+      // Per the widened contract: validateAsync may return
+      // `Err(ConflictException)`. Submit must surface as Err with the
+      // ConflictException — same external shape as a ValidationException
+      // rejection. Command must not persist.
+      const conflictDomainExecutor: IDomainExecutor<
+        ServiceLink,
+        EnqueueCommand,
+        unknown,
+        IAnticipatedEvent
+      > = {
+        validate: vi.fn().mockResolvedValue(
+          Err(
+            new ConflictException({
+              message: 'Title already taken (async-detected)',
+              category: 'requires-review',
+              errorCode: 'urn:errors:title-already-taken',
+            }),
+          ),
+        ),
+        handle: vi.fn().mockReturnValue(domainSuccess([])),
+        getRegistration: vi.fn().mockReturnValue(mockRegistration),
+      }
+      const { commandQueue, storage } = await bootstrap({
+        domainExecutor: conflictDomainExecutor,
+      })
+      const enqueued = await commandQueue.enqueue({
+        command: { type: 'Test', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+
+      expect(enqueued.ok).toBe(false)
+      if (enqueued.ok) return
+      expect(isConflict(enqueued.error)).toBe(true)
+
+      const all = await storage.getCommands()
+      expect(all).toHaveLength(0)
     })
   })
 
@@ -1399,7 +1794,13 @@ describe('CommandQueue', () => {
         retryConfig: { maxAttempts: 2, initialDelay: 10 },
       })
       vi.mocked(commandSender.send).mockResolvedValue(
-        Err(new CommandSendException('Validation error', 'VALIDATION', false)),
+        Err(
+          new CommandSendException({
+            message: 'Validation error',
+            errorCode: 'VALIDATION',
+            isRetryable: false,
+          }),
+        ),
       )
 
       const result = await commandQueue.enqueue({
@@ -1442,7 +1843,7 @@ describe('CommandQueue', () => {
         retryConfig: { maxAttempts: 2, initialDelay: 10 },
       })
       vi.mocked(commandSender.send).mockResolvedValue(
-        Err(new CommandSendException('Error', 'ERROR', false)),
+        Err(new CommandSendException({ message: 'Error', errorCode: 'ERROR', isRetryable: false })),
       )
 
       const first = await commandQueue.enqueue({
@@ -1474,7 +1875,15 @@ describe('CommandQueue', () => {
         retryConfig: { maxAttempts: 2, initialDelay: 10 },
       })
       vi.mocked(commandSender.send)
-        .mockResolvedValueOnce(Err(new CommandSendException('Network error', 'NETWORK', true)))
+        .mockResolvedValueOnce(
+          Err(
+            new CommandSendException({
+              message: 'Network error',
+              errorCode: 'NETWORK',
+              isRetryable: true,
+            }),
+          ),
+        )
         .mockResolvedValueOnce(Ok({ id: '123' }))
 
       const result = await commandQueue.enqueue({
@@ -1582,7 +1991,15 @@ describe('CommandQueue', () => {
 
     it('clears pending retry timers', async () => {
       const commandSender: ICommandSender<ServiceLink, EnqueueCommand> = {
-        send: vi.fn().mockResolvedValue(Err(new CommandSendException('Error', 'NETWORK', true))),
+        send: vi.fn().mockResolvedValue(
+          Err(
+            new CommandSendException({
+              message: 'Error',
+              errorCode: 'NETWORK',
+              isRetryable: true,
+            }),
+          ),
+        ),
       }
       const { anticipatedEventHandler, commandQueue } = await bootstrap({
         commandSender,
@@ -2506,6 +2923,591 @@ describe('CommandQueue', () => {
 
       const updateCmd = await storage.getCommand(updateResult.value.commandId)
       expect(updateCmd?.revision).toMatchObject({ __autoRevision: true, fallback: '0' })
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Part 2 — hard vs soft command dependencies
+  // ---------------------------------------------------------------------------
+
+  describe('buildCommandDependencies (helper)', () => {
+    it('returns an empty list when all three origins are empty', () => {
+      expect(
+        buildCommandDependencies({ explicitDeps: [], autoDeps: [], refCommandIds: [] }),
+      ).toEqual([])
+    })
+
+    it('tags explicit deps with source `explicit`', () => {
+      expect(
+        buildCommandDependencies({
+          explicitDeps: ['cmd-a', 'cmd-b'],
+          autoDeps: [],
+          refCommandIds: [],
+        }),
+      ).toEqual([
+        { commandId: 'cmd-a', source: 'explicit' },
+        { commandId: 'cmd-b', source: 'explicit' },
+      ])
+    })
+
+    it('tags auto deps with source `aggregate-chain`', () => {
+      expect(
+        buildCommandDependencies({
+          explicitDeps: [],
+          autoDeps: ['cmd-a'],
+          refCommandIds: [],
+        }),
+      ).toEqual([{ commandId: 'cmd-a', source: 'aggregate-chain' }])
+    })
+
+    it('tags ref-derived deps with source `entity-ref`', () => {
+      expect(
+        buildCommandDependencies({
+          explicitDeps: [],
+          autoDeps: [],
+          refCommandIds: ['cmd-a'],
+        }),
+      ).toEqual([{ commandId: 'cmd-a', source: 'entity-ref' }])
+    })
+
+    it('on collision: entity-ref outranks explicit, both outrank aggregate-chain', () => {
+      // cmd-a is in all three origins; cmd-b is in explicit + aggregate-chain.
+      // Strictest-strength wins per the exploration doc's precedence rule.
+      const result = buildCommandDependencies({
+        explicitDeps: ['cmd-a', 'cmd-b'],
+        autoDeps: ['cmd-a', 'cmd-b', 'cmd-c'],
+        refCommandIds: ['cmd-a'],
+      })
+      expect(result).toContainEqual({ commandId: 'cmd-a', source: 'entity-ref' })
+      expect(result).toContainEqual({ commandId: 'cmd-b', source: 'explicit' })
+      expect(result).toContainEqual({ commandId: 'cmd-c', source: 'aggregate-chain' })
+      expect(result).toHaveLength(3)
+    })
+
+    it('preserves explicit ordering at the head of the result', () => {
+      const result = buildCommandDependencies({
+        explicitDeps: ['cmd-x', 'cmd-y'],
+        autoDeps: ['cmd-z'],
+        refCommandIds: ['cmd-w'],
+      })
+      expect(result.map((d) => d.commandId)).toEqual(['cmd-x', 'cmd-y', 'cmd-z', 'cmd-w'])
+    })
+  })
+
+  describe('source tagging at submit', () => {
+    it('tags explicit `dependsOn` entries with source `explicit`', async () => {
+      const { commandQueue, storage } = await bootstrap()
+      const first = await commandQueue.enqueue({
+        command: { type: 'First', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!first.ok) throw new Error('Expected success')
+      const second = await commandQueue.enqueue({
+        command: { type: 'Second', data: {}, dependsOn: [first.value.commandId] },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!second.ok) throw new Error('Expected success')
+
+      const stored = await storage.getCommand(second.value.commandId)
+      expect(stored?.dependsOn).toEqual([{ commandId: first.value.commandId, source: 'explicit' }])
+    })
+
+    it('tags aggregate-chain auto-deps with source `aggregate-chain`', async () => {
+      const { commandQueue, storage } = await bootstrap({
+        domainExecutor: itemDomainExecutor,
+      })
+
+      const update1 = await commandQueue.enqueue({
+        command: {
+          type: 'UpdateItem',
+          data: { id: 'existing-1', title: 'First' },
+          revision: autoRevision('1'),
+        },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!update1.ok) throw new Error('Expected success')
+
+      const update2 = await commandQueue.enqueue({
+        command: {
+          type: 'UpdateItem',
+          data: { id: 'existing-1', title: 'Second' },
+          revision: autoRevision('1'),
+        },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!update2.ok) throw new Error('Expected success')
+
+      const stored = await storage.getCommand(update2.value.commandId)
+      expect(stored?.dependsOn).toEqual([
+        { commandId: update1.value.commandId, source: 'aggregate-chain' },
+      ])
+    })
+
+    it('collision short-circuits to the strictest source (entity-ref outranks aggregate-chain)', async () => {
+      // A create followed by a mutate that references the created entity via
+      // its EntityRef — the dep appears via both EntityRef extraction (at the
+      // commandIdReferences path) AND aggregate-chain ordering on the same
+      // aggregate. The resulting record should carry the `'entity-ref'`
+      // source (strictest).
+      const { commandQueue, storage } = await bootstrap({
+        domainExecutor: itemDomainExecutor,
+      })
+
+      const create = await commandQueue.enqueue({
+        command: { type: 'CreateItem', data: { name: 'X' } },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!create.ok) throw new Error('Expected success')
+      const entityRef = create.value.entityRef
+      if (!entityRef) throw new Error('Expected entityRef')
+
+      const update = await commandQueue.enqueue({
+        command: {
+          type: 'UpdateItem',
+          data: { id: entityRef, title: 'New' },
+          revision: autoRevision(),
+        },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!update.ok) throw new Error('Expected success')
+
+      const stored = await storage.getCommand(update.value.commandId)
+      const edge = stored?.dependsOn.find((d) => d.commandId === create.value.commandId)
+      expect(edge).toEqual({
+        commandId: create.value.commandId,
+        source: 'entity-ref',
+      })
+    })
+  })
+
+  describe('cascade walk — hard vs soft', () => {
+    function failingSender(failingType: string): ICommandSender<ServiceLink, EnqueueCommand> {
+      return {
+        async send<TResponse>(
+          command: CommandRecord<ServiceLink, EnqueueCommand>,
+        ): Promise<Result<TResponse, CommandSendException>> {
+          if (command.type === failingType) {
+            return Err(
+              new CommandSendException({
+                message: 'Server rejected',
+                isRetryable: false,
+                response: { status: 400, headers: new Headers(), body: undefined },
+              }),
+            )
+          }
+          // Cast scoped to the Ok value only — the slot's `<TResponse>` is
+          // caller-chosen and the test fixture has a concrete shape, so the
+          // double-cast through `unknown` is the minimum the type system
+          // accepts here.
+          return Ok({ id: 'srv-1', nextExpectedRevision: '1', events: [] } as unknown as TResponse)
+        },
+      }
+    }
+
+    it('hard cascade: explicit dependent cancels when its dep fails', async () => {
+      const sender = failingSender('First')
+      const { commandQueue, storage } = await bootstrap({ commandSender: sender })
+      const first = await commandQueue.enqueue({
+        command: { type: 'First', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!first.ok) throw new Error('Expected success')
+
+      const second = await commandQueue.enqueue({
+        command: { type: 'Second', data: {}, dependsOn: [first.value.commandId] },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!second.ok) throw new Error('Expected success')
+
+      await commandQueue.resume()
+      await new Promise((r) => setTimeout(r, 50))
+
+      const firstStored = await storage.getCommand(first.value.commandId)
+      const secondStored = await storage.getCommand(second.value.commandId)
+      expect(firstStored?.status).toBe('failed')
+      // Explicit dep is hard by construction — cascade cancels the dependent.
+      expect(secondStored?.status).toBe('cancelled')
+    })
+
+    it('soft cascade: aggregate-chain dependent without classifier flips to pending after dep fails', async () => {
+      const sender = failingSender('UpdateItem')
+      const { commandQueue, storage } = await bootstrap({
+        domainExecutor: itemDomainExecutor,
+        commandSender: sender,
+      })
+
+      const update1 = await commandQueue.enqueue({
+        command: {
+          type: 'UpdateItem',
+          data: { id: 'existing-1', title: 'First' },
+          revision: autoRevision('1'),
+        },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!update1.ok) throw new Error('Expected success')
+
+      const update2 = await commandQueue.enqueue({
+        command: {
+          type: 'UpdateItem',
+          data: { id: 'existing-1', title: 'Second' },
+          revision: autoRevision('1'),
+        },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!update2.ok) throw new Error('Expected success')
+
+      // Confirm the chain wired the second behind the first as aggregate-chain.
+      const initial = await storage.getCommand(update2.value.commandId)
+      expect(initial?.dependsOn).toEqual([
+        { commandId: update1.value.commandId, source: 'aggregate-chain' },
+      ])
+      expect(initial?.status).toBe('blocked')
+
+      // Drain: first fails, second is on a chain-only edge with no classifier
+      // registered → default soft → blockedBy cleared, status flips to pending.
+      // The sender is configured to reject the second too, so by the time the
+      // drain settles the second has its own server failure rather than a
+      // cascade-cancellation.
+      await commandQueue.resume()
+      await new Promise((r) => setTimeout(r, 50))
+
+      const firstStored = await storage.getCommand(update1.value.commandId)
+      const secondStored = await storage.getCommand(update2.value.commandId)
+      expect(firstStored?.status).toBe('failed')
+      // The dependent must NOT be 'cancelled' — soft cascade leaves it to the
+      // server. It either reaches 'failed' on its own send attempt OR is
+      // still pending depending on how the drain raced. Either way, no
+      // automatic 'cancelled'.
+      expect(secondStored?.status).not.toBe('cancelled')
+      // And the dep edge no longer gates it.
+      expect(secondStored?.blockedBy).not.toContain(update1.value.commandId)
+    })
+
+    it('classifier returning `hard` causes cascade-cancel on aggregate-chain edge', async () => {
+      const classifyDependency = vi.fn().mockReturnValue('hard')
+      const { commandQueue, storage, commandStore } = await bootstrap({
+        domainExecutor: {
+          validate: vi.fn().mockResolvedValue(Ok({})),
+          handle: vi.fn().mockReturnValue(domainSuccess([])),
+          getRegistration: vi.fn().mockReturnValue({
+            ...mockRegistration,
+            classifyDependency,
+          }),
+        },
+        commandSender: failingSender('First'),
+      })
+
+      const first = await commandQueue.enqueue({
+        command: { type: 'First', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!first.ok) throw new Error('Expected success')
+      const second = await commandQueue.enqueue({
+        command: { type: 'Second', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!second.ok) throw new Error('Expected success')
+      // The mock executor doesn't produce `affectedAggregates`, so the queue
+      // wouldn't auto-derive an aggregate-chain edge on its own. Synthesize
+      // one through CommandStore (which both updates the in-memory cache
+      // and persists) so cascade has a chain-typed edge to classify.
+      commandStore.update(second.value.commandId, {
+        status: 'blocked',
+        dependsOn: [{ commandId: first.value.commandId, source: 'aggregate-chain' }],
+        blockedBy: [first.value.commandId],
+      })
+
+      await commandQueue.resume()
+      await new Promise((r) => setTimeout(r, 50))
+
+      expect(classifyDependency).toHaveBeenCalledTimes(1)
+      const dependentInput = classifyDependency.mock.calls[0]![0]
+      const parentInput = classifyDependency.mock.calls[0]![1]
+      expect(dependentInput.command.commandId).toBe(second.value.commandId)
+      expect(parentInput.command.commandId).toBe(first.value.commandId)
+      expect(Array.isArray(dependentInput.events)).toBe(true)
+      expect(Array.isArray(parentInput.events)).toBe(true)
+
+      const updated = await storage.getCommand(second.value.commandId)
+      expect(updated?.status).toBe('cancelled')
+    })
+
+    it('classifier is NOT consulted for `explicit` or `entity-ref` edges (short-circuit hard)', async () => {
+      const classifyDependency = vi.fn().mockReturnValue('soft')
+      const { commandQueue, storage } = await bootstrap({
+        domainExecutor: {
+          validate: vi.fn().mockResolvedValue(Ok({})),
+          handle: vi.fn().mockReturnValue(domainSuccess([])),
+          getRegistration: vi.fn().mockReturnValue({
+            ...mockRegistration,
+            classifyDependency,
+          }),
+        },
+        commandSender: failingSender('First'),
+      })
+
+      const first = await commandQueue.enqueue({
+        command: { type: 'First', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!first.ok) throw new Error('Expected success')
+
+      // Explicit dep — short-circuits to hard regardless of classifier result.
+      const second = await commandQueue.enqueue({
+        command: { type: 'Second', data: {}, dependsOn: [first.value.commandId] },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!second.ok) throw new Error('Expected success')
+
+      await commandQueue.resume()
+      await new Promise((r) => setTimeout(r, 50))
+
+      expect(classifyDependency).not.toHaveBeenCalled()
+      const updated = await storage.getCommand(second.value.commandId)
+      expect(updated?.status).toBe('cancelled')
+    })
+
+    it('classifier throw propagates and halts the cascade walk', async () => {
+      const classifyDependency = vi.fn(() => {
+        throw new Error('classifier exploded')
+      })
+      const { commandQueue, storage, commandStore } = await bootstrap({
+        domainExecutor: {
+          validate: vi.fn().mockResolvedValue(Ok({})),
+          handle: vi.fn().mockReturnValue(domainSuccess([])),
+          getRegistration: vi.fn().mockReturnValue({
+            ...mockRegistration,
+            classifyDependency,
+          }),
+        },
+        commandSender: failingSender('First'),
+      })
+
+      const first = await commandQueue.enqueue({
+        command: { type: 'First', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!first.ok) throw new Error('Expected success')
+      const second = await commandQueue.enqueue({
+        command: { type: 'Second', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!second.ok) throw new Error('Expected success')
+      commandStore.update(second.value.commandId, {
+        status: 'blocked',
+        dependsOn: [{ commandId: first.value.commandId, source: 'aggregate-chain' }],
+        blockedBy: [first.value.commandId],
+      })
+
+      // Drain — the failure of `First` runs cascade; classifier throws; the
+      // throw propagates out of `processPendingCommands`. We swallow it on
+      // the resume path so the test can inspect post-state.
+      await commandQueue.resume().catch(() => {})
+      await new Promise((r) => setTimeout(r, 50))
+
+      expect(classifyDependency).toHaveBeenCalledTimes(1)
+      // Parent did transition to 'failed' (transition runs before cascade).
+      const firstStored = await storage.getCommand(first.value.commandId)
+      expect(firstStored?.status).toBe('failed')
+      // Dependent stayed gated — the cascade walk threw before it could act.
+      const updated = await storage.getCommand(second.value.commandId)
+      expect(updated?.status).toBe('blocked')
+    })
+
+    it('multi-level cascade: A fails → B hard-cancels → C-against-B classified after B detaches', async () => {
+      // A → B → C linear chain. A fails (server). B's edge to A is hard
+      // (registration's classifier returns 'hard') so B cancels via the
+      // outer cascade. The walk then recurses into B's dependents and
+      // classifies C against the now-cancelled B; C's classifier returns
+      // 'soft' so C unblocks instead of cascade-cancelling. Together these
+      // exercise the recursion + the "chain stitching falls out for free"
+      // claim — by the time C is classified, B's terminal-status cleanup
+      // has already fired.
+      const aClassifier = vi.fn().mockReturnValue('hard')
+      const bClassifier = vi.fn().mockReturnValue('hard') // (B, A) → hard
+      const cClassifier = vi.fn().mockReturnValue('soft') // (C, B) → soft
+      const registrations: Record<string, unknown> = {
+        A: { ...mockRegistration, classifyDependency: aClassifier },
+        B: { ...mockRegistration, classifyDependency: bClassifier },
+        C: { ...mockRegistration, classifyDependency: cClassifier },
+      }
+      const { commandQueue, storage, commandStore } = await bootstrap({
+        domainExecutor: {
+          validate: vi.fn().mockResolvedValue(Ok({})),
+          handle: vi.fn().mockReturnValue(domainSuccess([])),
+          getRegistration: vi
+            .fn()
+            .mockImplementation((type: string) => registrations[type] ?? mockRegistration),
+        },
+        commandSender: failingSender('A'),
+      })
+
+      const a = await commandQueue.enqueue({
+        command: { type: 'A', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!a.ok) throw new Error('Expected success')
+      const b = await commandQueue.enqueue({
+        command: { type: 'B', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!b.ok) throw new Error('Expected success')
+      const c = await commandQueue.enqueue({
+        command: { type: 'C', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!c.ok) throw new Error('Expected success')
+
+      // Synthesize the chain edges (mock executor produces no
+      // affectedAggregates, so we wire them by hand).
+      commandStore.update(b.value.commandId, {
+        status: 'blocked',
+        dependsOn: [{ commandId: a.value.commandId, source: 'aggregate-chain' }],
+        blockedBy: [a.value.commandId],
+      })
+      commandStore.update(c.value.commandId, {
+        status: 'blocked',
+        dependsOn: [{ commandId: b.value.commandId, source: 'aggregate-chain' }],
+        blockedBy: [b.value.commandId],
+      })
+
+      await commandQueue.resume()
+      await new Promise((r) => setTimeout(r, 50))
+
+      // B-classifier called once for (B, A); C-classifier called once for (C, B).
+      expect(bClassifier).toHaveBeenCalledTimes(1)
+      expect(bClassifier.mock.calls[0]![0].command.commandId).toBe(b.value.commandId)
+      expect(bClassifier.mock.calls[0]![1].command.commandId).toBe(a.value.commandId)
+
+      expect(cClassifier).toHaveBeenCalledTimes(1)
+      expect(cClassifier.mock.calls[0]![0].command.commandId).toBe(c.value.commandId)
+      // C's classifier sees B as the parent — the recursive cascade walks
+      // B's direct dependents, so the classifier input's parent is B (now
+      // in 'cancelled') and not A (the original failure).
+      expect(cClassifier.mock.calls[0]![1].command.commandId).toBe(b.value.commandId)
+
+      const aStored = await storage.getCommand(a.value.commandId)
+      const bStored = await storage.getCommand(b.value.commandId)
+      const cStored = await storage.getCommand(c.value.commandId)
+      expect(aStored?.status).toBe('failed')
+      expect(bStored?.status).toBe('cancelled')
+      // C: soft cascade against B → unblocked, not cancelled.
+      expect(cStored?.status).not.toBe('cancelled')
+      expect(cStored?.blockedBy).not.toContain(b.value.commandId)
+    })
+
+    it('markFailedFromConflict triggers the same cascade walk', async () => {
+      // Pipeline-time conflicts (regenerate during reconcile / id-rewrite /
+      // AutoRevision resolution) route through `markFailedFromConflict`,
+      // which transitions the persisted command to 'failed' and walks its
+      // dependents. Tested directly here because the failure-driven path
+      // already covers `processCommandFailure`; this locks in that both
+      // entry points share the cascade.
+      const { commandQueue, storage, commandStore } = await bootstrap({
+        domainExecutor: {
+          validate: vi.fn().mockResolvedValue(Ok({})),
+          handle: vi.fn().mockReturnValue(domainSuccess([])),
+          getRegistration: vi.fn().mockReturnValue(mockRegistration),
+        },
+      })
+
+      const first = await commandQueue.enqueue({
+        command: { type: 'First', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!first.ok) throw new Error('Expected success')
+      const second = await commandQueue.enqueue({
+        command: { type: 'Second', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!second.ok) throw new Error('Expected success')
+      commandStore.update(second.value.commandId, {
+        status: 'blocked',
+        dependsOn: [{ commandId: first.value.commandId, source: 'aggregate-chain' }],
+        blockedBy: [first.value.commandId],
+      })
+
+      await commandQueue.markFailedFromConflict(
+        first.value.commandId,
+        new ConflictException({
+          message: 'forbidden',
+          category: 'requires-review',
+        }),
+      )
+
+      const firstStored = await storage.getCommand(first.value.commandId)
+      const secondStored = await storage.getCommand(second.value.commandId)
+      expect(firstStored?.status).toBe('failed')
+      // Chain-only soft cascade — second is not cancelled.
+      expect(secondStored?.status).not.toBe('cancelled')
+      expect(secondStored?.blockedBy).not.toContain(first.value.commandId)
+    })
+
+    it('classifier receives parent anticipated events captured before cleanup', async () => {
+      // The cascade walk must snapshot anticipated events BEFORE the
+      // terminal-status transition triggers `cleanupOnFailure` (which would
+      // purge them from EventCache). This test verifies the wiring by
+      // controlling what `getAnticipatedEvents(parent.commandId)` returns
+      // and asserting those exact events surface in the classifier's
+      // `dependsOnCommand.events` slot.
+      const classifyDependency = vi.fn().mockReturnValue('hard')
+      const parentEvent: IAnticipatedEvent = {
+        type: 'ParentDidThing',
+        streamId: 'parent-stream',
+        data: { id: 'entity-1', tag: 'archived' } as IAnticipatedEvent['data'],
+      }
+      const dependentEvent: IAnticipatedEvent = {
+        type: 'DependentDidThing',
+        streamId: 'dependent-stream',
+        data: { id: 'entity-1', tag: 'renamed' } as IAnticipatedEvent['data'],
+      }
+
+      const { commandQueue, anticipatedEventHandler, commandStore } = await bootstrap({
+        domainExecutor: {
+          validate: vi.fn().mockResolvedValue(Ok({})),
+          handle: vi.fn().mockReturnValue(domainSuccess([])),
+          getRegistration: vi.fn().mockReturnValue({ ...mockRegistration, classifyDependency }),
+        },
+        commandSender: failingSender('First'),
+      })
+
+      const first = await commandQueue.enqueue({
+        command: { type: 'First', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!first.ok) throw new Error('Expected success')
+      const second = await commandQueue.enqueue({
+        command: { type: 'Second', data: {} },
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      if (!second.ok) throw new Error('Expected success')
+      commandStore.update(second.value.commandId, {
+        status: 'blocked',
+        dependsOn: [{ commandId: first.value.commandId, source: 'aggregate-chain' }],
+        blockedBy: [first.value.commandId],
+      })
+
+      // Wire `getAnticipatedEvents` to return per-commandId events. The
+      // cascade walk pre-snapshots both parent and dependent events.
+      anticipatedEventHandler.getAnticipatedEvents.mockImplementation((cid: string) => {
+        if (cid === first.value.commandId) return Promise.resolve([parentEvent])
+        if (cid === second.value.commandId) return Promise.resolve([dependentEvent])
+        return Promise.resolve([])
+      })
+
+      await commandQueue.resume()
+      await new Promise((r) => setTimeout(r, 50))
+
+      expect(classifyDependency).toHaveBeenCalledTimes(1)
+      const [myInput, parentInput] = classifyDependency.mock.calls[0]!
+      // The dependent sees its own anticipated events.
+      expect(myInput.command.commandId).toBe(second.value.commandId)
+      expect(myInput.events).toEqual([dependentEvent])
+      // The parent sees the pre-cleanup snapshot — the events flow through
+      // even though by this point `cleanupOnFailure` has fired for the
+      // parent's transition to 'failed'.
+      expect(parentInput.command.commandId).toBe(first.value.commandId)
+      expect(parentInput.events).toEqual([parentEvent])
     })
   })
 

@@ -8,8 +8,8 @@ import type { CommandHandlerRegistration, HandlerContext } from './domain.js'
 import {
   createDomainExecutor,
   createEntityId,
-  domainFailure,
   domainSuccess,
+  domainValidationError,
   isUnknownCommand,
 } from './domain.js'
 import { isValidationException, ValidationException } from './validation.js'
@@ -74,14 +74,14 @@ describe('createDomainExecutor', () => {
 
     const result = executor.handle(
       { type: 'CreateTodo', data: { content: 'test' } },
-      undefined,
+      { mode: 'initial', initial: undefined },
       INITIALIZING,
     )
 
-    expect(result.ok).toBe(true)
-    if (result.ok) {
-      expect(result.value.anticipatedEvents).toHaveLength(1)
-      expect(result.value.anticipatedEvents[0]).toMatchObject({
+    expect(result.kind).toBe('success')
+    if (result.kind === 'success') {
+      expect(result.events).toHaveLength(1)
+      expect(result.events[0]).toMatchObject({
         type: 'TodoCreated',
         data: { content: 'test' },
       })
@@ -111,13 +111,13 @@ describe('createDomainExecutor', () => {
 
     const result = executor.handle(
       { type: 'CreateNamed', data: { name: 'value' } },
-      undefined,
+      { mode: 'initial', initial: undefined },
       INITIALIZING,
     )
 
-    expect(result.ok).toBe(true)
-    if (result.ok) {
-      expect(result.value.anticipatedEvents[0]).toMatchObject({
+    expect(result.kind).toBe('success')
+    if (result.kind === 'success') {
+      expect(result.events[0]).toMatchObject({
         type: 'NamedCreated',
         data: { name: 'value' },
       })
@@ -145,7 +145,11 @@ describe('createDomainExecutor', () => {
       entityId: 'entity-123',
       commandId: 'test-cmd',
     }
-    executor.handle({ type: 'UpdateEntity', data: {} }, undefined, updatingContext)
+    executor.handle(
+      { type: 'UpdateEntity', data: {} },
+      { mode: 'initial', initial: undefined },
+      updatingContext,
+    )
 
     expect(receivedContext).toEqual({
       phase: 'updating',
@@ -157,7 +161,10 @@ describe('createDomainExecutor', () => {
   it('returns UnknownCommandException for unregistered command type', async () => {
     const executor = createDomainExecutor(registrations)
 
-    const result = await executor.validate({ type: 'UnknownCommand', data: {} }, undefined)
+    const result = await executor.validate(
+      { type: 'UnknownCommand', data: {} },
+      { mode: 'initial', initial: undefined },
+    )
 
     expect(result.ok).toBe(false)
     if (!result.ok) {
@@ -200,20 +207,23 @@ describe('createDomainExecutor', () => {
         aggregate: ItemAggregate,
         commandIdReferences: [],
         handler() {
-          return domainFailure([
+          return domainValidationError([
             { path: 'name', code: 'required', message: 'name must not be empty', params: {} },
           ])
         },
       },
     ])
 
-    const result = executor.handle({ type: 'ValidateOnly', data: {} }, undefined, INITIALIZING)
+    const result = executor.handle(
+      { type: 'ValidateOnly', data: {} },
+      { mode: 'initial', initial: undefined },
+      INITIALIZING,
+    )
 
-    expect(result.ok).toBe(false)
-    if (!result.ok) {
-      expect(isValidationException(result.error)).toBe(true)
-      if (!isValidationException(result.error)) return
-      expect(result.error.details).toEqual([
+    expect(result.kind).toBe('validation-error')
+    if (result.kind === 'validation-error') {
+      expect(isValidationException(result.exception)).toBe(true)
+      expect(result.exception.details).toEqual([
         { path: 'name', code: 'required', message: 'name must not be empty', params: {} },
       ])
     }
@@ -252,7 +262,11 @@ describe('createDomainExecutor', () => {
       entityId: 'e-1',
       commandId: 'test-cmd',
     }
-    executor.handle({ type: 'UpdateEntity', data: {} }, undefined, updatingContext)
+    executor.handle(
+      { type: 'UpdateEntity', data: {} },
+      { mode: 'initial', initial: undefined },
+      updatingContext,
+    )
 
     expect(validateCalled).toBe(false)
     expect(validateAsyncCalled).toBe(false)
@@ -287,7 +301,10 @@ describe('createDomainExecutor', () => {
       { queryManager: mockQueryManager },
     )
 
-    const result = await executor.validate({ type: 'CreateNamed', data: { name: 'x' } }, undefined)
+    const result = await executor.validate(
+      { type: 'CreateNamed', data: { name: 'x' } },
+      { mode: 'initial', initial: undefined },
+    )
 
     expect(result.ok).toBe(false)
     if (!result.ok) {
@@ -327,11 +344,15 @@ describe('createDomainExecutor', () => {
     )
 
     const command = { type: 'EnrichData', data: { original: true } } as const
-    const validateResult = await executor.validate(command, undefined)
+    const validateResult = await executor.validate(command, { mode: 'initial', initial: undefined })
     expect(validateResult.ok).toBe(true)
     if (!validateResult.ok) return
 
-    executor.handle({ ...command, data: validateResult.value }, undefined, INITIALIZING)
+    executor.handle(
+      { ...command, data: validateResult.value },
+      { mode: 'initial', initial: undefined },
+      INITIALIZING,
+    )
 
     expect(handlerData).toEqual({ original: true, enriched: true })
   })
@@ -359,7 +380,10 @@ describe('createDomainExecutor', () => {
       { queryManager: mockQueryManager },
     )
 
-    await executor.validate({ type: 'UpdateEntity', data: {}, path: { id: 'abc-123' } }, undefined)
+    await executor.validate(
+      { type: 'UpdateEntity', data: {}, path: { id: 'abc-123' } },
+      { mode: 'initial', initial: undefined },
+    )
 
     expect(receivedPath).toEqual({ id: 'abc-123' })
   })
@@ -402,6 +426,15 @@ describe('commandIdReferences path validation', () => {
     ).not.toThrow()
   })
 
+  it('accepts $.headers[...] paths', () => {
+    expect(() =>
+      createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>(
+        [registrationWithPaths("$.headers['x-tenant-id']")],
+        { queryManager: mockQueryManager },
+      ),
+    ).not.toThrow()
+  })
+
   it('accepts bracket form $["data"].x', () => {
     expect(() =>
       createDomainExecutor<ServiceLink, TestCommand, unknown, IAnticipatedEvent>(
@@ -426,7 +459,7 @@ describe('commandIdReferences path validation', () => {
         [registrationWithPaths('$.notebookId')],
         { queryManager: mockQueryManager },
       ),
-    ).toThrow(/root segment must be "data" or "path"/)
+    ).toThrow(/root segment must be "data", "path", or "headers"/)
   })
 
   it('rejects unknown root $.foo.bar', () => {
@@ -435,7 +468,7 @@ describe('commandIdReferences path validation', () => {
         [registrationWithPaths('$.foo.bar')],
         { queryManager: mockQueryManager },
       ),
-    ).toThrow(/root segment must be "data" or "path"/)
+    ).toThrow(/root segment must be "data", "path", or "headers"/)
   })
 
   it('includes command type in error message', () => {
@@ -453,6 +486,6 @@ describe('commandIdReferences path validation', () => {
         [registrationWithPaths('$.data.ok', '$.bad')],
         { queryManager: mockQueryManager },
       ),
-    ).toThrow(/root segment must be "data" or "path"/)
+    ).toThrow(/root segment must be "data", "path", or "headers"/)
   })
 })

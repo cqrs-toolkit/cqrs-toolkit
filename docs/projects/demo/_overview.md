@@ -6,8 +6,8 @@
 **Depends on (within repo):** every package (`client`, `client-electron`, `client-solid`, `hypermedia`, `hypermedia-client`, `hypermedia-cli`, `realtime`, `schema`, `devtools`)
 **Depended on by (within repo):** none — terminal consumer
 
-*Note on `devtools`.* Listed despite no direct source import.
-The todo sub-project's e2e suite (`demos/todo-demo/tests/extension/`) *defines* the devtools extension's end-to-end tests, making the extension an effective dep of the demo system.
+_Note on `devtools`._ Listed despite no direct source import.
+The todo sub-project's e2e suite (`demos/todo-demo/tests/extension/`) _defines_ the devtools extension's end-to-end tests, making the extension an effective dep of the demo system.
 This is a deliberate exception to the [direct-source-import counting rule](../_overview.md) — flagged so the rule's strictness elsewhere isn't softened by this one entry.
 
 ## Purpose
@@ -33,13 +33,13 @@ It serves four equally-important goals — all of them load-bearing, none "good 
 
 ## Sub-projects
 
-The demo system is organised as three logical demos, each its own sub-project castle:
+The demo system is organized as three logical demos, each its own sub-project castle:
 
-| Sub-project | Castle | Composing demo packages |
-|---|---|---|
-| Todo | [`projects/todo/`](projects/todo/_overview.md) | `demos/base`, `demos/todo-demo` |
-| Hypermedia | [`projects/hypermedia/`](projects/hypermedia/_overview.md) | `demos/hypermedia-base`, `demos/hypermedia-server`, `demos/hypermedia-web` |
-| Electron | [`projects/electron/`](projects/electron/_overview.md) | `demos/hypermedia-electron` |
+| Sub-project | Castle                                                     | Composing demo packages                                                    |
+| ----------- | ---------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Todo        | [`projects/todo/`](projects/todo/_overview.md)             | `demos/base`, `demos/todo-demo`                                            |
+| Hypermedia  | [`projects/hypermedia/`](projects/hypermedia/_overview.md) | `demos/hypermedia-base`, `demos/hypermedia-server`, `demos/hypermedia-web` |
+| Electron    | [`projects/electron/`](projects/electron/_overview.md)     | `demos/hypermedia-electron`                                                |
 
 Each sub-castle's own `_overview.md` carries that sub-project's `Depends on` list — the union of upstream `@cqrs-toolkit/*` packages imported by its composing demo packages.
 
@@ -50,11 +50,11 @@ Each sub-castle's own `_overview.md` carries that sub-project's `Depends on` lis
 A new demo project becomes a sub-project under [`projects/`](projects/) when it composes multiple packages — exercising the toolkit as a unified system rather than illustrating one package in isolation.
 This is the case for every demo currently in the monorepo, and is the expected case for future integrations and technology adapters.
 
-| Demo characterisation | Lives at | Examples |
-|---|---|---|
-| Composes multiple packages to demonstrate end-to-end behaviour | `docs/projects/demo/projects/<name>/` (here) | `todo`, `hypermedia`, `electron` |
-| Future technology / framework integrations (e.g. Tauri, React, Vue, Svelte adapter demos) | `docs/projects/demo/projects/<name>/` (here) | _none yet — system-level by definition_ |
-| Exists to show one package in isolation, with no other-package composition | That package's castle (e.g. as a small inline example in the package's `_overview.md`) | _none currently — would be a degenerate case_ |
+| Demo characterization                                                                     | Lives at                                                                               | Examples                                      |
+| ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Composes multiple packages to demonstrate end-to-end behaviour                            | `docs/projects/demo/projects/<name>/` (here)                                           | `todo`, `hypermedia`, `electron`              |
+| Future technology / framework integrations (e.g. Tauri, React, Vue, Svelte adapter demos) | `docs/projects/demo/projects/<name>/` (here)                                           | _none yet — system-level by definition_       |
+| Exists to show one package in isolation, with no other-package composition                | That package's castle (e.g. as a small inline example in the package's `_overview.md`) | _none currently — would be a degenerate case_ |
 
 In practice every demo in this monorepo composes the client with at least one other package, so they all live here.
 A package-internal demo would be a degenerate case worth no more than a short inline example in that package's `_overview.md`.

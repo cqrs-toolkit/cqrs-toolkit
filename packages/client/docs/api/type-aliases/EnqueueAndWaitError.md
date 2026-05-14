@@ -6,6 +6,6 @@
 
 # Type Alias: EnqueueAndWaitError
 
-> **EnqueueAndWaitError** = [`DomainExecutionError`](DomainExecutionError.md) \| [`CommandCompletionError`](CommandCompletionError.md)
+> **EnqueueAndWaitError** = [`EnqueueRejection`](EnqueueRejection.md) \| [`CommandCompletionError`](CommandCompletionError.md)
 
 Error union for enqueueAndWait — enqueue validation or completion failure.

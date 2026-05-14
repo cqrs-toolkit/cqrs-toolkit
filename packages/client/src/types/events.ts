@@ -28,6 +28,9 @@ export interface AnticipatedEventMeta {
 export interface AnticipatedEvent<TData = unknown> {
   type: string
   data: TData
+  /** Optional metadata; mirrors the server's persisted-event metadata locations
+   *  (e.g. `inTenant`) so projector code reads from the same place uniformly. */
+  metadata?: Record<string, unknown>
   streamId: string
   id: string
   createdAt: number

@@ -64,6 +64,24 @@ describe('rewriteCommandWithIdMap', () => {
       expect(result.data).toEqual({ title: 'hello' })
     })
 
+    it('rewrites a bracket header path keyed by an arbitrary header name', () => {
+      const refs: IdReference<ServiceLink>[] = [
+        { aggregate: notebookAggregate, path: "$.headers['x-tenant-id']" },
+      ]
+      const entries: RewriteIdEntry<ServiceLink>[] = [
+        { clientId: 'tmp-1', serverId: 'server-1', aggregate: notebookAggregate },
+      ]
+      const result = rewriteCommandWithIdMap(
+        { data: { title: 'hello' }, headers: { 'x-tenant-id': 'tmp-1' } },
+        undefined,
+        entries,
+        refs,
+      )
+      expect(result.changed).toBe(true)
+      expect(result.headers).toEqual({ 'x-tenant-id': 'server-1' })
+      expect(result.data).toEqual({ title: 'hello' })
+    })
+
     it('rewrites wildcard array paths', () => {
       const refs: IdReference<ServiceLink>[] = [
         { aggregate: fileAggregate, path: '$.data.attachments[*].fileId' },

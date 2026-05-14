@@ -40,23 +40,23 @@ export function createPresignedUploadHandler<
   return async (command, body) => {
     if (!isPresignedPermit(body)) {
       return Err(
-        new CommandSendException(
-          'Invalid presigned permit response',
-          'INVALID_RESPONSE',
-          false,
-          body,
-        ),
+        new CommandSendException({
+          message: 'Invalid presigned permit response',
+          errorCode: 'INVALID_RESPONSE',
+          isRetryable: false,
+          details: body,
+        }),
       )
     }
 
     const file = command.fileRefs?.[0]
     if (!file?.data) {
       return Err(
-        new CommandSendException(
-          'Presigned upload command requires a file attachment',
-          'MISSING_FILE',
-          false,
-        ),
+        new CommandSendException({
+          message: 'Presigned upload command requires a file attachment',
+          errorCode: 'MISSING_FILE',
+          isRetryable: false,
+        }),
       )
     }
 
@@ -74,21 +74,20 @@ export function createPresignedUploadHandler<
       res = await fetch(uploadForm.url, { method: 'POST', body: form })
     } catch (err) {
       return Err(
-        new CommandSendException(
-          `Upload network error: ${err instanceof Error ? err.message : String(err)}`,
-          'NETWORK',
-          true,
-        ),
+        new CommandSendException({
+          message: `Upload network error: ${err instanceof Error ? err.message : String(err)}`,
+          errorCode: 'NETWORK',
+          isRetryable: true,
+        }),
       )
     }
 
     if (!res.ok) {
       return Err(
-        new CommandSendException(
-          `Presigned upload failed: ${res.status}`,
-          String(res.status),
-          res.status >= 500,
-        ),
+        new CommandSendException({
+          message: `Presigned upload failed: ${res.status}`,
+          response: { status: res.status, headers: res.headers, body: undefined },
+        }),
       )
     }
 

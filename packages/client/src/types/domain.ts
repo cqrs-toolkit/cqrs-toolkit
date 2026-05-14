@@ -4,20 +4,20 @@
  */
 
 import { assert, generateId } from '#utils'
-import {
-  Err,
-  type ErrResult,
-  Exception,
-  type Link,
-  Ok,
-  type OkResult,
-  type Result,
-} from '@meticoeus/ddd-es'
+import { Err, Exception, type Link, Ok, type Result } from '@meticoeus/ddd-es'
 import type { CacheKeyIdentity } from '../core/cache-manager/CacheKey.js'
 import type { IAnticipatedEvent } from '../core/command-lifecycle/AnticipatedEventShape.js'
 import type { IQueryManager } from '../core/query-manager/types.js'
 import { AggregateConfig, type IdReference, ResponseIdReference } from './aggregates.js'
-import type { CommandRecord, EnqueueCommand, HandlerCommand } from './commands.js'
+import {
+  type CommandRecord,
+  ConflictException,
+  type EnqueueCommand,
+  type FailureCategory,
+  type FailureMapper,
+  type HandlerCommand,
+  type HandlerState,
+} from './commands.js'
 import { createEntityRef, type EntityId, type EntityRef } from './entities.js'
 import type { JSONPathExpression } from './json-path.js'
 import { ValidationError, ValidationException } from './validation.js'
@@ -88,16 +88,6 @@ export interface CreateCommandConfig {
 }
 
 /**
- * Successful domain execution data.
- */
-export interface DomainExecutionSuccess<TEvent> {
-  /** Events to apply optimistically */
-  anticipatedEvents: TEvent[]
-  /** Optional post-processing instructions */
-  postProcessPlan?: PostProcessPlan
-}
-
-/**
  * The domain executor received a command type with no registered handler.
  */
 export class UnknownCommandException extends Exception {
@@ -114,17 +104,33 @@ export function isUnknownCommand(e: unknown): e is UnknownCommandException {
 }
 
 /**
- * Domain execution error — either validation failure or unknown command.
+ * Outcome of a domain handler invocation — a flat discriminated union over
+ * the four cases the handler can produce. This replaces the prior
+ * `Result<DomainExecutionSuccess, DomainExecutionError>` shape so each
+ * outcome reads as a peer rather than nested error variants.
+ *
+ * - `'success'` — produced anticipated events (and optional post-process plan).
+ * - `'validation-error'` — pre-handler structural / sync / async validation
+ *   failed; the command is rejected at submit and not persisted.
+ * - `'unknown-command'` — no registration for this command type. Rejected at
+ *   submit. Bug-shaped on regenerate paths.
+ * - `'conflict'` — the handler detected a state conflict (using
+ *   `{ initial, current }`) and is signaling a categorized failure. The
+ *   command persists with the carried `category` accessible to the queue
+ *   and UI.
+ *
+ * `validate` keeps `Result<unknown, ValidationException>` — sync, no read-model access.
+ * `validateAsync` widens to `Result<unknown, ValidationException | ConflictException>`
+ * because it has `queryManager` access and is a natural place to detect conflicts
+ * ("another entity already has this name"). Submit-time conflicts and validation errors
+ * flow through the same submit `Err` path; the consumer discriminates via the exception
+ * type if they care.
  */
-export type DomainExecutionError = ValidationException | UnknownCommandException
-
-/**
- * Result of domain command execution.
- */
-export type DomainExecutionResult<TEvent> = Result<
-  DomainExecutionSuccess<TEvent>,
-  DomainExecutionError
->
+export type DomainExecutionOutcome<TEvent> =
+  | { kind: 'success'; events: TEvent[]; postProcessPlan?: PostProcessPlan }
+  | { kind: 'validation-error'; exception: ValidationException }
+  | { kind: 'unknown-command'; exception: UnknownCommandException }
+  | { kind: 'conflict'; exception: ConflictException }
 
 // ---------------------------------------------------------------------------
 // Handler context
@@ -233,26 +239,31 @@ export interface IDomainExecutor<
    * Run validation phases (schema, validate, validateAsync) on the command data.
    * Returns the validated/hydrated data on success, or a validation error.
    *
-   * Does NOT run the handler.
+   * Does NOT run the handler. Validation is binary (succeeded with hydrated
+   * data, or failed); the algebraic outcome shape only applies at the handler
+   * boundary where 3+ outcomes are legitimately distinct.
    */
   validate(
     command: ExecutorCommand,
-    state: unknown | undefined,
-  ): Promise<Result<unknown, DomainExecutionError>>
+    state: HandlerState,
+  ): Promise<Result<unknown, ValidationException | UnknownCommandException | ConflictException>>
 
   /**
    * Run the handler only. No validation.
-   * Produces anticipated events from the (possibly transformed) command data.
+   * Produces anticipated events, a conflict signal, or an executor-level
+   * error from the (possibly transformed) command data.
    *
    * @param command - The command envelope with data ready for the handler
+   * @param state   - {@link HandlerState} carrying `initial` (submit-time snapshot)
+   *                  and `current` (post-server-event view on regenerate)
    * @param context - Execution context (phase and entity ID for regeneration)
-   * @returns Success with anticipated events, or failure
+   * @returns A {@link DomainExecutionOutcome} discriminated on `kind`.
    */
   handle(
     command: ExecutorCommand,
-    state: unknown | undefined,
+    state: HandlerState,
     context: HandlerContext,
-  ): DomainExecutionResult<TEvent>
+  ): DomainExecutionOutcome<TEvent>
 
   getRegistration(
     commandType: string,
@@ -260,38 +271,59 @@ export interface IDomainExecutor<
 }
 
 /**
- * Type guard for successful domain execution.
+ * Type guard for the success variant of a domain execution outcome.
+ *
+ * Discriminator-based narrowing (`if (outcome.kind === 'success')`) is the
+ * idiomatic dispatch; this predicate is shipped for symmetry with existing
+ * `is*` helpers and for use in array filters where inline narrowing is awkward.
  */
 export function isDomainSuccess<TEvent>(
-  result: DomainExecutionResult<TEvent>,
-): result is OkResult<DomainExecutionSuccess<TEvent>> {
-  return result.ok
+  outcome: DomainExecutionOutcome<TEvent>,
+): outcome is { kind: 'success'; events: TEvent[]; postProcessPlan?: PostProcessPlan } {
+  return outcome.kind === 'success'
 }
 
 /**
- * Type guard for failed domain execution.
- */
-export function isDomainFailure<TEvent>(
-  result: DomainExecutionResult<TEvent>,
-): result is ErrResult<DomainExecutionError> {
-  return !result.ok
-}
-
-/**
- * Helper to create a successful domain execution result.
+ * Helper to create a `'success'` outcome.
  */
 export function domainSuccess<TEvent>(
-  anticipatedEvents: TEvent[],
+  events: TEvent[],
   postProcessPlan?: PostProcessPlan,
-): DomainExecutionResult<TEvent> {
-  return Ok({ anticipatedEvents, postProcessPlan })
+): DomainExecutionOutcome<TEvent> {
+  return { kind: 'success', events, postProcessPlan }
 }
 
 /**
- * Helper to create a failed domain execution result.
+ * Helper to create a `'validation-error'` outcome from one or more
+ * `ValidationError` records.
  */
-export function domainFailure(errors: ValidationError[]): DomainExecutionResult<never> {
-  return Err(new ValidationException(errors))
+export function domainValidationError<TEvent>(
+  errors: ValidationError[],
+): DomainExecutionOutcome<TEvent> {
+  return { kind: 'validation-error', exception: new ValidationException(errors) }
+}
+
+/**
+ * Helper to create an `'unknown-command'` outcome.
+ */
+export function domainUnknownCommand<TEvent>(commandType: string): DomainExecutionOutcome<TEvent> {
+  return { kind: 'unknown-command', exception: new UnknownCommandException(commandType) }
+}
+
+/**
+ * Helper to create a `'conflict'` outcome carrying a {@link FailureCategory}.
+ *
+ * Use when the handler detects (via `{ initial, current }`) that the command
+ * cannot proceed cleanly against the current state — a server change rendered
+ * the user's edit invalid, the user's intent is already satisfied, etc.
+ */
+export function domainConflict<TEvent>(args: {
+  message: string
+  category: FailureCategory
+  errorCode?: string
+  details?: unknown
+}): DomainExecutionOutcome<TEvent> {
+  return { kind: 'conflict', exception: new ConflictException(args) }
 }
 
 // ---------------------------------------------------------------------------
@@ -316,6 +348,30 @@ export interface SchemaValidator<TSchema> {
 // ---------------------------------------------------------------------------
 // Registration-based domain executor
 // ---------------------------------------------------------------------------
+
+/**
+ * Wrapper passed to {@link CommandHandlerRegistration.classifyDependency}
+ * carrying a command record and its events at evaluation time.
+ *
+ * The `events` array contains:
+ * - For a still-pending / sending / cancelled-before-send / failed-at-server
+ *   command: the anticipated events generated at enqueue (cached until the
+ *   cascade evaluates).
+ * - For a succeeded command: its persisted server events.
+ * - For a command that never persisted (submit-time validation or handler
+ *   rejection): an empty array.
+ *
+ * `CommandRecord` itself carries `serverResponse?` but not events, which is
+ * why a wrapper is necessary.
+ */
+export interface ClassifierInput<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+  TEvent extends IAnticipatedEvent,
+> {
+  command: CommandRecord<TLink, TCommand>
+  events: TEvent[]
+}
 
 /**
  * Registration for a single command handler.
@@ -355,19 +411,75 @@ export type CommandHandlerRegistration<
       /** Phase 1: structural schema validation (library-driven). */
       readonly schema?: TSchema
       /** Phase 2: custom sync validation for rules the schema can't cover. */
-      validate?(data: unknown, state: unknown | undefined): Result<unknown, ValidationException>
+      validate?(data: unknown, state: HandlerState): Result<unknown, ValidationException>
       /** Phase 3: async validation querying local data (permissions, name conflicts, etc.). */
+      /** Phase 3: async validation querying local data (permissions, name conflicts, etc.).
+       *  May return `ConflictException` when the local read model surfaces a true conflict
+       *  (e.g. another entity already has the requested name). Submit-time conflicts and
+       *  validation errors flow through the same `Err` path on `submit()` — consumers
+       *  discriminate via `isConflict(err)` / `isValidationException(err)` if they care. */
       validateAsync?(
         command: C,
-        state: unknown | undefined,
+        state: HandlerState,
         context: AsyncValidationContext<TLink>,
-      ): Promise<Result<unknown, ValidationException>>
-      /** Phase 4: produce anticipated events from validated data. */
+      ): Promise<Result<unknown, ValidationException | ConflictException>>
+      /** Phase 4: produce anticipated events, signal a conflict, or surface an
+       *  executor-level error from validated data. Returns a discriminated
+       *  {@link DomainExecutionOutcome} on `kind`. */
       handler(
-        command: HandlerCommand<C['data']>,
-        state: unknown | undefined,
+        command: HandlerCommand<C['data'], C['path']>,
+        state: HandlerState,
         context: HandlerContext,
-      ): DomainExecutionResult<TEvent>
+      ): DomainExecutionOutcome<TEvent>
+      /**
+       * Per-command pluggable mapping from {@link ServerErrorResponse} to
+       * {@link FailureDescriptor}. When defined, this is the **sole arbiter**
+       * for the command type's response — the library does not fall back to
+       * `CqrsConfig.mapFailure`. A consumer wanting global behaviour for
+       * non-special cases imports the global function reference and calls
+       * it explicitly inside this callback.
+       */
+      mapFailure?: FailureMapper
+      /**
+       * Classify an `'aggregate-chain'` dependency edge as `'hard'` or `'soft'`
+       * at cascade decision time. Consulted only when the dependency edge's
+       * `source` is `'aggregate-chain'`; entries with source `'entity-ref'` or
+       * `'explicit'` short-circuit to hard and skip this callback entirely.
+       *
+       * Default when not registered: `'soft'`. The server then arbitrates —
+       * misclassifying a real hard as soft costs N server rejections, which
+       * is loud and recoverable. The opposite (silent over-cancel) is the
+       * failure mode this callback exists to avoid.
+       *
+       * Evaluated at the moment a cascade decision is needed; results are
+       * not stored. Throws propagate (consistent with the other consumer
+       * callbacks on this registration); a throw halts the cascade walk.
+       *
+       * Declared as a method (not a property arrow) so per-variant parameter
+       * narrowing on `C` survives method-parameter bivariance — same trick
+       * the `handler` callback uses on the same registration. Without that,
+       * narrow `C` in parameter position breaks the registration's flow
+       * through executor factories that are generic in TCommand/TEvent.
+       *
+       * `events` arrays carry {@link IAnticipatedEvent} at the static type;
+       * the consumer can cast or narrow at runtime if they need event-shape
+       * specificity. Keeping events at the broad shape decouples the field's
+       * variance from the registration's TEvent.
+       *
+       * @param myCommand This registration's command — statically narrowed
+       *   to records of this registration's command type (`C`).
+       * @param dependsOnCommand The upstream A — may be any registered
+       *   command type, typed broadly. Narrow with a runtime check on
+       *   `dependsOnCommand.command.type` if specific upstream data matters.
+       *
+       * See ADR-0009 (client) for the full alternatives narrative — including
+       * why declarative state-preconditions, async classification, and
+       * property-arrow signatures were tried and rejected.
+       */
+      classifyDependency?(
+        myCommand: ClassifierInput<TLink, C, IAnticipatedEvent>,
+        dependsOnCommand: ClassifierInput<TLink, EnqueueCommand, IAnticipatedEvent>,
+      ): 'hard' | 'soft'
       /** If this command creates a new aggregate, configure how to extract the server ID. */
       readonly creates?: CreateCommandConfig
       /**
@@ -452,7 +564,8 @@ export interface ICommandHandlerMetadata<
  * and the registration names its primary `aggregate`. Once either id-mapping config
  * is explicitly provided, no defaults are injected — the consumer owns the behavior.
  *
- * Validation: asserts every `commandIdReferences` path is rooted at `$.data` or `$.path`.
+ * Validation: asserts every `commandIdReferences` path is rooted at `$.data`,
+ * `$.path`, or `$.headers`.
  */
 export function applyCommandHandlerDefaults<
   TLink extends Link,
@@ -492,7 +605,7 @@ export function applyCommandHandlerDefaults<
   }
 }
 
-const VALID_COMMAND_PATH_ROOTS = new Set(['data', 'path'])
+const VALID_COMMAND_PATH_ROOTS = new Set(['data', 'path', 'headers'])
 
 function extractPathRoot(path: JSONPathExpression): string {
   if (path.startsWith('$.')) {
@@ -516,7 +629,7 @@ function validateCommandIdReferencePaths<TLink extends Link>(
     assert(
       VALID_COMMAND_PATH_ROOTS.has(root),
       `Command "${commandType}" has invalid commandIdReference path "${ref.path}": ` +
-        `root segment must be "data" or "path", got "${root}"`,
+        `root segment must be "data", "path", or "headers", got "${root}"`,
     )
   }
 }
@@ -565,8 +678,8 @@ export function createDomainExecutor<
   return {
     async validate(
       command: ExecutorCommand,
-      state: unknown | undefined,
-    ): Promise<Result<unknown, DomainExecutionError>> {
+      state: HandlerState,
+    ): Promise<Result<unknown, ValidationException | UnknownCommandException | ConflictException>> {
       const { type, data } = command
       const reg = registrationMap.get(type)
       if (!reg) {
@@ -607,12 +720,12 @@ export function createDomainExecutor<
 
     handle(
       command: ExecutorCommand,
-      state: unknown | undefined,
+      state: HandlerState,
       context: HandlerContext,
-    ): DomainExecutionResult<TEvent> {
+    ): DomainExecutionOutcome<TEvent> {
       const reg = registrationMap.get(command.type)
       if (!reg) {
-        return Err(new UnknownCommandException(command.type))
+        return domainUnknownCommand<TEvent>(command.type)
       }
       return reg.handler({ ...command, data: command.data } as TCommand, state, context)
     },

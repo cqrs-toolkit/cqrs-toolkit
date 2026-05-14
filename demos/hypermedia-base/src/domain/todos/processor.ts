@@ -11,7 +11,7 @@ import { addRevision } from '../utils/processors.js'
 export const todoProcessors: ProcessorRegistration[] = [
   {
     eventTypes: 'TodoCreated',
-    processor: (data: TodoCreatedEvent['data'], _state, ctx) => ({
+    processor: ({ data }: TodoCreatedEvent, _state, ctx) => ({
       collection: 'todos',
       id: data.id,
       update: {
@@ -29,7 +29,7 @@ export const todoProcessors: ProcessorRegistration[] = [
   },
   {
     eventTypes: 'TodoContentUpdated',
-    processor: (data: TodoContentUpdatedEvent['data'], _state, ctx) => ({
+    processor: ({ data }: TodoContentUpdatedEvent, _state, ctx) => ({
       collection: 'todos',
       id: data.id,
       update: {
@@ -44,7 +44,7 @@ export const todoProcessors: ProcessorRegistration[] = [
   },
   {
     eventTypes: 'TodoStatusChanged',
-    processor: (data: TodoStatusChangedEvent['data'], _state, ctx) => ({
+    processor: ({ data }: TodoStatusChangedEvent, _state, ctx) => ({
       collection: 'todos',
       id: data.id,
       update: {
@@ -59,7 +59,7 @@ export const todoProcessors: ProcessorRegistration[] = [
   },
   {
     eventTypes: 'TodoDeleted',
-    processor: (data: TodoDeletedEvent['data']) => ({
+    processor: ({ data }: TodoDeletedEvent) => ({
       collection: 'todos',
       id: data.id,
       update: { type: 'delete' },

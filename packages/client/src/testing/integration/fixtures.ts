@@ -6,7 +6,7 @@
  */
 
 import type { ServiceLink } from '@meticoeus/ddd-es'
-import { Err, Ok } from '@meticoeus/ddd-es'
+import { Err } from '@meticoeus/ddd-es'
 import assert from 'node:assert'
 import { deriveScopeKey } from '../../core/cache-manager/CacheKey.js'
 import type { IAnticipatedEvent } from '../../core/command-lifecycle/AnticipatedEventShape.js'
@@ -14,6 +14,7 @@ import type { ProcessorRegistration } from '../../core/event-processor/types.js'
 import type { EnqueueCommand } from '../../types/commands.js'
 import type { Collection } from '../../types/config.js'
 import type { CommandHandlerRegistration } from '../../types/domain.js'
+import { domainSuccess } from '../../types/domain.js'
 import { ValidationException } from '../../types/validation.js'
 import { TodoAggregate } from '../index.js'
 
@@ -62,10 +63,10 @@ export interface TodoRow {
   readonly title: string
 }
 
-export function todoCreatedProcessor(): ProcessorRegistration<TodoRow, TodoRow> {
+export function todoCreatedProcessor(): ProcessorRegistration<{ data: TodoRow }, TodoRow> {
   return {
     eventTypes: 'TodoCreated',
-    processor: (data, _state, ctx) => ({
+    processor: ({ data }, _state, ctx) => ({
       collection: 'todos',
       id: data.id,
       update: { type: 'set', data },
@@ -74,10 +75,10 @@ export function todoCreatedProcessor(): ProcessorRegistration<TodoRow, TodoRow> 
   }
 }
 
-export function todoUpdatedProcessor(): ProcessorRegistration<TodoRow, TodoRow> {
+export function todoUpdatedProcessor(): ProcessorRegistration<{ data: TodoRow }, TodoRow> {
   return {
     eventTypes: 'TodoUpdated',
-    processor: (data, _state, ctx) => ({
+    processor: ({ data }, _state, ctx) => ({
       collection: 'todos',
       id: data.id,
       update: { type: 'merge', data: { title: data.title } },
@@ -100,13 +101,11 @@ export function createTodoHandler(): CommandHandlerRegistration<
     commandType: 'CreateTodo',
     aggregate: TodoAggregate,
     commandIdReferences: [{ aggregate: TodoAggregate, path: '$.data.id' }],
-    handler(command, _context) {
+    handler(command, _state, _context) {
       const { id, title } = command.data as TodoRow
-      return Ok({
-        anticipatedEvents: [
-          { type: 'TodoCreated' as const, data: { id, title }, streamId: `nb.Todo-${id}` },
-        ],
-      })
+      return domainSuccess<TodoCreatedEvent>([
+        { type: 'TodoCreated' as const, data: { id, title }, streamId: `nb.Todo-${id}` },
+      ])
     },
   }
 }
@@ -126,13 +125,11 @@ export function updateTodoHandler(): CommandHandlerRegistration<
       // current read-model snapshot via `modelState` on the enqueue params.
       // Assert so tests that forget this fail loudly instead of silently
       // producing anticipated events against an empty state.
-      assert(state !== undefined, 'UpdateTodo handler requires modelState')
+      assert(state.initial !== undefined, 'UpdateTodo handler requires modelState')
       const { id, title } = command.data as TodoRow
-      return Ok({
-        anticipatedEvents: [
-          { type: 'TodoUpdated' as const, data: { id, title }, streamId: `nb.Todo-${id}` },
-        ],
-      })
+      return domainSuccess<TodoUpdatedEvent>([
+        { type: 'TodoUpdated' as const, data: { id, title }, streamId: `nb.Todo-${id}` },
+      ])
     },
   }
 }

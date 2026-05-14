@@ -608,13 +608,14 @@ ON CONFLICT(key) DO UPDATE SET
     const statements: SqliteBatchStatement[] = [
       {
         sql: `INSERT INTO cached_events
-(id, type, stream_id, persistence, data, position, revision, command_id, created_at, processed_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+(id, type, stream_id, persistence, data, metadata, position, revision, command_id, created_at, processed_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
   type=excluded.type,
   stream_id=excluded.stream_id,
   persistence=excluded.persistence,
   data=excluded.data,
+  metadata=excluded.metadata,
   position=excluded.position,
   revision=excluded.revision,
   command_id=excluded.command_id,
@@ -626,6 +627,7 @@ ON CONFLICT(id) DO UPDATE SET
           event.streamId,
           event.persistence,
           event.data,
+          event.metadata,
           event.position,
           event.revision,
           event.commandId,
@@ -648,8 +650,8 @@ ON CONFLICT(id) DO UPDATE SET
     if (events.length === 0) return
 
     const columns =
-      '(id, type, stream_id, persistence, data, position, revision, command_id, created_at, processed_at)'
-    const placeholder = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      '(id, type, stream_id, persistence, data, metadata, position, revision, command_id, created_at, processed_at)'
+    const placeholder = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     const placeholders = events.map(() => placeholder).join(', ')
     const params: unknown[] = []
 
@@ -660,6 +662,7 @@ ON CONFLICT(id) DO UPDATE SET
         event.streamId,
         event.persistence,
         event.data,
+        event.metadata,
         event.position,
         event.revision,
         event.commandId,
@@ -1412,8 +1415,8 @@ ON CONFLICT(client_id) DO UPDATE SET
       sql: `INSERT INTO commands
 (command_id, cache_key, service, type, data, status, depends_on, blocked_by, attempts,
   last_attempt_at, error, server_response, post_process, creates, revision,
-  path, file_refs, command_id_paths, affected_aggregates, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  path, headers, file_refs, command_id_paths, affected_aggregates, model_state, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(command_id) DO UPDATE SET
   cache_key=excluded.cache_key,
   service=excluded.service,
@@ -1430,9 +1433,11 @@ ON CONFLICT(command_id) DO UPDATE SET
   creates=excluded.creates,
   revision=excluded.revision,
   path=excluded.path,
+  headers=excluded.headers,
   file_refs=excluded.file_refs,
   command_id_paths=excluded.command_id_paths,
   affected_aggregates=excluded.affected_aggregates,
+  model_state=excluded.model_state,
   created_at=excluded.created_at,
   updated_at=excluded.updated_at`,
       bind: [
@@ -1452,9 +1457,11 @@ ON CONFLICT(command_id) DO UPDATE SET
         command.creates ? JSON.stringify(command.creates) : null,
         command.revision !== undefined ? JSON.stringify(command.revision) : null,
         command.path !== undefined ? JSON.stringify(command.path) : null,
+        command.headers ? JSON.stringify(command.headers) : null,
         command.fileRefs ? JSON.stringify(command.fileRefs) : null,
         command.commandIdPaths ? JSON.stringify(command.commandIdPaths) : null,
         command.affectedAggregates ? JSON.stringify(command.affectedAggregates) : null,
+        command.modelState !== undefined ? JSON.stringify(command.modelState) : null,
         command.createdAt,
         command.updatedAt,
       ],
@@ -1523,9 +1530,11 @@ ON CONFLICT(command_id) DO UPDATE SET
       creates: row.creates ? JSON.parse(row.creates) : undefined,
       revision: row.revision ? JSON.parse(row.revision) : undefined,
       path: row.path ? JSON.parse(row.path) : undefined,
+      headers: row.headers ? JSON.parse(row.headers) : undefined,
       fileRefs: row.file_refs ? JSON.parse(row.file_refs) : undefined,
       commandIdPaths: row.command_id_paths ? JSON.parse(row.command_id_paths) : undefined,
       affectedAggregates: row.affected_aggregates ? JSON.parse(row.affected_aggregates) : undefined,
+      modelState: row.model_state !== null ? JSON.parse(row.model_state) : undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }
@@ -1538,6 +1547,7 @@ ON CONFLICT(command_id) DO UPDATE SET
       streamId: row.stream_id,
       persistence: row.persistence as CachedEventRecord['persistence'],
       data: row.data,
+      metadata: row.metadata,
       position: row.position,
       revision: row.revision,
       commandId: row.command_id,
@@ -1631,9 +1641,11 @@ interface CommandRow {
   creates: string | null
   revision: string | null
   path: string | null
+  headers: string | null
   file_refs: string | null
   command_id_paths: string | null
   affected_aggregates: string | null
+  model_state: string | null
   created_at: number
   updated_at: number
 }
@@ -1644,6 +1656,7 @@ interface EventRow {
   stream_id: string
   persistence: string
   data: string
+  metadata: string | null
   position: string | null
   revision: string | null
   command_id: string | null

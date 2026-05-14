@@ -214,6 +214,7 @@ export class WorkerOrchestrator<
       {
         domainExecutor,
         commandSender: config.commandSender,
+        mapFailure: config.mapFailure,
         retryConfig: config.retry,
         retainTerminal: config.retainTerminal,
         onCommandResponse: createCommandResponseHandler<TLink, TCommand, TSchema, TEvent>(

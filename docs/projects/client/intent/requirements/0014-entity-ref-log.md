@@ -5,16 +5,28 @@ Newest entries at the top; dates in ISO `YYYY-MM-DD`.
 
 ---
 
+## 2026-05-11 — Tag EntityRef-derived `dependsOn` entries with `source: 'entity-ref'` **(DRAFT — ADR 0009 Proposed)**
+
+**Status.** Draft. Tracks [ADR-0009](../../decisions/0009-hard-soft-dependency-classification.md).
+
+**Reason.** `CommandRecord.dependsOn` is now source-tagged (`CommandDependency[]`). The hard/soft cascade rule short-circuits to hard for EntityRef-derived edges by reading the `source` tag — the spec needs to surface where that tag is set.
+
+**Changes.**
+
+- §14.6.1 — added a sentence to the automatic-`dependsOn` paragraph stating that EntityRef-derived entries carry `source: 'entity-ref'` (with cross-reference to [`0004 §4.4`](0004-command-queue.md#44-command-record-schema) and [`§4.6.1`](0004-command-queue.md#461-dependencies)), and that this short-circuits the cascade walk to hard.
+
+---
+
 ## 2026-05-07 — Refine type and helper names to match implementation
 
 **Reason.** The original spec used names that implementation refined into different concrete identifiers as the EntityRef machinery landed:
 
-| Spec | Code |
-|---|---|
-| `ID` (type alias) | `EntityId` |
-| `idToString(id: ID)` helper | `entityIdToString(id: EntityId)` |
-| `entityRefData` field on command record | `commandIdPaths` |
-| `result.value.created` (submit result) | `result.value.entityRef` |
+| Spec                                    | Code                             |
+| --------------------------------------- | -------------------------------- |
+| `ID` (type alias)                       | `EntityId`                       |
+| `idToString(id: ID)` helper             | `entityIdToString(id: EntityId)` |
+| `entityRefData` field on command record | `commandIdPaths`                 |
+| `result.value.created` (submit result)  | `result.value.entityRef`         |
 
 Plus the `EntityRef` interface gained `readonly` modifiers on all fields, and the `entityId` JSDoc was simplified ("client-generated") since `idStrategy` distinguishes temporary vs permanent.
 

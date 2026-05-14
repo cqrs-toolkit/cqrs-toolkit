@@ -3,7 +3,7 @@ import { builtinPropertyDictionary } from '@cqrs-toolkit/hypermedia/builder'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { HydraDemoClasses } from './src/doc.js'
-import { ErrorSchema } from './src/error-schema.js'
+import { PROBLEM_CONTENT_TYPE, ProblemSchema } from './src/problems/index.js'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
@@ -28,8 +28,8 @@ export default defineConfig({
       globalResponses: [
         {
           code: 500,
-          contentType: 'application/json',
-          schema: ErrorSchema,
+          contentType: PROBLEM_CONTENT_TYPE,
+          schema: ProblemSchema,
           description: 'Unexpected server error.',
         },
       ],

@@ -16,7 +16,12 @@ export const commandSender: ICommandSender<ServiceLink, EnqueueCommand> = {
   async send(command) {
     const endpoint = commandEndpoints[command.type]
     if (typeof endpoint !== 'string') {
-      return Err(new CommandSendException(`Unknown command type: ${command.type}`, '400', false))
+      return Err(
+        new CommandSendException({
+          message: `Unknown command type: ${command.type}`,
+          errorCode: 'unknown-endpoint',
+        }),
+      )
     }
 
     const hasFiles = command.fileRefs && command.fileRefs.length > 0
@@ -26,28 +31,37 @@ export const commandSender: ICommandSender<ServiceLink, EnqueueCommand> = {
       res = hasFiles ? await sendMultipart(endpoint, command) : await sendJson(endpoint, command)
     } catch (err) {
       return Err(
-        new CommandSendException(
-          `Network error: ${err instanceof Error ? err.message : String(err)}`,
-          'NETWORK',
-          true,
-        ),
+        new CommandSendException({
+          message: `Network error: ${err instanceof Error ? err.message : String(err)}`,
+          errorCode: 'network',
+          isRetryable: true,
+        }),
       )
     }
 
     if (!res.ok) {
-      const body = await res.json().catch(() => ({ message: `Command failed: ${res.status}` }))
+      const body = await res
+        .json()
+        .catch((): unknown => ({ message: `Command failed: ${res.status}` }))
+      const bodyRecord = isRecord(body) ? body : undefined
       return Err(
-        new CommandSendException(
-          body.message ?? `Command failed: ${res.status}`,
-          String(res.status),
-          res.status >= 500,
-          body.details,
-        ),
+        new CommandSendException({
+          message:
+            typeof bodyRecord?.message === 'string'
+              ? bodyRecord.message
+              : `Command failed: ${res.status}`,
+          response: { status: res.status, headers: res.headers, body },
+          details: bodyRecord?.details,
+        }),
       )
     }
 
     return Ok(await res.json())
   },
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }
 
 function sendJson(

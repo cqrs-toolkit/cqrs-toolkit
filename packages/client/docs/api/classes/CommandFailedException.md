@@ -8,6 +8,9 @@
 
 A command failed during processing (server rejection, validation, or local error).
 
+Carries a [FailureCategory](../type-aliases/FailureCategory.md) so consumers dispatch on a typed axis
+rather than parsing status codes or matching `errorCode` strings.
+
 ## Extends
 
 - `Exception`\<[`CommandFailedDetails`](../interfaces/CommandFailedDetails.md)\>
@@ -16,7 +19,7 @@ A command failed during processing (server rejection, validation, or local error
 
 ### Constructor
 
-> **new CommandFailedException**(`source`, `message`, `opts?`): `CommandFailedException`
+> **new CommandFailedException**(`source`, `message`, `opts`): `CommandFailedException`
 
 #### Parameters
 
@@ -28,7 +31,7 @@ A command failed during processing (server rejection, validation, or local error
 
 `string`
 
-##### opts?
+##### opts
 
 `Omit`\<[`CommandFailedDetails`](../interfaces/CommandFailedDetails.md), `"source"`\>
 
@@ -59,6 +62,12 @@ A command failed during processing (server rejection, validation, or local error
 #### Inherited from
 
 `Exception._userMessage`
+
+---
+
+### category
+
+> `readonly` **category**: [`FailureCategory`](../type-aliases/FailureCategory.md)
 
 ---
 

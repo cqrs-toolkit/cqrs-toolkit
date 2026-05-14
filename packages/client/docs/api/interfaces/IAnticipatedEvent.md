@@ -12,7 +12,14 @@ Mirrors ddd-es `IEvent` but scoped to client-side event generation:
 
 - `type` and `data` from `IEvent`
 - `streamId` for stream routing (from `IPersistedEvent`)
-- No `metadata` (TBD) or `persistence` (not needed client-side)
+- `metadata` optional, looser than ddd-es `EventMetadata` — no required
+  `correlationId` or tracing fields (those are server-side concerns; client
+  anticipated events don't need them). Carries app-domain context that the
+  handler wants to ride into the event for projector consumption — typically
+  ancestor-scoping ids like `inTenant` that the server's persisted-event
+  metadata also carries, so projector code reads from the same location on
+  anticipated and persisted events.
+- No `persistence` (not needed client-side).
 - `Data` extends `AnticipatedEventData` (requires `{ readonly id: EntityId }`)
   without an index signature — consumers get exact type checking on data.
 
@@ -44,6 +51,12 @@ type TodoEvent = TodoCreatedEvent | TodoDeletedEvent
 ### data
 
 > **data**: `Data`
+
+---
+
+### metadata?
+
+> `optional` **metadata**: `Record`\<`string`, `unknown`\>
 
 ---
 

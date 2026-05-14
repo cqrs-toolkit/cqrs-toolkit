@@ -56,7 +56,12 @@ const commandSender: ICommandSender = {
     })
     if (!res.ok) {
       const body = await res.json()
-      return Err(new CommandSendException(body.message, String(res.status), res.status >= 500))
+      return Err(
+        new CommandSendException({
+          message: body.message,
+          response: { status: res.status, headers: res.headers, body },
+        }),
+      )
     }
     return Ok(await res.json())
   },

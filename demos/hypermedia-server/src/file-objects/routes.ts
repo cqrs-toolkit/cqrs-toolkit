@@ -7,24 +7,23 @@ import {
   type TempFileStore,
   parseFileResource,
 } from '@cqrs-toolkit/demo-base/common/server'
-import type { CommandResponse } from '@cqrs-toolkit/demo-base/common/shared'
 import {
   FileObjectAggregate,
   type FileObjectRepository,
 } from '@cqrs-toolkit/demo-base/file-objects/server'
 import type { NoteRepository } from '@cqrs-toolkit/demo-base/notes/server'
 import type { EventCursorPagination, HypermediaTypes } from '@cqrs-toolkit/hypermedia'
-import { Hypermedia } from '@cqrs-toolkit/hypermedia/server'
+import { BadRequestException, Hypermedia, NotFoundException } from '@cqrs-toolkit/hypermedia/server'
 import type { ISerializedEvent } from '@meticoeus/ddd-es'
 import type { FastifyInstance, FastifyPluginAsync, RouteShorthandOptions } from 'fastify'
 import { v4 as uuidv4 } from 'uuid'
 import {
   commandRouteConfig,
   extractCommandMetadata,
-  handleErr,
   toCommandSuccess,
   toSerializedEvent,
 } from '../command-utils.js'
+import { handleErrorReply } from '../problems/index.js'
 import {
   GetAggregateEventsRequest,
   GetByIdRequest,
@@ -95,8 +94,7 @@ export function fileObjectRoutes(
       async (request, reply) => {
         const fileObject = fileObjectRepo.findById(request.params.id)
         if (!fileObject) {
-          reply.code(404)
-          return { message: 'FileObject not found' }
+          return handleErrorReply(request, reply, new NotFoundException('FileObject not found'))
         }
         const params = new URLSearchParams({
           'response-content-type': fileObject.contentType,
@@ -188,7 +186,7 @@ export function fileObjectRoutes(
       permitRouteConfig,
       async (request, reply) => {
         const metadataRes = extractCommandMetadata(request)
-        if (!metadataRes.ok) return handleErr(metadataRes, reply)
+        if (!metadataRes.ok) return handleErrorReply(request, reply, metadataRes.error)
         const metadata = metadataRes.value
 
         const valRes = FILE_OBJECT_COMMANDS.parse<{
@@ -196,17 +194,13 @@ export function fileObjectRoutes(
           filename: string
           size: number
         }>(request, reply, request.body, FileObjectCommandIds.CreateFileObject)
-        if (!valRes.ok) {
-          reply.code(400)
-          return { message: valRes.error.message } satisfies CommandResponse
-        }
+        if (!valRes.ok) return handleErrorReply(request, reply, valRes.error)
         if (valRes.value.kind === 'replied') return
 
         const { noteId, filename, size } = valRes.value.value
         const note = noteRepo.findById(noteId)
         if (!note) {
-          reply.code(404)
-          return { message: 'Note not found' } satisfies CommandResponse
+          return handleErrorReply(request, reply, new NotFoundException('Note not found'))
         }
 
         const fileId = uuidv4()
@@ -243,7 +237,7 @@ export function fileObjectRoutes(
       commandRouteConfig,
       async (request, reply) => {
         const metadataRes = extractCommandMetadata(request)
-        if (!metadataRes.ok) return handleErr(metadataRes, reply)
+        if (!metadataRes.ok) return handleErrorReply(request, reply, metadataRes.error)
         const metadata = metadataRes.value
 
         const { type, data, revision } = request.body
@@ -253,16 +247,12 @@ export function fileObjectRoutes(
           data,
           type,
         )
-        if (!res.ok) {
-          reply.code(400)
-          return { message: res.error.message } satisfies CommandResponse
-        }
+        if (!res.ok) return handleErrorReply(request, reply, res.error)
         if (res.value.kind === 'replied') return
 
         const aggregate = await fileObjectRepo.getById(request.params.id)
         if (!aggregate) {
-          reply.code(404)
-          return { message: 'FileObject not found' } satisfies CommandResponse
+          return handleErrorReply(request, reply, new NotFoundException('FileObject not found'))
         }
 
         const expectedRevision = revision !== undefined ? BigInt(revision) : undefined
@@ -273,10 +263,7 @@ export function fileObjectRoutes(
             const fileObj = fileObjectRepo.findById(request.params.id)
             aggregate.markDeleted(metadata)
             const saveRes = await fileObjectRepo.save(aggregate, expectedRevision ?? 0n)
-            if (!saveRes.ok) {
-              reply.code(saveRes.error.code ?? 500)
-              return { message: saveRes.error.message } satisfies CommandResponse
-            }
+            if (!saveRes.ok) return handleErrorReply(request, reply, saveRes.error)
             if (fileObj) {
               fileStore.delete(parseFileResource(fileObj.resource))
             }
@@ -287,10 +274,11 @@ export function fileObjectRoutes(
             )
           }
           default:
-            reply.code(400)
-            return {
-              message: `Unknown command: ${stableId}`,
-            } satisfies CommandResponse
+            return handleErrorReply(
+              request,
+              reply,
+              new BadRequestException(`Unknown command: ${stableId}`),
+            )
         }
       },
     )

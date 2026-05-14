@@ -84,8 +84,16 @@ export async function fetchSchemas(
       }),
     )
 
-    for (const { url, content } of fetched) {
+    // Mark every URL in this batch as fetched before walking refs. Otherwise
+    // a schema iterated early in the batch that references another schema
+    // iterated later in the same batch would re-queue that peer for the next
+    // outer iteration (its `fetchedUrls.add` hasn't happened yet), fetching
+    // and pushing it twice.
+    for (const { url } of fetched) {
       fetchedUrls.add(url)
+    }
+
+    for (const { url, content } of fetched) {
       const name = deriveNameFromUrl(url)
       commonSchemas.push({ name, id: url, content })
 

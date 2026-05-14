@@ -507,6 +507,40 @@ Matching commands
 
 ---
 
+### markFailedFromConflict()
+
+> **markFailedFromConflict**(`commandId`, `exception`): `Promise`\<`void`\>
+
+Route a handler-returned `'conflict'` outcome (surfacing during pipeline
+regenerate — reconcile, id-rewrite cascade, AutoRevision resolution) into
+the command record's `error?: IException` field and emit `command:failed`.
+
+Submit-time conflicts (handler's first call, validateAsync) take the
+normal `Err` rejection path on `submit()` and never reach this method.
+This method is for conflicts detected after the command was already
+persisted in the queue.
+
+`enqueueAndWait`-style awaiters resolve through the existing terminal-
+status event subscription — no special wiring needed for them; the
+`command:failed` emit triggers the watcher, which reads the persisted
+`CommandFailedException` and resolves `Err(...)` with its category.
+
+#### Parameters
+
+##### commandId
+
+`string`
+
+##### exception
+
+[`ConflictException`](ConflictException.md)
+
+#### Returns
+
+`Promise`\<`void`\>
+
+---
+
 ### onCommandDeleted()
 
 > **onCommandDeleted**(`command`): `void`

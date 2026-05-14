@@ -58,7 +58,11 @@ export function toCompletionResult<TLink extends Link, TCommand extends EnqueueC
     case 'failed': {
       const error = command.error
       if (isCommandFailed(error)) return Err(error)
-      return Err(new CommandFailedException('server', error?.message ?? 'Unknown error'))
+      return Err(
+        new CommandFailedException('server', error?.message ?? 'Unknown error', {
+          category: 'permanent',
+        }),
+      )
     }
     case 'cancelled':
       return Err(new CommandCancelledException())
@@ -110,7 +114,11 @@ export async function waitForTerminal<TLink extends Link, TCommand extends Enque
         (command): Result<unknown, CommandCompletionError> =>
           command
             ? toCompletionResult(command)
-            : Err(new CommandFailedException('local', `Command not found: ${commandId}`)),
+            : Err(
+                new CommandFailedException('local', `Command not found: ${commandId}`, {
+                  category: 'permanent',
+                }),
+              ),
       ),
     ),
     timer(timeout).pipe(
@@ -123,7 +131,11 @@ export async function waitForTerminal<TLink extends Link, TCommand extends Enque
   const command = await source.getCommand(commandId)
   if (!command) {
     subscription.unsubscribe()
-    return Err(new CommandFailedException('local', `Command not found: ${commandId}`))
+    return Err(
+      new CommandFailedException('local', `Command not found: ${commandId}`, {
+        category: 'permanent',
+      }),
+    )
   }
 
   if (terminal === 'succeeded') {

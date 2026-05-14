@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import type { SchemaMigration } from '../../types/config.js'
+import type { LibraryStep, SchemaMigration } from '../../types/config.js'
 import { clientSchema } from './client-schema.js'
 import {
   generateCollectionDDL,
@@ -14,11 +14,26 @@ import {
 // Constants
 // ---------------------------------------------------------------------------
 
-const VALID_MIGRATION: [SchemaMigration] = [
+// Placeholder library step at version 2, used by validation tests that
+// need to exercise multi-version migration sequencing. Independent of any
+// real library step so it can stand alone when only `init` is required.
+const SAMPLE_V2_LIB_STEP: LibraryStep = {
+  type: 'library',
+  id: 'sampleV2',
+  version: 2,
+  sql: ['SELECT 1'],
+}
+
+const VALID_MIGRATION: [SchemaMigration, SchemaMigration] = [
   {
     version: 1,
     message: 'Initial setup',
     steps: [clientSchema.init, { type: 'managed', name: 'todos' }],
+  },
+  {
+    version: 2,
+    message: 'Sample v2 step',
+    steps: [SAMPLE_V2_LIB_STEP],
   },
 ]
 
@@ -40,8 +55,8 @@ describe('validateSchemaMigrations', () => {
       },
       {
         version: 2,
-        message: 'Add notes',
-        steps: [{ type: 'managed', name: 'notes' }],
+        message: 'Add notes and a v2 library step',
+        steps: [{ type: 'managed', name: 'notes' }, SAMPLE_V2_LIB_STEP],
       },
     ]
     expect(() => validateSchemaMigrations(migrations)).not.toThrow()
@@ -170,7 +185,7 @@ describe('validateSchemaMigrations', () => {
   })
 
   it('accepts valid collection names with underscores and digits', () => {
-    const migrations: [SchemaMigration] = [
+    const migrations: [SchemaMigration, SchemaMigration] = [
       {
         version: 1,
         message: 'Valid names',
@@ -180,6 +195,11 @@ describe('validateSchemaMigrations', () => {
           { type: 'managed', name: 'notes2' },
           { type: 'managed', name: 'a' },
         ],
+      },
+      {
+        version: 2,
+        message: 'Sample v2 step',
+        steps: [SAMPLE_V2_LIB_STEP],
       },
     ]
     expect(() => validateSchemaMigrations(migrations)).not.toThrow()

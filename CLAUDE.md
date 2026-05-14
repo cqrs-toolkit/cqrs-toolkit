@@ -86,6 +86,10 @@ See [`docs/patterns/package-boundaries.md`](docs/patterns/package-boundaries.md)
 Run `npm i {pkg}` or `npm i {pkg}@{version}` (with `-D` for devDependencies, `-w {workspace}` for monorepo targeting).
 Do not hand-edit version strings in `package.json` — npm resolves the correct version and updates the lockfile atomically.
 
+When adding or removing a workspace (`@cqrs-toolkit/*`) dep on any package, mirror the change in the corresponding `Makefile` build-cache dep list in the same change.
+The Makefile header documents the rule and includes an audit one-liner.
+Missing this step causes silent stale-cache builds that only surface during a clean rebuild or when running `npm run docs`.
+
 ### Stop on test failure; diagnose and report before fixing
 
 If tests fail during verification, stop.

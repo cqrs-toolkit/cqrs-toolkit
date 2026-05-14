@@ -325,10 +325,10 @@ export class CqrsClient<TLink extends Link, TCommand extends EnqueueCommand> {
  *   processors: [
  *     {
  *       eventTypes: 'TodoCreated',
- *       processor: (data, ctx) => ({
+ *       processor: (event, _state, ctx) => ({
  *         collection: 'todos',
- *         id: data.id,
- *         update: { type: 'set', data },
+ *         id: event.data.id,
+ *         update: { type: 'set', data: event.data },
  *         isServerUpdate: ctx.persistence !== 'Anticipated',
  *       }),
  *     },
@@ -504,6 +504,7 @@ async function createOnlineOnlyClient<
     {
       domainExecutor,
       commandSender: resolved.commandSender,
+      mapFailure: resolved.mapFailure,
       retryConfig: resolved.retry,
       retainTerminal: resolved.retainTerminal,
       onCommandResponse: createCommandResponseHandler<TLink, TCommand, TSchema, TEvent>(

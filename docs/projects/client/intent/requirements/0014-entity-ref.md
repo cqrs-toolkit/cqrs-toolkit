@@ -253,7 +253,7 @@ Not supported: slice (`[start:end]`), union (`[a,b]`), recursive descent (`..`),
 
 These rules apply to two surfaces where consumers declare paths into command or scope data:
 
-- **`commandIdReferences`** on a command handler registration — declares JSONPath positions of entity IDs in command data, paired with the aggregate each ID belongs to. Handler registrations always use this richer form so the reconciliation system has the aggregate context it needs to walk both directions of the id-mapping (see [0015 §15.2.2](0015-aggregate-config.md#152-types) for the `IdReference` shape).
+- **`commandIdReferences`** on a command handler registration — declares JSONPath positions of entity IDs in command data, paired with the aggregate each ID belongs to. Handler registrations always use this richer form so the reconciliation system has the aggregate context it needs to walk both directions of the id-mapping (see [0015 §15.2.2](0015-aggregate-config.md#152-types) for the `IdReference` shape). Header positions (rooted at `$.headers`) are also valid declaration targets — see [§14.5.7](#1457-envelope-headers).
 
   ```typescript
   {
@@ -320,6 +320,33 @@ No separate pending-ID mapping or pending-mappings parameter is needed.
 Field-level diffing via `JSON.stringify` correctly distinguishes `EntityRef` from a plain string for the same logical ID.
 When server data arrives with `orgId: 'org-srv-1'` and local data has `orgId: EntityRef{entityId: 'org-1'}`, the merge must prefer the server value.
 
+### 14.5.7 Envelope headers
+
+`EnqueueCommand.headers` is an escape hatch for request-level metadata that doesn't belong in the body or URL — e.g. `x-tenant-id`, propagation hints, idempotency keys.
+Values may be plain strings or `EntityRef`s; the consumer-facing type is `Record<string, EntityId>`.
+
+Header positions that may hold `EntityRef`s must be declared in the registration's `commandIdReferences`, rooted at `$.headers` and using the same path grammar as data/path declarations ([§14.5.2.1](#14521-entity-ref-path-expressions)):
+
+```typescript
+{
+  commandType: 'CreateTodoUnderTenant',
+  commandIdReferences: [
+    { aggregate: TenantAggregate, path: "$.headers['x-tenant-id']" },
+  ],
+}
+```
+
+Declared header `EntityRef`s flow through the same `commandIdPaths` extraction as data/path ([§14.5.2](#1452-command-submission-entityref-extraction-point)):
+
+- their `commandId` populates `dependsOn` with `source: 'entity-ref'` (see [§14.6.1](#1461-automatic-dependson));
+- the cascade rewrites them in place to server-id strings when the producing command resolves (see [§14.6.2](#1462-automatic-field-rewriting));
+- by the time the command is dispatched to the sender, every header value is a plain string and the queue narrows the type to `Record<string, string>` for `ICommandSender.send` (see [`0004 §4.x`](0004-command-queue.md) — send pipeline).
+
+An `EntityRef` at a header path that is **not** declared in `commandIdReferences` is a wiring bug — nothing would auto-add `dependsOn` for it or drive the cascade rewrite, and the `EntityRef` would silently reach the sender as a non-string.
+The submit-time gate rejects this loudly with a package-local `assert`, naming the command, the header, and the missing `$.headers['name']` declaration.
+
+The handler sees `headers` on its `HandlerCommand` with the consumer's `EntityRef`s intact at declared positions — the same lifecycle metadata it sees in `data` and `path` — and can reference them when producing anticipated events.
+
 ---
 
 ## 14.6 Derived automation
@@ -327,6 +354,7 @@ When server data arrives with `orgId: 'org-srv-1'` and local data has `orgId: En
 ### 14.6.1 Automatic `dependsOn`
 
 When `commandIdPaths` contains `EntityRef` values, the library must automatically add their `commandId` entries to the command's `dependsOn` list.
+Each EntityRef-derived entry is tagged with `source: 'entity-ref'` in the `CommandDependency` shape (see [`0004 §4.4`](0004-command-queue.md#44-command-record-schema) and [`§4.6.1`](0004-command-queue.md#461-dependencies)), which short-circuits to **hard** in the cascade walk — the dependent's payload references an id this create produces, so if the create doesn't land the reference has no meaning.
 Explicit `dependsOn` for parent references is unnecessary.
 
 ### 14.6.2 Automatic field rewriting

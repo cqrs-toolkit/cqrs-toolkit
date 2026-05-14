@@ -1,0 +1,34 @@
+{
+  "$id": "urn:schema:nb.Problem:1.0.0",
+  "additionalProperties": false,
+  "properties": {
+    "correlationId": {
+      "type": "string"
+    },
+    "detail": {
+      "type": "string"
+    },
+    "details": {
+      "items": {
+        "$ref": "urn:schema:nb.FieldError:1.0.0"
+      },
+      "type": "array"
+    },
+    "instance": {
+      "format": "uri",
+      "type": "string"
+    },
+    "status": {
+      "type": "integer"
+    },
+    "title": {
+      "type": "string"
+    },
+    "type": {
+      "format": "uri",
+      "type": "string"
+    }
+  },
+  "required": ["type", "title", "status"],
+  "type": "object"
+}

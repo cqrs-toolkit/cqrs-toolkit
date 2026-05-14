@@ -6,12 +6,13 @@
  * Exercises the real WriteQueue pipeline with only the network layer mocked.
  */
 
-import { Ok, type ISerializedEvent, type ServiceLink } from '@meticoeus/ddd-es'
+import { Err, Ok, type ISerializedEvent, type ServiceLink } from '@meticoeus/ddd-es'
 import { filter, firstValueFrom } from 'rxjs'
 import { v4 as uuidv4 } from 'uuid'
 import { describe, expect, it } from 'vitest'
 import type { IAnticipatedEvent } from '../core/command-lifecycle/AnticipatedEventShape.js'
 import type { ICommandSender } from '../core/command-queue/types.js'
+import { CommandSendException } from '../core/command-queue/types.js'
 import {
   TODO_SCOPE_KEY,
   TestSyncManager,
@@ -25,11 +26,12 @@ import {
   todoCreatedProcessor,
   todoUpdatedProcessor,
   updateTodoHandler,
+  type TodoRow,
 } from '../testing/index.js'
 import type { EnqueueCommand } from '../types/commands.js'
 import type { CommandHandlerRegistration } from '../types/domain.js'
-import { createEntityId } from '../types/domain.js'
-import { entityIdToString } from '../types/entities.js'
+import { createEntityId, domainSuccess } from '../types/domain.js'
+import { entityIdToString, type EntityId } from '../types/entities.js'
 
 function createSerializedEvent(
   type: string,
@@ -259,15 +261,13 @@ describe.each(bootstrapVariants)('$name commands', ({ bootstrap }) => {
           handler(command, _state, context) {
             const id = createEntityId(context)
             const { title } = command.data as { title: string }
-            return Ok({
-              anticipatedEvents: [
-                {
-                  type: 'TodoCreated',
-                  data: { id, title },
-                  streamId: `nb.Todo-${entityIdToString(id)}`,
-                } as IAnticipatedEvent,
-              ],
-            })
+            return domainSuccess([
+              {
+                type: 'TodoCreated',
+                data: { id, title },
+                streamId: `nb.Todo-${entityIdToString(id)}`,
+              } as IAnticipatedEvent,
+            ])
           },
         }
 
@@ -355,6 +355,381 @@ describe.each(bootstrapVariants)('$name commands', ({ bootstrap }) => {
         )()
       },
     )
+  })
+
+  // -------------------------------------------------------------------------
+  // Envelope headers
+  // -------------------------------------------------------------------------
+
+  describe('envelope headers', () => {
+    it(
+      'plain headers persist on the command record and reach the sender',
+      integrationTestOptions,
+      () => {
+        const seenHeaders: Array<Record<string, string> | undefined> = []
+        const commandSender: ICommandSender<ServiceLink, EnqueueCommand> = {
+          send: (async (command: { headers?: Record<string, string> }) => {
+            seenHeaders.push(command.headers)
+            return Ok({})
+          }) as ICommandSender<ServiceLink, EnqueueCommand>['send'],
+        }
+
+        return run(
+          {
+            collections: [createTodosCollection()],
+            processors: [todoCreatedProcessor()],
+            commandHandlers: [createTodoHandler()],
+            commandSender,
+            SyncManagerClass: TestSyncManager,
+          },
+          async (ctx) => {
+            await ctx.cacheManager.acquire(TODO_SCOPE_KEY)
+
+            const result = await ctx.commandQueue.enqueue({
+              command: {
+                type: 'CreateTodo',
+                data: { id: 'todo-1', title: 'with headers' },
+                headers: { 'x-tenant-id': 'tenant-1', 'x-trace': 'abc' },
+              },
+              cacheKey: TODO_SCOPE_KEY,
+            })
+            expect(result.ok).toBe(true)
+            if (!result.ok) return
+
+            const stored = await ctx.storage.getCommand(result.value.commandId)
+            expect(stored?.headers).toEqual({ 'x-tenant-id': 'tenant-1', 'x-trace': 'abc' })
+
+            await ctx.commandQueue.resume()
+            await ctx.commandQueue.waitForSucceeded(result.value.commandId)
+
+            expect(seenHeaders).toHaveLength(1)
+            expect(seenHeaders[0]).toEqual({ 'x-tenant-id': 'tenant-1', 'x-trace': 'abc' })
+          },
+        )()
+      },
+    )
+
+    it(
+      'EntityRef header is preserved on the record + handler view and rewritten by the cascade when the parent lands',
+      integrationTestOptions,
+      () => {
+        const tenantServerId = 'srv-tenant-1'
+        const handlerHeaderObservations: Array<Record<string, EntityId> | undefined> = []
+
+        // Tenant creation surfaces an EntityRef the consumer can route into a
+        // follower's headers. The handler is a CreateTempTodo-style create
+        // with `idStrategy: 'temporary'` so the consumer receives an
+        // EntityRef on the enqueue result.
+        const createTenantHandler: CommandHandlerRegistration<ServiceLink> = {
+          commandType: 'CreateTenant',
+          aggregate: TodoAggregate,
+          commandIdReferences: [],
+          creates: { eventType: 'TodoCreated', idStrategy: 'temporary' },
+          handler(_command, _state, context) {
+            const id = createEntityId(context)
+            return domainSuccess([
+              {
+                type: 'TodoCreated',
+                data: { id, title: 'Tenant' },
+                streamId: `nb.Todo-${entityIdToString(id)}`,
+              } as IAnticipatedEvent,
+            ])
+          },
+        }
+
+        // Follower declares the tenant id lives in the header — required so
+        // the queue can auto-wire `dependsOn` on the producing command and
+        // rewrite the temp id once the parent lands. Without this
+        // declaration the send-time assert in `assertWireHeaders` would
+        // surface the wiring bug.
+        const createTodoUnderTenantHandler: CommandHandlerRegistration<ServiceLink> = {
+          commandType: 'CreateTodoUnderTenant',
+          aggregate: TodoAggregate,
+          commandIdReferences: [{ aggregate: TodoAggregate, path: "$.headers['x-tenant-id']" }],
+          handler(command, _state, _context) {
+            handlerHeaderObservations.push(command.headers)
+            const { id, title } = command.data as TodoRow
+            return domainSuccess([
+              { type: 'TodoCreated', data: { id, title }, streamId: `nb.Todo-${id}` },
+            ])
+          },
+        }
+
+        const commandSender: ICommandSender<ServiceLink, EnqueueCommand> = {
+          send: (async (command: { commandId: string; type: string; data: unknown }) => {
+            await new Promise((resolve) => setTimeout(resolve, 5))
+            if (command.type === 'CreateTenant') {
+              return Ok({
+                id: tenantServerId,
+                nextExpectedRevision: '0',
+                events: [
+                  createSerializedEvent(
+                    'TodoCreated',
+                    `nb.Todo-${tenantServerId}`,
+                    { id: tenantServerId, title: 'Tenant' },
+                    { commandId: command.commandId },
+                  ),
+                ],
+              })
+            }
+            return Ok({})
+          }) as ICommandSender<ServiceLink, EnqueueCommand>['send'],
+        }
+
+        return run(
+          {
+            collections: [createTodosCollection()],
+            processors: [todoCreatedProcessor()],
+            commandHandlers: [createTenantHandler, createTodoUnderTenantHandler],
+            commandSender,
+            SyncManagerClass: TestSyncManager,
+          },
+          async (ctx) => {
+            await ctx.cacheManager.acquire(TODO_SCOPE_KEY)
+
+            const parent = await ctx.commandQueue.enqueue({
+              command: { type: 'CreateTenant', data: {} },
+              cacheKey: TODO_SCOPE_KEY,
+            })
+            expect(parent.ok).toBe(true)
+            if (!parent.ok) return
+            const tenantRef = parent.value.entityRef
+            expect(tenantRef).toBeDefined()
+            if (!tenantRef) return
+
+            const follower = await ctx.commandQueue.enqueue({
+              command: {
+                type: 'CreateTodoUnderTenant',
+                data: { id: 'todo-1', title: 'inside tenant' },
+                headers: { 'x-tenant-id': tenantRef },
+              },
+              cacheKey: TODO_SCOPE_KEY,
+            })
+            expect(follower.ok).toBe(true)
+            if (!follower.ok) return
+
+            // The handler saw the EntityRef on the headers — not the bare
+            // entityId — so it can reason about lifecycle (e.g. emit
+            // anticipated events that carry the same EntityRef).
+            expect(handlerHeaderObservations).toHaveLength(1)
+            expect(handlerHeaderObservations[0]).toEqual({ 'x-tenant-id': tenantRef })
+
+            // Follower is blocked on the parent. The persisted record holds
+            // the EntityRef intact (no strip) and tracks the position in
+            // `commandIdPaths` so the cascade can rewrite once the parent's
+            // mapping lands.
+            const blockedStored = await ctx.storage.getCommand(follower.value.commandId)
+            expect(blockedStored?.headers).toEqual({ 'x-tenant-id': tenantRef })
+            expect(blockedStored?.commandIdPaths).toEqual({
+              "$.headers['x-tenant-id']": tenantRef,
+            })
+            expect(blockedStored?.blockedBy).toContain(parent.value.commandId)
+            expect(blockedStored?.dependsOn).toContainEqual({
+              commandId: parent.value.commandId,
+              source: 'entity-ref',
+            })
+
+            await ctx.commandQueue.resume()
+            await ctx.commandQueue.waitForSucceeded(parent.value.commandId)
+
+            // After parent succeeds, the cascade has walked the follower's
+            // declared header path and rewritten the EntityRef to the
+            // server-id string — both on the stored record and in the
+            // pruned commandIdPaths.
+            const settledStored = await ctx.storage.getCommand(follower.value.commandId)
+            expect(settledStored?.headers).toEqual({ 'x-tenant-id': tenantServerId })
+            expect(settledStored?.commandIdPaths).toBeUndefined()
+          },
+        )()
+      },
+    )
+
+    it(
+      'EntityRef header resolved from the mapping cache hands the server id to the sender',
+      integrationTestOptions,
+      () => {
+        const tenantServerId = 'srv-tenant-2'
+        const seenHeadersByType = new Map<string, Record<string, string> | undefined>()
+
+        const createTenantHandler: CommandHandlerRegistration<ServiceLink> = {
+          commandType: 'CreateTenant',
+          aggregate: TodoAggregate,
+          commandIdReferences: [],
+          creates: { eventType: 'TodoCreated', idStrategy: 'temporary' },
+          handler(_command, _state, context) {
+            const id = createEntityId(context)
+            return domainSuccess([
+              {
+                type: 'TodoCreated',
+                data: { id, title: 'Tenant' },
+                streamId: `nb.Todo-${entityIdToString(id)}`,
+              } as IAnticipatedEvent,
+            ])
+          },
+        }
+
+        const createTodoUnderTenantHandler: CommandHandlerRegistration<ServiceLink> = {
+          commandType: 'CreateTodoUnderTenant',
+          aggregate: TodoAggregate,
+          commandIdReferences: [{ aggregate: TodoAggregate, path: "$.headers['x-tenant-id']" }],
+          handler(command, _state, _context) {
+            const { id, title } = command.data as TodoRow
+            return domainSuccess([
+              { type: 'TodoCreated', data: { id, title }, streamId: `nb.Todo-${id}` },
+            ])
+          },
+        }
+
+        const commandSender: ICommandSender<ServiceLink, EnqueueCommand> = {
+          send: (async (command: {
+            commandId: string
+            type: string
+            data: unknown
+            headers?: Record<string, string>
+          }) => {
+            seenHeadersByType.set(command.type, command.headers)
+            await new Promise((resolve) => setTimeout(resolve, 5))
+            if (command.type === 'CreateTenant') {
+              return Ok({
+                id: tenantServerId,
+                nextExpectedRevision: '0',
+                events: [
+                  createSerializedEvent(
+                    'TodoCreated',
+                    `nb.Todo-${tenantServerId}`,
+                    { id: tenantServerId, title: 'Tenant' },
+                    { commandId: command.commandId },
+                  ),
+                ],
+              })
+            }
+            return Ok({})
+          }) as ICommandSender<ServiceLink, EnqueueCommand>['send'],
+        }
+
+        return run(
+          {
+            collections: [createTodosCollection()],
+            processors: [todoCreatedProcessor()],
+            commandHandlers: [createTenantHandler, createTodoUnderTenantHandler],
+            commandSender,
+            SyncManagerClass: TestSyncManager,
+          },
+          async (ctx) => {
+            await ctx.cacheManager.acquire(TODO_SCOPE_KEY)
+
+            const parent = await ctx.commandQueue.enqueue({
+              command: { type: 'CreateTenant', data: {} },
+              cacheKey: TODO_SCOPE_KEY,
+            })
+            expect(parent.ok).toBe(true)
+            if (!parent.ok) return
+            const tenantRef = parent.value.entityRef
+            expect(tenantRef).toBeDefined()
+            if (!tenantRef) return
+
+            await ctx.commandQueue.resume()
+            await ctx.commandQueue.waitForSucceeded(parent.value.commandId)
+
+            // Mapping cache now holds tenantRef.entityId → tenantServerId.
+            // Submitting the follower in this state lets `resolveCommandIds`
+            // patch the header at enqueue time — the record is created with
+            // the server id already.
+            const follower = await ctx.commandQueue.enqueue({
+              command: {
+                type: 'CreateTodoUnderTenant',
+                data: { id: 'todo-2', title: 'after tenant' },
+                headers: { 'x-tenant-id': tenantRef },
+              },
+              cacheKey: TODO_SCOPE_KEY,
+            })
+            expect(follower.ok).toBe(true)
+            if (!follower.ok) return
+
+            const storedAtSubmit = await ctx.storage.getCommand(follower.value.commandId)
+            expect(storedAtSubmit?.headers).toEqual({ 'x-tenant-id': tenantServerId })
+            expect(storedAtSubmit?.commandIdPaths).toBeUndefined()
+
+            await ctx.commandQueue.waitForSucceeded(follower.value.commandId)
+
+            // Sender receives the resolved server id — the library never
+            // hands an EntityRef or a temp id to the transport layer.
+            expect(seenHeadersByType.get('CreateTodoUnderTenant')).toEqual({
+              'x-tenant-id': tenantServerId,
+            })
+          },
+        )()
+      },
+    )
+
+    it('EntityRef at an undeclared header path throws at submit', integrationTestOptions, () => {
+      // CreateTenant declares no header paths. Routing an EntityRef into
+      // a header position without a matching `commandIdReferences` entry
+      // is a wiring bug — there would be nothing wiring up `dependsOn`
+      // or driving a cascade rewrite, and the EntityRef would silently
+      // leak to the sender as a non-string. The submit gate surfaces it.
+      const createTenantHandler: CommandHandlerRegistration<ServiceLink> = {
+        commandType: 'CreateTenant',
+        aggregate: TodoAggregate,
+        commandIdReferences: [],
+        creates: { eventType: 'TodoCreated', idStrategy: 'temporary' },
+        handler(_command, _state, context) {
+          const id = createEntityId(context)
+          return domainSuccess([
+            {
+              type: 'TodoCreated',
+              data: { id, title: 'Tenant' },
+              streamId: `nb.Todo-${entityIdToString(id)}`,
+            } as IAnticipatedEvent,
+          ])
+        },
+      }
+
+      // No `commandIdReferences` declaration for the header path.
+      const followerWithUndeclaredRef: CommandHandlerRegistration<ServiceLink> = {
+        commandType: 'CreateTodoUnderTenant',
+        aggregate: TodoAggregate,
+        commandIdReferences: [],
+        handler(command, _state, _context) {
+          const { id, title } = command.data as TodoRow
+          return domainSuccess([
+            { type: 'TodoCreated', data: { id, title }, streamId: `nb.Todo-${id}` },
+          ])
+        },
+      }
+
+      return run(
+        {
+          collections: [createTodosCollection()],
+          processors: [todoCreatedProcessor()],
+          commandHandlers: [createTenantHandler, followerWithUndeclaredRef],
+          SyncManagerClass: TestSyncManager,
+        },
+        async (ctx) => {
+          await ctx.cacheManager.acquire(TODO_SCOPE_KEY)
+
+          const parent = await ctx.commandQueue.enqueue({
+            command: { type: 'CreateTenant', data: {} },
+            cacheKey: TODO_SCOPE_KEY,
+          })
+          expect(parent.ok).toBe(true)
+          if (!parent.ok) return
+          const tenantRef = parent.value.entityRef
+          if (!tenantRef) return
+
+          await expect(
+            ctx.commandQueue.enqueue({
+              command: {
+                type: 'CreateTodoUnderTenant',
+                data: { id: 'todo-undeclared', title: 'no header decl' },
+                headers: { 'x-tenant-id': tenantRef },
+              },
+              cacheKey: TODO_SCOPE_KEY,
+            }),
+          ).rejects.toThrow(/\$\.headers\['x-tenant-id'\] is not declared/)
+        },
+      )()
+    })
   })
 
   // -------------------------------------------------------------------------
@@ -467,6 +842,98 @@ describe.each(bootstrapVariants)('$name commands', ({ bootstrap }) => {
           expect(await ctx.cacheManager.getCount()).toBe(0)
         },
       ),
+    )
+  })
+
+  // -------------------------------------------------------------------------
+  // Soft cascade on chain-only dependency edge (Part 2)
+  // -------------------------------------------------------------------------
+
+  describe('soft cascade on aggregate-chain edge', () => {
+    it(
+      'failed first updateTodo does NOT cascade-cancel a chain-only second updateTodo',
+      integrationTestOptions,
+      () => {
+        // Sender fails the FIRST UpdateTodo, succeeds anything else. With no
+        // `classifyDependency` registered on UpdateTodo, the second update's
+        // aggregate-chain edge to the first defaults to soft — so the second
+        // command must NOT cascade-cancel; it should land on its own
+        // independent attempt (which the sender lets succeed).
+        const failingIds = new Set<string>()
+        const commandSender: ICommandSender<ServiceLink, EnqueueCommand> = {
+          send: (async (command: { commandId: string; type: string; data: unknown }) => {
+            if (failingIds.has(command.commandId)) {
+              return Err(
+                new CommandSendException({
+                  message: 'simulated server rejection',
+                  isRetryable: false,
+                  response: { status: 400, headers: new Headers(), body: undefined },
+                }),
+              )
+            }
+            await new Promise((r) => setTimeout(r, 5))
+            return Ok({ id: 'todo-1', nextExpectedRevision: '0', events: [] })
+          }) as ICommandSender<ServiceLink, EnqueueCommand>['send'],
+        }
+
+        return run(
+          {
+            collections: [createTodosCollection()],
+            processors: [todoCreatedProcessor(), todoUpdatedProcessor()],
+            commandHandlers: [createTodoHandler(), updateTodoHandler()],
+            commandSender,
+            SyncManagerClass: TestSyncManager,
+          },
+          async (ctx) => {
+            const baselineState = { id: 'todo-1', title: 'Existing' }
+
+            const first = await ctx.commandQueue.enqueue({
+              command: { type: 'UpdateTodo', data: { id: 'todo-1', title: 'First update' } },
+              cacheKey: TODO_SCOPE_KEY,
+              modelState: baselineState,
+            })
+            expect(first.ok).toBe(true)
+            if (!first.ok) return
+            failingIds.add(first.value.commandId)
+
+            const second = await ctx.commandQueue.enqueue({
+              command: { type: 'UpdateTodo', data: { id: 'todo-1', title: 'Second update' } },
+              cacheKey: TODO_SCOPE_KEY,
+              modelState: baselineState,
+            })
+            expect(second.ok).toBe(true)
+            if (!second.ok) return
+
+            // The second update was wired behind the first via aggregate-chain
+            // ordering at submit time.
+            const initialSecond = await ctx.storage.getCommand(second.value.commandId)
+            expect(initialSecond?.dependsOn).toContainEqual({
+              commandId: first.value.commandId,
+              source: 'aggregate-chain',
+            })
+            expect(initialSecond?.status).toBe('blocked')
+
+            await ctx.commandQueue.resume()
+
+            // First reaches a non-success terminal. Second must not be the
+            // dependency-cascade target — it gets soft-unblocked and ultimately
+            // succeeds on its own.
+            await ctx.commandQueue.waitForSucceeded(second.value.commandId)
+
+            const firstStored = await ctx.storage.getCommand(first.value.commandId)
+            const secondStored = await ctx.storage.getCommand(second.value.commandId)
+            expect(firstStored?.status).toBe('failed')
+            // Reached terminal success — either `'succeeded'` or `'applied'`
+            // depending on whether the pipeline's applied-at-success detection
+            // races ahead. Both are post-terminal-success; the key assertion
+            // is that the second is NOT `'cancelled'`.
+            expect(['succeeded', 'applied']).toContain(secondStored?.status)
+            // Soft cascade clears the parent's id from blockedBy; the second
+            // proceeded under that unblock.
+            expect(secondStored?.blockedBy).not.toContain(first.value.commandId)
+          },
+        )()
+      },
     )
   })
 })

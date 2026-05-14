@@ -337,15 +337,16 @@ export function extractTopLevelEntityRefs(data: unknown): Record<JSONPathExpress
 }
 
 /**
- * Extract EntityRef values from a command's `data` and `path` surfaces using
- * the declared `commandIdReferences` paths. Paths are rooted at the command
- * view `{ data, path }` — e.g. `$.data.foo`, `$.path.bar`.
+ * Extract EntityRef values from a command's `data`, `path`, and `headers`
+ * surfaces using the declared `commandIdReferences` paths. Paths are rooted
+ * at the command view `{ data, path, headers }` — e.g. `$.data.foo`,
+ * `$.path.bar`, `$.headers['x-tenant-id']`.
  */
 export function extractCommandIdPaths(
-  command: { data: unknown; path?: unknown },
+  command: { data: unknown; path?: unknown; headers?: unknown },
   commandIdReferencePaths: readonly JSONPathExpression[],
 ): Record<JSONPathExpression, EntityRef> {
-  const commandView = { data: command.data, path: command.path }
+  const commandView = { data: command.data, path: command.path, headers: command.headers }
   return resolveRefPaths(commandView, commandIdReferencePaths)
 }
 

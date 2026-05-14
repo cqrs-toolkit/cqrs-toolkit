@@ -1,7 +1,7 @@
 # decisions/
 
 Repo-wide ADRs (Architecture Decision Records).
-Captures *why* cross-cutting choices were made — choices that affect more than one project.
+Captures _why_ cross-cutting choices were made — choices that affect more than one project.
 
 ## Decisions
 
@@ -24,6 +24,6 @@ If a decision affects only one package or the demo system, the ADR lives in that
 ADRs at this level affect the repo as a whole.
 
 A decision that originated in one package but was later adopted across packages can be promoted.
-ADRs are immutable, so promotion produces a *new* ADR at the higher scope — the original stays in place with a "Generalised by ADR-NNNN" back-pointer.
+ADRs are immutable, so promotion produces a _new_ ADR at the higher scope — the original stays in place with a "Generalized by ADR-NNNN" back-pointer.
 For the full procedure, see [`/docs/playbooks/promoting-castle-content.md`](../playbooks/promoting-castle-content.md) (the "Immutable wing" path).
 Promotion is deliberate, not silent.

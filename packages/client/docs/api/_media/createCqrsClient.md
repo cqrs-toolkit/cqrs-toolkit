@@ -56,10 +56,10 @@ const client = await createCqrsClient({
   processors: [
     {
       eventTypes: 'TodoCreated',
-      processor: (data, ctx) => ({
+      processor: (event, _state, ctx) => ({
         collection: 'todos',
-        id: data.id,
-        update: { type: 'set', data },
+        id: event.data.id,
+        update: { type: 'set', data: event.data },
         isServerUpdate: ctx.persistence !== 'Anticipated',
       }),
     },

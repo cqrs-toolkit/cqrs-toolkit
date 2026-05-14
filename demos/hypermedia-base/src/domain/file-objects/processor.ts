@@ -10,7 +10,7 @@ import { addRevision } from '../utils/processors.js'
 export const fileObjectProcessors: ProcessorRegistration[] = [
   {
     eventTypes: 'FileObjectCreated',
-    processor: (data: FileObjectCreatedEvent['data'], _state, ctx) => ({
+    processor: ({ data }: FileObjectCreatedEvent, _state, ctx) => ({
       collection: FILE_OBJECTS_COLLECTION_NAME,
       id: data.id,
       update: {
@@ -28,10 +28,10 @@ export const fileObjectProcessors: ProcessorRegistration[] = [
       },
       isServerUpdate: ctx.persistence !== 'Anticipated',
     }),
-  } satisfies ProcessorRegistration<FileObjectCreatedEvent['data'], FileObject>,
+  } satisfies ProcessorRegistration<FileObjectCreatedEvent, FileObject>,
   {
     eventTypes: 'FileObjectDeleted',
-    processor: (data: FileObjectDeletedEvent['data']) => ({
+    processor: ({ data }: FileObjectDeletedEvent) => ({
       collection: FILE_OBJECTS_COLLECTION_NAME,
       id: data.id,
       update: { type: 'delete' },

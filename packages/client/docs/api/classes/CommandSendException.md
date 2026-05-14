@@ -9,33 +9,53 @@
 Expected domain failure from command sending.
 Returned via Result, never thrown.
 
+Carries the parsed [ServerErrorResponse](../interfaces/ServerErrorResponse.md) when the failure was a
+server response (HTTP error status); absent for transport-level errors
+where there is no response (network failure, fetch threw). The queue uses
+`response` to drive its pluggable failure-mapping pipeline when present;
+for transport errors it falls back to `isRetryable` (defaults to `false`).
+
+The exception itself does **not** carry a `FailureCategory` — categorization
+happens at the queue, where per-command and global `mapFailure` overrides
+compose with the library's default mappers (see `0004 §4.8.3`). Consumers
+reading the persisted `error?: IException` on a `CommandRecord` get a
+`CommandFailedException` with `category` populated.
+
 ## Extends
 
-- `Exception`
+- `Exception`\<\{ `details?`: `unknown`; `errorCode?`: `string`; `isRetryable`: `boolean`; `response?`: [`ServerErrorResponse`](../interfaces/ServerErrorResponse.md); \}\>
 
 ## Constructors
 
 ### Constructor
 
-> **new CommandSendException**(`message`, `errorCode`, `isRetryable`, `details?`): `CommandSendException`
+> **new CommandSendException**(`args`): `CommandSendException`
 
 #### Parameters
 
-##### message
+##### args
+
+###### details?
+
+`unknown`
+
+###### errorCode?
 
 `string`
 
-##### errorCode
-
-`string`
-
-##### isRetryable
+###### isRetryable?
 
 `boolean`
 
-##### details?
+Only consulted when `response` is undefined (transport-level errors). Defaults to false.
 
-`unknown`
+###### message
+
+`string`
+
+###### response?
+
+[`ServerErrorResponse`](../interfaces/ServerErrorResponse.md)
 
 #### Returns
 
@@ -43,13 +63,13 @@ Returned via Result, never thrown.
 
 #### Overrides
 
-`Exception.constructor`
+`Exception<{ errorCode?: string isRetryable: boolean response?: ServerErrorResponse details?: unknown }>.constructor`
 
 ## Properties
 
 ### \_details
 
-> `protected` **\_details**: `unknown`
+> `protected` **\_details**: \{ `details?`: `unknown`; `errorCode?`: `string`; `isRetryable`: `boolean`; `response?`: [`ServerErrorResponse`](../interfaces/ServerErrorResponse.md); \} \| `undefined`
 
 #### Inherited from
 
@@ -77,9 +97,9 @@ Returned via Result, never thrown.
 
 ---
 
-### errorCode
+### errorCode?
 
-> `readonly` **errorCode**: `string`
+> `readonly` `optional` **errorCode**: `string`
 
 ---
 
@@ -106,6 +126,12 @@ Returned via Result, never thrown.
 #### Inherited from
 
 [`OpfsUnavailableException`](OpfsUnavailableException.md).[`name`](OpfsUnavailableException.md#name)
+
+---
+
+### response?
+
+> `readonly` `optional` **response**: [`ServerErrorResponse`](../interfaces/ServerErrorResponse.md)
 
 ## Accessors
 

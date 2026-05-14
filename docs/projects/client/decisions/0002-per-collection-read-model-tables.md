@@ -8,11 +8,11 @@ The initial storage design held all read models in a single `read_models` table.
 That design did not scale operationally: every collection shared a row layout, schema changes for one collection required a library release that touched the shared table, and there was no per-collection isolation for cache-key associations or for future domain-field indexing.
 
 A second pressure was the migration model.
-The single-table layout collapsed *library-controlled* schema (the columns the library reads/writes) and *consumer-controlled* schema (the set of collections the consumer's app declares) into one undifferentiated migration list.
+The single-table layout collapsed _library-controlled_ schema (the columns the library reads/writes) and _consumer-controlled_ schema (the set of collections the consumer's app declares) into one undifferentiated migration list.
 Adding a new collection felt like a library schema change to consumers, and the runtime had no structural way to validate that consumers had run the library's required schema.
 
 The longer-horizon ambition — fully consumer-owned DDL with declared promoted columns for indexed domain-field queries — was visible in the design memo but explicitly out of scope for the first cut.
-The shipping decision was the per-collection split plus a migration-step typing that creates the seam consumer-owned DDL will eventually slot into, *not* the consumer-owned DDL itself.
+The shipping decision was the per-collection split plus a migration-step typing that creates the seam consumer-owned DDL will eventually slot into, _not_ the consumer-owned DDL itself.
 
 ## Decision
 
@@ -102,22 +102,42 @@ There is no SQL-level filtering by domain fields; that is part of the future-wor
 
 ## Consequences
 
-**Easier:**
+### Implementation impact
+
+- New schema generator `generateCollectionDDL(name)` producing the fixed `rm_${name}` + `rm_${name}_cache_keys` table pair per collection.
+- New `SchemaMigration` validation: sequential versions, collection-name regex (`^[a-z][a-z0-9_]*$`, ≤ 50 chars), no duplicate collection names across migrations, `REQUIRED_LIBRARY_STEPS` presence, strictly ascending library-step versions.
+- New typed migration-step union: `MigrationStep` = `'library' | 'managed'` today, `'custom'` reserved as a forward contract.
+- Junction-table read paths for cache-key lookup; bulk delete on cache-key eviction.
+- Column-naming convention (`_` and `__` prefixes) reserved for library use, enforceable when `type: 'custom'` lands.
+
+### Operational implications
+
+#### Gains
+
 - Per-collection tables isolate row growth, eviction patterns, and DDL evolution.
   A collection can be dropped or recreated without touching others.
-- The migration system distinguishes library-controlled SQL from consumer-declared collections cleanly.
-  A consumer adding a new collection writes one `{ type: 'managed', name }` line; the library handles DDL, generation, and the junction table.
 - The junction table for cache-key associations supports many-to-many naturally, evicting a key drops the join rows without entity-row work, and the cache-key index makes lookup-by-key cheap.
-- The `_` and `__` prefix conventions create the seam for `type: 'custom'` consumer DDL — the contract for future work is documented, not invented later.
 
-**Harder:**
+#### Costs
+
 - Domain-field queries still load the JSON blob and filter in JS.
   At small scale this is fine; at large scale it is the bottleneck the future `type: 'custom'` + promoted columns work will resolve.
+- The `_effective_data` JSON blob means write workloads pay JSON serialization on every row update, even for trivially small mutations.
+
+### Coding implications
+
+#### Gains
+
+- The migration system distinguishes library-controlled SQL from consumer-declared collections cleanly.
+  A consumer adding a new collection writes one `{ type: 'managed', name }` line; the library handles DDL, generation, and the junction table.
+- The `_` and `__` prefix conventions create the seam for `type: 'custom'` consumer DDL — the contract for future work is documented, not invented later.
+
+#### Costs
+
 - Adding a column to the library schema requires a new library step that ALTERs every existing managed collection table.
   The plumbing for this is anticipated in the schema module's "Future" comment ("when `LibraryStep` gains `collectionHook`, this function will also need the set of known managed tables to apply ALTER TABLE operations") — no current step exercises it.
 - Consumers cannot declare collection-specific indexes, constraints, or composite keys today.
   The escape hatch is `type: 'library'` raw SQL — but that is conceptually wrong for collection-shape data, and using it that way will conflict with the eventual `type: 'custom'` migration to consumer-owned DDL.
-- The `_effective_data` JSON blob means write workloads pay JSON serialization on every row update, even for trivially small mutations.
 
 ## Future work
 
@@ -128,7 +148,7 @@ The original 2026-03-08 design memo proposed:
 - A `createTable(name, columns)` helper returning a SQL string for trivial cases.
 - Consumer-written raw SQL for cross-scope or aggregated reads.
 
-These are explicitly *future work*, not part of this ADR.
+These are explicitly _future work_, not part of this ADR.
 Indexed domain-field queries — the parent-child filtering case, where a consumer holds many entities under one cache key (e.g. all notes loaded together) but wants to render only a subset filtered by a domain field (e.g. notes belonging to one notebook) without pulling every row into JS — and consumer-controlled read-model schemas converge on this same future direction.
 
 A future ADR will lock in the design when the work is scheduled.

@@ -6,7 +6,7 @@
 
 # Type Alias: EnqueueResult\<TEvent\>
 
-> **EnqueueResult**\<`TEvent`\> = `Result`\<[`EnqueueSuccess`](../interfaces/EnqueueSuccess.md)\<`TEvent`\>, [`DomainExecutionError`](DomainExecutionError.md)\>
+> **EnqueueResult**\<`TEvent`\> = `Result`\<[`EnqueueSuccess`](../interfaces/EnqueueSuccess.md)\<`TEvent`\>, [`EnqueueRejection`](EnqueueRejection.md)\>
 
 Result of enqueue operation.
 

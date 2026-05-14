@@ -33,9 +33,10 @@ import {
   todoUpdatedProcessor,
 } from '../testing/index.js'
 import type { EnqueueCommand } from '../types/commands.js'
+import { isCommandFailed } from '../types/commands.js'
 import type { Collection } from '../types/config.js'
 import type { CommandHandlerRegistration } from '../types/domain.js'
-import { createEntityId } from '../types/domain.js'
+import { createEntityId, domainConflict, domainSuccess } from '../types/domain.js'
 import { entityIdToString } from '../types/entities.js'
 
 describe.each(bootstrapVariants)('$name reconciliation', ({ bootstrap }) => {
@@ -57,16 +58,17 @@ describe.each(bootstrapVariants)('$name reconciliation', ({ bootstrap }) => {
               commandIdReferences: [{ aggregate: TodoAggregate, path: '$.data.id' }],
               handler(command, state, _context) {
                 const { id, suffix } = command.data as { id: string; suffix: string }
-                const currentTitle = (state as { title?: string } | undefined)?.title ?? ''
-                return Ok({
-                  anticipatedEvents: [
-                    {
-                      type: 'TodoUpdated',
-                      data: { id, title: `${currentTitle}${suffix}` },
-                      streamId: `nb.Todo-${id}`,
-                    } as IAnticipatedEvent,
-                  ],
-                })
+                const view = (
+                  state.mode === 'regenerate' ? (state.current ?? state.initial) : state.initial
+                ) as { title?: string } | undefined
+                const currentTitle = view?.title ?? ''
+                return domainSuccess([
+                  {
+                    type: 'TodoUpdated',
+                    data: { id, title: `${currentTitle}${suffix}` },
+                    streamId: `nb.Todo-${id}`,
+                  } as IAnticipatedEvent,
+                ])
               },
             } satisfies CommandHandlerRegistration<ServiceLink>,
           ],
@@ -127,9 +129,9 @@ describe.each(bootstrapVariants)('$name reconciliation', ({ bootstrap }) => {
           id: string
           tags: string[]
         }
-        const todoTaggedProcessor: ProcessorRegistration<TagsData, TagsData> = {
+        const todoTaggedProcessor: ProcessorRegistration<{ data: TagsData }, TagsData> = {
           eventTypes: 'TodoTagged',
-          processor: (data, _state, pctx) => ({
+          processor: ({ data }, _state, pctx) => ({
             collection: 'todos',
             id: data.id,
             update: { type: 'merge', data: { tags: data.tags } },
@@ -148,15 +150,13 @@ describe.each(bootstrapVariants)('$name reconciliation', ({ bootstrap }) => {
           commandIdReferences: [{ aggregate: TodoAggregate, path: '$.data.id' }],
           handler(command) {
             const { id, tags } = command.data as { id: string; tags: string[] }
-            return Ok({
-              anticipatedEvents: [
-                {
-                  type: 'TodoTagged',
-                  data: { id, tags },
-                  streamId: `nb.Todo-${id}`,
-                } as IAnticipatedEvent,
-              ],
-            })
+            return domainSuccess([
+              {
+                type: 'TodoTagged',
+                data: { id, tags },
+                streamId: `nb.Todo-${id}`,
+              } as IAnticipatedEvent,
+            ])
           },
         }
 
@@ -171,16 +171,17 @@ describe.each(bootstrapVariants)('$name reconciliation', ({ bootstrap }) => {
           commandIdReferences: [{ aggregate: TodoAggregate, path: '$.data.id' }],
           handler(command, state, _context) {
             const { id, suffix } = command.data as { id: string; suffix: string }
-            const currentTitle = (state as { title?: string } | undefined)?.title ?? ''
-            return Ok({
-              anticipatedEvents: [
-                {
-                  type: 'TodoUpdated',
-                  data: { id, title: `${currentTitle}${suffix}` },
-                  streamId: `nb.Todo-${id}`,
-                } as IAnticipatedEvent,
-              ],
-            })
+            const view = (
+              state.mode === 'regenerate' ? (state.current ?? state.initial) : state.initial
+            ) as { title?: string } | undefined
+            const currentTitle = view?.title ?? ''
+            return domainSuccess([
+              {
+                type: 'TodoUpdated',
+                data: { id, title: `${currentTitle}${suffix}` },
+                streamId: `nb.Todo-${id}`,
+              } as IAnticipatedEvent,
+            ])
           },
         }
 
@@ -252,6 +253,110 @@ describe.each(bootstrapVariants)('$name reconciliation', ({ bootstrap }) => {
     )
   })
 
+  describe('handler-returned conflict on regenerate', () => {
+    it(
+      'pipeline-time conflict transitions command to failed with category accessible',
+      integrationTestOptions,
+      run(
+        {
+          collections: [createTodosCollection()],
+          processors: [todoCreatedProcessor(), todoUpdatedProcessor()],
+          commandHandlers: [
+            createTodoHandler(),
+            {
+              commandType: 'AppendTodo',
+              aggregate: TodoAggregate,
+              commandIdReferences: [{ aggregate: TodoAggregate, path: '$.data.id' }],
+              handler(command, state, _context) {
+                const { id, suffix } = command.data as { id: string; suffix: string }
+                if (state.mode === 'regenerate') {
+                  // Conflict policy: if the entity's current title was set by
+                  // someone else to 'forbidden', refuse to append. The
+                  // pipeline routes this through markFailedFromConflict.
+                  const currentTitle = (state.current as { title?: string } | undefined)?.title
+                  if (currentTitle === 'forbidden') {
+                    return domainConflict({
+                      message: 'Title was changed by another user; refusing to append',
+                      category: 'requires-review',
+                      errorCode: 'append-blocked-by-server-edit',
+                    })
+                  }
+                }
+                const view = (
+                  state.mode === 'regenerate' ? (state.current ?? state.initial) : state.initial
+                ) as { title?: string } | undefined
+                const currentTitle = view?.title ?? ''
+                return domainSuccess([
+                  {
+                    type: 'TodoUpdated',
+                    data: { id, title: `${currentTitle}${suffix}` },
+                    streamId: `nb.Todo-${id}`,
+                  } as IAnticipatedEvent,
+                ])
+              },
+            } satisfies CommandHandlerRegistration<ServiceLink>,
+          ],
+          SyncManagerClass: TestSyncManager,
+        },
+        async (ctx) => {
+          // Prep: create a todo locally
+          await ctx.commandQueue.enqueue({
+            command: { type: 'CreateTodo', data: { id: 'todo-1', title: 'Initial' } },
+            cacheKey: TODO_SCOPE_KEY,
+          })
+
+          // Enqueue an AppendTodo. First-call mode: produces 'Initial v2'.
+          const initialState = await ctx.readModelStore.getById<{ title: string }>(
+            'todos',
+            'todo-1',
+          )
+          const enqueued = await ctx.commandQueue.enqueue({
+            command: { type: 'AppendTodo', data: { id: 'todo-1', suffix: ' v2' } },
+            cacheKey: TODO_SCOPE_KEY,
+            modelState: initialState?.data,
+          })
+          expect(enqueued.ok).toBe(true)
+          if (!enqueued.ok) return
+          const commandId = enqueued.value.commandId
+
+          // Subscribe to terminal events BEFORE injecting the conflict-causing
+          // server event. This is the same subscription enqueueAndWait uses
+          // internally — we're asserting that no special wiring is needed.
+          const terminalEvent = firstValueFrom(
+            ctx.commandQueue.events$.pipe(
+              filter((e) => e.commandId === commandId && e.eventType === 'failed'),
+            ),
+          )
+
+          // Server delta lands a 'forbidden' title. The reconcile re-runs the
+          // AppendTodo handler against state.current = { title: 'forbidden' };
+          // the handler returns domainConflict, the SyncManager routes it
+          // through markFailedFromConflict, the command transitions to 'failed'.
+          const forbiddenUpdate: IPersistedEvent = {
+            ...ctx.createPersistedEvent('TodoUpdated', 'nb.Todo-todo-1', {
+              id: 'todo-1',
+              title: 'forbidden',
+            }),
+            revision: 0n,
+          }
+          await ctx.injectWsEventsAndWait([{ event: forbiddenUpdate, topics: ['todos'] }], 'todo-1')
+
+          const event = await terminalEvent
+          expect(event.eventType).toBe('failed')
+          expect(event.status).toBe('failed')
+
+          // Persisted record carries the categorized failure.
+          const stored = await ctx.storage.getCommand(commandId)
+          expect(stored?.status).toBe('failed')
+          expect(isCommandFailed(stored?.error)).toBe(true)
+          if (!isCommandFailed(stored?.error)) return
+          expect(stored.error.category).toBe('requires-review')
+          expect(stored.error.errorCode).toBe('append-blocked-by-server-edit')
+        },
+      ),
+    )
+  })
+
   describe('temp ID resolution via WS events', () => {
     it(
       'server event resolves a pending temp-id create via metadata.commandId',
@@ -270,15 +375,13 @@ describe.each(bootstrapVariants)('$name reconciliation', ({ bootstrap }) => {
           handler(command, _state, context) {
             const id = createEntityId(context)
             const { title } = command.data as { title: string }
-            return Ok({
-              anticipatedEvents: [
-                {
-                  type: 'TodoCreated',
-                  data: { id, title },
-                  streamId: `nb.Todo-${entityIdToString(id)}`,
-                } as IAnticipatedEvent,
-              ],
-            })
+            return domainSuccess([
+              {
+                type: 'TodoCreated',
+                data: { id, title },
+                streamId: `nb.Todo-${entityIdToString(id)}`,
+              } as IAnticipatedEvent,
+            ])
           },
         }
 
@@ -396,15 +499,13 @@ describe.each(bootstrapVariants)('$name reconciliation', ({ bootstrap }) => {
           handler(command, _state, context) {
             const id = createEntityId(context)
             const { title } = command.data as { title: string }
-            return Ok({
-              anticipatedEvents: [
-                {
-                  type: 'TodoCreated',
-                  data: { id, title },
-                  streamId: `nb.Todo-${entityIdToString(id)}`,
-                } as IAnticipatedEvent,
-              ],
-            })
+            return domainSuccess([
+              {
+                type: 'TodoCreated',
+                data: { id, title },
+                streamId: `nb.Todo-${entityIdToString(id)}`,
+              } as IAnticipatedEvent,
+            ])
           },
         }
 
@@ -557,15 +658,13 @@ describe.each(bootstrapVariants)('$name reconciliation', ({ bootstrap }) => {
           handler(command, _state, context) {
             const id = createEntityId(context)
             const { title } = command.data as { title: string }
-            return Ok({
-              anticipatedEvents: [
-                {
-                  type: 'NoteCreated',
-                  data: { id, title },
-                  streamId: `nb.Note-${entityIdToString(id)}`,
-                } as IAnticipatedEvent,
-              ],
-            })
+            return domainSuccess([
+              {
+                type: 'NoteCreated',
+                data: { id, title },
+                streamId: `nb.Note-${entityIdToString(id)}`,
+              } as IAnticipatedEvent,
+            ])
           },
         }
 
@@ -583,21 +682,19 @@ describe.each(bootstrapVariants)('$name reconciliation', ({ bootstrap }) => {
           handler(command, _state, context) {
             const id = createEntityId(context)
             const { noteId } = command.data as { noteId: string }
-            return Ok({
-              anticipatedEvents: [
-                {
-                  type: 'TodoCreated',
-                  data: { id, noteId },
-                  streamId: `nb.Todo-${entityIdToString(id)}`,
-                } as IAnticipatedEvent,
-              ],
-            })
+            return domainSuccess([
+              {
+                type: 'TodoCreated',
+                data: { id, noteId },
+                streamId: `nb.Todo-${entityIdToString(id)}`,
+              } as IAnticipatedEvent,
+            ])
           },
         }
 
         const noteCreatedProcessor: ProcessorRegistration = {
           eventTypes: 'NoteCreated',
-          processor: (data: { id: string; title: string }, _state, ctx) => ({
+          processor: ({ data }: { data: { id: string; title: string } }, _state, ctx) => ({
             collection: 'notes',
             id: data.id,
             update: { type: 'set', data },

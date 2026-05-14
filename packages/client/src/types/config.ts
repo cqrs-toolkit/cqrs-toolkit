@@ -12,13 +12,14 @@ import type {
 import type { IAnticipatedEvent } from '../core/command-lifecycle/AnticipatedEventShape.js'
 import type { ICommandSender } from '../core/command-queue/types.js'
 import type { ProcessorRegistration } from '../core/event-processor/types.js'
+import { defaultProblemJsonMapper } from '../core/failure-mapper/index.js'
 import type {
   AggregateConfig,
   DirectIdReference,
   IClientAggregates,
   IdReference,
 } from './aggregates.js'
-import { EnqueueCommand } from './commands.js'
+import { EnqueueCommand, type FailureMapper } from './commands.js'
 import {
   applyCommandHandlerDefaults,
   type CommandHandlerRegistration,
@@ -500,6 +501,25 @@ export interface CqrsConfig<
   commandSender?: ICommandSender<TLink, TCommand>
 
   /**
+   * Project-wide pluggable mapping from {@link ServerErrorResponse} (parsed
+   * server error) to {@link FailureDescriptor}. Runs when no per-command
+   * `mapFailure` on a {@link CommandHandlerRegistration} is defined for the
+   * failing command type. Defaults to `defaultProblemJsonMapper` (RFC 9457
+   * problem+json — the project's canonical error format) when omitted.
+   *
+   * Consumers using a different convention (ld+json, bespoke `body.name`,
+   * etc.) supply their own implementation. Library-shipped helpers in
+   * `core/failure-mapper` (`defaultStatusMapper`, `defaultLdJsonMapper`,
+   * etc.) compose into custom mappers.
+   *
+   * Resolution: per-command `mapFailure` is the sole arbiter when defined
+   * (no automatic cascade). Consumers wanting "global behaviour for non-
+   * special cases" import this function reference directly inside the
+   * per-command handler and call it explicitly.
+   */
+  mapFailure?: FailureMapper
+
+  /**
    * Event processors to register.
    * Processors transform domain events into read model updates.
    */
@@ -645,6 +665,7 @@ export function resolveConfig<
     aggregates: config.aggregates,
     commandHandlers: injectCommandHandlerDefaults(config.commandHandlers),
     commandSender: config.commandSender,
+    mapFailure: config.mapFailure ?? defaultProblemJsonMapper,
     schemaValidator: config.schemaValidator,
     auth: config.auth,
     network: {

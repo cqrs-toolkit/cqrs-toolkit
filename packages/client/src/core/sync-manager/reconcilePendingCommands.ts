@@ -1,7 +1,6 @@
 import type { Link } from '@meticoeus/ddd-es'
-import type { CommandRecord, EnqueueCommand } from '../../types/commands.js'
+import type { CommandRecord, ConflictException, EnqueueCommand } from '../../types/commands.js'
 import type { IDomainExecutor } from '../../types/domain.js'
-import { isDomainSuccess } from '../../types/domain.js'
 import type { EntityId } from '../../types/entities.js'
 import { entityIdToString } from '../../types/index.js'
 import type { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventShape.js'
@@ -107,6 +106,15 @@ export interface ReconcileOutput {
    */
   updatedAnticipatedEvents: Map<string, readonly unknown[]>
   /**
+   * Conflicts surfaced by handler regenerate during the walk. The caller is
+   * responsible for routing these into the command record's error field
+   * (typically via `commandQueue.markFailedFromConflict(commandId, exception)`).
+   *
+   * Pure: this function does no I/O — exposing conflicts in the output keeps
+   * the dispatch decision in the caller.
+   */
+  conflicts: Map<string, ConflictException>
+  /**
    * Client overlay projection after the forward walk. Entries mutated by
    * re-running dirty commands carry fresh object references; entries the
    * reconcile never touched share references with `initialClientState` so
@@ -156,6 +164,7 @@ export function reconcilePendingCommands<
   const dirty = new Set(initialDirty)
   const clientState = new Map<string, object>(initialClientState)
   const updatedAnticipatedEvents = new Map<string, readonly unknown[]>()
+  const conflicts = new Map<string, ConflictException>()
 
   for (const command of commands) {
     const registration = domainExecutor.getRegistration(command.type)
@@ -170,13 +179,16 @@ export function reconcilePendingCommands<
     // (Phase 3 additions to `dirty`) or an upstream sibling re-run of
     // another command on the same entity.
     //
-    // Handler input = `initialServerState[primaryKey]`. This is the
-    // post-server-event baseline produced by Phase 3, with no client
-    // overlays mixed in. The handler re-runs against fresh server
-    // truth so its produced events aren't tainted by the stale overlay
-    // the command previously generated. Chain continuity for downstream
-    // dirty commands is preserved through `clientState` (the fold
-    // output below).
+    // Handler state on re-run is the `'regenerate'` variant of HandlerState:
+    //   - `initial` — the consumer-passed snapshot persisted on the command
+    //     record at submit time; immutable.
+    //   - `current` — `initialServerState[primaryKey]`, the post-server-event
+    //     baseline produced by Phase 3 with no client overlays mixed in. The
+    //     handler re-runs against fresh server truth so its produced events
+    //     aren't tainted by the stale overlay the command previously
+    //     generated. Chain continuity for downstream dirty commands is
+    //     preserved through `clientState` (the fold output below), not
+    //     through the handler input.
     let newEvents: readonly unknown[] | undefined
     if (collection && entityId) {
       const primaryKey = stateKey(collection.name, entityId)
@@ -189,7 +201,7 @@ export function reconcilePendingCommands<
             path: command.path,
             fileRefs: command.fileRefs,
           },
-          state,
+          { mode: 'regenerate', initial: command.modelState, current: state },
           {
             phase: 'updating',
             entityId,
@@ -197,13 +209,20 @@ export function reconcilePendingCommands<
             idStrategy: command.creates?.idStrategy,
           },
         )
-        if (isDomainSuccess(result)) {
-          newEvents = result.value.anticipatedEvents as readonly unknown[]
+        if (result.kind === 'success') {
+          newEvents = result.events as readonly unknown[]
           updatedAnticipatedEvents.set(command.commandId, newEvents)
+        } else if (result.kind === 'conflict') {
+          // Handler detected the command can't proceed cleanly against the
+          // post-server-event baseline. Record the conflict so the caller
+          // (SyncManager) can route it through `commandQueue.markFailedFromConflict`.
+          // The existing anticipated events stay in place until the caller
+          // transitions the command to `'failed'`; nothing is re-folded.
+          conflicts.set(command.commandId, result.exception)
         }
-        // On handler failure, leave the command's existing events in
-        // place. They aren't re-folded; the store still has the previous
-        // overlay, and the caller can surface the error separately.
+        // 'validation-error' / 'unknown-command' on regenerate are
+        // bug-shaped (the command was already validated at submit). Leave
+        // the existing events in place; the caller logs / continues.
       }
     }
 
@@ -227,9 +246,8 @@ export function reconcilePendingCommands<
         const handlerState =
           clientState.get(stateKeyForEvent) ?? initialServerState.get(stateKeyForEvent)
         // TODO(types): fix need to cast as any here
-        // Processors receive the event's `data` payload directly (not the
-        // wrapper) — same convention used by the WS reconcile loop.
-        const result = processor(anticipated.data, handlerState as any, context)
+        // Processors receive the full event (extract event.data / event.metadata as needed).
+        const result = processor(anticipated, handlerState as any, context)
         if (!result) continue
         // TODO: why does this just skip? if the local read model is invalidated we need to throw it
         //  out and persist not to do any more local edits to it
@@ -269,6 +287,7 @@ export function reconcilePendingCommands<
 
   return {
     updatedAnticipatedEvents,
+    conflicts,
     finalClientState: clientState,
     finalDirty: dirty,
   }

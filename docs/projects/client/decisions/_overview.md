@@ -1,7 +1,7 @@
 # decisions/ (client)
 
 ADRs scoped to `@cqrs-toolkit/client`.
-Captures *why* design choices specific to the client were made.
+Captures _why_ design choices specific to the client were made.
 Repo-wide decisions live in [`/docs/decisions/_overview.md`](../../../decisions/_overview.md).
 
 ## Decisions
@@ -14,3 +14,4 @@ Repo-wide decisions live in [`/docs/decisions/_overview.md`](../../../decisions/
 - [ADR 0006 — `CommandStore`: in-memory ownership of `CommandRecord` lifecycle](0006-command-store.md) — single owner of command-record memory + `seq`-based ordering + flush-queue coalescing.
 - [ADR 0007 — `'applied'` status split: relocate anticipated-event cleanup off the success transition](0007-applied-status-split.md) — superseded by [ADR 0008](0008-applied-detection-simplification-and-wait-api-split.md).
 - [ADR 0008 — Simplify `'applied'` coverage detection; split command-wait API into `waitForSucceeded` / `waitForApplied`](0008-applied-detection-simplification-and-wait-api-split.md) — primary-aggregate revision check; new wait-API split exposes the post-terminal `applied` transition to consumers.
+- [ADR 0009 — Hard/soft classification of `dependsOn` edges with source-tagged origins](0009-hard-soft-dependency-classification.md) — _draft, Proposed 2026-05-11_ — split cascade strength by origin; `'entity-ref'`/`'explicit'` short-circuit hard, `'aggregate-chain'` consults a per-command-type classifier with default soft. Sourced from [exploration](../explorations/command-dependency-hard-soft-classification.md).
