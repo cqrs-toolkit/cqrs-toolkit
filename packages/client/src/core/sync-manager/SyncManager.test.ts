@@ -2,7 +2,7 @@
  * Unit tests for SyncManager — session cascade and response event processing.
  */
 
-import type { Result, ServiceLink } from '@meticoeus/ddd-es'
+import type { IPersistedEvent, Result, ServiceLink } from '@meticoeus/ddd-es'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import { createTestWriteQueue } from '../../testing/createTestWriteQueue.js'
@@ -276,6 +276,93 @@ describe('SyncManager', () => {
 
       // Command queue should be paused
       expect(commandQueue.isPaused()).toBe(true)
+
+      await syncManager.destroy()
+    })
+  })
+
+  describe('handleCommandResponseEvents', () => {
+    it('does not detect a gap when the same event is pushed twice in one batch', async () => {
+      // Reproduces the bug observed in todo-demo: when a write succeeds, the
+      // server returns the persisted event in the command response AND
+      // broadcasts the same event via WebSocket. If both pushes land in the
+      // same `pendingWsEvents` batch (before the drain runs), the dedup pass
+      // against EventCache misses them — neither is cached yet — so both
+      // entries reach gap detection. Without a behind-revision branch, the
+      // first advances `knownRevisions` to the event's revision and the
+      // second falsely trips a gap on the duplicate (got rev N, expected N+1).
+      const { cacheManager, eventBus, syncManager } = await bootstrap({
+        domainExecutor: itemDomainExecutor,
+      })
+      await cacheManager.acquire(TODO_CACHE_KEY)
+
+      // Gap detection emits via `emitDebug`, which is a no-op unless debug
+      // is enabled on the EventBus.
+      eventBus.debug = true
+      const gapDetected: { streamId: string; expected: bigint; received: bigint }[] = []
+      eventBus.on('sync:gap-detected').subscribe((e) => gapDetected.push(e.data))
+
+      const event: IPersistedEvent = {
+        id: 'evt-todo-1-create',
+        type: 'TodoCreated',
+        streamId: 'nb.Todo-todo-1',
+        data: { id: 'todo-1', title: 'Hello' } as Record<string, unknown> & { readonly id: string },
+        metadata: { correlationId: 'corr-1' },
+        revision: 0n,
+        position: 1n,
+        persistence: 'Permanent',
+        created: new Date().toISOString(),
+      }
+
+      // Two pushes in the same synchronous tick — the drain hasn't run yet,
+      // so both entries accumulate into the same batch.
+      syncManager.handleCommandResponseEvents([event], TODO_CACHE_KEY)
+      syncManager.handleCommandResponseEvents([event], TODO_CACHE_KEY)
+
+      // Let the WriteQueue drain.
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      expect(gapDetected).toEqual([])
+      // Stream baseline should have advanced to the event's revision exactly
+      // once, not been mis-driven by a per-entry advance.
+      expect(syncManager.getKnownRevisions().get('nb.Todo-todo-1')).toBe(0n)
+
+      await syncManager.destroy()
+    })
+
+    it('does not detect a gap when an already-processed event arrives again in a later batch', async () => {
+      // Same shape as the intra-batch case, but the duplicate arrives after
+      // the first batch has settled. The cache-existence dedup catches this
+      // one — so the gap detector should never see it — but the behind-
+      // revision branch is the underlying guarantee that re-receipt of an
+      // already-known revision is treated as a duplicate, not a gap.
+      const { cacheManager, eventBus, syncManager } = await bootstrap({
+        domainExecutor: itemDomainExecutor,
+      })
+      await cacheManager.acquire(TODO_CACHE_KEY)
+
+      eventBus.debug = true
+      const gapDetected: { streamId: string; expected: bigint; received: bigint }[] = []
+      eventBus.on('sync:gap-detected').subscribe((e) => gapDetected.push(e.data))
+
+      const event: IPersistedEvent = {
+        id: 'evt-todo-1-create',
+        type: 'TodoCreated',
+        streamId: 'nb.Todo-todo-1',
+        data: { id: 'todo-1', title: 'Hello' } as Record<string, unknown> & { readonly id: string },
+        metadata: { correlationId: 'corr-1' },
+        revision: 0n,
+        position: 1n,
+        persistence: 'Permanent',
+        created: new Date().toISOString(),
+      }
+
+      syncManager.handleCommandResponseEvents([event], TODO_CACHE_KEY)
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      syncManager.handleCommandResponseEvents([event], TODO_CACHE_KEY)
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      expect(gapDetected).toEqual([])
 
       await syncManager.destroy()
     })

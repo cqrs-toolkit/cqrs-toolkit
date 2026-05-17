@@ -1588,14 +1588,44 @@ export class SyncManager<
     }
     if (routed.length === 0) return
 
+    // --- Intra-batch dedup (setup) ---
+    // Two entries for the same event id can land in one batch — most commonly
+    // when the server returns the persisted event in the command response AND
+    // broadcasts the same event over WebSocket. The cache-existence dedup
+    // below only catches duplicates against events already persisted in the
+    // EventCache; events still in flight inside this same batch aren't
+    // cached yet, so both copies would otherwise flow through to gap
+    // detection. The behind-revision branch in `checkAndRepairGap` handles
+    // the survivor correctly, but merging here keeps the cache write and
+    // gap walk doing one unit of work per event and unions the cache keys
+    // each copy arrived under.
+    const dedupedById = new Map<string, PendingWsEventEntry<TLink>>()
+    for (const entry of routed) {
+      const existing = dedupedById.get(entry.event.id)
+      if (!existing) {
+        dedupedById.set(entry.event.id, {
+          event: entry.event,
+          cacheKeys: [...entry.cacheKeys],
+        })
+        continue
+      }
+      const existingKeys = new Set(existing.cacheKeys.map((ck) => ck.key))
+      for (const ck of entry.cacheKeys) {
+        if (existingKeys.has(ck.key)) continue
+        existingKeys.add(ck.key)
+        existing.cacheKeys.push(ck)
+      }
+    }
+    const uniqueRouted = Array.from(dedupedById.values())
+
     const existingIds = await this.eventCache.getExistingEventIds(
-      routed.map((entry) => entry.event.id),
+      uniqueRouted.map((entry) => entry.event.id),
     )
 
     const filtered: PendingWsEventEntry<TLink>[] = []
     const newEntries: CacheServerEventEntry[] = []
     const existingEntries: CacheServerEventEntry[] = []
-    for (const entry of routed) {
+    for (const entry of uniqueRouted) {
       const activeCacheKeys = entry.cacheKeys.map((ck) => ck.key)
       if (existingIds.has(entry.event.id)) {
         // Already cached — add the new cache-key associations so subscribers
@@ -1725,6 +1755,15 @@ export class SyncManager<
           // batch — the out-of-order event is buffered and will be
           // delivered by the repair op.
           break
+        }
+
+        if (gapStatus === 'duplicate') {
+          // Revision is at or below the known baseline — already processed.
+          // Drop without advancing the baseline, scheduling repair, or
+          // including in the reconcile batch. Continue walking the bucket;
+          // later (higher-revision) entries on the same stream may still
+          // be in-order and applicable.
+          continue
         }
 
         // 'no-gap': keep the event, advance known revision inline so the

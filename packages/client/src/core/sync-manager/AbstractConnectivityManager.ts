@@ -151,7 +151,7 @@ export abstract class AbstractConnectivityManager<
 
     try {
       const response = await fetch(this.healthCheckUrl, {
-        method: 'HEAD',
+        method: 'GET',
         cache: 'no-store',
       })
 

@@ -77,18 +77,37 @@ export class GapRepairCoordinator<TLink extends Link, TCommand extends EnqueueCo
   }
 
   /**
-   * Check whether a Permanent event's revision is in order.
-   * If a gap is detected, emits sync:gap-detected and triggers repair.
-   * Returns true if the event is in order and the caller should continue processing,
-   * false if a gap was detected or repair is already in flight.
+   * Check whether a Permanent event's revision is in order relative to the
+   * stream's `knownRevisions` baseline.
+   *
+   * Outcomes:
+   *   - `'no-gap'`: revision is exactly `knownRevision + 1`. Caller should
+   *     apply the event and advance the baseline.
+   *   - `'duplicate'`: revision is at or below `knownRevision`. The event
+   *     has already been processed (or was processed under a different id
+   *     that produced the same baseline). Caller should drop it silently
+   *     without advancing the baseline or scheduling repair.
+   *   - `'has-gap'`: revision is strictly above `knownRevision + 1`. A real
+   *     gap; repair is scheduled.
+   *   - `'invalidated'`: gap was detected but the collection has no
+   *     `fetchStreamEvents` capability — caller should invalidate and refetch.
+   *
+   * The distinction between `'duplicate'` and `'has-gap'` is critical:
+   * comparing strictly against `knownRevision + 1` (without a separate
+   * behind-revision branch) would mis-classify duplicates as gaps and kick
+   * useless repair calls.
    */
   checkAndRepairGap(
     event: IPersistedEvent,
     collectionName: string,
     cacheKeys: CacheKeyIdentity<TLink>[],
-  ): 'no-gap' | 'has-gap' | 'invalidated' {
+  ): 'no-gap' | 'duplicate' | 'has-gap' | 'invalidated' {
     // Default -1n represents "no stream" — the state before the first event (revision 0).
     const knownRevision = this.knownRevisions.get(event.streamId) ?? -1n
+
+    // Behind or at the current baseline → already processed. Not a gap.
+    if (event.revision <= knownRevision) return 'duplicate'
+
     const expectedRevision = knownRevision + 1n
     if (event.revision === expectedRevision) return 'no-gap'
 
