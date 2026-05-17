@@ -3,6 +3,7 @@
  */
 
 import {
+  ConflictException,
   createEntityId,
   domainSuccess,
   ValidationException,
@@ -77,8 +78,40 @@ export const notebookHandlers: AppCommandHandlerRegistration[] = [
       const { name } = command.data as { name: string }
       // TODO(command-types): Figure out how we can fix this
       const { id } = command.path as { id: string }
-      const check = await checkNameUniqueness(name, id, context)
-      if (!check.ok) return check
+      const list = await context.queryManager.list<Notebook>({
+        collection: NOTEBOOKS_COLLECTION_NAME,
+        cacheKey: NOTEBOOK_SEED_KEY,
+      })
+      const match = list.data.find((n) => n.name === name)
+      if (match !== undefined) {
+        if (match.id !== id) {
+          return Err(
+            new ValidationException([
+              {
+                path: 'name',
+                code: 'duplicate',
+                message: 'A notebook with this name already exists',
+                params: { name },
+              },
+            ]),
+          )
+        }
+        // Same notebook already carries the target name — pre-emptive
+        // redundancy. Catches local no-op renames and the race where the
+        // remote rename's WS event landed in the read model before this
+        // command was submitted. The server-side path is idempotent
+        // (NotebookAggregate.updateName skips the event when the name
+        // hasn't changed), so missing this check just costs a round-trip;
+        // catching it saves the round-trip and surfaces the
+        // `redundant` category to the UI.
+        return Err(
+          new ConflictException({
+            message: `Notebook is already named "${name}"`,
+            category: 'redundant',
+            errorCode: 'nb.RedundantNameUpdate',
+          }),
+        )
+      }
       return Ok(command.data)
     },
     handler(command) {

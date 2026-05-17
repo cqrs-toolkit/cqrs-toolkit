@@ -3,6 +3,38 @@
 Append-only history of significant changes to the hypermedia demo sub-project.
 Wing-level structural events and cross-cutting changes; per-requirement substantive changes belong in each requirement's paired `-log.md` once requirements exist here.
 
+## 2026-05-14 — Notebook rename: server-side idempotency + client pre-emptive redundancy detection
+
+Proves the failure-mapping pipeline (`FailureCategory` + per-command `validateAsync` returning `ConflictException`) on a realistic concurrent-edit scenario: two clients renaming the same notebook.
+
+Two flavours are now distinguished:
+
+- **Same target** (both clients pick the same new name) — server-side idempotency.
+  [`NotebookAggregate.updateName`](../../../../../../demos/base/src/notebooks/server/aggregate.ts) early-returns when `data.name === this._name`, matching the existing idempotency pattern on `addTag` / `removeTag`.
+  No event is emitted, the command persists no changes, the server returns 200 with `events: []`.
+  No new exception class — the user's intent is already satisfied; nothing to surface as an error.
+- **Different target** (clients pick different names against a stale revision) — ddd-es default `eventsConflict` catches it.
+  Two `NotebookNameUpdated` events on the same aggregate collide via the default same-type rule; the route propagates `EventConflictException` through `handleErrorReply`, producing a 409 `urn:problem:nb.EventConflict:1.0.0` problem.
+  The client's default `defaultProblemJsonMapper` categorizes this as `'requires-review'`.
+
+Client-side pre-emptive detection in [`notebookHandlers` for `nb.UpdateNotebookName`](../../../../../../demos/hypermedia-base/src/domain/notebooks/executor.ts):
+
+- `validateAsync` inspects the read model: if any notebook already carries the requested name and its `id` matches the target, return `Err(new ConflictException({ category: 'redundant', errorCode: 'nb.RedundantNameUpdate' }))`.
+  Catches both the local no-op rename (user typed the current name) and the race where the remote rename's WS event arrived before this command was submitted.
+- The cross-aggregate uniqueness check (existing) and the redundancy check now share one `list()` pass — a duplicate-by-name lookup that branches on `match.id === id`.
+- The server idempotency means missing this check is recoverable (one wasted round-trip, no error UI); catching it saves the round-trip and surfaces the typed `'redundant'` category for UI dispatch.
+
+No per-command `mapFailure` is needed.
+The 409 `EventConflict` already maps to `'requires-review'` via the default; redundancy is detected pre-emptively by the client (or transparently absorbed by server idempotency); there's no third category to translate.
+
+Tests:
+
+- [`demos/hypermedia-server/src/notebooks/routes.test.ts`](../../../../../../demos/hypermedia-server/src/notebooks/routes.test.ts) — three new cases under `describe('updateName')`: idempotent same-name no-op, concurrent different-target → 409 `nb.EventConflict`, concurrent same-target → 200 with `events: []`.
+- [`demos/hypermedia-base/src/domain/notebooks/executor.test.ts`](../../../../../../demos/hypermedia-base/src/domain/notebooks/executor.test.ts) — three pure-function unit tests for `validateAsync`: same name returns redundant `ConflictException`, cross-clash returns `ValidationException`, free target returns `Ok`.
+  Added a minimal `vite.config.ts` under `demos/hypermedia-base/` and listed it in the root `vitest.config.ts` projects so the workspace has a unit-test home; previously the package had no test runner.
+
+A "true" multi-tab e2e variant was considered and deferred — Playwright timing on shared-state races between two browser contexts is hard to make reliable, and the unit + integration coverage above pins the load-bearing semantics.
+
 ## 2026-05-10 — Unified RFC 9457 problem+json error envelope (hypermedia-server)
 
 Migrated every error response in `demos/hypermedia-server/` from the ad-hoc `{ message, details? }` shape (served as `application/json`) to [RFC 9457 — Problem Details for HTTP APIs](https://www.rfc-editor.org/rfc/rfc9457), served as `application/problem+json`.

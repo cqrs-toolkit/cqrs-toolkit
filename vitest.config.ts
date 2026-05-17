@@ -11,6 +11,7 @@ export default defineConfig({
       'packages/realtime/vite.config.ts',
       'packages/schema/vite.config.ts',
       'packages/hypermedia-client/vite.config.ts',
+      'demos/hypermedia-base/vite.config.ts',
       'demos/todo-demo/vite.server.config.ts',
       'demos/hypermedia-server/vite.server.config.ts',
     ],

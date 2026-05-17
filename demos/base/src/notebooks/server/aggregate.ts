@@ -46,6 +46,7 @@ export class NotebookAggregate extends AggregateRoot<NotebookServerEvent> {
   }
 
   updateName(data: { name: string }, metadata: EventMetadata): void {
+    if (data.name === this._name) return
     this.applyChange(
       createEvent<NotebookServerEvent>({
         type: 'NotebookNameUpdated',

@@ -92,6 +92,93 @@ describe('POST /api/notebooks/:id/command', () => {
 
       expect(res.statusCode).toBe(404)
     })
+
+    it('is idempotent when target name matches current name (no event emitted)', async () => {
+      const { id, nextExpectedRevision } = await createNotebook('Stable Name')
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/notebooks/${id}/command`,
+        payload: {
+          type: 'updateName',
+          data: { name: 'Stable Name' },
+          revision: nextExpectedRevision,
+        },
+        headers: commandHeaders(),
+      })
+
+      expect(res.statusCode).toBe(200)
+      const body = res.json<CommandSuccessResponse>()
+      expect(body.events).toEqual([])
+    })
+
+    it('returns 409 EventConflict on concurrent rename to a different name', async () => {
+      const { id, nextExpectedRevision: r0 } = await createNotebook('Race A')
+
+      // Concurrent rename from another client — succeeds, advances revision.
+      const concurrent = await app.inject({
+        method: 'POST',
+        url: `/api/notebooks/${id}/command`,
+        payload: {
+          type: 'updateName',
+          data: { name: 'Remote Pick' },
+          revision: r0,
+        },
+        headers: commandHeaders(),
+      })
+      expect(concurrent.statusCode).toBe(200)
+
+      // Local command was composed against r0 — stale by the time it lands.
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/notebooks/${id}/command`,
+        payload: {
+          type: 'updateName',
+          data: { name: 'Local Pick' },
+          revision: r0,
+        },
+        headers: commandHeaders(),
+      })
+
+      expect(res.statusCode).toBe(409)
+      const problem = res.json<{ type: string; status: number }>()
+      expect(problem.type).toBe('urn:problem:nb.EventConflict:1.0.0')
+      expect(problem.status).toBe(409)
+    })
+
+    it('is idempotent on a concurrent rename to the same target', async () => {
+      const { id, nextExpectedRevision: r0 } = await createNotebook('Race B')
+
+      // Concurrent rename — succeeds.
+      const concurrent = await app.inject({
+        method: 'POST',
+        url: `/api/notebooks/${id}/command`,
+        payload: {
+          type: 'updateName',
+          data: { name: 'Shared Target' },
+          revision: r0,
+        },
+        headers: commandHeaders(),
+      })
+      expect(concurrent.statusCode).toBe(200)
+
+      // Local command would have renamed to the same target — server idempotency
+      // means the no-op succeeds even with a stale revision.
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/notebooks/${id}/command`,
+        payload: {
+          type: 'updateName',
+          data: { name: 'Shared Target' },
+          revision: r0,
+        },
+        headers: commandHeaders(),
+      })
+
+      expect(res.statusCode).toBe(200)
+      const body = res.json<CommandSuccessResponse>()
+      expect(body.events).toEqual([])
+    })
   })
 
   describe('delete', () => {
