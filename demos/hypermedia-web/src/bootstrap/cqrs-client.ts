@@ -1,9 +1,9 @@
 import {
   createCqrsClient,
   detectMode,
+  type ClientMode,
+  type ClientModeConfig,
   type CqrsClient,
-  type ExecutionMode,
-  type ExecutionModeConfig,
 } from '@cqrs-toolkit/client'
 import {
   createCqrsConfig,
@@ -14,7 +14,7 @@ import DedicatedWorkerUrl from '../workers/dedicated-worker?worker&url'
 import SharedWorkerUrl from '../workers/shared-worker?worker&url'
 import SqliteWorkerUrl from '../workers/sqlite-worker?worker&url'
 
-const VALID_MODES = new Set<ExecutionModeConfig>([
+const VALID_MODES = new Set<ClientModeConfig>([
   'auto',
   'online-only',
   'shared-worker',
@@ -22,7 +22,7 @@ const VALID_MODES = new Set<ExecutionModeConfig>([
 ])
 
 interface EntryOptions {
-  mode: ExecutionModeConfig
+  mode: ClientModeConfig
   /** @default true - enable WebSocket sync */
   ws: boolean
   /** @default true - retain commands */
@@ -40,9 +40,9 @@ function resolveEntryOptions(): EntryOptions {
   }
 }
 
-function resolveMode(raw: string | null): ExecutionModeConfig {
-  const requested: ExecutionModeConfig = VALID_MODES.has(raw as ExecutionModeConfig)
-    ? (raw as ExecutionModeConfig)
+function resolveMode(raw: string | null): ClientModeConfig {
+  const requested: ClientModeConfig = VALID_MODES.has(raw as ClientModeConfig)
+    ? (raw as ClientModeConfig)
     : 'auto'
 
   // For explicit worker modes, pre-flight check that the APIs exist.
@@ -61,7 +61,7 @@ function resolveMode(raw: string | null): ExecutionModeConfig {
  * degradation would produce false-positive test results. The library's own fallback
  * behavior is unaffected because it uses `auto`/`detectMode()`.
  */
-function assertModeSupported(requested: ExecutionMode): void {
+function assertModeSupported(requested: ClientMode): void {
   switch (requested) {
     case 'shared-worker':
       if (typeof SharedWorker === 'undefined') {
@@ -91,7 +91,7 @@ function assertModeSupported(requested: ExecutionMode): void {
   }
 }
 
-function workerUrlForMode(mode: ExecutionMode): string | undefined {
+function workerUrlForMode(mode: ClientMode): string | undefined {
   switch (mode) {
     case 'dedicated-worker':
       return DedicatedWorkerUrl

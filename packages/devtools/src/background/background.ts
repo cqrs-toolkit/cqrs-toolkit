@@ -13,6 +13,10 @@ import {
   MSG_COMMAND_SNAPSHOT,
   MSG_DEACTIVATE,
   MSG_EVENT,
+  MSG_NET_CAPTURE_START,
+  MSG_NET_CAPTURE_STATE,
+  MSG_NET_CAPTURE_STOP,
+  MSG_NET_EVENT,
   MSG_PANEL_CLEAR,
   MSG_PANEL_CONNECT,
   MSG_REQUEST_STORAGE,
@@ -22,19 +26,22 @@ import {
 } from '../shared/constants.js'
 import type {
   ActionMessage,
+  BufferDumpMessage,
   ClientDetectedMessage,
   CommandSnapshotMessage,
   EventMessage,
+  NetCaptureStartMessage,
+  NetCaptureStateMessage,
+  NetEventMessage,
   PanelConnectMessage,
-  SanitizedEvent,
-  SerializedCommandRecord,
-  SerializedConfig,
 } from '../shared/protocol.js'
 import { EventBuffer } from './event-buffer.js'
+import { NetworkCaptureManager } from './network-capture.js'
 import { PortManager } from './port-manager.js'
 
 const ports = new PortManager()
 const buffers = new EventBuffer()
+const networkCapture = new NetworkCaptureManager()
 
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name === PORT_CONTENT_SCRIPT) {
@@ -48,6 +55,7 @@ chrome.runtime.onConnect.addListener((port) => {
 chrome.tabs.onRemoved.addListener((tabId) => {
   ports.removeTab(tabId)
   buffers.delete(tabId)
+  networkCapture.dropTab(tabId)
 })
 
 function handleContentScriptConnect(port: chrome.runtime.Port): void {
@@ -69,7 +77,7 @@ function handleContentScriptConnect(port: chrome.runtime.Port): void {
     switch (msg.type) {
       case MSG_CLIENT_DETECTED: {
         const detected = msg as unknown as ClientDetectedMessage
-        buffers.setConfig(tabId, detected.config, detected.role)
+        buffers.setConfig(tabId, detected.config, detected.role, detected.mode, detected.workerUrl)
         // Forward to panel if connected
         const panelPort = ports.getPanelPort(tabId)
         if (panelPort) {
@@ -108,6 +116,17 @@ function handleContentScriptConnect(port: chrome.runtime.Port): void {
         }
         break
       }
+
+      case MSG_NET_EVENT: {
+        // Library-source network event from the page hook. Forward to the
+        // panel using the same NetEventMessage shape the CDP path produces
+        // — both terminate in the panel's network store.
+        const panelPort = ports.getPanelPort(tabId)
+        if (panelPort) {
+          panelPort.postMessage(msg)
+        }
+        break
+      }
     }
   })
 
@@ -131,16 +150,12 @@ function handlePanelConnect(port: chrome.runtime.Port): void {
 
         // Send buffered state to panel
         const buffer = buffers.get(panelTabId)
-        const dumpMsg: {
-          type: string
-          config: SerializedConfig | undefined
-          role: 'leader' | 'standby' | undefined
-          events: SanitizedEvent[]
-          commands: SerializedCommandRecord[]
-        } = {
+        const dumpMsg: BufferDumpMessage = {
           type: MSG_BUFFER_DUMP,
           config: buffer?.config,
           role: buffer?.role,
+          mode: buffer?.mode,
+          workerUrl: buffer?.workerUrl,
           events: buffer?.events ?? [],
           commands: buffer?.commands ?? [],
         }
@@ -185,6 +200,39 @@ function handlePanelConnect(port: chrome.runtime.Port): void {
         }
         break
       }
+
+      case MSG_NET_CAPTURE_START: {
+        if (panelTabId === undefined) break
+        const tabIdForCapture = panelTabId
+        const startMsg = msg as unknown as NetCaptureStartMessage
+        void networkCapture.start(
+          tabIdForCapture,
+          startMsg.origin,
+          startMsg.mode,
+          (event) => {
+            const panelPort = ports.getPanelPort(tabIdForCapture)
+            if (panelPort) {
+              const netMsg: NetEventMessage = { type: MSG_NET_EVENT, event }
+              panelPort.postMessage(netMsg)
+            }
+          },
+          (state) => {
+            const panelPort = ports.getPanelPort(tabIdForCapture)
+            if (panelPort) {
+              const stateMsg: NetCaptureStateMessage = { type: MSG_NET_CAPTURE_STATE, state }
+              panelPort.postMessage(stateMsg)
+            }
+          },
+        )
+        break
+      }
+
+      case MSG_NET_CAPTURE_STOP: {
+        if (panelTabId !== undefined) {
+          void networkCapture.stop(panelTabId)
+        }
+        break
+      }
     }
   })
 
@@ -197,6 +245,11 @@ function handlePanelConnect(port: chrome.runtime.Port): void {
       if (contentPort) {
         contentPort.postMessage({ type: MSG_DEACTIVATE })
       }
+
+      // Closing the panel ends the debugger session — the user can't drive
+      // Start/Stop without a panel, and leaving the banner up after they
+      // closed devtools would be confusing.
+      void networkCapture.stop(panelTabId)
     }
   })
 }

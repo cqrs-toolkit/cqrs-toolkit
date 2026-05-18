@@ -17,6 +17,10 @@ Pre-release.
 Manifest V3 extension with four execution contexts (hook, content script, background service worker, panel).
 Discovers an in-page `__CQRS_TOOLKIT_DEVTOOLS__` debug API and forwards sanitised events through the chrome.runtime port boundary.
 
+## Wings
+
+- [`decisions/`](decisions/_overview.md) — ADRs scoped to this project.
+
 ## Where things live
 
 - Code: `packages/devtools/`

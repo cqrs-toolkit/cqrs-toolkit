@@ -32,7 +32,7 @@ export type ClientAggregatesConfig<TLink extends Link> = IClientAggregates<TLink
 /**
  * Execution mode for the CQRS Client.
  */
-export type ExecutionMode =
+export type ClientMode =
   | 'online-only' // Mode A: In-memory, no persistence
   | 'shared-worker' // Mode C: Multi-tab with SharedWorker orchestrator
   | 'dedicated-worker' // Mode B: Single-tab with Dedicated Worker
@@ -41,7 +41,7 @@ export type ExecutionMode =
  * Execution mode for client configuration.
  * Includes 'auto' which detects the best mode for the environment.
  */
-export type ExecutionModeConfig = ExecutionMode | 'auto'
+export type ClientModeConfig = ClientMode | 'auto'
 
 /**
  * VFS type for SQLite storage.
@@ -574,7 +574,7 @@ export interface CqrsClientConfig<
    * Execution mode.
    * Defaults to 'auto': SharedWorker > Dedicated Worker > Online-only
    */
-  mode?: ExecutionModeConfig
+  mode?: ClientModeConfig
 
   /**
    * SharedWorker script URL (Mode C) or DedicatedWorker script URL (Mode B).
@@ -688,8 +688,38 @@ export function resolveConfig<
     collections: injectCollectionDefaults(config.collections) ?? [],
     processors: config.processors ?? [],
     retainTerminal: config.retainTerminal ?? false,
-    debug: config.debug ?? false,
+    debug: config.debug ?? hasDevtools(),
     logger: config.logger,
     workerSetup: config.workerSetup,
   }
+}
+
+/**
+ * Devtools-extension presence probe for the auto-default of `config.debug`.
+ *
+ * Returns `true` when `globalThis.__CQRS_TOOLKIT_DEVTOOLS__` is set — the
+ * extension's content script installs this in MAIN world at document_start
+ * on every URL while the extension is enabled, independent of whether the
+ * devtools window is open.
+ *
+ * Page-side this works as expected: the hook is established before
+ * `createCqrsClient` runs.
+ *
+ * Worker-side this returns `false` at worker startup — workers have no
+ * `window` and the CDP-injected hook only arrives later, when the panel
+ * attaches. The worker therefore resolves `debug` to `false` by default
+ * and is upgraded to `true` when the page sends the `debug.enable` RPC
+ * after itself resolving `debug = true`. The orchestrator's RPC handler
+ * flips the worker-side debug-consuming components' mutable `debug` fields.
+ *
+ * An explicit `config.debug` value (`true` or `false`) takes precedence
+ * over this probe in both contexts.
+ */
+export function hasDevtools(): boolean {
+  if (typeof globalThis === 'undefined') return false
+  // `globalThis` is sealed against arbitrary string indexing; the
+  // extension installs `__CQRS_TOOLKIT_DEVTOOLS__` from outside this
+  // package's type graph, so probe via a widened view.
+  const g = globalThis as unknown as Record<string, unknown>
+  return g['__CQRS_TOOLKIT_DEVTOOLS__'] !== undefined
 }

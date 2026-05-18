@@ -103,6 +103,7 @@ type SyncManagerConstructor = new (
   domainExecutor: IDomainExecutor<TLink, TCommand, TSchema, TEvent> | undefined,
   commandStore: ICommandStore<TLink, TCommand>,
   mappingStore: ICommandIdMappingStore,
+  debug: boolean,
 ) => SyncManager<TLink, TCommand, TSchema, TEvent>
 
 export interface IntegrationBootstrapConfig {
@@ -294,6 +295,9 @@ async function wireComponents(
     domainExecutor,
     commandStore,
     mappingStore,
+    // Bootstrap defaults debug off; tests that need it can flip
+    // `ctx.syncManager.debug = true` post-construction.
+    false,
   )
   syncManagerRef = syncManager
 

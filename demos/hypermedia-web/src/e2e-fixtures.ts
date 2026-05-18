@@ -1,4 +1,4 @@
-import type { ExecutionMode } from '@cqrs-toolkit/client'
+import type { ClientMode } from '@cqrs-toolkit/client'
 import { formatEventBusTimeline } from '@cqrs-toolkit/client/fixtures'
 import { test as base, type TestInfo } from '@playwright/test'
 ;(BigInt.prototype as any)['toJSON'] = function () {
@@ -6,7 +6,7 @@ import { test as base, type TestInfo } from '@playwright/test'
 }
 
 interface ModeFixtures {
-  mode: ExecutionMode
+  mode: ClientMode
 }
 
 export const test = base.extend<ModeFixtures>({

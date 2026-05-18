@@ -12,10 +12,16 @@ import { cacheKeyIdentity$ } from './createCacheKey.js'
 
 describe('cacheKeyIdentity$', () => {
   it('emits undefined when template is undefined', async () => {
-    const cm = { registerCacheKey: vi.fn() } as unknown as ICacheManager<ServiceLink>
+    const cm: Pick<ICacheManager<ServiceLink>, 'registerCacheKey'> = {
+      registerCacheKey: vi.fn(),
+    }
 
     const result = await firstValueFrom(
-      cacheKeyIdentity$(cm, EMPTY, of<CacheKeyTemplate<ServiceLink> | undefined>(undefined)),
+      cacheKeyIdentity$(
+        cm as ICacheManager<ServiceLink>,
+        EMPTY,
+        of<CacheKeyTemplate<ServiceLink> | undefined>(undefined),
+      ),
     )
 
     expect(result).toBeUndefined()
@@ -27,12 +33,16 @@ describe('cacheKeyIdentity$', () => {
       key: 'uuid-1',
       link: { service: 'nb', type: 'Notebook', id: 'client-1' },
     }
-    const cm = {
+    const cm: Pick<ICacheManager<ServiceLink>, 'registerCacheKey'> = {
       registerCacheKey: vi.fn().mockResolvedValue(identity),
-    } as unknown as ICacheManager<ServiceLink>
+    }
 
     const result = await firstValueFrom(
-      cacheKeyIdentity$(cm, EMPTY, of<CacheKeyTemplate<ServiceLink>>(entityTemplate('client-1'))),
+      cacheKeyIdentity$(
+        cm as ICacheManager<ServiceLink>,
+        EMPTY,
+        of<CacheKeyTemplate<ServiceLink>>(entityTemplate('client-1')),
+      ),
     )
 
     expect(result).toEqual(identity)
@@ -49,15 +59,16 @@ describe('cacheKeyIdentity$', () => {
       key: 'uuid-1',
       link: { service: 'nb', type: 'Notebook', id: 'server-1' },
     }
-    const cm = {
+    const cm: Pick<ICacheManager<ServiceLink>, 'registerCacheKey'> = {
       registerCacheKey: vi.fn().mockResolvedValue(identity),
-    } as unknown as ICacheManager<ServiceLink>
+    }
+    const cacheManager = cm as ICacheManager<ServiceLink>
 
     const events$ = new Subject<LibraryEvent<ServiceLink>>()
 
     const collected = firstValueFrom(
       cacheKeyIdentity$(
-        cm,
+        cacheManager,
         events$,
         of<CacheKeyTemplate<ServiceLink>>(entityTemplate('client-1')),
       ).pipe(take(2), toArray()),
@@ -65,7 +76,11 @@ describe('cacheKeyIdentity$', () => {
 
     // registerCacheKey promise resolves on next microtask, then events$ is subscribed
     await firstValueFrom(
-      cacheKeyIdentity$(cm, EMPTY, of<CacheKeyTemplate<ServiceLink>>(entityTemplate('client-1'))),
+      cacheKeyIdentity$(
+        cacheManager,
+        EMPTY,
+        of<CacheKeyTemplate<ServiceLink>>(entityTemplate('client-1')),
+      ),
     )
 
     events$.next({
@@ -94,9 +109,9 @@ describe('cacheKeyIdentity$', () => {
       key: 'uuid-other',
       link: { service: 'nb', type: 'Notebook', id: 'other-srv' },
     }
-    const cm = {
+    const cm: Pick<ICacheManager<ServiceLink>, 'registerCacheKey'> = {
       registerCacheKey: vi.fn().mockResolvedValue(identity),
-    } as unknown as ICacheManager<ServiceLink>
+    }
 
     // Events stream with a reconciliation for a different key
     const events$ = of<LibraryEvent<ServiceLink>>({
@@ -112,7 +127,11 @@ describe('cacheKeyIdentity$', () => {
     } as LibraryEvent<ServiceLink, 'cache:key-reconciled'>)
 
     const result = await firstValueFrom(
-      cacheKeyIdentity$(cm, events$, of<CacheKeyTemplate<ServiceLink>>(entityTemplate('client-1'))),
+      cacheKeyIdentity$(
+        cm as ICacheManager<ServiceLink>,
+        events$,
+        of<CacheKeyTemplate<ServiceLink>>(entityTemplate('client-1')),
+      ),
     )
 
     // Should get the initial identity, not the unrelated reconciliation
@@ -130,14 +149,17 @@ describe('cacheKeyIdentity$', () => {
       key: 'uuid-2',
       link: { service: 'nb', type: 'Notebook', id: '2' },
     }
-    const cm = {
+    const cm: Pick<ICacheManager<ServiceLink>, 'registerCacheKey'> = {
       registerCacheKey: vi.fn().mockResolvedValueOnce(identity1).mockResolvedValueOnce(identity2),
-    } as unknown as ICacheManager<ServiceLink>
+    }
 
     const template$ = new Subject<CacheKeyTemplate<ServiceLink> | undefined>()
 
     const collected = firstValueFrom(
-      cacheKeyIdentity$(cm, EMPTY, template$).pipe(take(2), toArray()),
+      cacheKeyIdentity$(cm as ICacheManager<ServiceLink>, EMPTY, template$).pipe(
+        take(2),
+        toArray(),
+      ),
     )
 
     template$.next(entityTemplate('1'))

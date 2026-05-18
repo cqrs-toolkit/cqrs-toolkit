@@ -204,7 +204,7 @@ The hook receives a live Observable instance passed in from the already-loaded c
    It defines `window.__CQRS_TOOLKIT_DEVTOOLS__` with a `registerClient(id, api)` method.
    When the client registers, the hook subscribes to `api.events$` and forwards events via `window.postMessage`.
 
-2. **content-script.ts** listens for `window.postMessage` with a known type prefix (`__CQRS_DEVTOOLS__`).
+2. **content-script.ts** listens for `window.postMessage` with a known type prefix (`__CQRS_TOOLKIT_DEVTOOLS__`).
    Relays to the DevTools panel via `chrome.runtime.connect()` port.
 
 3. **DevTools panel** receives events and renders.

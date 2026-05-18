@@ -17,7 +17,7 @@
  * version bumps. Mode A is never cached.
  */
 
-import type { ExecutionMode } from '../types/config.js'
+import type { ClientMode } from '../types/config.js'
 
 /**
  * Detect the best execution mode for the current browser environment.
@@ -32,7 +32,7 @@ import type { ExecutionMode } from '../types/config.js'
  *
  * @returns The most capable execution mode available
  */
-export function detectMode(): ExecutionMode {
+export function detectMode(): ClientMode {
   if (
     typeof globalThis.navigator === 'undefined' ||
     typeof navigator.storage?.getDirectory !== 'function' ||
@@ -70,7 +70,7 @@ interface ModeCache {
  * Returns `undefined` on cache miss, schema mismatch, or userAgent change.
  * Mode A is never cached.
  */
-export function readModeCache(): ExecutionMode | undefined {
+export function readModeCache(): ClientMode | undefined {
   try {
     const raw = localStorage.getItem(MODE_CACHE_KEY)
     if (!raw) return undefined
@@ -88,7 +88,7 @@ export function readModeCache(): ExecutionMode | undefined {
  *
  * Mode A (online-only) is never cached — it's the fallback, not a detected capability.
  */
-export function writeModeCache(mode: ExecutionMode): void {
+export function writeModeCache(mode: ClientMode): void {
   if (mode === 'online-only') return
   try {
     const entry: ModeCache = {

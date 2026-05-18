@@ -93,10 +93,11 @@ function createMockClient(
   qm: IQueryManager<ServiceLink>,
   events$?: Observable<LibraryEvent<ServiceLink>>,
 ): TClient {
-  return {
+  const client: Pick<TClient, 'queryManager' | 'events$'> = {
     queryManager: qm,
     events$: events$ ?? new Subject<LibraryEvent<ServiceLink>>().asObservable(),
-  } as unknown as TClient
+  }
+  return client as TClient
 }
 
 /**

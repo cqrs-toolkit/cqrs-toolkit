@@ -160,6 +160,10 @@ export {
   startSqliteWorker,
 } from './adapters/worker-core/index.js'
 
+// Devtools hook bridge
+export { recordNetEvent, wrapWebSocket } from './devtools/wrapWebSocket.js'
+export type { NetEventInput } from './devtools/wrapWebSocket.js'
+
 // Protocol (for worker communication)
 export * as protocol from './protocol/index.js'
 

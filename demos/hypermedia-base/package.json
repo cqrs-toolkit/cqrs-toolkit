@@ -48,7 +48,7 @@
     "#primitives/createEditNavigator": "./src/primitives/createEditNavigator.js"
   },
   "scripts": {
-    "build": "rm -rf dist && rollup -c && tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.json --noEmit && rm -rf dist && rollup -c && tsc -p tsconfig.build.json",
     "compile": "tsc -p tsconfig.json --noEmit",
     "cqrs:client:init": "cqrs-toolkit client init --server=http://localhost:3002 --apidoc-path=/api/meta/apidoc",
     "cqrs:client:pull": "cqrs-toolkit client pull"

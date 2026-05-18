@@ -10,6 +10,11 @@ import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount } f
 
 const ROW_HEIGHT = 22
 
+export interface VirtualScrollerControls {
+  /** Scroll the row at `index` into view if it isn't already. */
+  ensureVisible(index: number): void
+}
+
 interface VirtualScrollerProps<T> {
   items: () => T[]
   rowHeight?: number
@@ -17,6 +22,8 @@ interface VirtualScrollerProps<T> {
   filterVersion: () => number
   overscan?: number
   class?: string
+  /** Called once on mount with imperative scroll controls. */
+  ref?: (ctl: VirtualScrollerControls) => void
 }
 
 export function VirtualScroller<T>(props: VirtualScrollerProps<T>): JSX.Element {
@@ -79,6 +86,24 @@ export function VirtualScroller<T>(props: VirtualScrollerProps<T>): JSX.Element 
       outerRef.scrollTop = outerRef.scrollHeight
     }
   }
+
+  function ensureVisible(index: number): void {
+    if (!outerRef) return
+    if (index < 0) return
+    const itemTop = index * rowHeight
+    const itemBottom = itemTop + rowHeight
+    const viewTop = outerRef.scrollTop
+    const viewBottom = viewTop + outerRef.clientHeight
+    if (itemTop < viewTop) {
+      outerRef.scrollTop = itemTop
+    } else if (itemBottom > viewBottom) {
+      outerRef.scrollTop = itemBottom - outerRef.clientHeight
+    }
+  }
+
+  onMount(() => {
+    props.ref?.({ ensureVisible })
+  })
 
   // Auto-scroll when new items arrive and user is at bottom
   createEffect(

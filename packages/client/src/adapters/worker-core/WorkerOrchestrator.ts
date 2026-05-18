@@ -250,6 +250,10 @@ export class WorkerOrchestrator<
       domainExecutor,
       commandStore,
       mappingStore,
+      // Worker's resolved debug at startup. Page may upgrade via the
+      // `debug.enable` RPC; the handler below flips the setter so new WS
+      // connections opened after the upgrade are wrapped.
+      config.debug,
     )
     syncManagerRef = syncManager
     this.syncManager = syncManager
@@ -293,11 +297,16 @@ export class WorkerOrchestrator<
       return { restoredKeys, failedKeys }
     })
 
-    // 16. Register debug.enable RPC — enables debug events and lazily registers
-    // debug snapshot methods on first call.
+    // 16. Register debug.enable RPC — page-driven runtime upgrade to debug
+    // mode (the page resolved `debug: true` either explicitly or via the
+    // devtools-extension auto-default; see `resolveConfig` / `hasDevtools`).
+    // Idempotent; the OR semantics across all debug-consuming components
+    // means a repeat call is a no-op. Lazily registers debug snapshot
+    // methods on first call.
     let debugRegistered = false
     this.messageHandler.registerMethod('debug.enable', async () => {
       eventBus.debug = true
+      syncManager.debug = true
       if (!debugRegistered) {
         debugRegistered = true
         registerDebugMethods(this.messageHandler, {

@@ -2,11 +2,13 @@ import type { Component } from 'solid-js'
 import { Show } from 'solid-js'
 import { getPanelWidth, setPanelWidth } from '../../panelWidths.js'
 import type { EventsStore } from '../../stores/events.js'
+import { useArrowSelection } from '../../useArrowSelection.js'
 import { useContainerWidth } from '../../useContainerWidth.js'
 import { ChipSelect } from '../ChipSelect.js'
 import { DragHandle } from '../DragHandle.js'
+import { FilterInput } from '../FilterInput.js'
 import { MultiSelect } from '../MultiSelect.js'
-import { VirtualScroller } from '../VirtualScroller.js'
+import { VirtualScroller, type VirtualScrollerControls } from '../VirtualScroller.js'
 import { EventDetail } from './EventDetail.js'
 import { EventRow } from './EventRow.js'
 
@@ -26,8 +28,21 @@ export const EventsTab: Component<EventsTabProps> = (props) => {
 
   let containerRef: HTMLDivElement | undefined
   const containerWidth = useContainerWidth(() => containerRef)
+  let scroller: VirtualScrollerControls | undefined
 
   let startWidth = 0
+
+  useArrowSelection({
+    items: () => props.store.filteredItems(),
+    selectedId: () => props.store.selectedId(),
+    // Only event items are selectable; gap-detected / repair / divider items
+    // skip naturally by returning undefined.
+    getId: (item) => (item.kind === 'event' ? item.entry.entryId : undefined),
+    select: (id, index) => {
+      props.store.selectEvent(id)
+      scroller?.ensureVisible(index)
+    },
+  })
 
   return (
     <>
@@ -53,22 +68,20 @@ export const EventsTab: Component<EventsTabProps> = (props) => {
           onSelectAll={() => props.store.selectAllTypes()}
           onClear={() => props.store.clearTypeFilter()}
         />
-        <div class="toolbar-filter">
-          <input
-            class="toolbar-input"
-            type="text"
-            placeholder="Filter stream..."
-            value={props.store.streamFilter()}
-            onInput={(e) => props.store.setStreamFilter(e.currentTarget.value)}
-          />
-        </div>
-        <button class="toolbar-btn" onClick={() => props.onExport()}>
-          Export
-        </button>
-        <button class="toolbar-btn" onClick={() => props.onClear()}>
-          Clear
-        </button>
-        <span class="count">{filtered().length} events</span>
+        <FilterInput
+          placeholder="Filter stream..."
+          value={props.store.streamFilter()}
+          onInput={(v) => props.store.setStreamFilter(v)}
+        />
+        <span class="toolbar-tail">
+          <button class="toolbar-btn" onClick={() => props.onExport()}>
+            Export
+          </button>
+          <button class="toolbar-btn" onClick={() => props.onClear()}>
+            Clear
+          </button>
+          <span class="count">{filtered().length} events</span>
+        </span>
       </div>
 
       <div class="events-layout" ref={containerRef}>
@@ -93,6 +106,9 @@ export const EventsTab: Component<EventsTabProps> = (props) => {
                 <VirtualScroller
                   items={filtered}
                   filterVersion={props.store.filterVersion}
+                  ref={(c) => {
+                    scroller = c
+                  }}
                   renderRow={(item) => (
                     <EventRow
                       item={item}

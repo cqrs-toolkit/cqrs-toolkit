@@ -88,10 +88,11 @@ function createMockQueryManager() {
 type TClient = CqrsClient<ServiceLink, EnqueueCommand>
 
 function createMockClient(qm: IQueryManager<ServiceLink>): TClient {
-  return {
+  const client: Pick<TClient, 'queryManager' | 'events$'> = {
     queryManager: qm,
     events$: new Subject<LibraryEvent<ServiceLink>>().asObservable(),
-  } as unknown as TClient
+  }
+  return client as TClient
 }
 
 function withContext(client: TClient, fn: (dispose: () => void) => Promise<void>): Promise<void> {

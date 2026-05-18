@@ -146,13 +146,13 @@ export type { AuthStrategy } from '../core/auth.js'
 // Config
 export type {
   CacheConfig,
+  ClientMode,
+  ClientModeConfig,
   Collection,
   CollectionWithSeedOnDemand,
   CollectionWithSeedOnInit,
   CqrsClientConfig,
   CqrsConfig,
-  ExecutionMode,
-  ExecutionModeConfig,
   FetchContext,
   FetchSeedEventOptions,
   FetchSeedRecordOptions,

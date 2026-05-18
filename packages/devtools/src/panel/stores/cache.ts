@@ -38,6 +38,8 @@ export interface CacheStore {
   toggleStatusFilter: (v: CacheKeyStatus) => void
   selectAllStatuses: () => void
   clearStatusFilter: () => void
+  textFilter: () => string
+  setTextFilter: (v: string) => void
   filterVersion: () => number
   seenCollections: () => string[]
   selectedId: () => string | undefined
@@ -58,6 +60,7 @@ export function createCacheStore(): CacheStore {
 
   const [collectionFilter, setCollectionFilter] = createSignal<Set<string>>(new Set())
   const [statusFilter, setStatusFilter] = createSignal<Set<CacheKeyStatus>>(new Set(ALL_STATUSES))
+  const [textFilter, setTextFilterRaw] = createSignal('')
   const [filterVersion, setFilterVersion] = createSignal(0)
   const [selectedId, setSelectedId] = createSignal<string | undefined>()
 
@@ -73,12 +76,22 @@ export function createCacheStore(): CacheStore {
     const all = entriesList()
     const col = collectionFilter()
     const status = statusFilter()
+    const text = textFilter().toLowerCase()
     return all.filter((e) => {
       if (col.size > 0 && !col.has(e.collection)) return false
       if (!status.has(e.status)) return false
+      if (text && !matchesText(e, text)) return false
       return true
     })
   })
+
+  function matchesText(entry: CacheKeyEntry, needle: string): boolean {
+    if (entry.key.toLowerCase().includes(needle)) return true
+    if (entry.collection.toLowerCase().includes(needle)) return true
+    if (entry.status.toLowerCase().includes(needle)) return true
+    if (entry.evictionReason?.toLowerCase().includes(needle)) return true
+    return false
+  }
 
   function handleEvent(event: SanitizedEvent): void {
     switch (event.type) {
@@ -148,6 +161,11 @@ export function createCacheStore(): CacheStore {
   return {
     entries: entriesList,
     filteredEntries,
+    textFilter,
+    setTextFilter(value: string) {
+      setTextFilterRaw(value)
+      bumpFilterVersion()
+    },
     collectionFilter,
     toggleCollectionFilter(v) {
       setCollectionFilter((prev) => {

@@ -246,6 +246,7 @@ async function bootstrapWorker<
       domainExecutor,
       commandStore,
       mappingStore,
+      config.debug,
     )
     syncManagerRef = syncManager
 

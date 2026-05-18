@@ -30,5 +30,5 @@
       "world": "ISOLATED"
     }
   ],
-  "permissions": []
+  "permissions": ["debugger", "storage"]
 }

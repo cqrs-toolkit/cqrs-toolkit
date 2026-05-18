@@ -2,10 +2,12 @@ import type { Component } from 'solid-js'
 import { Show } from 'solid-js'
 import { getPanelWidth, setPanelWidth } from '../../panelWidths.js'
 import type { ReadModelsStore } from '../../stores/readModels.js'
+import { useArrowSelection } from '../../useArrowSelection.js'
 import { useContainerWidth } from '../../useContainerWidth.js'
 import { DragHandle } from '../DragHandle.js'
+import { FilterInput } from '../FilterInput.js'
 import { MultiSelect } from '../MultiSelect.js'
-import { VirtualScroller } from '../VirtualScroller.js'
+import { VirtualScroller, type VirtualScrollerControls } from '../VirtualScroller.js'
 import { ReadModelDetail } from './ReadModelDetail.js'
 import { ReadModelRow } from './ReadModelRow.js'
 
@@ -25,8 +27,19 @@ export const ReadModelsTab: Component<ReadModelsTabProps> = (props) => {
 
   let containerRef: HTMLDivElement | undefined
   const containerWidth = useContainerWidth(() => containerRef)
+  let scroller: VirtualScrollerControls | undefined
 
   let startWidth = 0
+
+  useArrowSelection({
+    items: () => props.store.filteredEntries(),
+    selectedId: () => props.store.selectedCollection(),
+    getId: (entry) => entry.collection,
+    select: (id, index) => {
+      props.store.selectCollection(id)
+      scroller?.ensureVisible(index)
+    },
+  })
 
   return (
     <>
@@ -40,13 +53,20 @@ export const ReadModelsTab: Component<ReadModelsTabProps> = (props) => {
           onSelectAll={() => props.store.selectAllCollections()}
           onClear={() => props.store.clearCollectionFilter()}
         />
-        <button class="toolbar-btn" onClick={() => props.onExport()}>
-          Export
-        </button>
-        <button class="toolbar-btn" onClick={() => props.onClear()}>
-          Clear
-        </button>
-        <span class="count">{filtered().length} collections</span>
+        <FilterInput
+          placeholder="Filter…"
+          value={props.store.textFilter()}
+          onInput={(v) => props.store.setTextFilter(v)}
+        />
+        <span class="toolbar-tail">
+          <button class="toolbar-btn" onClick={() => props.onExport()}>
+            Export
+          </button>
+          <button class="toolbar-btn" onClick={() => props.onClear()}>
+            Clear
+          </button>
+          <span class="count">{filtered().length} collections</span>
+        </span>
       </div>
 
       <div class="rm-layout" ref={containerRef}>
@@ -70,6 +90,9 @@ export const ReadModelsTab: Component<ReadModelsTabProps> = (props) => {
                 <VirtualScroller
                   items={filtered}
                   filterVersion={props.store.filterVersion}
+                  ref={(c) => {
+                    scroller = c
+                  }}
                   renderRow={(entry) => (
                     <ReadModelRow
                       entry={entry}

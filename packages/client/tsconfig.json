@@ -6,6 +6,5 @@
     "rootDir": ".",
     "outDir": "dist"
   },
-  "include": ["package.json", "src/index.ts", "src/**/*.ts"],
-  "exclude": ["src/vitest-setup.ts", "src/**/*.e2e.ts"]
+  "include": ["package.json", "src/index.ts", "src/**/*.ts"]
 }

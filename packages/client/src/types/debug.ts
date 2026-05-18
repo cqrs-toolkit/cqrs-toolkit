@@ -12,7 +12,7 @@ import type { IQueryManager } from '../core/query-manager/types.js'
 import type { CqrsClientSyncManager } from '../createCqrsClient.js'
 import type { IStorage } from '../storage/IStorage.js'
 import { EnqueueCommand } from './commands.js'
-import type { ResolvedConfig } from './config.js'
+import type { ClientMode, ResolvedConfig } from './config.js'
 import type { LibraryEvent } from './events.js'
 
 /**
@@ -50,6 +50,20 @@ export interface CqrsDebugAPI<
   readonly config: ResolvedConfig<TLink, TCommand, TSchema, TEvent>
   /** Role of this client instance. */
   readonly role: 'leader' | 'standby'
+  /**
+   * Execution mode the client actually settled on after `initializeAdapter`
+   * (e.g. `'auto'` may resolve to either of the worker modes or
+   * `'online-only'` depending on OPFS availability). Devtools branches
+   * capture behaviour on this — `'online-only'` needs no debugger
+   * attachment, the worker modes do for hook injection.
+   */
+  readonly mode: ClientMode
+  /**
+   * Consumer-configured worker URL the client launched. Absent in
+   * `'online-only'` mode (no worker). Devtools surfaces this in the
+   * About panel for diagnostic visibility.
+   */
+  readonly workerUrl?: string
 }
 
 /**

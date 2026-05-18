@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { PortManager } from './port-manager.js'
 
 function fakePort(name = 'test'): chrome.runtime.Port {
-  return { name } as unknown as chrome.runtime.Port
+  const port: Pick<chrome.runtime.Port, 'name'> = { name }
+  return port as chrome.runtime.Port
 }
 
 describe('PortManager', () => {

@@ -2,10 +2,12 @@ import type { Component } from 'solid-js'
 import { Show } from 'solid-js'
 import { getPanelWidth, setPanelWidth } from '../../panelWidths.js'
 import type { CacheStore } from '../../stores/cache.js'
+import { useArrowSelection } from '../../useArrowSelection.js'
 import { useContainerWidth } from '../../useContainerWidth.js'
 import { DragHandle } from '../DragHandle.js'
+import { FilterInput } from '../FilterInput.js'
 import { MultiSelect } from '../MultiSelect.js'
-import { VirtualScroller } from '../VirtualScroller.js'
+import { VirtualScroller, type VirtualScrollerControls } from '../VirtualScroller.js'
 import { CacheDetail } from './CacheDetail.js'
 import { CacheRow } from './CacheRow.js'
 
@@ -25,8 +27,19 @@ export const CacheTab: Component<CacheTabProps> = (props) => {
 
   let containerRef: HTMLDivElement | undefined
   const containerWidth = useContainerWidth(() => containerRef)
+  let scroller: VirtualScrollerControls | undefined
 
   let startWidth = 0
+
+  useArrowSelection({
+    items: () => props.store.filteredEntries(),
+    selectedId: () => props.store.selectedId(),
+    getId: (entry) => entry.key,
+    select: (id, index) => {
+      props.store.selectEntry(id)
+      scroller?.ensureVisible(index)
+    },
+  })
 
   return (
     <>
@@ -49,13 +62,20 @@ export const CacheTab: Component<CacheTabProps> = (props) => {
           onSelectAll={() => props.store.selectAllStatuses()}
           onClear={() => props.store.clearStatusFilter()}
         />
-        <button class="toolbar-btn" onClick={() => props.onExport()}>
-          Export
-        </button>
-        <button class="toolbar-btn" onClick={() => props.onClear()}>
-          Clear
-        </button>
-        <span class="count">{filtered().length} keys</span>
+        <FilterInput
+          placeholder="Filter…"
+          value={props.store.textFilter()}
+          onInput={(v) => props.store.setTextFilter(v)}
+        />
+        <span class="toolbar-tail">
+          <button class="toolbar-btn" onClick={() => props.onExport()}>
+            Export
+          </button>
+          <button class="toolbar-btn" onClick={() => props.onClear()}>
+            Clear
+          </button>
+          <span class="count">{filtered().length} keys</span>
+        </span>
       </div>
 
       <div class="cache-layout" ref={containerRef}>
@@ -79,6 +99,9 @@ export const CacheTab: Component<CacheTabProps> = (props) => {
                 <VirtualScroller
                   items={filtered}
                   filterVersion={props.store.filterVersion}
+                  ref={(c) => {
+                    scroller = c
+                  }}
                   renderRow={(entry) => (
                     <CacheRow
                       entry={entry}

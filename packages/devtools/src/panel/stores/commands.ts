@@ -6,7 +6,6 @@
  */
 
 import type { CommandStatus } from '@cqrs-toolkit/client'
-import type { Link } from '@meticoeus/ddd-es'
 import { createSignal } from 'solid-js'
 import type { SanitizedEvent, SerializedCommandRecord } from '../../shared/protocol.js'
 
@@ -38,6 +37,8 @@ export interface CommandsStore {
   toggleServiceFilter: (service: string) => void
   selectAllServices: () => void
   clearServiceFilter: () => void
+  textFilter: () => string
+  setTextFilter: (value: string) => void
   filterVersion: () => number
   selectedId: () => string | undefined
   selectCommand: (id: string | undefined) => void
@@ -57,7 +58,7 @@ const ALL_STATUSES: CommandStatus[] = [
   'cancelled',
 ]
 
-export function createCommandsStore<TLink extends Link>(): CommandsStore {
+export function createCommandsStore(): CommandsStore {
   const [entries, setEntries] = createSignal<Map<string, CommandEntry>>(new Map())
   const [filterStatuses, setFilterStatuses] = createSignal<Set<CommandStatus>>(
     new Set(ALL_STATUSES),
@@ -66,6 +67,7 @@ export function createCommandsStore<TLink extends Link>(): CommandsStore {
   const [seenServices, setSeenServices] = createSignal<Set<string>>(new Set())
   const [typeFilter, setTypeFilter] = createSignal<Set<string>>(new Set())
   const [serviceFilter, setServiceFilter] = createSignal<Set<string>>(new Set())
+  const [textFilter, setTextFilterRaw] = createSignal('')
   const [selectedId, setSelectedId] = createSignal<string | undefined>()
   const [filterVersion, setFilterVersion] = createSignal(0)
 
@@ -108,12 +110,24 @@ export function createCommandsStore<TLink extends Link>(): CommandsStore {
     const active = filterStatuses()
     const types = typeFilter()
     const services = serviceFilter()
+    const text = textFilter().toLowerCase()
     return commands().filter((e) => {
       if (!active.has(e.record.status)) return false
       if (types.size > 0 && !types.has(e.record.type)) return false
       if (services.size > 0 && !services.has(e.record.service)) return false
+      if (text && !matchesText(e, text)) return false
       return true
     })
+  }
+
+  function matchesText(entry: CommandEntry, needle: string): boolean {
+    const r = entry.record
+    if (r.commandId.toLowerCase().includes(needle)) return true
+    if (r.type.toLowerCase().includes(needle)) return true
+    if (r.service.toLowerCase().includes(needle)) return true
+    if (r.status.toLowerCase().includes(needle)) return true
+    if (r.error?.message?.toLowerCase().includes(needle)) return true
+    return false
   }
 
   function handleEvent(event: SanitizedEvent): void {
@@ -343,6 +357,11 @@ export function createCommandsStore<TLink extends Link>(): CommandsStore {
     },
     clearServiceFilter() {
       setServiceFilter(new Set<string>())
+      bumpFilterVersion()
+    },
+    textFilter,
+    setTextFilter(value) {
+      setTextFilterRaw(value)
       bumpFilterVersion()
     },
     filterVersion,

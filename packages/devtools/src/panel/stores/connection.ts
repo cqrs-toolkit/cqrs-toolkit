@@ -13,6 +13,10 @@ import {
   MSG_CLIENT_DETECTED,
   MSG_COMMAND_SNAPSHOT,
   MSG_EVENT,
+  MSG_NET_CAPTURE_START,
+  MSG_NET_CAPTURE_STATE,
+  MSG_NET_CAPTURE_STOP,
+  MSG_NET_EVENT,
   MSG_PANEL_CLEAR,
   MSG_PANEL_CONNECT,
   MSG_REQUEST_STORAGE,
@@ -22,8 +26,13 @@ import {
 import type {
   BufferDumpMessage,
   ClientDetectedMessage,
+  ClientMode,
   CommandSnapshotMessage,
   EventMessage,
+  NetCaptureState,
+  NetCaptureStateMessage,
+  NetEventMessage,
+  NetworkProbeEvent,
   SanitizedEvent,
   SerializedCommandRecord,
   SerializedConfig,
@@ -37,21 +46,29 @@ export interface ConnectionEventHandlers {
   onCommandSnapshot?: (commands: SerializedCommandRecord[]) => void
   onBufferDump?: (dump: BufferDumpMessage) => void
   onClientDetected?: (config: SerializedConfig, role: 'leader' | 'standby') => void
+  onNetEvent?: (event: NetworkProbeEvent) => void
+  onNetState?: (state: NetCaptureState) => void
 }
 
 export interface ConnectionStore {
   state: () => ConnectionState
   config: () => SerializedConfig | undefined
   role: () => 'leader' | 'standby' | undefined
+  mode: () => ClientMode | undefined
+  workerUrl: () => string | undefined
   sendAction: (action: 'retry' | 'cancel', commandId: string) => void
   clearBuffer: () => void
   execSql: (sql: string, bind?: unknown[]) => Promise<Record<string, unknown>[]>
+  startNetCapture: (origin: string, mode: ClientMode | undefined) => void
+  stopNetCapture: () => void
 }
 
 export function createConnectionStore(handlers: ConnectionEventHandlers): ConnectionStore {
   const [state, setState] = createSignal<ConnectionState>('disconnected')
   const [config, setConfig] = createSignal<SerializedConfig | undefined>()
   const [role, setRole] = createSignal<'leader' | 'standby' | undefined>()
+  const [mode, setMode] = createSignal<ClientMode | undefined>()
+  const [workerUrl, setWorkerUrl] = createSignal<string | undefined>()
 
   let port: chrome.runtime.Port | undefined
 
@@ -79,6 +96,8 @@ export function createConnectionStore(handlers: ConnectionEventHandlers): Connec
           if (dump.config) {
             setConfig(dump.config)
             setRole(dump.role)
+            setMode(dump.mode)
+            setWorkerUrl(dump.workerUrl)
             setState('connected')
           } else if (config()) {
             // Reconnect after service worker restart: buffer is empty but we
@@ -97,6 +116,8 @@ export function createConnectionStore(handlers: ConnectionEventHandlers): Connec
           const detected = msg as unknown as ClientDetectedMessage
           setConfig(detected.config)
           setRole(detected.role)
+          setMode(detected.mode)
+          setWorkerUrl(detected.workerUrl)
           setState('connected')
           handlers.onClientDetected?.(detected.config, detected.role)
           break
@@ -127,6 +148,18 @@ export function createConnectionStore(handlers: ConnectionEventHandlers): Connec
           }
           break
         }
+
+        case MSG_NET_EVENT: {
+          const netMsg = msg as unknown as NetEventMessage
+          handlers.onNetEvent?.(netMsg.event)
+          break
+        }
+
+        case MSG_NET_CAPTURE_STATE: {
+          const stateMsg = msg as unknown as NetCaptureStateMessage
+          handlers.onNetState?.(stateMsg.state)
+          break
+        }
       }
     })
 
@@ -154,6 +187,8 @@ export function createConnectionStore(handlers: ConnectionEventHandlers): Connec
     state,
     config,
     role,
+    mode,
+    workerUrl,
     sendAction(action, commandId) {
       port?.postMessage({ type: MSG_ACTION, action, commandId })
     },
@@ -170,6 +205,12 @@ export function createConnectionStore(handlers: ConnectionEventHandlers): Connec
         pendingStorage.set(requestId, { resolve, reject })
         port.postMessage({ type: MSG_REQUEST_STORAGE, sql, bind, requestId })
       })
+    },
+    startNetCapture(origin: string, captureMode: ClientMode | undefined) {
+      port?.postMessage({ type: MSG_NET_CAPTURE_START, origin, mode: captureMode })
+    },
+    stopNetCapture() {
+      port?.postMessage({ type: MSG_NET_CAPTURE_STOP })
     },
   }
 }

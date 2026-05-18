@@ -41,6 +41,8 @@ export interface WriteQueueStore {
   statusFilter: () => Set<string>
   toggleStatusFilter: (v: string) => void
   seenStatuses: () => string[]
+  textFilter: () => string
+  setTextFilter: (v: string) => void
   filterVersion: () => number
   selectedId: () => string | undefined
   selectEntry: (id: string | undefined) => void
@@ -61,6 +63,7 @@ export function createWriteQueueStore(): WriteQueueStore {
   const [typeFilter, setTypeFilter] = createSignal<Set<string>>(new Set())
   const [seenTypes, setSeenTypes] = createSignal<Set<string>>(new Set())
   const [statusFilter, setStatusFilter] = createSignal<Set<string>>(new Set())
+  const [textFilter, setTextFilterRaw] = createSignal('')
   const [filterVersion, setFilterVersion] = createSignal(0)
   const [selectedId, setSelectedId] = createSignal<string | undefined>()
 
@@ -85,11 +88,21 @@ export function createWriteQueueStore(): WriteQueueStore {
     const items = entries()
     const types = typeFilter()
     const statuses = statusFilter()
+    const text = textFilter().toLowerCase()
 
-    if (types.size === 0 && statuses.size === 0) return items
+    if (types.size === 0 && statuses.size === 0 && !text) return items
     return items.filter((entry) => {
       if (types.size > 0 && !types.has(entry.opType)) return false
       if (statuses.size > 0 && !statuses.has(entry.status)) return false
+      if (text) {
+        const hit =
+          entry.opType.toLowerCase().includes(text) ||
+          entry.opId.toLowerCase().includes(text) ||
+          entry.status.toLowerCase().includes(text) ||
+          (entry.error?.toLowerCase().includes(text) ?? false) ||
+          (entry.discardReason?.toLowerCase().includes(text) ?? false)
+        if (!hit) return false
+      }
       return true
     })
   })
@@ -202,6 +215,11 @@ export function createWriteQueueStore(): WriteQueueStore {
   return {
     entries,
     filteredEntries,
+    textFilter,
+    setTextFilter(value: string) {
+      setTextFilterRaw(value)
+      bumpFilterVersion()
+    },
     handleEvent,
     clear,
     exportJson() {

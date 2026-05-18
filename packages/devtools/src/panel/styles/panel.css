@@ -657,6 +657,18 @@ body {
   font-size: 10px;
 }
 
+/* Shared right-justified tail for Export · Clear · Count groupings. */
+.toolbar-tail {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar-tail .count {
+  margin-left: 0;
+}
+
 .events-layout {
   display: flex;
   flex: 1;
@@ -903,6 +915,33 @@ body {
 
 .toolbar-input::placeholder {
   color: var(--text-muted);
+}
+
+/* Wrapper for a toolbar-input with an optional trailing clear button. */
+.toolbar-filter-input {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.toolbar-filter-input .toolbar-input {
+  padding-right: 20px;
+}
+
+.toolbar-input-clear {
+  position: absolute;
+  right: 4px;
+  padding: 0 3px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.toolbar-input-clear:hover {
+  color: var(--text-primary);
 }
 
 .toolbar-select {

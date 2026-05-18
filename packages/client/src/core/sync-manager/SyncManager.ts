@@ -13,6 +13,7 @@ import { parseServerMessage, serializeClientMessage } from '@cqrs-toolkit/realti
 import type { IPersistedEvent } from '@meticoeus/ddd-es'
 import { Link, Ok, Result, logProvider } from '@meticoeus/ddd-es'
 import { Subject, Subscription, takeUntil } from 'rxjs'
+import { wrapWebSocket } from '../../devtools/wrapWebSocket.js'
 import type { CachedEventRecord, CommandIdMappingRecord, IStorage } from '../../storage/IStorage.js'
 import type { AggregateConfig, IClientAggregates } from '../../types/aggregates.js'
 import type { CommandRecord } from '../../types/commands.js'
@@ -163,7 +164,6 @@ export class SyncManager<
   TSchema,
   TEvent extends IAnticipatedEvent,
 > {
-  private readonly connectivity: IConnectivityManager<TLink>
   private readonly gapRepair: GapRepairCoordinator<TLink, TCommand>
   private readonly invalidationScheduler: InvalidationScheduler<TLink>
   private readonly primaryCollectionResolver: PrimaryCollectionResolver<
@@ -225,7 +225,7 @@ export class SyncManager<
     private readonly readModelStore: ReadModelStore<TLink, TCommand>,
     private readonly queryManager: IQueryManagerInternal<TLink>,
     private readonly writeQueue: IWriteQueue<TLink, TCommand>,
-    connectivity: IConnectivityManager<TLink>,
+    private readonly connectivity: IConnectivityManager<TLink>,
     private readonly networkConfig: NetworkConfig,
     private readonly auth: AuthStrategy,
     private readonly collections: Collection<TLink>[],
@@ -233,8 +233,17 @@ export class SyncManager<
     private readonly domainExecutor: IDomainExecutor<TLink, TCommand, TSchema, TEvent> | undefined,
     private readonly commandStore: ICommandStore<TLink, TCommand>,
     private readonly mappingStore: ICommandIdMappingStore,
+    /**
+     * Debug flag — initialised from `resolved.debug`. Public mutable; the
+     * worker flips it on after startup when the page-side `debug.enable`
+     * RPC arrives. The CQRS WebSocket is wrapped for `recordNetEvent`
+     * reporting only when this is true at the moment the WS is opened.
+     * Connections opened after a flip-on are wrapped; already-open
+     * connections are not retroactively wrapped (no reconnect path is
+     * wired — see ADR 0001).
+     */
+    public debug: boolean,
   ) {
-    this.connectivity = connectivity
     this.primaryCollectionResolver = new PrimaryCollectionResolver(this.collections)
 
     // Initialize invalidation scheduler
@@ -1313,7 +1322,12 @@ export class SyncManager<
    */
   private async openAuthenticatedWebSocket(rawUrl: string): Promise<WebSocket> {
     const url = (await this.auth.prepareWebSocketUrl?.(rawUrl)) ?? rawUrl
-    const socket = new WebSocket(url)
+    const rawSocket = new WebSocket(url)
+    // Devtools wiring follows the same gate as `registerClient` — wrap
+    // only when this client is in debug mode. The worker can have its
+    // `debug` flipped on after the page sends the `debug.enable` RPC;
+    // connections opened after that point are wrapped.
+    const socket = this.debug ? wrapWebSocket(rawSocket, { connectionId: generateId() }) : rawSocket
     this.connectivity.reportWsConnection('connecting')
 
     await new Promise<void>((resolve, reject) => {

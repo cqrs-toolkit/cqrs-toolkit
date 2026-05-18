@@ -2,10 +2,12 @@ import type { Component } from 'solid-js'
 import { Show } from 'solid-js'
 import { getPanelWidth, setPanelWidth } from '../../panelWidths.js'
 import type { WriteQueueStore } from '../../stores/writeQueue.js'
+import { useArrowSelection } from '../../useArrowSelection.js'
 import { useContainerWidth } from '../../useContainerWidth.js'
 import { DragHandle } from '../DragHandle.js'
+import { FilterInput } from '../FilterInput.js'
 import { MultiSelect } from '../MultiSelect.js'
-import { VirtualScroller } from '../VirtualScroller.js'
+import { VirtualScroller, type VirtualScrollerControls } from '../VirtualScroller.js'
 import { WriteQueueDetail } from './WriteQueueDetail.js'
 import { WriteQueueRow } from './WriteQueueRow.js'
 
@@ -24,8 +26,19 @@ export const WriteQueueTab: Component<WriteQueueTabProps> = (props) => {
 
   let containerRef: HTMLDivElement | undefined
   const containerWidth = useContainerWidth(() => containerRef)
+  let scroller: VirtualScrollerControls | undefined
 
   let startWidth = 0
+
+  useArrowSelection({
+    items: () => props.store.filteredEntries(),
+    selectedId: () => props.store.selectedId(),
+    getId: (entry) => entry.opId,
+    select: (id, index) => {
+      props.store.selectEntry(id)
+      scroller?.ensureVisible(index)
+    },
+  })
 
   return (
     <>
@@ -53,17 +66,27 @@ export const WriteQueueTab: Component<WriteQueueTabProps> = (props) => {
             props.store.statusFilter().clear()
           }}
         />
-        <button class="toolbar-btn" onClick={() => props.onExport()}>
-          Export
-        </button>
-        <button class="toolbar-btn" onClick={() => props.onClear()}>
-          Clear
-        </button>
-        <span class="count">
-          {filtered().length} ops
-          <Show when={props.store.pendingCount() > 0}> ({props.store.pendingCount()} active)</Show>
-          {' · '}
-          {props.store.opsPerSecond() ?? '—'} ops/s
+        <FilterInput
+          placeholder="Filter…"
+          value={props.store.textFilter()}
+          onInput={(v) => props.store.setTextFilter(v)}
+        />
+        <span class="toolbar-tail">
+          <button class="toolbar-btn" onClick={() => props.onExport()}>
+            Export
+          </button>
+          <button class="toolbar-btn" onClick={() => props.onClear()}>
+            Clear
+          </button>
+          <span class="count">
+            {filtered().length} ops
+            <Show when={props.store.pendingCount() > 0}>
+              {' '}
+              ({props.store.pendingCount()} active)
+            </Show>
+            {' · '}
+            {props.store.opsPerSecond() ?? '—'} ops/s
+          </span>
         </span>
       </div>
 
@@ -88,6 +111,9 @@ export const WriteQueueTab: Component<WriteQueueTabProps> = (props) => {
                 <VirtualScroller
                   items={filtered}
                   filterVersion={props.store.filterVersion}
+                  ref={(c) => {
+                    scroller = c
+                  }}
                   renderRow={(entry) => (
                     <WriteQueueRow
                       entry={entry}

@@ -1,4 +1,4 @@
-import type { IPersistedEvent, ServiceLink } from '@meticoeus/ddd-es'
+import type { ServiceLink } from '@meticoeus/ddd-es'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createTestWriteQueue } from '../../testing/index.js'
 import { EnqueueCommand } from '../../types/index.js'
@@ -16,8 +16,6 @@ import type {
   ReconcileWsEventsOp,
   WriteQueueOp,
 } from './operations.js'
-
-const DUMMY_EVENT = { id: 'evt-1' } as unknown as IPersistedEvent
 
 const TODO_CACHE_KEY = deriveScopeKey({ scopeType: 'todos' })
 

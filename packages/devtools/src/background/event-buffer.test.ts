@@ -28,13 +28,14 @@ describe('EventBuffer', () => {
     expect(tab?.events[0]).toBe(event)
   })
 
-  it('stores config and role', () => {
+  it('stores config, role, and mode', () => {
     const buf = new EventBuffer()
-    buf.setConfig(1, FAKE_CONFIG, 'leader')
+    buf.setConfig(1, FAKE_CONFIG, 'leader', 'shared-worker', 'http://test/worker.js')
 
     const tab = buf.get(1)
     expect(tab?.config).toBe(FAKE_CONFIG)
     expect(tab?.role).toBe('leader')
+    expect(tab?.mode).toBe('shared-worker')
   })
 
   it('stores commands', () => {
@@ -84,7 +85,7 @@ describe('EventBuffer', () => {
     const buf = new EventBuffer()
     buf.addEvent(1, makeEvent('test'))
     buf.setCommands(1, [{ commandId: 'a' }] as never)
-    buf.setConfig(1, FAKE_CONFIG, 'leader')
+    buf.setConfig(1, FAKE_CONFIG, 'leader', 'online-only', undefined)
 
     buf.clear(1)
 

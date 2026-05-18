@@ -36,6 +36,9 @@ export interface EventBusStore {
   showDebug: () => boolean
   setShowDebug: (v: boolean) => void
 
+  textFilter: () => string
+  setTextFilter: (v: string) => void
+
   filterVersion: () => number
   selectedId: () => string | undefined
   selectEntry: (id: string | undefined) => void
@@ -68,6 +71,7 @@ export function createEventBusStore(): EventBusStore {
   const [typeFilter, setTypeFilter] = createSignal<Set<string>>(new Set())
   const [seenTypes, setSeenTypes] = createSignal<Set<string>>(new Set())
   const [showDebug, setShowDebug] = createSignal(true)
+  const [textFilter, setTextFilterRaw] = createSignal('')
   const [filterVersion, setFilterVersion] = createSignal(0)
   const [selectedId, setSelectedId] = createSignal<string | undefined>()
 
@@ -80,13 +84,25 @@ export function createEventBusStore(): EventBusStore {
     const prefixes = prefixFilter()
     const types = typeFilter()
     const debug = showDebug()
+    const text = textFilter().toLowerCase()
 
-    if (prefixes.size === 0 && types.size === 0 && debug) return items
+    if (prefixes.size === 0 && types.size === 0 && debug && !text) return items
 
     return items.filter((item) => {
       if (!debug && item.event.debug) return false
       if (prefixes.size > 0 && !prefixes.has(getPrefix(item.event.type))) return false
       if (types.size > 0 && !types.has(item.event.type)) return false
+      if (text) {
+        if (item.event.type.toLowerCase().includes(text)) return true
+        // Stringify data for a permissive any-field match; cheap given the
+        // limited size of typical library-event payloads.
+        try {
+          if (JSON.stringify(item.event.data).toLowerCase().includes(text)) return true
+        } catch {
+          /* circular ref or similar — fall through */
+        }
+        return false
+      }
       return true
     })
   })
@@ -126,6 +142,11 @@ export function createEventBusStore(): EventBusStore {
   return {
     entries,
     filteredEntries,
+    textFilter,
+    setTextFilter(value: string) {
+      setTextFilterRaw(value)
+      bumpFilterVersion()
+    },
 
     prefixFilter,
     togglePrefixFilter(v) {

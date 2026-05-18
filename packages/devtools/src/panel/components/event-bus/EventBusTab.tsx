@@ -2,10 +2,12 @@ import type { Component } from 'solid-js'
 import { Show } from 'solid-js'
 import { getPanelWidth, setPanelWidth } from '../../panelWidths.js'
 import type { EventBusStore } from '../../stores/eventBus.js'
+import { useArrowSelection } from '../../useArrowSelection.js'
 import { useContainerWidth } from '../../useContainerWidth.js'
 import { DragHandle } from '../DragHandle.js'
+import { FilterInput } from '../FilterInput.js'
 import { MultiSelect } from '../MultiSelect.js'
-import { VirtualScroller } from '../VirtualScroller.js'
+import { VirtualScroller, type VirtualScrollerControls } from '../VirtualScroller.js'
 import { EventBusDetail } from './EventBusDetail.js'
 import { EventBusRow } from './EventBusRow.js'
 
@@ -25,8 +27,19 @@ export const EventBusTab: Component<EventBusTabProps> = (props) => {
 
   let containerRef: HTMLDivElement | undefined
   const containerWidth = useContainerWidth(() => containerRef)
+  let scroller: VirtualScrollerControls | undefined
 
   let startWidth = 0
+
+  useArrowSelection({
+    items: () => props.store.filteredEntries(),
+    selectedId: () => props.store.selectedId(),
+    getId: (entry) => entry.entryId,
+    select: (id, index) => {
+      props.store.selectEntry(id)
+      scroller?.ensureVisible(index)
+    },
+  })
 
   return (
     <>
@@ -55,13 +68,20 @@ export const EventBusTab: Component<EventBusTabProps> = (props) => {
         >
           Debug
         </button>
-        <button class="toolbar-btn" onClick={() => props.onExport()}>
-          Export
-        </button>
-        <button class="toolbar-btn" onClick={() => props.onClear()}>
-          Clear
-        </button>
-        <span class="count">{filtered().length} events</span>
+        <FilterInput
+          placeholder="Filter…"
+          value={props.store.textFilter()}
+          onInput={(v) => props.store.setTextFilter(v)}
+        />
+        <span class="toolbar-tail">
+          <button class="toolbar-btn" onClick={() => props.onExport()}>
+            Export
+          </button>
+          <button class="toolbar-btn" onClick={() => props.onClear()}>
+            Clear
+          </button>
+          <span class="count">{filtered().length} events</span>
+        </span>
       </div>
 
       <div class="bus-layout" ref={containerRef}>
@@ -86,6 +106,9 @@ export const EventBusTab: Component<EventBusTabProps> = (props) => {
                 <VirtualScroller
                   items={filtered}
                   filterVersion={props.store.filterVersion}
+                  ref={(c) => {
+                    scroller = c
+                  }}
                   renderRow={(entry) => (
                     <EventBusRow
                       entry={entry}

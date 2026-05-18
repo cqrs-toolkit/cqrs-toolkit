@@ -55,9 +55,9 @@ import { WriteQueue } from './core/write-queue/WriteQueue.js'
 import type { EnqueueCommand, SubmitParams, SubmitResult, SubmitSuccess } from './types/commands.js'
 import { isCommandTimeout } from './types/commands.js'
 import type {
+  ClientMode,
+  ClientModeConfig,
   CqrsClientConfig,
-  ExecutionMode,
-  ExecutionModeConfig,
   ResolvedConfig,
 } from './types/config.js'
 import { resolveConfig } from './types/config.js'
@@ -410,6 +410,8 @@ export async function createCqrsClient<
         debugStorage,
         config: resolved,
         role: adapter.role ?? 'leader',
+        mode,
+        workerUrl: config.workerUrl,
       })
     }
   }
@@ -428,7 +430,7 @@ async function createOnlineOnlyClient<
 >(
   adapter: IWindowAdapter<TLink, TCommand>,
   resolved: ResolvedConfig<TLink, TCommand, TSchema, TEvent>,
-  mode: ExecutionMode,
+  mode: ClientMode,
 ): Promise<CqrsClient<TLink, TCommand>> {
   const { storage, eventBus } = adapter
 
@@ -541,6 +543,7 @@ async function createOnlineOnlyClient<
     domainExecutor,
     commandStore,
     mappingStore,
+    resolved.debug,
   )
   syncManagerRef = syncManager
 
@@ -606,7 +609,7 @@ async function createWorkerClient<
   TEvent extends IAnticipatedEvent,
 >(
   adapter: IWorkerAdapter<TLink, TCommand>,
-  mode: ExecutionMode,
+  mode: ClientMode,
   resolved: ResolvedConfig<TLink, TCommand, TSchema, TEvent>,
 ): Promise<CqrsClient<TLink, TCommand>> {
   const { commandQueue, cacheManager, syncManager } = adapter
@@ -657,12 +660,12 @@ async function initializeAdapter<
   TSchema,
   TEvent extends IAnticipatedEvent,
 >(
-  requestedMode: ExecutionModeConfig,
+  requestedMode: ClientModeConfig,
   workerUrl: string | undefined,
   sqliteWorkerUrl: string | undefined,
   config: ResolvedConfig<TLink, TCommand, TSchema, TEvent>,
-): Promise<{ adapter: IAdapter<TLink, TCommand>; mode: ExecutionMode }> {
-  let mode: ExecutionMode
+): Promise<{ adapter: IAdapter<TLink, TCommand>; mode: ClientMode }> {
+  let mode: ClientMode
 
   if (requestedMode === 'auto') {
     const cached = readModeCache()
@@ -713,7 +716,7 @@ function createAdapterForMode<
   TSchema,
   TEvent extends IAnticipatedEvent,
 >(
-  mode: ExecutionMode,
+  mode: ClientMode,
   workerUrl: string | undefined,
   sqliteWorkerUrl: string | undefined,
   config: ResolvedConfig<TLink, TCommand, TSchema, TEvent>,

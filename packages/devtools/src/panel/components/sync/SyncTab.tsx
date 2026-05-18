@@ -2,10 +2,12 @@ import type { Component } from 'solid-js'
 import { Show } from 'solid-js'
 import { getPanelWidth, setPanelWidth } from '../../panelWidths.js'
 import type { SyncStore } from '../../stores/sync.js'
+import { useArrowSelection } from '../../useArrowSelection.js'
 import { useContainerWidth } from '../../useContainerWidth.js'
 import { DragHandle } from '../DragHandle.js'
+import { FilterInput } from '../FilterInput.js'
 import { MultiSelect } from '../MultiSelect.js'
-import { VirtualScroller } from '../VirtualScroller.js'
+import { VirtualScroller, type VirtualScrollerControls } from '../VirtualScroller.js'
 import { SyncDetail } from './SyncDetail.js'
 import { SyncRow } from './SyncRow.js'
 
@@ -25,8 +27,21 @@ export const SyncTab: Component<SyncTabProps> = (props) => {
 
   let containerRef: HTMLDivElement | undefined
   const containerWidth = useContainerWidth(() => containerRef)
+  let scroller: VirtualScrollerControls | undefined
 
   let startWidth = 0
+
+  useArrowSelection({
+    items: () => props.store.filteredItems(),
+    selectedId: () => props.store.selectedId(),
+    // Only 'event' kind items are selectable; session-divider items skip
+    // naturally by returning undefined.
+    getId: (item) => (item.kind === 'event' ? item.entry.entryId : undefined),
+    select: (id, index) => {
+      props.store.selectEntry(id)
+      scroller?.ensureVisible(index)
+    },
+  })
 
   return (
     <>
@@ -57,13 +72,20 @@ export const SyncTab: Component<SyncTabProps> = (props) => {
           onSelectAll={() => props.store.selectAllScopes()}
           onClear={() => props.store.clearScopeFilter()}
         />
-        <button class="toolbar-btn" onClick={() => props.onExport()}>
-          Export
-        </button>
-        <button class="toolbar-btn" onClick={() => props.onClear()}>
-          Clear
-        </button>
-        <span class="count">{filtered().length} entries</span>
+        <FilterInput
+          placeholder="Filter…"
+          value={props.store.textFilter()}
+          onInput={(v) => props.store.setTextFilter(v)}
+        />
+        <span class="toolbar-tail">
+          <button class="toolbar-btn" onClick={() => props.onExport()}>
+            Export
+          </button>
+          <button class="toolbar-btn" onClick={() => props.onClear()}>
+            Clear
+          </button>
+          <span class="count">{filtered().length} entries</span>
+        </span>
       </div>
 
       <div class="sync-layout" ref={containerRef}>
@@ -86,6 +108,9 @@ export const SyncTab: Component<SyncTabProps> = (props) => {
                 <VirtualScroller
                   items={filtered}
                   filterVersion={props.store.filterVersion}
+                  ref={(c) => {
+                    scroller = c
+                  }}
                   renderRow={(item) => (
                     <SyncRow
                       item={item}

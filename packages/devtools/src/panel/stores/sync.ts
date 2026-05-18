@@ -49,6 +49,8 @@ export interface SyncStore {
   selectAllScopes: () => void
   clearScopeFilter: () => void
   seenScopes: () => string[]
+  textFilter: () => string
+  setTextFilter: (v: string) => void
   filterVersion: () => number
   online: () => boolean | undefined
   wsState: () => WsState | undefined
@@ -75,6 +77,7 @@ export function createSyncStore(): SyncStore {
   const [seenTypes, setSeenTypes] = createSignal<Set<string>>(new Set())
   const [scopeFilter, setScopeFilter] = createSignal<Set<string>>(new Set())
   const [seenScopes, setSeenScopes] = createSignal<Set<string>>(new Set())
+  const [textFilter, setTextFilterRaw] = createSignal('')
   const [filterVersion, setFilterVersion] = createSignal(0)
   const [selectedId, setSelectedId] = createSignal<string | undefined>()
 
@@ -86,12 +89,21 @@ export function createSyncStore(): SyncStore {
     const items = allItems()
     const types = typeFilter()
     const scopes = scopeFilter()
+    const text = textFilter().toLowerCase()
 
-    if (types.size === 0 && scopes.size === 0) return items
+    if (types.size === 0 && scopes.size === 0 && !text) return items
     return items.filter((item) => {
       if (item.kind === 'session-divider') return true
       if (types.size > 0 && !types.has(item.entry.syncType)) return false
       if (scopes.size > 0 && !scopes.has(item.entry.scope)) return false
+      if (text) {
+        const e = item.entry
+        const hit =
+          e.syncType.toLowerCase().includes(text) ||
+          e.scope.toLowerCase().includes(text) ||
+          e.details.toLowerCase().includes(text)
+        if (!hit) return false
+      }
       return true
     })
   })
@@ -225,6 +237,11 @@ export function createSyncStore(): SyncStore {
   return {
     allItems,
     filteredItems,
+    textFilter,
+    setTextFilter(value: string) {
+      setTextFilterRaw(value)
+      bumpFilterVersion()
+    },
     typeFilter,
     toggleTypeFilter(v) {
       setTypeFilter((prev) => {

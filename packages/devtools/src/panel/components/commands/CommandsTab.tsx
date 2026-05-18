@@ -3,11 +3,13 @@ import type { Component } from 'solid-js'
 import { Show } from 'solid-js'
 import { getPanelWidth, setPanelWidth } from '../../panelWidths.js'
 import type { CommandsStore } from '../../stores/commands.js'
+import { useArrowSelection } from '../../useArrowSelection.js'
 import { useContainerWidth } from '../../useContainerWidth.js'
 import { ChipSelect } from '../ChipSelect.js'
 import { DragHandle } from '../DragHandle.js'
+import { FilterInput } from '../FilterInput.js'
 import { MultiSelect } from '../MultiSelect.js'
-import { VirtualScroller } from '../VirtualScroller.js'
+import { VirtualScroller, type VirtualScrollerControls } from '../VirtualScroller.js'
 import { CommandDetail } from './CommandDetail.js'
 import { CommandRow } from './CommandRow.js'
 
@@ -29,8 +31,19 @@ export const CommandsTab: Component<CommandsTabProps> = (props) => {
 
   let containerRef: HTMLDivElement | undefined
   const containerWidth = useContainerWidth(() => containerRef)
+  let scroller: VirtualScrollerControls | undefined
 
   let startWidth = 0
+
+  useArrowSelection({
+    items: () => props.store.filteredCommands(),
+    selectedId: () => props.store.selectedId(),
+    getId: (entry) => entry.record.commandId,
+    select: (id, index) => {
+      props.store.selectCommand(id)
+      scroller?.ensureVisible(index)
+    },
+  })
 
   return (
     <>
@@ -63,13 +76,20 @@ export const CommandsTab: Component<CommandsTabProps> = (props) => {
           onSelectAll={() => props.store.selectAllServices()}
           onClear={() => props.store.clearServiceFilter()}
         />
-        <button class="toolbar-btn" onClick={() => props.onExport()}>
-          Export
-        </button>
-        <button class="toolbar-btn" onClick={() => props.onClear()}>
-          Clear
-        </button>
-        <span class="count">{filtered().length} commands</span>
+        <FilterInput
+          placeholder="Filter…"
+          value={props.store.textFilter()}
+          onInput={(v) => props.store.setTextFilter(v)}
+        />
+        <span class="toolbar-tail">
+          <button class="toolbar-btn" onClick={() => props.onExport()}>
+            Export
+          </button>
+          <button class="toolbar-btn" onClick={() => props.onClear()}>
+            Clear
+          </button>
+          <span class="count">{filtered().length} commands</span>
+        </span>
       </div>
 
       <div class="commands-layout" ref={containerRef}>
@@ -94,6 +114,9 @@ export const CommandsTab: Component<CommandsTabProps> = (props) => {
                 <VirtualScroller
                   items={filtered}
                   filterVersion={props.store.filterVersion}
+                  ref={(c) => {
+                    scroller = c
+                  }}
                   renderRow={(entry) => (
                     <CommandRow
                       command={entry.record}

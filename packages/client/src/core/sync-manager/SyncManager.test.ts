@@ -219,6 +219,7 @@ describe('SyncManager', () => {
           params?.domainExecutor ?? itemDomainExecutor,
           commandStore,
           mappingStore,
+          false,
         )
 
     return {
@@ -567,6 +568,7 @@ describe('SyncManager', () => {
         itemDomainExecutor,
         blockingCommandStore,
         blockingMappingStore,
+        false,
       )
 
       const cacheKey = deriveScopeKey({ scopeType: 'notebook-notes' })
@@ -673,6 +675,7 @@ describe('SyncManager', () => {
         itemDomainExecutor,
         seedCommandStore,
         seedMappingStore,
+        false,
       )
       await syncManager.start()
 
@@ -1108,9 +1111,13 @@ describe('SyncManager', () => {
 })
 
 function createSessionManager(): SessionManager<ServiceLink, EnqueueCommand> {
-  return {
+  const sm: Pick<
+    SessionManager<ServiceLink, EnqueueCommand>,
+    'isNetworkPaused' | 'signalAuthenticated' | 'signalLoggedOut'
+  > = {
     isNetworkPaused: () => true,
     signalAuthenticated: vi.fn().mockResolvedValue({ resumed: false }),
     signalLoggedOut: vi.fn().mockResolvedValue(undefined),
-  } as unknown as SessionManager<ServiceLink, EnqueueCommand>
+  }
+  return sm as SessionManager<ServiceLink, EnqueueCommand>
 }

@@ -48,9 +48,9 @@ After rebuilding, you need to tell Chrome to reload it:
 
 The extension is a Chrome Manifest V3 extension with four execution contexts:
 
-| Context        | Entry point              | World          | Purpose                                                                                            |
-| -------------- | ------------------------ | -------------- | -------------------------------------------------------------------------------------------------- |
-| Hook           | `hook.js`                | MAIN           | Injected into the page. Discovers the `__CQRS_DEVTOOLS__` debug API and forwards sanitized events. |
-| Content script | `content-script.js`      | ISOLATED       | Bridges `window.postMessage` from the hook to `chrome.runtime` ports.                              |
-| Background     | `background.js`          | Service worker | Buffers events per tab, manages port connections between content scripts and panels.               |
-| Panel          | `panel.js` + `panel.css` | DevTools panel | SolidJS UI that renders the CQRS Toolkit tab inside Chrome DevTools.                               |
+| Context        | Entry point              | World          | Purpose                                                                                                    |
+| -------------- | ------------------------ | -------------- | ---------------------------------------------------------------------------------------------------------- |
+| Hook           | `hook.js`                | MAIN           | Injected into the page. Discovers the `__CQRS_TOOLKIT_DEVTOOLS__` debug API and forwards sanitized events. |
+| Content script | `content-script.js`      | ISOLATED       | Bridges `window.postMessage` from the hook to `chrome.runtime` ports.                                      |
+| Background     | `background.js`          | Service worker | Buffers events per tab, manages port connections between content scripts and panels.                       |
+| Panel          | `panel.js` + `panel.css` | DevTools panel | SolidJS UI that renders the CQRS Toolkit tab inside Chrome DevTools.                                       |

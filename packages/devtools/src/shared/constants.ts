@@ -53,6 +53,22 @@ export const MSG_BUFFER_DUMP = 'buffer-dump'
 export const MSG_PANEL_CLEAR = 'panel-clear'
 
 // ---------------------------------------------------------------------------
+// Network capture (probe) message types — Panel ↔ Background
+// ---------------------------------------------------------------------------
+
+/** Panel asks background to attach via chrome.debugger and start capture. */
+export const MSG_NET_CAPTURE_START = 'net-capture-start'
+
+/** Panel asks background to stop capture and detach. */
+export const MSG_NET_CAPTURE_STOP = 'net-capture-stop'
+
+/** Background reports a normalised CDP network event to the panel. */
+export const MSG_NET_EVENT = 'net-event'
+
+/** Background reports capture lifecycle state to the panel. */
+export const MSG_NET_CAPTURE_STATE = 'net-capture-state'
+
+// ---------------------------------------------------------------------------
 // Port names
 // ---------------------------------------------------------------------------
 

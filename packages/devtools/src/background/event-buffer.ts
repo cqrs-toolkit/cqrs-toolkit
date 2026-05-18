@@ -6,6 +6,7 @@
  */
 
 import type {
+  ClientMode,
   SanitizedEvent,
   SerializedCommandRecord,
   SerializedConfig,
@@ -16,6 +17,8 @@ const MAX_EVENTS = 5000
 export interface TabBuffer {
   config: SerializedConfig | undefined
   role: 'leader' | 'standby' | undefined
+  mode: ClientMode | undefined
+  workerUrl: string | undefined
   events: SanitizedEvent[]
   commands: SerializedCommandRecord[]
 }
@@ -26,7 +29,14 @@ export class EventBuffer {
   getOrCreate(tabId: number): TabBuffer {
     let buffer = this.buffers.get(tabId)
     if (!buffer) {
-      buffer = { config: undefined, role: undefined, events: [], commands: [] }
+      buffer = {
+        config: undefined,
+        role: undefined,
+        mode: undefined,
+        workerUrl: undefined,
+        events: [],
+        commands: [],
+      }
       this.buffers.set(tabId, buffer)
     }
     return buffer
@@ -48,10 +58,18 @@ export class EventBuffer {
     }
   }
 
-  setConfig(tabId: number, config: SerializedConfig, role: 'leader' | 'standby'): void {
+  setConfig(
+    tabId: number,
+    config: SerializedConfig,
+    role: 'leader' | 'standby',
+    mode: ClientMode,
+    workerUrl: string | undefined,
+  ): void {
     const buffer = this.getOrCreate(tabId)
     buffer.config = config
     buffer.role = role
+    buffer.mode = mode
+    buffer.workerUrl = workerUrl
   }
 
   setCommands(tabId: number, commands: SerializedCommandRecord[]): void {

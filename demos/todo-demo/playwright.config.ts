@@ -1,8 +1,8 @@
-import type { ExecutionMode } from '@cqrs-toolkit/client'
+import type { ClientMode } from '@cqrs-toolkit/client'
 import { defineConfig } from '@playwright/test'
 
 interface ModeFixtures {
-  mode: ExecutionMode
+  mode: ClientMode
 }
 
 export default defineConfig<ModeFixtures>({

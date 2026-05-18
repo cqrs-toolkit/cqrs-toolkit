@@ -6,6 +6,7 @@ import {
   makeCommand,
   makeEvent,
   resetIdCounter,
+  switchTab,
   toggleChipOption,
 } from './panel-helpers.js'
 
@@ -26,7 +27,7 @@ test.describe('Layer 2: Panel Commands Tab', () => {
   })
 
   test('connected state with config', async ({ mockPanelPage: page }) => {
-    await sendToPanel(page, makeBufferDump({ config: MOCK_CONFIG, role: 'leader' }))
+    await switchTab(page, 'Commands')
 
     // Warning banner should disappear
     await expect(page.locator('.banner-warning')).not.toBeVisible()
@@ -42,6 +43,7 @@ test.describe('Layer 2: Panel Commands Tab', () => {
       makeCommand({ type: 'DeleteTodo', status: 'succeeded' }),
     ]
 
+    await switchTab(page, 'Commands')
     await sendToPanel(page, makeBufferDump({ config: MOCK_CONFIG, role: 'leader', commands }))
 
     // 3 rows in the table
@@ -52,7 +54,7 @@ test.describe('Layer 2: Panel Commands Tab', () => {
   })
 
   test('live event adds command', async ({ mockPanelPage: page }) => {
-    await sendToPanel(page, makeBufferDump({ config: MOCK_CONFIG, role: 'leader' }))
+    await switchTab(page, 'Commands')
     await expect(page.locator('.empty-state')).toBeVisible()
 
     // Send a command:enqueued event
@@ -68,6 +70,7 @@ test.describe('Layer 2: Panel Commands Tab', () => {
 
   test('live event updates status', async ({ mockPanelPage: page }) => {
     const cmd = makeCommand({ status: 'pending' })
+    await switchTab(page, 'Commands')
     await sendToPanel(
       page,
       makeBufferDump({ config: MOCK_CONFIG, role: 'leader', commands: [cmd] }),
@@ -93,6 +96,7 @@ test.describe('Layer 2: Panel Commands Tab', () => {
       makeCommand({ status: 'failed' }),
       makeCommand({ status: 'succeeded' }),
     ]
+    await switchTab(page, 'Commands')
     await sendToPanel(page, makeBufferDump({ config: MOCK_CONFIG, role: 'leader', commands }))
 
     await expect(page.locator('.command-row')).toHaveCount(3)
@@ -113,6 +117,7 @@ test.describe('Layer 2: Panel Commands Tab', () => {
       type: 'CreateTodo',
       data: { text: 'My todo' },
     })
+    await switchTab(page, 'Commands')
     await sendToPanel(
       page,
       makeBufferDump({ config: MOCK_CONFIG, role: 'leader', commands: [cmd] }),
@@ -136,6 +141,7 @@ test.describe('Layer 2: Panel Commands Tab', () => {
       status: 'failed',
       error: { source: 'server', message: 'Server error' },
     })
+    await switchTab(page, 'Commands')
     await sendToPanel(
       page,
       makeBufferDump({ config: MOCK_CONFIG, role: 'leader', commands: [cmd] }),
@@ -167,6 +173,7 @@ test.describe('Layer 2: Panel Commands Tab', () => {
 
   test('cancel button on pending command', async ({ mockPanelPage: page }) => {
     const cmd = makeCommand({ status: 'pending' })
+    await switchTab(page, 'Commands')
     await sendToPanel(
       page,
       makeBufferDump({ config: MOCK_CONFIG, role: 'leader', commands: [cmd] }),
@@ -211,6 +218,7 @@ test.describe('Layer 2: Panel Commands Tab', () => {
 
   test('clear button', async ({ mockPanelPage: page }) => {
     const commands = [makeCommand({ status: 'pending' }), makeCommand({ status: 'succeeded' })]
+    await switchTab(page, 'Commands')
     await sendToPanel(page, makeBufferDump({ config: MOCK_CONFIG, role: 'leader', commands }))
 
     await expect(page.locator('.command-row')).toHaveCount(2)
@@ -230,5 +238,50 @@ test.describe('Layer 2: Panel Commands Tab', () => {
         (m as Record<string, unknown>)['type'] === 'panel-clear',
     )
     expect(clearMsg).toBeDefined()
+  })
+
+  test('text filter narrows rows and clear button resets it', async ({ mockPanelPage: page }) => {
+    const commands = [
+      makeCommand({ type: 'CreateTodo' }),
+      makeCommand({ type: 'UpdateTodo' }),
+      makeCommand({ type: 'DeleteTodo' }),
+    ]
+    await switchTab(page, 'Commands')
+    await sendToPanel(page, makeBufferDump({ config: MOCK_CONFIG, role: 'leader', commands }))
+
+    await expect(page.locator('.command-row')).toHaveCount(3)
+
+    // Type into the FilterInput (placeholder "Filter…").
+    const input = page.locator('input[placeholder="Filter…"]')
+    await input.fill('Create')
+    await expect(page.locator('.command-row')).toHaveCount(1)
+
+    // The × clear button is now visible. Clicking it restores all rows.
+    await page.locator('.toolbar-input-clear').click()
+    await expect(input).toHaveValue('')
+    await expect(page.locator('.command-row')).toHaveCount(3)
+  })
+
+  test('arrow keys move row selection', async ({ mockPanelPage: page }) => {
+    const commands = [
+      makeCommand({ commandId: 'cmd-a' }),
+      makeCommand({ commandId: 'cmd-b' }),
+      makeCommand({ commandId: 'cmd-c' }),
+    ]
+    await switchTab(page, 'Commands')
+    await sendToPanel(page, makeBufferDump({ config: MOCK_CONFIG, role: 'leader', commands }))
+
+    // First ArrowDown selects the first selectable row.
+    await page.keyboard.press('ArrowDown')
+    await expect(page.locator('.command-detail')).toBeVisible()
+    await expect(page.locator('.command-detail')).toContainText('cmd-a')
+
+    // Next ArrowDown advances to the second row.
+    await page.keyboard.press('ArrowDown')
+    await expect(page.locator('.command-detail')).toContainText('cmd-b')
+
+    // ArrowUp moves back to the first.
+    await page.keyboard.press('ArrowUp')
+    await expect(page.locator('.command-detail')).toContainText('cmd-a')
   })
 })

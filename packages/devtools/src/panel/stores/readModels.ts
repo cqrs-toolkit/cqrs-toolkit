@@ -33,6 +33,8 @@ export interface ReadModelsStore {
   toggleCollectionFilter: (v: string) => void
   selectAllCollections: () => void
   clearCollectionFilter: () => void
+  textFilter: () => string
+  setTextFilter: (v: string) => void
   filterVersion: () => number
   seenCollections: () => string[]
   selectedCollection: () => string | undefined
@@ -54,6 +56,7 @@ export function createReadModelsStore(): ReadModelsStore {
   const [seenCollections, setSeenCollections] = createSignal<Set<string>>(new Set())
 
   const [collectionFilter, setCollectionFilter] = createSignal<Set<string>>(new Set())
+  const [textFilter, setTextFilterRaw] = createSignal('')
   const [filterVersion, setFilterVersion] = createSignal(0)
   const [selectedCollection, setSelectedCollection] = createSignal<string | undefined>()
 
@@ -68,8 +71,12 @@ export function createReadModelsStore(): ReadModelsStore {
   const filteredEntries = createMemo(() => {
     const all = entriesList()
     const col = collectionFilter()
-    if (col.size === 0) return all
-    return all.filter((e) => col.has(e.collection))
+    const text = textFilter().toLowerCase()
+    return all.filter((e) => {
+      if (col.size > 0 && !col.has(e.collection)) return false
+      if (text && !e.collection.toLowerCase().includes(text)) return false
+      return true
+    })
   })
 
   function getOrCreateCollection(
@@ -153,6 +160,11 @@ export function createReadModelsStore(): ReadModelsStore {
   return {
     entries: entriesList,
     filteredEntries,
+    textFilter,
+    setTextFilter(value: string) {
+      setTextFilterRaw(value)
+      bumpFilterVersion()
+    },
     collectionFilter,
     toggleCollectionFilter(v) {
       setCollectionFilter((prev) => {

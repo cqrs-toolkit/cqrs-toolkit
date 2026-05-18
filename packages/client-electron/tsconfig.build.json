@@ -3,5 +3,6 @@
   "compilerOptions": {
     "composite": true
   },
-  "references": [{ "path": "../client/tsconfig.build.json" }]
+  "references": [{ "path": "../client/tsconfig.build.json" }],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }
