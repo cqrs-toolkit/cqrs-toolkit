@@ -30,7 +30,7 @@ Sync manager.
 
 ### Constructor
 
-> **new SyncManager**\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>(`eventBus`, `storage`, `sessionManager`, `anticipatedEventHandler`, `commandQueue`, `eventCache`, `cacheManager`, `eventProcessorRegistry`, `readModelStore`, `queryManager`, `writeQueue`, `connectivity`, `networkConfig`, `auth`, `collections`, `clientAggregates`, `domainExecutor`, `commandStore`, `mappingStore`): `SyncManager`\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
+> **new SyncManager**\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>(`eventBus`, `storage`, `sessionManager`, `anticipatedEventHandler`, `commandQueue`, `eventCache`, `cacheManager`, `eventProcessorRegistry`, `readModelStore`, `queryManager`, `writeQueue`, `connectivity`, `networkConfig`, `auth`, `collections`, `clientAggregates`, `domainExecutor`, `commandStore`, `mappingStore`, `debug`): `SyncManager`\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 #### Parameters
 
@@ -110,11 +110,37 @@ Sync manager.
 
 [`ICommandIdMappingStore`](../interfaces/ICommandIdMappingStore.md)
 
+##### debug
+
+`boolean`
+
+Debug flag — initialised from `resolved.debug`. Public mutable; the
+worker flips it on after startup when the page-side `debug.enable`
+RPC arrives. The CQRS WebSocket is wrapped for `recordNetEvent`
+reporting only when this is true at the moment the WS is opened.
+Connections opened after a flip-on are wrapped; already-open
+connections are not retroactively wrapped (no reconnect path is
+wired — see ADR 0001).
+
 #### Returns
 
 `SyncManager`\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 ## Properties
+
+### debug
+
+> **debug**: `boolean`
+
+Debug flag — initialised from `resolved.debug`. Public mutable; the
+worker flips it on after startup when the page-side `debug.enable`
+RPC arrives. The CQRS WebSocket is wrapped for `recordNetEvent`
+reporting only when this is true at the moment the WS is opened.
+Connections opened after a flip-on are wrapped; already-open
+connections are not retroactively wrapped (no reconnect path is
+wired — see ADR 0001).
+
+---
 
 ### knownRevisions
 

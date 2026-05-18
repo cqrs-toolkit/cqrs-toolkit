@@ -13,7 +13,13 @@ Create a `Collection` from representation surface data.
 The returned collection has `fetchSeedEvents` and `fetchStreamEvents`
 pre-wired using the representation's aggregate events and item events URLs.
 `fetchSeedRecords` is wired against `representation.collection.template`
-when `fetchTemplateVariables` is provided.
+when `fetchTemplateVariables` is provided; without it, `SyncManager` falls
+back to `fetchSeedEvents` for seeding.
+
+`opts.revisionPath` is forwarded unconditionally onto
+`Collection.revisionPath` — independent of records wiring — so consumers
+declaring a revision path on `appCreateCollection = createCollection<TLink>`
+always carry it through to `AggregateChain.lastKnownRevision` advancement.
 
 ## Type Parameters
 

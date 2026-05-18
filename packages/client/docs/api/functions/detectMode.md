@@ -6,7 +6,7 @@
 
 # Function: detectMode()
 
-> **detectMode**(): [`ExecutionMode`](../type-aliases/ExecutionMode.md)
+> **detectMode**(): [`ClientMode`](../type-aliases/ClientMode.md)
 
 Detect the best execution mode for the current browser environment.
 
@@ -21,6 +21,6 @@ The authoritative check runs inside the worker via the Stage 2 OPFS probe.
 
 ## Returns
 
-[`ExecutionMode`](../type-aliases/ExecutionMode.md)
+[`ClientMode`](../type-aliases/ClientMode.md)
 
 The most capable execution mode available

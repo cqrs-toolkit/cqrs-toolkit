@@ -174,7 +174,7 @@ per-command handler and call it explicitly.
 
 ### mode?
 
-> `optional` **mode**: [`ExecutionModeConfig`](../type-aliases/ExecutionModeConfig.md)
+> `optional` **mode**: [`ClientModeConfig`](../type-aliases/ClientModeConfig.md)
 
 Execution mode.
 Defaults to 'auto': SharedWorker > Dedicated Worker > Online-only
