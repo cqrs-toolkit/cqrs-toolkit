@@ -54,3 +54,39 @@ The extension is a Chrome Manifest V3 extension with four execution contexts:
 | Content script | `content-script.js`      | ISOLATED       | Bridges `window.postMessage` from the hook to `chrome.runtime` ports.                                      |
 | Background     | `background.js`          | Service worker | Buffers events per tab, manages port connections between content scripts and panels.                       |
 | Panel          | `panel.js` + `panel.css` | DevTools panel | SolidJS UI that renders the CQRS Toolkit tab inside Chrome DevTools.                                       |
+
+## Feeding custom network events
+
+The CQRS WebSocket is auto-instrumented — open the panel and `SyncManager` frames show up with URL, lifecycle, and source label in every execution mode without any setup.
+
+If you want the panel to show **your own** WebSockets or other transports, `@cqrs-toolkit/client` exposes two surfaces. Both no-op when the extension isn't attached, so they're safe to leave in production code.
+
+### `wrapWebSocket(ws, { connectionId })`
+
+The one-liner for standard `WebSocket`s. Wrap at the construction site; the wrapper emits `ws-created` immediately, intercepts `send`, and listens for `message`/`close`, all reported into the panel:
+
+```ts
+import { wrapWebSocket } from '@cqrs-toolkit/client'
+
+const socket = wrapWebSocket(new WebSocket(url), { connectionId: crypto.randomUUID() })
+// use `socket` normally — same instance, same API
+```
+
+`connectionId` is caller-supplied, opaque, and stable for the connection's lifetime; the panel keys frames to their `ws-created`/`ws-closed` pair by this ID. Works identically in the page, dedicated worker, and shared worker.
+
+### `recordNetEvent(event)`
+
+The escape hatch for transports that aren't a standard `WebSocket` — custom binary protocols, `BroadcastChannel` channels you want surfaced as connections, etc.
+
+```ts
+import { recordNetEvent } from '@cqrs-toolkit/client'
+
+recordNetEvent({ kind: 'ws-created', connectionId, url })
+recordNetEvent({ kind: 'ws-frame-sent', connectionId, url, payload })
+recordNetEvent({ kind: 'ws-frame-received', connectionId, url, payload })
+recordNetEvent({ kind: 'ws-closed', connectionId, code, reason, wasClean })
+```
+
+Payloads accept `string`, `ArrayBuffer`, or `ArrayBufferView`. Binary is normalised into a `[binary, N B] aa bb cc …` preview. HTTP variants are deliberately omitted — HAR (page + dedicated worker) and CDP `Network` (shared worker) already cover HTTP in every mode.
+
+> **Note:** Non-CQRS WebSockets that aren't wrapped or fed through `recordNetEvent` are invisible to the panel. This is a deliberate scope choice — see [ADR 0002](../../docs/projects/devtools/decisions/0002-record-net-event-surface.md) for the reasoning and the full event shape.
