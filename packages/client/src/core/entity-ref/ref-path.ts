@@ -45,18 +45,21 @@ function parsePath(path: JSONPathExpression): PathSegment[] {
       segments.push({ type: 'member', name })
     } else if (path[i] === '[') {
       i++
-      if (path[i] === "'") {
-        // Bracket member: ['name']
+      if (path[i] === "'" || path[i] === '"') {
+        // Bracket member: ['name'] or ["name"] — RFC 9535 name-selector.
+        // The closing quote must match the opening quote; mismatched quotes
+        // fall through to the unterminated branch below.
+        const quote = path[i]
         i++
         let name = ''
-        while (i < path.length && path[i] !== "'") {
+        while (i < path.length && path[i] !== quote) {
           name += path[i]
           i++
         }
-        if (path[i] !== "'") {
+        if (path[i] !== quote) {
           throw new Error(`Unterminated bracket member in path: "${path}"`)
         }
-        i++ // skip closing '
+        i++ // skip closing quote
         if (path[i] !== ']') {
           throw new Error(`Expected ] after bracket member in path: "${path}"`)
         }
@@ -119,6 +122,16 @@ function segmentsToPath(segments: PathSegment[]): string {
     }
   }
   return result
+}
+
+/**
+ * Eagerly validate a JSONPath expression's syntax. Throws on any structural
+ * error (unterminated brackets, mismatched quotes, unsupported characters).
+ * Intended for use at registration sites — fail fast at startup rather than
+ * deep inside a data path.
+ */
+export function validatePath(path: JSONPathExpression): void {
+  parsePath(path)
 }
 
 /**

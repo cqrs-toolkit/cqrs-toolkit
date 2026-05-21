@@ -13,6 +13,8 @@ import { CacheManager } from '../cache-manager/CacheManager.js'
 import { CommandIdMappingStore } from '../command-id-mapping-store/CommandIdMappingStore.js'
 import { EventBus } from '../events/EventBus.js'
 import { ReadModelStore } from '../read-model-store/ReadModelStore.js'
+import { ViewExecutor, createInMemoryDispatcher } from '../views/ViewExecutor.js'
+import type { ViewLocalApi } from '../views/types.js'
 import { QueryManager } from './QueryManager.js'
 import { QueryManagerFacade } from './QueryManagerFacade.js'
 import type { CollectionSignal } from './types.js'
@@ -135,14 +137,14 @@ describe('QueryManager', () => {
   })
 
   describe('list', () => {
-    it('returns all entities in collection', async () => {
+    it('returns all entities in collection; total is undefined without collection.list.total', async () => {
       const result = await queryManager.list<Todo>({
         collection: 'todos',
         cacheKey: TODOS_CACHE_KEY,
       })
 
       expect(result.data).toHaveLength(2)
-      expect(result.total).toBe(2)
+      expect(result.total).toBeUndefined()
       expect(result.hasLocalChanges).toBe(true) // todo-2 has local changes
     })
 
@@ -155,6 +157,29 @@ describe('QueryManager', () => {
       })
 
       expect(result.data).toHaveLength(1)
+      expect(result.total).toBeUndefined()
+    })
+
+    it('returns total when collection.list.total is true', async () => {
+      const qm = new QueryManager<ServiceLink, EnqueueCommand>(
+        eventBus,
+        cacheManager,
+        readModelStore,
+        [
+          {
+            name: 'todos',
+            aggregate: { service: 'nb', type: 'Todo' } as never,
+            matchesStream: () => false,
+            cacheKeysFromTopics: () => [],
+            list: { total: true },
+          } as never,
+        ],
+      )
+      const result = await qm.list<Todo>({
+        collection: 'todos',
+        cacheKey: TODOS_CACHE_KEY,
+      })
+      expect(result.data).toHaveLength(2)
       expect(result.total).toBe(2)
     })
 
@@ -235,7 +260,8 @@ describe('QueryManager', () => {
 
       eventBus.emit('readmodel:updated', {
         collection: 'todos',
-        ids: ['todo-1'],
+        updated: ['todo-1'],
+        cacheKeys: [],
         commandIds: ['cmd-1'],
       })
 
@@ -252,8 +278,18 @@ describe('QueryManager', () => {
         signals.push(signal)
       })
 
-      eventBus.emit('readmodel:updated', { collection: 'users', ids: ['user-1'], commandIds: [] })
-      eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'], commandIds: [] })
+      eventBus.emit('readmodel:updated', {
+        collection: 'users',
+        updated: ['user-1'],
+        cacheKeys: [],
+        commandIds: [],
+      })
+      eventBus.emit('readmodel:updated', {
+        collection: 'todos',
+        updated: ['todo-1'],
+        cacheKeys: [],
+        commandIds: [],
+      })
 
       await new Promise((r) => setTimeout(r, 10))
 
@@ -338,7 +374,12 @@ describe('QueryManager', () => {
       })
 
       // Emit update notification
-      eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'], commandIds: [] })
+      eventBus.emit('readmodel:updated', {
+        collection: 'todos',
+        updated: ['todo-1'],
+        cacheKeys: [],
+        commandIds: [],
+      })
 
       await new Promise((r) => setTimeout(r, 10))
 
@@ -398,7 +439,12 @@ describe('QueryManager', () => {
         position: null,
         _clientMetadata: null,
       })
-      eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'], commandIds: [] })
+      eventBus.emit('readmodel:updated', {
+        collection: 'todos',
+        updated: ['todo-1'],
+        cacheKeys: [],
+        commandIds: [],
+      })
 
       // Second update — triggers call 3 (fast, resolves before call 2)
       await storage.saveReadModel({
@@ -413,7 +459,12 @@ describe('QueryManager', () => {
         position: null,
         _clientMetadata: null,
       })
-      eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'], commandIds: [] })
+      eventBus.emit('readmodel:updated', {
+        collection: 'todos',
+        updated: ['todo-1'],
+        cacheKeys: [],
+        commandIds: [],
+      })
 
       // Let the fast call (3) resolve
       await new Promise((r) => setTimeout(r, 10))
@@ -450,12 +501,740 @@ describe('QueryManager', () => {
       sub.unsubscribe()
 
       // Emit update after unsubscribe
-      eventBus.emit('readmodel:updated', { collection: 'todos', ids: ['todo-1'], commandIds: [] })
+      eventBus.emit('readmodel:updated', {
+        collection: 'todos',
+        updated: ['todo-1'],
+        cacheKeys: [],
+        commandIds: [],
+      })
 
       await new Promise((r) => setTimeout(r, 10))
 
       // getById should NOT have been called again after unsubscribe
       expect(getByIdSpy.mock.calls.length).toBe(callCountBeforeUnsub)
+    })
+  })
+
+  describe('watchList', () => {
+    it('emits the initial list result on subscribe', async () => {
+      const emissions: { ids: string[] }[] = []
+      const sub = queryManager
+        .watchList<Todo>({ collection: 'todos', cacheKey: TODOS_CACHE_KEY })
+        .subscribe((result) => {
+          emissions.push({ ids: result.meta.map((m) => m.id) })
+        })
+      cleanup.push(() => sub.unsubscribe())
+
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(1)
+      expect(emissions[0]?.ids.sort()).toEqual(['todo-1', 'todo-2'])
+    })
+
+    it('tracked-id update re-emits even when cacheKeys do not include the watched key', async () => {
+      // A row visible on the page is part of what's being rendered. An update
+      // to it is unconditionally relevant — cache-key attribution doesn't
+      // gate the data re-fetch.
+      const emissions: number[] = []
+      const sub = queryManager
+        .watchList<Todo>({ collection: 'todos', cacheKey: TODOS_CACHE_KEY })
+        .subscribe((result) => emissions.push(result.meta.length))
+      cleanup.push(() => sub.unsubscribe())
+
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(1)
+
+      eventBus.emit('readmodel:updated', {
+        collection: 'todos',
+        updated: ['todo-1'],
+        cacheKeys: ['some-other-workspace-key'],
+        commandIds: [],
+      })
+
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(2)
+    })
+
+    it('tracked-id update re-emits when cacheKeys include the watched key', async () => {
+      const emissions: number[] = []
+      const sub = queryManager
+        .watchList<Todo>({ collection: 'todos', cacheKey: TODOS_CACHE_KEY })
+        .subscribe((result) => emissions.push(result.meta.length))
+      cleanup.push(() => sub.unsubscribe())
+
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(1)
+
+      eventBus.emit('readmodel:updated', {
+        collection: 'todos',
+        updated: ['todo-1'],
+        cacheKeys: [TODOS_CACHE_KEY.key],
+        commandIds: [],
+      })
+
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(2)
+    })
+
+    it('off-page update is dropped — visible page is left stable', async () => {
+      const emissions: number[] = []
+      const sub = queryManager
+        .watchList<Todo>({ collection: 'todos', cacheKey: TODOS_CACHE_KEY })
+        .subscribe((result) => emissions.push(result.meta.length))
+      cleanup.push(() => sub.unsubscribe())
+
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(1)
+
+      // Off-page id, watched cache key, no create/delete — pure update to a
+      // row we don't render. Both data and count branches drop it.
+      eventBus.emit('readmodel:updated', {
+        collection: 'todos',
+        updated: ['off-page-id'],
+        cacheKeys: [TODOS_CACHE_KEY.key],
+        commandIds: [],
+      })
+
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(1)
+    })
+
+    it('off-page create is dropped when collection.list.total is false (default)', async () => {
+      // Default collection has no list.total — the count branch is dead, and
+      // the create isn't on the page, so nothing re-runs. Visible page stays.
+      const emissions: number[] = []
+      const sub = queryManager
+        .watchList<Todo>({ collection: 'todos', cacheKey: TODOS_CACHE_KEY })
+        .subscribe((result) => emissions.push(result.meta.length))
+      cleanup.push(() => sub.unsubscribe())
+
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(1)
+
+      eventBus.emit('readmodel:updated', {
+        collection: 'todos',
+        created: ['todo-new'],
+        cacheKeys: [TODOS_CACHE_KEY.key],
+        commandIds: [],
+      })
+
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(1)
+    })
+
+    it('off-page create emits a count-only re-fetch when collection.list.total is true', async () => {
+      const qm = new QueryManager<ServiceLink, EnqueueCommand>(
+        eventBus,
+        cacheManager,
+        readModelStore,
+        [
+          {
+            name: 'todos',
+            aggregate: { service: 'nb', type: 'Todo' } as never,
+            matchesStream: () => false,
+            cacheKeysFromTopics: () => [],
+            list: { total: true },
+          } as never,
+        ],
+      )
+
+      const totals: (number | undefined)[] = []
+      const sub = qm
+        .watchList<Todo>({ collection: 'todos', cacheKey: TODOS_CACHE_KEY })
+        .subscribe((result) => totals.push(result.total))
+      cleanup.push(() => sub.unsubscribe())
+
+      await new Promise((r) => setTimeout(r, 20))
+      expect(totals).toEqual([2])
+
+      // Seed another row to bump count, then emit a create event so the
+      // count branch fires.
+      const todosCacheKey = TODOS_CACHE_KEY.key
+      await storage.saveReadModel({
+        id: 'todo-3',
+        collection: 'todos',
+        cacheKeys: [todosCacheKey],
+        serverData: JSON.stringify({ id: 'todo-3', title: 'Third', done: false }),
+        effectiveData: JSON.stringify({ id: 'todo-3', title: 'Third', done: false }),
+        hasLocalChanges: false,
+        updatedAt: 3000,
+        revision: null,
+        position: null,
+        _clientMetadata: null,
+      })
+
+      eventBus.emit('readmodel:updated', {
+        collection: 'todos',
+        created: ['todo-3'],
+        cacheKeys: [todosCacheKey],
+        commandIds: [],
+      })
+
+      await new Promise((r) => setTimeout(r, 20))
+      expect(totals.length).toBeGreaterThanOrEqual(2)
+      expect(totals[totals.length - 1]).toBe(3)
+    })
+
+    it('tracked-id delete re-emits (and updates total when configured)', async () => {
+      const emissions: number[] = []
+      const sub = queryManager
+        .watchList<Todo>({ collection: 'todos', cacheKey: TODOS_CACHE_KEY })
+        .subscribe((result) => emissions.push(result.meta.length))
+      cleanup.push(() => sub.unsubscribe())
+
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(1)
+
+      eventBus.emit('readmodel:updated', {
+        collection: 'todos',
+        deleted: ['todo-2'],
+        cacheKeys: [TODOS_CACHE_KEY.key],
+        commandIds: [],
+      })
+
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(2)
+    })
+
+    it('ignores events for other collections', async () => {
+      const emissions: number[] = []
+      const sub = queryManager
+        .watchList<Todo>({ collection: 'todos', cacheKey: TODOS_CACHE_KEY })
+        .subscribe((result) => emissions.push(result.meta.length))
+      cleanup.push(() => sub.unsubscribe())
+
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(1)
+
+      eventBus.emit('readmodel:updated', {
+        collection: 'users',
+        updated: ['todo-1'],
+        cacheKeys: [TODOS_CACHE_KEY.key],
+        commandIds: [],
+      })
+
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(1)
+    })
+
+    it('force re-runs on sync:seed-completed for the watched collection', async () => {
+      const emissions: number[] = []
+      const sub = queryManager
+        .watchList<Todo>({ collection: 'todos', cacheKey: TODOS_CACHE_KEY })
+        .subscribe((result) => emissions.push(result.meta.length))
+      cleanup.push(() => sub.unsubscribe())
+
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(1)
+
+      eventBus.emit('sync:seed-completed', {
+        collection: 'todos',
+        cacheKey: TODOS_CACHE_KEY,
+        recordCount: 2,
+      })
+
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(2)
+    })
+
+    it('force re-runs on session:destroyed', async () => {
+      const emissions: number[] = []
+      const sub = queryManager
+        .watchList<Todo>({ collection: 'todos', cacheKey: TODOS_CACHE_KEY })
+        .subscribe((result) => emissions.push(result.meta.length))
+      cleanup.push(() => sub.unsubscribe())
+
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(1)
+
+      eventBus.emit('session:destroyed', { reason: 'user-changed' })
+
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(2)
+    })
+
+    it('does not re-run after unsubscribe', async () => {
+      const listSpy = vi.spyOn(queryManager, 'list')
+      const sub = queryManager
+        .watchList<Todo>({ collection: 'todos', cacheKey: TODOS_CACHE_KEY })
+        .subscribe(() => {})
+      await new Promise((r) => setTimeout(r, 20))
+      const callsBeforeUnsub = listSpy.mock.calls.length
+      sub.unsubscribe()
+
+      eventBus.emit('readmodel:updated', {
+        collection: 'todos',
+        updated: ['todo-1'],
+        cacheKeys: [TODOS_CACHE_KEY.key],
+        commandIds: [],
+      })
+      await new Promise((r) => setTimeout(r, 20))
+      expect(listSpy.mock.calls.length).toBe(callsBeforeUnsub)
+    })
+  })
+
+  describe('getView', () => {
+    it('throws when no views are registered', async () => {
+      await expect(queryManager.getView({ view: 'anything', params: {} })).rejects.toThrow(
+        /no views are registered/,
+      )
+    })
+
+    it('throws on unknown view when executor is configured', async () => {
+      const viewExecutor = new ViewExecutor<ServiceLink>(
+        [
+          {
+            name: 'known',
+            primarySource: 'todos',
+            joinSources: [],
+            cacheKeys: () => [],
+            memory: () => [],
+            sql: { query: () => ({ sql: 'SELECT 1', bindings: [] }) },
+          },
+        ],
+        createInMemoryDispatcher({
+          *iterate() {
+            // empty
+          },
+        }),
+      )
+      const qm = new QueryManager<ServiceLink, EnqueueCommand>(
+        eventBus,
+        cacheManager,
+        readModelStore,
+        [],
+        viewExecutor,
+      )
+      await expect(qm.getView({ view: 'missing', params: {} })).rejects.toThrow(/Unknown view/)
+    })
+
+    it('dispatches a memory view and resolves declared cache keys', async () => {
+      const viewExecutor = new ViewExecutor<ServiceLink>(
+        [
+          {
+            name: 'todos-by-done',
+            primarySource: 'todos',
+            joinSources: [],
+            cacheKeys: () => [{ kind: 'scope' as const, scopeType: 'todos' }],
+            memory: (api: ViewLocalApi, params: unknown) => {
+              const out: Todo[] = []
+              for (const row of api.iterate<Todo>('todos')) {
+                if (row.data.done === (params as { done: boolean }).done) {
+                  out.push(row.data)
+                }
+              }
+              return out
+            },
+            sql: { query: () => ({ sql: 'SELECT 1', bindings: [] }) },
+          },
+        ],
+        createInMemoryDispatcher({
+          iterate<T>(collection: string) {
+            return storage.iterateReadModels<T>(collection)
+          },
+        }),
+      )
+      const qm = new QueryManager<ServiceLink, EnqueueCommand>(
+        eventBus,
+        cacheManager,
+        readModelStore,
+        [],
+        viewExecutor,
+      )
+
+      const result = await qm.getView<Todo>({
+        view: 'todos-by-done',
+        params: { done: true },
+      })
+
+      expect(result.data.map((d) => d.id)).toEqual(['todo-2'])
+      expect(result.cacheKeys).toHaveLength(1)
+      // The cache-key template gets a freshly-assigned opaque UUID via
+      // registerCacheKey — it's not the deterministic UUID v5 from
+      // deriveScopeKey. Just verify the resolved identity carries the
+      // declared scope.
+      expect(result.cacheKeys[0]).toMatchObject({ kind: 'scope', scopeType: 'todos' })
+    })
+  })
+
+  describe('watchView', () => {
+    interface ProjectRow {
+      id: string
+      assetId: string
+      _embedded: { asset: { id: string; name: string } | null }
+    }
+
+    /** Sets up a project-with-asset view + storage state for gate tests. */
+    async function setupProjectView() {
+      // Pre-existing project + asset rows so iterate has data.
+      await storage.saveReadModel({
+        id: 'asset-a',
+        collection: 'assets',
+        cacheKeys: ['ck-assets'],
+        serverData: '{"id":"asset-a","name":"A"}',
+        effectiveData: '{"id":"asset-a","name":"A"}',
+        hasLocalChanges: false,
+        updatedAt: 1000,
+        revision: null,
+        position: null,
+        _clientMetadata: null,
+      })
+      await storage.saveReadModel({
+        id: 'project-1',
+        collection: 'projects',
+        cacheKeys: ['ck-projects'],
+        serverData: '{"id":"project-1","assetId":"asset-a"}',
+        effectiveData: '{"id":"project-1","assetId":"asset-a"}',
+        hasLocalChanges: false,
+        updatedAt: 1000,
+        revision: null,
+        position: null,
+        _clientMetadata: null,
+      })
+
+      const viewExecutor = new ViewExecutor<ServiceLink>(
+        [
+          {
+            name: 'projects-with-assets',
+            primarySource: 'projects',
+            joinSources: [{ collection: 'assets', fromPath: '$.assetId' }],
+            cacheKeys: () => [
+              { kind: 'scope' as const, scopeType: 'projects' },
+              { kind: 'scope' as const, scopeType: 'assets' },
+            ],
+            memory: (api: ViewLocalApi) => {
+              const assets = new Map<string, { id: string; name: string }>()
+              for (const a of api.iterate<{ id: string; name: string }>('assets')) {
+                assets.set(a.id, a.data)
+              }
+              const out: ProjectRow[] = []
+              for (const p of api.iterate<{ id: string; assetId: string }>('projects')) {
+                out.push({
+                  ...p.data,
+                  _embedded: { asset: assets.get(p.data.assetId) ?? null },
+                })
+              }
+              return out
+            },
+            sql: { query: () => ({ sql: 'SELECT 1', bindings: [] }) },
+          },
+        ],
+        createInMemoryDispatcher({
+          iterate<T>(collection: string) {
+            return storage.iterateReadModels<T>(collection)
+          },
+        }),
+      )
+      const qm = new QueryManager<ServiceLink, EnqueueCommand>(
+        eventBus,
+        cacheManager,
+        readModelStore,
+        [],
+        viewExecutor,
+      )
+
+      // Pre-resolve the cache keys so we can refer to them by .key in events.
+      const result = await qm.getView<ProjectRow>({
+        view: 'projects-with-assets',
+        params: {},
+      })
+      return { qm, result }
+    }
+
+    it('emits the initial view result on subscribe', async () => {
+      const { qm } = await setupProjectView()
+      const emissions: number[] = []
+      const sub = qm
+        .watchView<ProjectRow>({ view: 'projects-with-assets', params: {} })
+        .subscribe((r) => emissions.push(r.data.length))
+      cleanup.push(() => sub.unsubscribe())
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(1)
+      expect(emissions[0]).toBe(1)
+    })
+
+    it('tracked-id update re-emits even when cacheKeys do not include any watched key', async () => {
+      // project-1 is on the page; an update to it re-fetches regardless of
+      // which cache key the event reports. The visible row is changing.
+      const { qm } = await setupProjectView()
+      const emissions: number[] = []
+      const sub = qm
+        .watchView<ProjectRow>({ view: 'projects-with-assets', params: {} })
+        .subscribe((r) => emissions.push(r.data.length))
+      cleanup.push(() => sub.unsubscribe())
+      await new Promise((r) => setTimeout(r, 20))
+
+      eventBus.emit('readmodel:updated', {
+        collection: 'projects',
+        updated: ['project-1'],
+        cacheKeys: ['ck-other-workspace'],
+        commandIds: [],
+      })
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(2)
+    })
+
+    it('untracked-id update with unwatched cacheKey is dropped', async () => {
+      const { qm } = await setupProjectView()
+      const emissions: number[] = []
+      const sub = qm
+        .watchView<ProjectRow>({ view: 'projects-with-assets', params: {} })
+        .subscribe((r) => emissions.push(r.data.length))
+      cleanup.push(() => sub.unsubscribe())
+      await new Promise((r) => setTimeout(r, 20))
+
+      eventBus.emit('readmodel:updated', {
+        collection: 'projects',
+        updated: ['off-page-project'],
+        cacheKeys: ['ck-other-workspace'],
+        commandIds: [],
+      })
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(1)
+    })
+
+    it('Gate 2 (primary): re-emits on update of a row on the page', async () => {
+      const { qm, result } = await setupProjectView()
+      const emissions: number[] = []
+      const sub = qm
+        .watchView<ProjectRow>({ view: 'projects-with-assets', params: {} })
+        .subscribe((r) => emissions.push(r.data.length))
+      cleanup.push(() => sub.unsubscribe())
+      await new Promise((r) => setTimeout(r, 20))
+
+      eventBus.emit('readmodel:updated', {
+        collection: 'projects',
+        updated: ['project-1'],
+        cacheKeys: result.cacheKeys.map((k) => k.key),
+        commandIds: [],
+      })
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(2)
+    })
+
+    it('Gate 2 (primary): ignores updates of rows not on the page', async () => {
+      const { qm, result } = await setupProjectView()
+      const emissions: number[] = []
+      const sub = qm
+        .watchView<ProjectRow>({ view: 'projects-with-assets', params: {} })
+        .subscribe((r) => emissions.push(r.data.length))
+      cleanup.push(() => sub.unsubscribe())
+      await new Promise((r) => setTimeout(r, 20))
+
+      eventBus.emit('readmodel:updated', {
+        collection: 'projects',
+        updated: ['off-page-project'],
+        cacheKeys: result.cacheKeys.map((k) => k.key),
+        commandIds: [],
+      })
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(1)
+    })
+
+    it('Gate 2 (join): re-emits on update of an embedded asset', async () => {
+      const { qm, result } = await setupProjectView()
+      const emissions: number[] = []
+      const sub = qm
+        .watchView<ProjectRow>({ view: 'projects-with-assets', params: {} })
+        .subscribe((r) => emissions.push(r.data.length))
+      cleanup.push(() => sub.unsubscribe())
+      await new Promise((r) => setTimeout(r, 20))
+
+      eventBus.emit('readmodel:updated', {
+        collection: 'assets',
+        updated: ['asset-a'],
+        cacheKeys: result.cacheKeys.map((k) => k.key),
+        commandIds: [],
+      })
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(2)
+    })
+
+    it('Gate 2 (join): ignores updates of assets not embedded in the page', async () => {
+      const { qm, result } = await setupProjectView()
+      const emissions: number[] = []
+      const sub = qm
+        .watchView<ProjectRow>({ view: 'projects-with-assets', params: {} })
+        .subscribe((r) => emissions.push(r.data.length))
+      cleanup.push(() => sub.unsubscribe())
+      await new Promise((r) => setTimeout(r, 20))
+
+      eventBus.emit('readmodel:updated', {
+        collection: 'assets',
+        updated: ['asset-zzz-not-referenced'],
+        cacheKeys: result.cacheKeys.map((k) => k.key),
+        commandIds: [],
+      })
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(1)
+    })
+
+    it('off-page primary-source create is dropped when view has no count callback', async () => {
+      // The view in setupProjectView has no `memoryCount` / `sql.count`, so
+      // the count branch is dead. Off-page creates don't affect the visible
+      // page; they drop.
+      const { qm, result } = await setupProjectView()
+      const emissions: number[] = []
+      const sub = qm
+        .watchView<ProjectRow>({ view: 'projects-with-assets', params: {} })
+        .subscribe((r) => emissions.push(r.data.length))
+      cleanup.push(() => sub.unsubscribe())
+      await new Promise((r) => setTimeout(r, 20))
+
+      eventBus.emit('readmodel:updated', {
+        collection: 'projects',
+        created: ['project-2'],
+        cacheKeys: result.cacheKeys.map((k) => k.key),
+        commandIds: [],
+      })
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(1)
+    })
+
+    it('off-page join-source create is dropped', async () => {
+      // A brand-new asset not referenced by any visible project — neither
+      // tracked-id nor count branch fires.
+      const { qm, result } = await setupProjectView()
+      const emissions: number[] = []
+      const sub = qm
+        .watchView<ProjectRow>({ view: 'projects-with-assets', params: {} })
+        .subscribe((r) => emissions.push(r.data.length))
+      cleanup.push(() => sub.unsubscribe())
+      await new Promise((r) => setTimeout(r, 20))
+
+      eventBus.emit('readmodel:updated', {
+        collection: 'assets',
+        created: ['asset-z'],
+        cacheKeys: result.cacheKeys.map((k) => k.key),
+        commandIds: [],
+      })
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(1)
+    })
+
+    it('force re-runs on session:destroyed', async () => {
+      const { qm } = await setupProjectView()
+      const emissions: number[] = []
+      const sub = qm
+        .watchView<ProjectRow>({ view: 'projects-with-assets', params: {} })
+        .subscribe((r) => emissions.push(r.data.length))
+      cleanup.push(() => sub.unsubscribe())
+      await new Promise((r) => setTimeout(r, 20))
+
+      eventBus.emit('session:destroyed', { reason: 'user-changed' })
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(2)
+    })
+
+    it('does not re-run after unsubscribe', async () => {
+      const { qm, result } = await setupProjectView()
+      const getViewSpy = vi.spyOn(qm, 'getView')
+      const sub = qm
+        .watchView<ProjectRow>({ view: 'projects-with-assets', params: {} })
+        .subscribe(() => {})
+      await new Promise((r) => setTimeout(r, 20))
+      const callsBeforeUnsub = getViewSpy.mock.calls.length
+      sub.unsubscribe()
+
+      eventBus.emit('readmodel:updated', {
+        collection: 'projects',
+        updated: ['project-1'],
+        cacheKeys: result.cacheKeys.map((k) => k.key),
+        commandIds: [],
+      })
+      await new Promise((r) => setTimeout(r, 20))
+      expect(getViewSpy.mock.calls.length).toBe(callsBeforeUnsub)
+    })
+
+    it('extracts embedIds via bracket-with-dot fromPath (canonical _embedded shape)', async () => {
+      // Canonical HAL-style embed path: `$._embedded['pms.Asset'].id`. Verifies
+      // the join-source FK extraction handles a bracket member whose key
+      // contains a literal dot — the on-the-wire shape mirrors what
+      // hypermedia projections emit.
+      interface EmbedRow {
+        id: string
+        _embedded: { 'pms.Asset': { id: string; name: string } | null }
+      }
+      await storage.saveReadModel({
+        id: 'asset-x',
+        collection: 'assets',
+        cacheKeys: ['ck-assets'],
+        serverData: '{"id":"asset-x","name":"X"}',
+        effectiveData: '{"id":"asset-x","name":"X"}',
+        hasLocalChanges: false,
+        updatedAt: 1000,
+        revision: null,
+        position: null,
+        _clientMetadata: null,
+      })
+      await storage.saveReadModel({
+        id: 'project-x',
+        collection: 'projects',
+        cacheKeys: ['ck-projects'],
+        serverData: '{"id":"project-x","_embedded":{"pms.Asset":{"id":"asset-x"}}}',
+        effectiveData: '{"id":"project-x","_embedded":{"pms.Asset":{"id":"asset-x"}}}',
+        hasLocalChanges: false,
+        updatedAt: 1000,
+        revision: null,
+        position: null,
+        _clientMetadata: null,
+      })
+
+      const viewExecutor = new ViewExecutor<ServiceLink>(
+        [
+          {
+            name: 'projects-with-hal-embeds',
+            primarySource: 'projects',
+            joinSources: [{ collection: 'assets', fromPath: "$._embedded['pms.Asset'].id" }],
+            cacheKeys: () => [
+              { kind: 'scope' as const, scopeType: 'projects' },
+              { kind: 'scope' as const, scopeType: 'assets' },
+            ],
+            memory: (api: ViewLocalApi) => {
+              const out: EmbedRow[] = []
+              for (const p of api.iterate<EmbedRow>('projects')) out.push(p.data)
+              return out
+            },
+            sql: { query: () => ({ sql: 'SELECT 1', bindings: [] }) },
+          },
+        ],
+        createInMemoryDispatcher({
+          iterate<T>(collection: string) {
+            return storage.iterateReadModels<T>(collection)
+          },
+        }),
+      )
+      const qm = new QueryManager<ServiceLink, EnqueueCommand>(
+        eventBus,
+        cacheManager,
+        readModelStore,
+        [],
+        viewExecutor,
+      )
+
+      const initial = await qm.getView<EmbedRow>({
+        view: 'projects-with-hal-embeds',
+        params: {},
+      })
+      expect(initial.data).toHaveLength(1)
+
+      const emissions: number[] = []
+      const sub = qm
+        .watchView<EmbedRow>({ view: 'projects-with-hal-embeds', params: {} })
+        .subscribe((r) => emissions.push(r.data.length))
+      cleanup.push(() => sub.unsubscribe())
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(1)
+
+      // Asset update on a row tracked via the bracket-with-dot path must
+      // fire the join-source gate.
+      eventBus.emit('readmodel:updated', {
+        collection: 'assets',
+        updated: ['asset-x'],
+        cacheKeys: initial.cacheKeys.map((k) => k.key),
+        commandIds: [],
+      })
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(2)
     })
   })
 

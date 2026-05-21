@@ -15,6 +15,7 @@ import type {
   MigrateReadModelIdParams,
   ReadModelRecord,
 } from '../../storage/IStorage.js'
+import { sortReadModelRecords } from '../../storage/sort-read-models.js'
 import { EnqueueCommand, EntityId, entityIdToString } from '../../types/index.js'
 import type { ICommandIdMappingStore } from '../command-id-mapping-store/ICommandIdMappingStore.js'
 import type { EventBus } from '../events/EventBus.js'
@@ -26,6 +27,36 @@ export interface RevisionMeta {
   revision: string
   position?: string
 }
+
+/**
+ * Outcome of a single read-model write.
+ *
+ * Returned by per-row writers (`setServerData`, `mergeServerData`,
+ * `setLocalData`, `applyLocalChanges`, `delete`) and by `commit` (per row,
+ * aggregated into per-collection buckets) so callers can route ids into the
+ * `created` / `updated` / `deleted` buckets of `readmodel:updated`.
+ *
+ * `unchanged` covers both deep-equal no-op short-circuits and deletes against
+ * a non-existent row.
+ */
+export type WriteOutcome = 'created' | 'updated' | 'deleted' | 'unchanged'
+
+/**
+ * Per-collection classification of the rows touched by a {@link ReadModelStore.commit} call.
+ *
+ * Each id appears in exactly one of the three bucket arrays. Empty buckets
+ * remain empty arrays (callers building event payloads should omit them when
+ * empty per `readmodel:updated`'s wire shape). `cacheKeys` is the union of
+ * cache keys observed across all ops in this commit for the collection.
+ */
+export interface CommitCollectionClassification {
+  readonly created: string[]
+  readonly updated: string[]
+  readonly deleted: string[]
+  readonly cacheKeys: Set<string>
+}
+
+export type CommitClassification = Map<string, CommitCollectionClassification>
 
 /**
  * Read model with metadata.
@@ -166,6 +197,9 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
     if (options?.cacheKey) {
       records = await this.storage.getReadModelsByCacheKey(options.cacheKey)
       records = records.filter((r) => r.collection === collection)
+      if (options.sort && options.sort.length > 0) {
+        records = sortReadModelRecords(records, options.sort)
+      }
       if (options.offset !== undefined) {
         records = records.slice(options.offset)
       }
@@ -247,7 +281,7 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
     data: T,
     cacheKey: string,
     revisionMeta?: RevisionMeta,
-  ): Promise<boolean> {
+  ): Promise<WriteOutcome> {
     const dataJson = JSON.stringify(data)
     const now = Date.now()
 
@@ -293,7 +327,7 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
       existing.revision === revision &&
       existing.position === position
     ) {
-      return false
+      return 'unchanged'
     }
 
     const record = this.readModelToRecord({
@@ -313,7 +347,7 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
     if (existing) {
       await this.storage.addCacheKeysToReadModel(collection, id, [cacheKey])
     }
-    return true
+    return existing ? 'updated' : 'created'
   }
 
   /**
@@ -329,7 +363,7 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
     id: string,
     changes: Partial<T>,
     cacheKey: string,
-  ): Promise<boolean> {
+  ): Promise<WriteOutcome> {
     const existing = await this.storage.getReadModel(collection, id)
     const now = Date.now()
 
@@ -342,7 +376,7 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
 
     // Skip save if effective data is unchanged and already marked as local
     if (existing && existing.effectiveData === effectiveData && existing.hasLocalChanges) {
-      return false
+      return 'unchanged'
     }
 
     const record = this.readModelToRecord({
@@ -359,7 +393,7 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
     if (existing) {
       await this.storage.addCacheKeysToReadModel(collection, id, [cacheKey])
     }
-    return true
+    return existing ? 'updated' : 'created'
   }
 
   /**
@@ -377,13 +411,13 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
     id: string,
     data: T,
     cacheKey: string,
-  ): Promise<boolean> {
+  ): Promise<WriteOutcome> {
     const existing = await this.storage.getReadModel(collection, id)
     const effectiveData = JSON.stringify(data)
 
     // Skip save if effective data is unchanged and already marked as local
     if (existing && existing.effectiveData === effectiveData && existing.hasLocalChanges) {
-      return false
+      return 'unchanged'
     }
 
     const record = this.readModelToRecord({
@@ -399,7 +433,7 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
     if (existing) {
       await this.storage.addCacheKeysToReadModel(collection, id, [cacheKey])
     }
-    return true
+    return existing ? 'updated' : 'created'
   }
 
   /**
@@ -419,7 +453,7 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
     data: Partial<T>,
     cacheKey: string,
     revisionMeta?: RevisionMeta,
-  ): Promise<boolean> {
+  ): Promise<WriteOutcome> {
     const existing = await this.storage.getReadModel(collection, id)
 
     // Merge into server baseline
@@ -469,7 +503,7 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
       existing.revision === revision &&
       existing.position === position
     ) {
-      return false
+      return 'unchanged'
     }
 
     const record = this.readModelToRecord({
@@ -488,7 +522,7 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
     if (existing) {
       await this.storage.addCacheKeysToReadModel(collection, id, [cacheKey])
     }
-    return true
+    return existing ? 'updated' : 'created'
   }
 
   /**
@@ -539,12 +573,12 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
    * @param collection - Collection name
    * @param id - Entity ID
    */
-  async delete(collection: string, id: EntityId): Promise<boolean> {
+  async delete(collection: string, id: EntityId): Promise<WriteOutcome> {
     const stringId = entityIdToString(id)
     const existing = await this.storage.getReadModel(collection, stringId)
-    if (!existing) return false
+    if (!existing) return 'unchanged'
     await this.storage.deleteReadModel(collection, stringId)
-    return true
+    return 'deleted'
   }
 
   /**
@@ -758,8 +792,8 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
   async commit(
     mutations: readonly ReadModelMutation[],
     preloaded?: ReadonlyMap<string, ReadModelRecord>,
-  ): Promise<void> {
-    if (mutations.length === 0) return
+  ): Promise<CommitClassification> {
+    if (mutations.length === 0) return new Map()
 
     // 1. Partition migrations out; build the id-remap used by downstream ops.
     const migrations: EntityIdMigration[] = []
@@ -781,7 +815,40 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
       await this.migrateEntityIds(migrations, preloaded)
     }
 
-    if (rowOps.length === 0) return
+    // Migration-induced classification: from the consumer's perspective,
+    // `fromId` becomes a deleted id and `toId` becomes a created id. Used
+    // both to short-circuit the no-rowOps case and to bias rowOp
+    // classification on `toId` rows that get further modified in this commit.
+    const classification: CommitClassification = new Map()
+    const bucketFor = (collection: string): CommitCollectionClassification => {
+      let entry = classification.get(collection)
+      if (!entry) {
+        entry = { created: [], updated: [], deleted: [], cacheKeys: new Set() }
+        classification.set(collection, entry)
+      }
+      return entry
+    }
+    const isMigrateToKey = new Set<string>()
+    for (const m of migrations) {
+      const entry = bucketFor(m.collection)
+      entry.deleted.push(m.fromId)
+      entry.created.push(m.toId)
+      isMigrateToKey.add(`${m.collection}:${m.toId}`)
+      // Seed cacheKeys from the pre-migration record when the caller passed
+      // it via `preloaded`. The migration preserves cache keys on the row,
+      // so any cache key on the pre-migration record is now on the toId row.
+      // When `preloaded` isn't supplied, a subsequent rowOp will add its
+      // cacheKey to the bucket; if no rowOp targets the row, the bucket has
+      // no cacheKeys and Gate 1 in paged subscriptions can't discriminate —
+      // tolerable for V1 since the rare migration-only commits also fire
+      // `readmodel:id-reconciled`, which subscriptions listen to separately.
+      const preMigrationRecord = preloaded?.get(`${m.collection}:${m.fromId}`)
+      if (preMigrationRecord) {
+        for (const k of preMigrationRecord.cacheKeys) entry.cacheKeys.add(k)
+      }
+    }
+
+    if (rowOps.length === 0) return classification
 
     // 3. Collect unique post-remap (collection, id) pairs.
     const pairs = new Map<string, { collection: string; id: string }>()
@@ -896,17 +963,33 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
       }
     }
 
-    // 6. Partition fold outcomes into bulk writes.
+    // 6. Partition fold outcomes into bulk writes and classification buckets.
+    //    Migration-derived classification was seeded above; here we fold in
+    //    rowOp outcomes, biasing migrated `toId` rows away from `updated`
+    //    (they're already classified as `created` from the migration).
     const toSave: ReadModelRecord[] = []
     const toDelete: Array<{ collection: string; id: string }> = []
     const toAssociate: Array<{ collection: string; id: string; cacheKeys: string[] }> = []
 
-    for (const state of rowState.values()) {
+    for (const [rowKey, state] of rowState) {
       if (!state.touched) continue
+
+      const isMigrateTo = isMigrateToKey.has(rowKey)
 
       if (state.current === null) {
         if (state.baseline) {
           toDelete.push({ collection: state.collection, id: state.id })
+          const entry = bucketFor(state.collection)
+          if (isMigrateTo) {
+            // Migration created this id then a later op deleted it — cancel
+            // out the earlier `created` classification, leaving no bucket
+            // entry for this id (data was never visible at toId externally).
+            const i = entry.created.indexOf(state.id)
+            if (i >= 0) entry.created.splice(i, 1)
+          } else {
+            entry.deleted.push(state.id)
+            for (const k of state.baseline.cacheKeys) entry.cacheKeys.add(k)
+          }
         }
         continue
       }
@@ -918,7 +1001,8 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
       }
 
       // No-op short-circuit: final record deep-equal to baseline + no new
-      // cache-key associations ⇒ skip the save entirely.
+      // cache-key associations ⇒ skip the save entirely. Skipped rows don't
+      // contribute to the classification — nothing actually changed.
       if (state.baseline && recordsEqual(state.baseline, state.current) && newKeys.length === 0) {
         continue
       }
@@ -927,6 +1011,17 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
       if (newKeys.length > 0) {
         toAssociate.push({ collection: state.collection, id: state.id, cacheKeys: newKeys })
       }
+
+      const entry = bucketFor(state.collection)
+      if (!isMigrateTo) {
+        if (state.baseline) entry.updated.push(state.id)
+        else entry.created.push(state.id)
+      }
+      // For migrated toIds the `created` entry is already in the bucket from
+      // the migration phase; subsequent ops only change the data, not the
+      // create-vs-update story.
+      for (const k of state.current.cacheKeys) entry.cacheKeys.add(k)
+      for (const k of newKeys) entry.cacheKeys.add(k)
     }
 
     // 7. Execute writes.
@@ -935,6 +1030,8 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
     }
     await this.storage.deleteReadModels(toDelete)
     await this.storage.addCacheKeysToReadModels(toAssociate)
+
+    return classification
   }
 
   private computeSetServerRecord(

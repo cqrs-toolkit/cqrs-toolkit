@@ -17,9 +17,11 @@ import type { ICacheManager } from '../../core/cache-manager/types.js'
 import { OpfsCommandFileStore } from '../../core/command-queue/file-store/OpfsCommandFileStore.js'
 import type { ICommandQueue } from '../../core/command-queue/types.js'
 import type { IQueryManager } from '../../core/query-manager/types.js'
+import type { AnyViewRegistration } from '../../core/views/types.js'
 import type { CqrsClientSyncManager } from '../../createCqrsClient.js'
 import { RpcError, WorkerMessageChannel } from '../../protocol/MessageChannel.js'
 import type { EventMessage } from '../../protocol/messages.js'
+import type { Collection } from '../../types/config.js'
 import type { LibraryEvent } from '../../types/events.js'
 import { EnqueueCommand } from '../../types/index.js'
 import type { AdapterStatus, IWorkerAdapter } from '../base/IAdapter.js'
@@ -32,7 +34,7 @@ import { OpfsUnavailableException } from '../worker-core/probeOpfs.js'
 /**
  * Configuration for DedicatedWorkerAdapter.
  */
-export interface DedicatedWorkerAdapterConfig {
+export interface DedicatedWorkerAdapterConfig<TLink extends Link> {
   /** URL to the consumer's Dedicated Worker script */
   workerUrl: string
   /** Request timeout in milliseconds (default: 30000) */
@@ -46,6 +48,20 @@ export interface DedicatedWorkerAdapterConfig {
    * and toggled via the `debug.enable` RPC. Defaults to `false`.
    */
   debug?: boolean
+  /**
+   * View registrations passed to the main-thread {@link QueryManagerProxy}
+   * so `watchView` has metadata (primary / join sources) for its local
+   * gate logic. The worker has its own copy via {@link CqrsConfig.views}
+   * for SQL execution; this is the main-thread mirror.
+   */
+  views?: readonly AnyViewRegistration<TLink>[]
+  /**
+   * Collection registrations passed to the main-thread
+   * {@link QueryManagerProxy} so `watchList` can resolve per-collection
+   * settings (e.g. `list.total`) locally without an RPC round-trip on every
+   * subscription.
+   */
+  collections?: readonly Collection<TLink>[]
 }
 
 /**
@@ -78,7 +94,7 @@ export class DedicatedWorkerAdapter<
   readonly kind = 'worker' as const
   readonly role = 'leader' as const
 
-  private readonly config: DedicatedWorkerAdapterConfig
+  private readonly config: DedicatedWorkerAdapterConfig<TLink>
   private readonly destroy$ = new Subject<void>()
 
   private _status: AdapterStatus = 'uninitialized'
@@ -91,7 +107,7 @@ export class DedicatedWorkerAdapter<
   private worker: Worker | undefined
   private _channel: WorkerMessageChannel | undefined
 
-  constructor(config: DedicatedWorkerAdapterConfig) {
+  constructor(config: DedicatedWorkerAdapterConfig<TLink>) {
     this.config = config
   }
 
@@ -207,7 +223,13 @@ export class DedicatedWorkerAdapter<
         broadcastEvents$,
       )
       const windowId = crypto.randomUUID()
-      this._queryManager = new QueryManagerProxy<TLink>(this._channel, broadcastEvents$, windowId)
+      this._queryManager = new QueryManagerProxy<TLink>(
+        this._channel,
+        broadcastEvents$,
+        windowId,
+        this.config.views,
+        this.config.collections,
+      )
       this._cacheManager = new CacheManagerProxy<TLink>(this._channel, windowId)
       this._syncManager = new SyncManagerProxy<TLink>(this._channel, broadcastEvents$)
 

@@ -8,7 +8,12 @@
 import type { Link } from '@meticoeus/ddd-es'
 import type { CacheKeyIdentity } from '../../core/cache-manager/CacheKey.js'
 import type { QueryManager } from '../../core/query-manager/QueryManager.js'
-import type { GetByIdParams, GetByIdsParams, ListParams } from '../../core/query-manager/types.js'
+import type {
+  GetByIdParams,
+  GetByIdsParams,
+  GetViewParams,
+  ListParams,
+} from '../../core/query-manager/types.js'
 import type { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
 import { EnqueueCommand } from '../../types/index.js'
 
@@ -26,6 +31,10 @@ export function registerQueryManagerMethods<TLink extends Link, TCommand extends
 
   handler.registerMethod('queryManager.list', async (args) => {
     return queryManager.list(args[0] as ListParams<TLink>)
+  })
+
+  handler.registerMethod('queryManager.getView', async (args) => {
+    return queryManager.getView(args[0] as GetViewParams)
   })
 
   handler.registerMethod('queryManager.getLocallyById', async (args) => {

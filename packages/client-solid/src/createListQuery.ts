@@ -19,7 +19,7 @@ import type {
 interface ListQueryStore<T extends Identifiable> {
   items: T[]
   loading: boolean
-  total: number
+  total: number | undefined
   hasLocalChanges: boolean
   state: ListQueryStatus
   reconciled: ReconciledId[]
@@ -59,7 +59,7 @@ export function createListQuery<TLink extends Link, T extends Identifiable>(
   const initialState: ListQueryStore<T> = {
     items: [],
     loading: true,
-    total: 0,
+    total: undefined,
     hasLocalChanges: false,
     state: { status: 'loading' },
     reconciled: [],
@@ -92,7 +92,7 @@ export function createListQuery<TLink extends Link, T extends Identifiable>(
     // Reset store to loading state for the new session
     setStore('items', [])
     setStore('loading', true)
-    setStore('total', 0)
+    setStore('total', undefined)
     setStore('hasLocalChanges', false)
     setStore('state', { status: 'loading' })
     setStore('reconciled', [])
@@ -189,7 +189,10 @@ export function createListQuery<TLink extends Link, T extends Identifiable>(
       switch (signal.type) {
         case 'updated':
         case 'seed-completed':
-          // Re-fetch data, then settle if not already settled
+        case 'session-reset':
+          // Re-fetch data, then settle if not already settled. Session reset
+          // arrives when the session wipes data; re-fetch will return empty
+          // (or whatever the new session populated by the time it runs).
           void fetch().then(() => {
             if (!cancelled && !settled) {
               settle()
@@ -240,7 +243,7 @@ export function createListQuery<TLink extends Link, T extends Identifiable>(
       // No active query — show loading/empty state
       setStore('items', [])
       setStore('loading', true)
-      setStore('total', 0)
+      setStore('total', undefined)
       setStore('hasLocalChanges', false)
       setStore('state', { status: 'loading' })
       setStore('reconciled', [])

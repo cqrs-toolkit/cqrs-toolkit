@@ -28,6 +28,7 @@ import {
   UpdateCommandsEntry,
 } from './IStorage.js'
 import { getCollectionNames, getSqlForStep, validateSchemaMigrations } from './schema/rm-schema.js'
+import { assertValidSqlIdentifier } from './schema/sql-identifier.js'
 
 const MIGRATIONS_TABLE = `CREATE TABLE migrations (
   version INTEGER PRIMARY KEY,
@@ -876,9 +877,13 @@ ON CONFLICT(id) DO UPDATE SET
 
     sql += ` ${ck.groupBy}`
 
-    if (options?.orderBy) {
-      const dir = options.orderDirection === 'desc' ? 'DESC' : 'ASC'
-      sql += ` ORDER BY rm.updated_at ${dir}`
+    if (options?.sort && options.sort.length > 0) {
+      const terms = options.sort.map((t) => {
+        assertValidSqlIdentifier(t.column, 'Sort column')
+        const dir = t.direction === 'desc' ? 'DESC' : 'ASC'
+        return `rm.${t.column} ${dir}`
+      })
+      sql += ` ORDER BY ${terms.join(', ')}`
     }
 
     if (options?.limit !== undefined) {

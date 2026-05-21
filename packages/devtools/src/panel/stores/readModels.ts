@@ -125,16 +125,19 @@ export function createReadModelsStore(): ReadModelsStore {
 
       case 'readmodel:updated': {
         const collection = (event.data['collection'] as string) ?? ''
-        const ids = (event.data['ids'] as string[]) ?? []
+        const created = (event.data['created'] as string[] | undefined) ?? []
+        const updatedIds = (event.data['updated'] as string[] | undefined) ?? []
+        const deleted = (event.data['deleted'] as string[] | undefined) ?? []
+        const ids = [...created, ...updatedIds, ...deleted]
 
         trackCollection(collection)
         setCollections((prev) => {
           const next = new Map(prev)
           const entry = getOrCreateCollection(prev, collection)
           const newEntityIds = new Set(entry.entityIds)
-          for (const id of ids) {
-            newEntityIds.add(id)
-          }
+          for (const id of created) newEntityIds.add(id)
+          for (const id of updatedIds) newEntityIds.add(id)
+          for (const id of deleted) newEntityIds.delete(id)
           const historyEntry: UpdateHistoryEntry = { timestamp: event.timestamp, ids }
           next.set(collection, {
             ...entry,

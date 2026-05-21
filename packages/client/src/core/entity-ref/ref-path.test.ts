@@ -7,6 +7,7 @@ import {
   resolveRefPaths,
   setAtPath,
   stripEntityRefs,
+  validatePath,
 } from './ref-path.js'
 
 const ref1 = createEntityRef('entity-1', 'cmd-1', 'temporary')
@@ -46,6 +47,66 @@ describe('getAtPath', () => {
 
   it('throws on wildcard', () => {
     expect(() => getAtPath({ items: [1] }, '$.items[*]')).toThrow('wildcard')
+  })
+
+  it('reads a bracket member whose key contains a dot', () => {
+    // Canonical embed key shape: HAL-style `_embedded["pms.Asset"]`.
+    const data = { _embedded: { 'pms.Asset': { id: 'asset-1' } } }
+    expect(getAtPath(data, "$._embedded['pms.Asset']")).toEqual({ id: 'asset-1' })
+  })
+
+  it('reads a dot member chained after a bracket member with a dotted key', () => {
+    // The full canonical join-source `fromPath` for projects-with-assets.
+    const data = { _embedded: { 'pms.Asset': { id: 'asset-1', name: 'A' } } }
+    expect(getAtPath(data, "$._embedded['pms.Asset'].id")).toBe('asset-1')
+  })
+
+  it('reads through bracket-then-array-index chain', () => {
+    const data = { _embedded: { 'pms.Asset.list': [{ id: 'a' }, { id: 'b' }] } }
+    expect(getAtPath(data, "$._embedded['pms.Asset.list'][1].id")).toBe('b')
+  })
+
+  it('returns undefined for missing bracket-member key', () => {
+    const data = { _embedded: {} }
+    expect(getAtPath(data, "$._embedded['pms.Asset'].id")).toBeUndefined()
+  })
+
+  it('handles bracket keys with whitespace', () => {
+    const data = { 'key with spaces': 'val' }
+    expect(getAtPath(data, "$['key with spaces']")).toBe('val')
+  })
+
+  it('reads a bracket member with double-quoted key', () => {
+    // RFC 9535 name-selector accepts both single and double quotes.
+    const data = { _embedded: { 'pms.Asset': { id: 'asset-1' } } }
+    expect(getAtPath(data, '$._embedded["pms.Asset"].id')).toBe('asset-1')
+  })
+
+  it('throws on mismatched bracket quotes', () => {
+    expect(() => getAtPath({}, `$._embedded['pms.Asset"]`)).toThrow('Unterminated bracket member')
+    expect(() => getAtPath({}, `$._embedded["pms.Asset']`)).toThrow('Unterminated bracket member')
+  })
+})
+
+describe('validatePath', () => {
+  it('accepts single-quoted bracket members', () => {
+    expect(() => validatePath("$._embedded['pms.Asset'].id")).not.toThrow()
+  })
+
+  it('accepts double-quoted bracket members', () => {
+    expect(() => validatePath('$._embedded["pms.Asset"].id')).not.toThrow()
+  })
+
+  it('rejects mismatched bracket quotes', () => {
+    expect(() => validatePath(`$._embedded['pms.Asset"]`)).toThrow('Unterminated bracket member')
+  })
+
+  it('rejects paths missing the $ root', () => {
+    expect(() => validatePath('_embedded.id')).toThrow('must start with $')
+  })
+
+  it('rejects empty member names', () => {
+    expect(() => validatePath('$..name')).toThrow('Empty member name')
   })
 })
 
@@ -93,6 +154,13 @@ describe('setAtPath', () => {
 
   it('creates intermediate objects if missing', () => {
     expect(setAtPath({}, '$.a.b', 1)).toEqual({ a: { b: 1 } })
+  })
+
+  it('sets through bracket member with a dotted key', () => {
+    const data = { _embedded: { 'pms.Asset': { id: 'old' } } }
+    expect(setAtPath(data, "$._embedded['pms.Asset'].id", 'new')).toEqual({
+      _embedded: { 'pms.Asset': { id: 'new' } },
+    })
   })
 })
 

@@ -134,7 +134,14 @@ export function createRun(
           const updated = firstValueFrom(
             ctx.eventBus
               .on('readmodel:updated')
-              .pipe(filter((e) => e.data.ids.includes(expectedId))),
+              .pipe(
+                filter(
+                  (e) =>
+                    e.data.created?.includes(expectedId) === true ||
+                    e.data.updated?.includes(expectedId) === true ||
+                    e.data.deleted?.includes(expectedId) === true,
+                ),
+              ),
           )
           testSyncManager.injectWsEvents(items)
           await updated

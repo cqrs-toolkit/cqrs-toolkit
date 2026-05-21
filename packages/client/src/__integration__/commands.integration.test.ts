@@ -221,7 +221,14 @@ describe.each(bootstrapVariants)('$name commands', ({ bootstrap }) => {
             const updated = firstValueFrom(
               ctx.eventBus
                 .on('readmodel:updated')
-                .pipe(filter((e) => e.data.ids.includes(serverId))),
+                .pipe(
+                  filter(
+                    (e) =>
+                      e.data.created?.includes(serverId) === true ||
+                      e.data.updated?.includes(serverId) === true ||
+                      e.data.deleted?.includes(serverId) === true,
+                  ),
+                ),
             )
 
             const result = await ctx.commandQueue.enqueue({

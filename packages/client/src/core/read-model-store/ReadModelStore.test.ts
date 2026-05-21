@@ -483,7 +483,7 @@ describe('ReadModelStore', () => {
         'cache-1',
       )
 
-      expect(modified).toBe(true)
+      expect(modified).toBe('created')
       const record = await storage.getReadModel('todos', 'todo-1')
       expect(record?.hasLocalChanges).toBe(true)
       expect(record?.serverData).toBeNull()
@@ -552,7 +552,7 @@ describe('ReadModelStore', () => {
         'cache-1',
       )
 
-      expect(modified).toBe(false)
+      expect(modified).toBe('unchanged')
     })
   })
 
@@ -574,7 +574,7 @@ describe('ReadModelStore', () => {
 
       const modified = await store.mergeServerData('todos', 'todo-1', { done: true }, 'cache-1')
 
-      expect(modified).toBe(true)
+      expect(modified).toBe('updated')
       const record = await storage.getReadModel('todos', 'todo-1')
       expect(JSON.parse(record!.serverData!)).toEqual({
         id: 'todo-1',
@@ -611,7 +611,7 @@ describe('ReadModelStore', () => {
 
       const modified = await store.mergeServerData('todos', 'todo-1', { count: 5 }, 'cache-1')
 
-      expect(modified).toBe(true)
+      expect(modified).toBe('updated')
       const record = await storage.getReadModel('todos', 'todo-1')
       const effectiveData = JSON.parse(record!.effectiveData)
       // Local overlay on title should be preserved
@@ -630,7 +630,7 @@ describe('ReadModelStore', () => {
         'cache-1',
       )
 
-      expect(modified).toBe(true)
+      expect(modified).toBe('created')
       const record = await storage.getReadModel('todos', 'todo-1')
       expect(JSON.parse(record!.serverData!)).toEqual({ title: 'New', done: false })
       expect(JSON.parse(record!.effectiveData)).toEqual({ title: 'New', done: false })
@@ -639,16 +639,16 @@ describe('ReadModelStore', () => {
   })
 
   describe('modified return values', () => {
-    it('setServerData returns false on no-op', async () => {
+    it('setServerData returns unchanged on no-op', async () => {
       const { storage, store } = await bootstrap()
       const data: Todo = { id: 'todo-1', title: 'Test', done: false }
       await store.setServerData('todos', 'todo-1', data, 'cache-1')
 
       const modified = await store.setServerData('todos', 'todo-1', data, 'cache-1')
-      expect(modified).toBe(false)
+      expect(modified).toBe('unchanged')
     })
 
-    it('setServerData returns true when data changes', async () => {
+    it('setServerData returns updated when data changes', async () => {
       const { storage, store } = await bootstrap()
       await store.setServerData<Todo>(
         'todos',
@@ -663,10 +663,10 @@ describe('ReadModelStore', () => {
         { id: 'todo-1', title: 'Updated', done: false },
         'cache-1',
       )
-      expect(modified).toBe(true)
+      expect(modified).toBe('updated')
     })
 
-    it('applyLocalChanges returns false on no-op', async () => {
+    it('applyLocalChanges returns unchanged on no-op', async () => {
       const { storage, store } = await bootstrap()
       await storage.saveReadModel({
         id: 'todo-1',
@@ -687,16 +687,16 @@ describe('ReadModelStore', () => {
         { done: true },
         'cache-1',
       )
-      expect(modified).toBe(false)
+      expect(modified).toBe('unchanged')
     })
 
-    it('delete returns false when record does not exist', async () => {
+    it('delete returns unchanged when record does not exist', async () => {
       const { store } = await bootstrap()
       const modified = await store.delete('todos', 'non-existent')
-      expect(modified).toBe(false)
+      expect(modified).toBe('unchanged')
     })
 
-    it('delete returns true when record existed', async () => {
+    it('delete returns deleted when record existed', async () => {
       const { storage, store } = await bootstrap()
       await storage.saveReadModel({
         id: 'todo-1',
@@ -712,11 +712,11 @@ describe('ReadModelStore', () => {
       })
 
       const modified = await store.delete('todos', 'todo-1')
-      expect(modified).toBe(true)
+      expect(modified).toBe('deleted')
       expect(await store.exists('todos', 'todo-1')).toBe(false)
     })
 
-    it('mergeServerData returns false on no-op', async () => {
+    it('mergeServerData returns unchanged on no-op', async () => {
       const { storage, store } = await bootstrap()
       await storage.saveReadModel({
         id: 'todo-1',
@@ -732,7 +732,7 @@ describe('ReadModelStore', () => {
       })
 
       const modified = await store.mergeServerData('todos', 'todo-1', { done: false }, 'cache-1')
-      expect(modified).toBe(false)
+      expect(modified).toBe('unchanged')
     })
   })
 
@@ -805,7 +805,7 @@ describe('ReadModelStore', () => {
     it('delete accepts EntityRef', async () => {
       const { store } = await bootstrapWithRecord()
       const deleted = await store.delete('todos', ref)
-      expect(deleted).toBe(true)
+      expect(deleted).toBe('deleted')
       expect(await store.exists('todos', ref)).toBe(false)
     })
   })

@@ -13,13 +13,14 @@ import {
   CachedEventRecord,
   CommandIdMappingRecord,
   DeleteReadModelEntry,
-  IStorage,
   IStorageQueryOptions,
+  IWindowStorage,
   MigrateReadModelIdParams,
   ReadModelRecord,
   SessionRecord,
   UpdateCommandsEntry,
 } from './IStorage.js'
+import { sortReadModelRecords } from './sort-read-models.js'
 
 /**
  * In-memory storage implementation.
@@ -28,7 +29,7 @@ import {
 export class InMemoryStorage<
   TLink extends Link,
   TCommand extends EnqueueCommand,
-> implements IStorage<TLink, TCommand> {
+> implements IWindowStorage<TLink, TCommand> {
   private session?: SessionRecord
   private cacheKeys: Map<string, CacheKeyRecord> = new Map()
   private commands: Map<string, CommandRecord<TLink, TCommand>> = new Map()
@@ -426,6 +427,32 @@ export class InMemoryStorage<
     return this.readModels.get(this.getReadModelKey(collection, id))
   }
 
+  /**
+   * Sync iteration over read-models in a collection — Mode-A-only contract
+   * for view dispatch. Not part of {@link IStorage}; SQLite-backed storage
+   * doesn't expose this surface.
+   *
+   * Yields each record's parsed `effectiveData` along with id and
+   * `hasLocalChanges`. Iteration order is the underlying `Map` insertion
+   * order; consumers that need a specific order build their own index.
+   *
+   * Returns `Iterable<...>` (not `IterableIterator`) so the consumer's
+   * memory closure can choose to use `for...of` directly or pass the
+   * iterable to other consumers (e.g. `new Map(api.iterate(...))`-style).
+   */
+  *iterateReadModels<T>(
+    collection: string,
+  ): Generator<{ id: string; data: T; hasLocalChanges: boolean }> {
+    for (const record of this.readModels.values()) {
+      if (record.collection !== collection) continue
+      yield {
+        id: record.id,
+        data: JSON.parse(record.effectiveData) as T,
+        hasLocalChanges: record.hasLocalChanges,
+      }
+    }
+  }
+
   async getReadModelsByCollection(
     collection: string,
     options?: IStorageQueryOptions,
@@ -434,18 +461,14 @@ export class InMemoryStorage<
       (record) => record.collection === collection,
     )
 
-    // Apply ordering
-    if (options?.orderBy) {
-      const direction = options.orderDirection === 'desc' ? -1 : 1
-      records.sort((a, b) => {
-        const aData = JSON.parse(a.effectiveData)
-        const bData = JSON.parse(b.effectiveData)
-        const aVal = aData[options.orderBy!]
-        const bVal = bData[options.orderBy!]
-        if (aVal < bVal) return -1 * direction
-        if (aVal > bVal) return 1 * direction
-        return 0
-      })
+    // Apply composite ordering. V1 supports library-owned columns on
+    // `ReadModelRecord` directly — `id` and `updated_at` are the canonical
+    // sort keys for cursor pagination. Custom-column sort needs the
+    // column ↔ path mapping (deferred); unknown columns fall back to
+    // `_effective_data[column]` for backward compatibility with the
+    // pre-sort `orderBy` behaviour (which assumed top-level JSON keys).
+    if (options?.sort && options.sort.length > 0) {
+      records = sortReadModelRecords(records, options.sort)
     }
 
     // Apply pagination

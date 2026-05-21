@@ -258,7 +258,10 @@ describe.each(bootstrapVariants)('$name commands (client)', ({ bootstrap }) => {
               ctx.client.events$.pipe(
                 filter(
                   (e): e is ReadmodelUpdatedEvent =>
-                    e.type === 'readmodel:updated' && e.data.ids.includes(serverId),
+                    e.type === 'readmodel:updated' &&
+                    (e.data.created?.includes(serverId) === true ||
+                      e.data.updated?.includes(serverId) === true ||
+                      e.data.deleted?.includes(serverId) === true),
                 ),
               ),
             )
@@ -358,7 +361,10 @@ describe.each(bootstrapVariants)('$name commands (client)', ({ bootstrap }) => {
               ctx.client.events$.pipe(
                 filter(
                   (e): e is ReadmodelUpdatedEvent =>
-                    e.type === 'readmodel:updated' && e.data.ids.includes(serverId),
+                    e.type === 'readmodel:updated' &&
+                    (e.data.created?.includes(serverId) === true ||
+                      e.data.updated?.includes(serverId) === true ||
+                      e.data.deleted?.includes(serverId) === true),
                 ),
               ),
             )

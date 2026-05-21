@@ -397,6 +397,19 @@ the row is durably renamed in storage.
 
 > **readmodel:updated**: `object`
 
+Emitted after a batch of read-model writes for one collection lands.
+
+Carries per-op buckets so paged subscriptions can apply gate checks
+without filtering: `updated` drives row-update intersection against
+tracked page ids; `created` and `deleted` drive page-shift detection.
+Empty buckets are omitted. `cacheKeys` is the union of cache keys
+affected across all ids in this emit (used to gate by scope before
+touching per-id state).
+
+#### cacheKeys
+
+> **cacheKeys**: `string`[]
+
 #### collection
 
 > **collection**: `string`
@@ -405,9 +418,17 @@ the row is durably renamed in storage.
 
 > **commandIds**: `string`[]
 
-#### ids
+#### created?
 
-> **ids**: `string`[]
+> `optional` **created**: `string`[]
+
+#### deleted?
+
+> `optional` **deleted**: `string`[]
+
+#### updated?
+
+> `optional` **updated**: `string`[]
 
 ---
 

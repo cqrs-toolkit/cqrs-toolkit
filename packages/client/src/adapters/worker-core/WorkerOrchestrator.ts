@@ -29,6 +29,7 @@ import { ReadModelStore } from '../../core/read-model-store/ReadModelStore.js'
 import { SessionManager } from '../../core/session/SessionManager.js'
 import { ConnectivityManager } from '../../core/sync-manager/ConnectivityManager.js'
 import { SyncManager } from '../../core/sync-manager/SyncManager.js'
+import { ViewExecutor, createSqlDispatcher } from '../../core/views/ViewExecutor.js'
 import { WriteQueue } from '../../core/write-queue/WriteQueue.js'
 import type { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
 import type { ISqliteDb } from '../../storage/ISqliteDb.js'
@@ -190,7 +191,18 @@ export class WorkerOrchestrator<
       writeQueue,
     )
 
-    const queryManager = new QueryManager<TLink, TCommand>(eventBus, cacheManager, readModelStore)
+    const viewExecutor =
+      config.views.length > 0
+        ? new ViewExecutor<TLink>(config.views, createSqlDispatcher<TLink>(db))
+        : undefined
+
+    const queryManager = new QueryManager<TLink, TCommand>(
+      eventBus,
+      cacheManager,
+      readModelStore,
+      config.collections,
+      viewExecutor,
+    )
     this.queryManager = queryManager
 
     const domainExecutor =

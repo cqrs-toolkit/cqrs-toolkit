@@ -10,7 +10,7 @@ import type { Observable } from 'rxjs'
 import type { IAnticipatedEvent } from '../../core/command-lifecycle/AnticipatedEventShape.js'
 import { EventBus } from '../../core/events/EventBus.js'
 import { SessionManager } from '../../core/session/SessionManager.js'
-import type { IStorage } from '../../storage/IStorage.js'
+import type { IWindowStorage } from '../../storage/IStorage.js'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import type { ResolvedConfig } from '../../types/config.js'
 import type { LibraryEvent } from '../../types/events.js'
@@ -32,7 +32,7 @@ export class OnlineOnlyAdapter<
   readonly eventBus: EventBus<TLink>
 
   private _status: AdapterStatus = 'uninitialized'
-  private _storage: IStorage<TLink, TCommand> | undefined
+  private _storage: IWindowStorage<TLink, TCommand> | undefined
   private _sessionManager: SessionManager<TLink, TCommand> | undefined
 
   constructor(config: ResolvedConfig<TLink, TCommand, TSchema, TEvent>) {
@@ -53,7 +53,7 @@ export class OnlineOnlyAdapter<
     return this._sessionManager
   }
 
-  get storage(): IStorage<TLink, TCommand> {
+  get storage(): IWindowStorage<TLink, TCommand> {
     assert(this._storage, 'Adapter not initialized')
     return this._storage
   }

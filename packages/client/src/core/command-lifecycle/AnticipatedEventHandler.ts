@@ -9,7 +9,7 @@ import type { EventCache } from '../event-cache/EventCache.js'
 import type { EventProcessorRegistry } from '../event-processor/EventProcessorRegistry.js'
 import type { ProcessorContext, ProcessorResult } from '../event-processor/types.js'
 import type { EventBus } from '../events/EventBus.js'
-import type { ReadModelStore } from '../read-model-store/ReadModelStore.js'
+import type { ReadModelStore, WriteOutcome } from '../read-model-store/ReadModelStore.js'
 import { type IWriteQueue, type WriteQueueException } from '../write-queue/IWriteQueue.js'
 import type { ApplyAnticipatedOp } from '../write-queue/index.js'
 import { type IAnticipatedEvent, isAnticipatedEvent } from './AnticipatedEventShape.js'
@@ -76,7 +76,20 @@ export class AnticipatedEventHandler<
     const { commandId } = command
     const cacheKey = command.cacheKey.key
     const updatedIds: string[] = []
-    const modifiedByCollection = new Map<string, Set<string>>()
+    interface CollectionBuckets {
+      created: string[]
+      updated: string[]
+      deleted: string[]
+    }
+    const buckets = new Map<string, CollectionBuckets>()
+    const bucketFor = (collection: string): CollectionBuckets => {
+      let entry = buckets.get(collection)
+      if (!entry) {
+        entry = { created: [], updated: [], deleted: [] }
+        buckets.set(collection, entry)
+      }
+      return entry
+    }
 
     for (const raw of events) {
       if (!isAnticipatedEvent(raw)) continue
@@ -135,17 +148,14 @@ export class AnticipatedEventHandler<
           const rowKey = entityIdToString(r.id as unknown as EntityId)
           if (typeof rowKey !== 'string') continue
 
-          await this.applyLocalResult(r, cacheKey)
+          const outcome = await this.applyLocalResult(r, cacheKey)
+          if (outcome === 'unchanged') continue
 
           const entryKey = `${r.collection}:${rowKey}`
           updatedIds.push(entryKey)
 
-          let ids = modifiedByCollection.get(r.collection)
-          if (!ids) {
-            ids = new Set()
-            modifiedByCollection.set(r.collection, ids)
-          }
-          ids.add(rowKey)
+          const entry = bucketFor(r.collection)
+          entry[outcome].push(rowKey)
         }
       }
     }
@@ -154,10 +164,13 @@ export class AnticipatedEventHandler<
       this.anticipatedUpdates.set(commandId, updatedIds)
     }
 
-    for (const [collection, ids] of modifiedByCollection) {
+    for (const [collection, entry] of buckets) {
       this.eventBus.emit('readmodel:updated', {
         collection,
-        ids: Array.from(ids),
+        ...(entry.created.length > 0 ? { created: entry.created } : {}),
+        ...(entry.updated.length > 0 ? { updated: entry.updated } : {}),
+        ...(entry.deleted.length > 0 ? { deleted: entry.deleted } : {}),
+        cacheKeys: [cacheKey],
         commandIds: [commandId],
       })
     }
@@ -173,22 +186,21 @@ export class AnticipatedEventHandler<
     }
   }
 
-  private async applyLocalResult(result: ProcessorResult, cacheKey: string): Promise<void> {
+  private async applyLocalResult(result: ProcessorResult, cacheKey: string): Promise<WriteOutcome> {
     const { collection, update } = result
     const rowKey = entityIdToString(result.id as unknown as EntityId)
-    if (typeof rowKey !== 'string') return
+    if (typeof rowKey !== 'string') return 'unchanged'
 
     if (update.type === 'delete') {
-      await this.readModelStore.delete(collection, rowKey)
-      return
+      return this.readModelStore.delete(collection, rowKey)
     }
     if (update.type === 'set') {
-      await this.readModelStore.setLocalData(collection, rowKey, update.data, cacheKey)
-      return
+      return this.readModelStore.setLocalData(collection, rowKey, update.data, cacheKey)
     }
     if (update.type === 'merge') {
-      await this.readModelStore.applyLocalChanges(collection, rowKey, update.data, cacheKey)
+      return this.readModelStore.applyLocalChanges(collection, rowKey, update.data, cacheKey)
     }
+    return 'unchanged'
   }
 
   async cleanupOnSucceeded(commandId: string): Promise<void> {

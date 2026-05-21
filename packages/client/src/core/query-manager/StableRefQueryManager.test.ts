@@ -99,6 +99,19 @@ describe('StableRefQueryManager', () => {
       watchById() {
         throw new Error('Should not be called on inner — StableRefQueryManager overrides this')
       },
+      watchList() {
+        throw new Error(
+          'Should not be called on inner here — these tests cover list, not watchList',
+        )
+      },
+      async getView() {
+        throw new Error('Should not be called on inner here — these tests cover list, not getView')
+      },
+      watchView() {
+        throw new Error(
+          'Should not be called on inner here — these tests cover list, not watchView',
+        )
+      },
       async getLocallyById() {
         return undefined
       },

@@ -22,10 +22,12 @@ import type { ICacheManager } from '../../core/cache-manager/types.js'
 import { OpfsCommandFileStore } from '../../core/command-queue/file-store/OpfsCommandFileStore.js'
 import type { ICommandQueue } from '../../core/command-queue/types.js'
 import type { IQueryManager } from '../../core/query-manager/types.js'
+import type { AnyViewRegistration } from '../../core/views/types.js'
 import type { CqrsClientSyncManager } from '../../createCqrsClient.js'
 import { WorkerMessageChannel } from '../../protocol/MessageChannel.js'
 import type { EventMessage } from '../../protocol/messages.js'
 import { serialize } from '../../protocol/serialization.js'
+import type { Collection } from '../../types/config.js'
 import type { LibraryEvent } from '../../types/events.js'
 import { EnqueueCommand } from '../../types/index.js'
 import type { AdapterStatus, IWorkerAdapter } from '../base/IAdapter.js'
@@ -65,7 +67,7 @@ class SharedWorkerCacheManagerProxy<TLink extends Link> extends CacheManagerProx
 /**
  * Configuration for SharedWorkerAdapter.
  */
-export interface SharedWorkerAdapterConfig {
+export interface SharedWorkerAdapterConfig<TLink extends Link> {
   /** URL to the consumer's SharedWorker script */
   workerUrl: string
   /** Per-tab SQLite DedicatedWorker URL for Mode C */
@@ -83,6 +85,20 @@ export interface SharedWorkerAdapterConfig {
    * and toggled via the `debug.enable` RPC. Defaults to `false`.
    */
   debug?: boolean
+  /**
+   * View registrations passed to the main-thread {@link QueryManagerProxy}
+   * so `watchView` has metadata (primary / join sources) for its local
+   * gate logic. The worker has its own copy via {@link CqrsConfig.views}
+   * for SQL execution; this is the main-thread mirror.
+   */
+  views?: readonly AnyViewRegistration<TLink>[]
+  /**
+   * Collection registrations passed to the main-thread
+   * {@link QueryManagerProxy} so `watchList` can resolve per-collection
+   * settings (e.g. `list.total`) locally without an RPC round-trip on every
+   * subscription.
+   */
+  collections?: readonly Collection<TLink>[]
 }
 
 const DEFAULT_HEARTBEAT_INTERVAL = 10000
@@ -110,7 +126,7 @@ export class SharedWorkerAdapter<
 > implements IWorkerAdapter<TLink, TCommand> {
   readonly kind = 'worker' as const
 
-  private readonly config: SharedWorkerAdapterConfig
+  private readonly config: SharedWorkerAdapterConfig<TLink>
   private readonly windowId: string
   private readonly destroy$ = new Subject<void>()
 
@@ -129,7 +145,7 @@ export class SharedWorkerAdapter<
   private currentWorkerInstanceId: string | undefined
   private beforeUnloadHandler: (() => void) | undefined
 
-  constructor(config: SharedWorkerAdapterConfig) {
+  constructor(config: SharedWorkerAdapterConfig<TLink>) {
     this.config = config
     this.windowId = generateId()
   }
@@ -300,6 +316,8 @@ export class SharedWorkerAdapter<
         this._channel,
         broadcastEvents$,
         this.windowId,
+        this.config.views,
+        this.config.collections,
       )
       this._cacheManager = new SharedWorkerCacheManagerProxy<TLink>(this._channel, this.windowId)
       this._syncManager = new SyncManagerProxy<TLink>(this._channel, broadcastEvents$)

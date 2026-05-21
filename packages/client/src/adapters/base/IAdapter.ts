@@ -21,7 +21,7 @@ import type { IQueryManager } from '../../core/query-manager/types.js'
 import type { SessionManager } from '../../core/session/SessionManager.js'
 import type { CqrsClientSyncManager } from '../../createCqrsClient.js'
 import type { WorkerMessageChannel } from '../../protocol/MessageChannel.js'
-import type { IStorage } from '../../storage/IStorage.js'
+import type { IWindowStorage } from '../../storage/IStorage.js'
 import type { LibraryEvent } from '../../types/events.js'
 import { EnqueueCommand } from '../../types/index.js'
 
@@ -77,7 +77,7 @@ export interface IWindowAdapter<
   TCommand extends EnqueueCommand,
 > extends IAdapterBase<TLink> {
   readonly kind: 'window'
-  readonly storage: IStorage<TLink, TCommand>
+  readonly storage: IWindowStorage<TLink, TCommand>
   readonly eventBus: EventBus<TLink>
   readonly sessionManager: SessionManager<TLink, TCommand>
 }

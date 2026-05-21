@@ -44,7 +44,7 @@ test.describe('Layer 2: Panel Read Models Tab', () => {
       type: 'cqrs-devtools-event',
       event: makeEvent('readmodel:updated', {
         collection: 'todos',
-        ids: ['entity-1', 'entity-2'],
+        created: ['entity-1', 'entity-2'],
       }),
     })
 
@@ -58,7 +58,8 @@ test.describe('Layer 2: Panel Read Models Tab', () => {
       type: 'cqrs-devtools-event',
       event: makeEvent('readmodel:updated', {
         collection: 'todos',
-        ids: ['entity-2', 'entity-3'],
+        updated: ['entity-2'],
+        created: ['entity-3'],
       }),
     })
 
@@ -156,7 +157,7 @@ test.describe('Layer 2: Panel Read Models Tab', () => {
       type: 'cqrs-devtools-event',
       event: makeEvent('readmodel:updated', {
         collection: 'todos',
-        ids: ['e-1'],
+        created: ['e-1'],
       }),
     })
 

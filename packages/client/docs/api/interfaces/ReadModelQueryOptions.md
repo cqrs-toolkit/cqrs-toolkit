@@ -50,20 +50,14 @@ Only include models with local changes
 
 ---
 
-### orderBy?
+### sort?
 
-> `optional` **orderBy**: `string`
+> `optional` **sort**: readonly `StorageSortTerm`[]
 
-#### Inherited from
-
-[`IStorageQueryOptions`](IStorageQueryOptions.md).[`orderBy`](IStorageQueryOptions.md#orderby)
-
----
-
-### orderDirection?
-
-> `optional` **orderDirection**: `"asc"` \| `"desc"`
+Composite ordering — earlier terms dominate; later terms break ties.
+When omitted, the storage backend returns rows in its natural order
+(undefined — callers must not rely on it).
 
 #### Inherited from
 
-[`IStorageQueryOptions`](IStorageQueryOptions.md).[`orderDirection`](IStorageQueryOptions.md#orderdirection)
+[`IStorageQueryOptions`](IStorageQueryOptions.md).[`sort`](IStorageQueryOptions.md#sort)

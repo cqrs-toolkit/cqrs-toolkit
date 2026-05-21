@@ -509,6 +509,21 @@ describe('InMemoryStorage', () => {
       expect(result).toHaveLength(2)
     })
 
+    it('applies composite sort to collection query', async () => {
+      const { storage } = await bootstrap()
+      await storage.saveReadModel({ ...baseReadModel, id: 'a', updatedAt: 100 })
+      await storage.saveReadModel({ ...baseReadModel, id: 'c', updatedAt: 50 })
+      await storage.saveReadModel({ ...baseReadModel, id: 'b', updatedAt: 100 })
+
+      const result = await storage.getReadModelsByCollection('todos', {
+        sort: [
+          { column: 'updated_at', direction: 'desc' },
+          { column: 'id', direction: 'asc' },
+        ],
+      })
+      expect(result.map((r) => r.id)).toEqual(['a', 'b', 'c'])
+    })
+
     it('deletes read model', async () => {
       const { storage } = await bootstrap()
       await storage.saveReadModel(baseReadModel)

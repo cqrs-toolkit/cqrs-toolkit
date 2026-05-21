@@ -59,6 +59,15 @@ function createMockQueryManager() {
     watchById() {
       throw new Error('Not used in item tests')
     },
+    watchList() {
+      throw new Error('Not used in item tests')
+    },
+    async getView() {
+      throw new Error('Not used in item tests')
+    },
+    watchView() {
+      throw new Error('Not used in item tests')
+    },
     async getLocallyById() {
       return undefined
     },

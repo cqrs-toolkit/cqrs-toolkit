@@ -162,7 +162,11 @@ export function createItemQuery<TLink extends Link, T extends Identifiable>(
     // ID reconciliation updates the tracking ID and triggers a refetch so the query
     // follows temp ID → server ID transitions without missing events.
     const collectionUpdates$ = queryManager.watchCollection(params.collection).pipe(
-      filter((signal) => signal.type === 'updated' && signal.ids.includes(trackingId)),
+      filter(
+        (signal) =>
+          (signal.type === 'updated' && signal.ids.includes(trackingId)) ||
+          signal.type === 'session-reset',
+      ),
       map(() => 'refetch' as const),
     )
     type IdReconciledEvent = LibraryEvent<TLink, 'readmodel:id-reconciled'>

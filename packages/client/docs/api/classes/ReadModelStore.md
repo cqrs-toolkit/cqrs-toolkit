@@ -46,7 +46,7 @@ Read model store implementation.
 
 ### applyLocalChanges()
 
-> **applyLocalChanges**\<`T`\>(`collection`, `id`, `changes`, `cacheKey`): `Promise`\<`boolean`\>
+> **applyLocalChanges**\<`T`\>(`collection`, `id`, `changes`, `cacheKey`): `Promise`\<`WriteOutcome`\>
 
 Apply local changes to a read model (optimistic update).
 
@@ -84,7 +84,7 @@ Cache key to associate with (required if creating new)
 
 #### Returns
 
-`Promise`\<`boolean`\>
+`Promise`\<`WriteOutcome`\>
 
 ---
 
@@ -116,7 +116,7 @@ Entity ID
 
 ### commit()
 
-> **commit**(`mutations`, `preloaded?`): `Promise`\<`void`\>
+> **commit**(`mutations`, `preloaded?`): `Promise`\<`CommitClassification`\>
 
 Batched pipeline write entry point.
 
@@ -161,7 +161,7 @@ readonly `ReadModelMutation`[]
 
 #### Returns
 
-`Promise`\<`void`\>
+`Promise`\<`CommitClassification`\>
 
 ---
 
@@ -193,7 +193,7 @@ Count of read models
 
 ### delete()
 
-> **delete**(`collection`, `id`): `Promise`\<`boolean`\>
+> **delete**(`collection`, `id`): `Promise`\<`WriteOutcome`\>
 
 Delete a read model.
 
@@ -213,7 +213,7 @@ Entity ID
 
 #### Returns
 
-`Promise`\<`boolean`\>
+`Promise`\<`WriteOutcome`\>
 
 ---
 
@@ -436,7 +436,7 @@ Array of read models
 
 ### mergeServerData()
 
-> **mergeServerData**\<`T`\>(`collection`, `id`, `data`, `cacheKey`, `revisionMeta?`): `Promise`\<`boolean`\>
+> **mergeServerData**\<`T`\>(`collection`, `id`, `data`, `cacheKey`, `revisionMeta?`): `Promise`\<`WriteOutcome`\>
 
 Merge partial data into server baseline and recompute effective data via three-way merge.
 Preserves local overlays that differ from the server baseline.
@@ -481,7 +481,7 @@ Revision metadata from the event or seed record
 
 #### Returns
 
-`Promise`\<`boolean`\>
+`Promise`\<`WriteOutcome`\>
 
 true if data changed
 
@@ -565,7 +565,7 @@ Client metadata to set
 
 ### setLocalData()
 
-> **setLocalData**\<`T`\>(`collection`, `id`, `data`, `cacheKey`): `Promise`\<`boolean`\>
+> **setLocalData**\<`T`\>(`collection`, `id`, `data`, `cacheKey`): `Promise`\<`WriteOutcome`\>
 
 Set local data as a full replacement of effective data (optimistic).
 Preserves existing server baseline so future setServerData can three-way merge.
@@ -604,7 +604,7 @@ Cache key to associate with
 
 #### Returns
 
-`Promise`\<`boolean`\>
+`Promise`\<`WriteOutcome`\>
 
 true if data changed
 
@@ -612,7 +612,7 @@ true if data changed
 
 ### setServerData()
 
-> **setServerData**\<`T`\>(`collection`, `id`, `data`, `cacheKey`, `revisionMeta?`): `Promise`\<`boolean`\>
+> **setServerData**\<`T`\>(`collection`, `id`, `data`, `cacheKey`, `revisionMeta?`): `Promise`\<`WriteOutcome`\>
 
 Directly set a read model (used by sync/seeding).
 Marks the data as server baseline.
@@ -657,4 +657,4 @@ Revision metadata from the event or seed record
 
 #### Returns
 
-`Promise`\<`boolean`\>
+`Promise`\<`WriteOutcome`\>

@@ -2,7 +2,7 @@
  * Shared types for SolidJS reactive query primitives.
  */
 
-import type { CacheKeyIdentity, EntityId } from '@cqrs-toolkit/client'
+import type { CacheKeyIdentity, EntityId, PageRange } from '@cqrs-toolkit/client'
 import type { Link } from '@meticoeus/ddd-es'
 
 /**
@@ -71,7 +71,11 @@ export interface ListQueryState<T extends Identifiable> {
   readonly items: T[]
   /** Convenience: `true` when `state.status` is `'loading'` or `'seeding'` */
   readonly loading: boolean
-  readonly total: number
+  /**
+   * Total row count for the collection's cache-key scope. Defined when the
+   * underlying collection has `list.total: true`; `undefined` otherwise.
+   */
+  readonly total: number | undefined
   readonly hasLocalChanges: boolean
   /** Lifecycle state with status-specific data */
   readonly state: ListQueryStatus
@@ -89,6 +93,56 @@ export interface ListQueryState<T extends Identifiable> {
    * ```
    */
   readonly reconciled: ReconciledId[]
+}
+
+/**
+ * Parameters for `createViewQuery`.
+ *
+ * View name is static (it's a config-time identifier); params and page can
+ * be either static or reactive accessors. When a reactive accessor returns
+ * `undefined`, the query enters an inactive state (loading, no data) — useful
+ * for navigation flows where the params come from a route that's not yet
+ * matched.
+ */
+export interface ViewQueryParams<TParams = unknown> {
+  /** View name as registered in `CqrsConfig.views`. */
+  view: string
+  /** Params bag for the view. Static or reactive accessor. */
+  params: TParams | (() => TParams | undefined)
+  /** Optional page. Static or reactive accessor. */
+  page?: PageRange | (() => PageRange | undefined)
+}
+
+/**
+ * Lifecycle status for a view query.
+ *
+ * Simpler than the list-query lifecycle: views don't have a built-in "seeding"
+ * distinction since seed status is per-cache-key and views read across
+ * multiple keys. Consumers that need the distinction layer it via their own
+ * cache-key acquisition flow.
+ */
+export type ViewQueryStatus =
+  | { status: 'loading' }
+  | { status: 'ready' }
+  | { status: 'error'; error: string }
+
+/**
+ * Reactive state returned by `createViewQuery`.
+ */
+export interface ViewQueryState<T extends Identifiable> {
+  /** Current rows from the view's last emission. */
+  readonly items: T[]
+  /**
+   * Total row count for the view's query, independent of pagination.
+   * Populated when the view registration supplies a count callback
+   * (`memoryCount` on the memory path or `sql.count` on the SQL path).
+   * `undefined` when no count callback is configured.
+   */
+  readonly total: number | undefined
+  /** Convenience: `true` when `state.status` is `'loading'`. */
+  readonly loading: boolean
+  /** Lifecycle state with status-specific data. */
+  readonly state: ViewQueryStatus
 }
 
 /**

@@ -13,10 +13,12 @@ import type {
   CollectionSignal,
   GetByIdParams,
   GetByIdsParams,
+  GetViewParams,
   IQueryManager,
   IQueryManagerInternal,
   ListParams,
   ListQueryResult,
+  PagedViewResult,
   QueryResult,
 } from './types.js'
 
@@ -38,12 +40,28 @@ export class QueryManagerFacade<TLink extends Link> implements IQueryManager<TLi
     return this.inner.list({ ...params, windowId: this.windowId })
   }
 
+  getView<T, TParams = unknown>(
+    params: GetViewParams<TParams>,
+  ): Promise<PagedViewResult<TLink, T>> {
+    return this.inner.getView<T, TParams>(params)
+  }
+
   watchCollection(collection: string): Observable<CollectionSignal> {
     return this.inner.watchCollection(collection)
   }
 
   watchById<T>(params: GetByIdParams<TLink>): Observable<T | undefined> {
     return this.inner.watchById(params)
+  }
+
+  watchList<T>(params: ListParams<TLink>): Observable<ListQueryResult<TLink, T>> {
+    return this.inner.watchList({ ...params, windowId: this.windowId })
+  }
+
+  watchView<T, TParams = unknown>(
+    params: GetViewParams<TParams>,
+  ): Observable<PagedViewResult<TLink, T>> {
+    return this.inner.watchView<T, TParams>(params)
   }
 
   getLocallyById<T>(collection: string, id: string): Promise<T | undefined> {

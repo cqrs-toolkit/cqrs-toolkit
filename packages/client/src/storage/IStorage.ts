@@ -172,13 +172,30 @@ export interface CommandIdMappingRecord {
 }
 
 /**
+ * One sort term in a {@link IStorageQueryOptions.sort} list.
+ *
+ * V1 scope: `column` refers to a library-owned column on the read-model row
+ * (`id`, `updated_at`). Custom-column sort lands once in-memory storage
+ * exposes the column ↔ path mapping needed to resolve declared columns
+ * back to JSON fields in `_effective_data`.
+ */
+export interface StorageSortTerm {
+  column: string
+  direction: 'asc' | 'desc'
+}
+
+/**
  * Query options for list operations.
  */
 export interface IStorageQueryOptions {
   limit?: number
   offset?: number
-  orderBy?: string
-  orderDirection?: 'asc' | 'desc'
+  /**
+   * Composite ordering — earlier terms dominate; later terms break ties.
+   * When omitted, the storage backend returns rows in its natural order
+   * (undefined — callers must not rely on it).
+   */
+  sort?: readonly StorageSortTerm[]
 }
 
 export interface MigrateReadModelIdParams {
@@ -648,4 +665,26 @@ export interface IStorage<TLink extends Link, TCommand extends EnqueueCommand> {
    * Rollback a transaction.
    */
   rollbackTransaction?(tx: unknown): Promise<void>
+}
+
+/**
+ * Storage interface for the window-mode adapter — adds in-memory read-model
+ * iteration on top of {@link IStorage}. Mode A (online-only) wires the view
+ * executor's {@link ViewLocalApi} against this; SQLite-backed storage (worker
+ * modes) doesn't implement it because cross-collection views in worker modes
+ * dispatch through SQL.
+ */
+export interface IWindowStorage<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+> extends IStorage<TLink, TCommand> {
+  /**
+   * Iterate every read model in a collection, yielding the parsed
+   * `effectiveData` plus id and `hasLocalChanges`. Iteration order is the
+   * backing map's insertion order; consumers that need a specific order
+   * build their own index.
+   */
+  iterateReadModels<T>(
+    collection: string,
+  ): Iterable<{ id: string; data: T; hasLocalChanges: boolean }>
 }

@@ -112,12 +112,17 @@ export type {
   CollectionSignal,
   GetByIdParams,
   GetByIdsParams,
+  GetViewParams,
   IQueryManager,
   ItemMeta,
   ListParams,
   ListQueryResult,
+  PageRange,
+  PagedViewResult,
   QueryOptions,
   QueryResult,
+  Sort,
+  SortTerm,
 } from './core/query-manager/index.js'
 export { ReadModelStore } from './core/read-model-store/index.js'
 export type {
@@ -135,6 +140,7 @@ export type {
   IConnectivity,
   WsConnectionState,
 } from './core/sync-manager/index.js'
+export type { AnyViewRegistration, ViewLocalApi, ViewRegistration } from './core/views/types.js'
 
 // Adapters
 export {

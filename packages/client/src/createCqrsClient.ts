@@ -51,6 +51,8 @@ import { ConnectivityManager } from './core/sync-manager/ConnectivityManager.js'
 import type { IConnectivity } from './core/sync-manager/IConnectivityManager.js'
 import { CollectionSyncStatus } from './core/sync-manager/SeedStatusIndex.js'
 import { SyncManager } from './core/sync-manager/SyncManager.js'
+import type { ViewLocalApi } from './core/views/types.js'
+import { createInMemoryDispatcher, ViewExecutor } from './core/views/ViewExecutor.js'
 import { WriteQueue } from './core/write-queue/WriteQueue.js'
 import type { EnqueueCommand, SubmitParams, SubmitResult, SubmitSuccess } from './types/commands.js'
 import { isCommandTimeout } from './types/commands.js'
@@ -481,7 +483,23 @@ async function createOnlineOnlyClient<
     writeQueue,
   )
 
-  const queryManager = new QueryManager<TLink, TCommand>(eventBus, cacheManager, readModelStore)
+  const viewLocalApi: ViewLocalApi = {
+    iterate<T>(collection: string) {
+      return storage.iterateReadModels<T>(collection)
+    },
+  }
+  const viewExecutor =
+    resolved.views.length > 0
+      ? new ViewExecutor<TLink>(resolved.views, createInMemoryDispatcher<TLink>(viewLocalApi))
+      : undefined
+
+  const queryManager = new QueryManager<TLink, TCommand>(
+    eventBus,
+    cacheManager,
+    readModelStore,
+    resolved.collections,
+    viewExecutor,
+  )
 
   const fileStore = new InMemoryCommandFileStore()
 
@@ -732,6 +750,8 @@ function createAdapterForMode<
         sqliteWorkerUrl,
         requestTimeout: config.network.timeout,
         debug: config.debug,
+        views: config.views,
+        collections: config.collections,
       })
     case 'dedicated-worker':
       assert(workerUrl, 'workerUrl is required for dedicated-worker mode')
@@ -739,6 +759,8 @@ function createAdapterForMode<
         workerUrl,
         requestTimeout: config.network.timeout,
         debug: config.debug,
+        views: config.views,
+        collections: config.collections,
       })
   }
 }

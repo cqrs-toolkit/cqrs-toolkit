@@ -52,9 +52,15 @@ import { ConnectivityManager } from '../../core/sync-manager/ConnectivityManager
 import type { IConnectivity } from '../../core/sync-manager/IConnectivityManager.js'
 import { type IConnectivityManager } from '../../core/sync-manager/IConnectivityManager.js'
 import { SyncManager } from '../../core/sync-manager/SyncManager.js'
+import {
+  createInMemoryDispatcher,
+  createSqlDispatcher,
+  ViewExecutor,
+} from '../../core/views/ViewExecutor.js'
+import type { AnyViewRegistration, ViewLocalApi } from '../../core/views/types.js'
 import { WriteQueue } from '../../core/write-queue/WriteQueue.js'
 import { CqrsClient, type CqrsClientSyncManager } from '../../createCqrsClient.js'
-import type { IStorage } from '../../storage/IStorage.js'
+import type { IStorage, IWindowStorage } from '../../storage/IStorage.js'
 import { InMemoryStorage } from '../../storage/InMemoryStorage.js'
 import { SQLiteStorage } from '../../storage/SQLiteStorage.js'
 import { clientSchema } from '../../storage/schema/client-schema.js'
@@ -113,6 +119,21 @@ export interface IntegrationBootstrapConfig {
   commandSender?: ICommandSender<TLink, TCommand>
   auth?: AuthStrategy
   network?: NetworkConfig
+  /**
+   * View registrations. The bootstrap wires the appropriate dispatcher
+   * (in-memory for `bootstrapOnlineOnly`, SQL for `bootstrapWorkerSide`)
+   * around them, so each variant exercises its native dispatch path.
+   */
+  views?: readonly AnyViewRegistration<TLink>[]
+  /**
+   * Schema migrations override for {@link bootstrapWorkerSide}. When set,
+   * the bootstrap runs these migrations instead of auto-generating bare
+   * managed-collection steps from the `collections` list. Use to declare
+   * custom columns and indexes on managed tables for tests that exercise
+   * SQL views referencing real generated columns. Ignored by
+   * `bootstrapOnlineOnly` (in-memory storage has no DDL).
+   */
+  migrations?: [SchemaMigration, ...SchemaMigration[]]
   /** Override SyncManager class for testing (e.g., TestSyncManager with exposed protected methods). */
   SyncManagerClass?: SyncManagerConstructor
   /**
@@ -179,6 +200,7 @@ const DUMMY_NETWORK: NetworkConfig = { baseUrl: 'http://localhost:9999' }
 async function wireComponents(
   config: IntegrationBootstrapConfig,
   storage: IStorage<TLink, TCommand>,
+  viewExecutor: ViewExecutor<TLink> | undefined,
 ): Promise<IntegrationContext> {
   const collections = config.collections ?? []
   const processors = config.processors ?? []
@@ -235,7 +257,13 @@ async function wireComponents(
   )
 
   // 9. QueryManager
-  const queryManager = new QueryManager<TLink, TCommand>(eventBus, cacheManager, readModelStore)
+  const queryManager = new QueryManager<TLink, TCommand>(
+    eventBus,
+    cacheManager,
+    readModelStore,
+    collections,
+    viewExecutor,
+  )
 
   // 10. CommandQueue (with optional DomainExecutor)
   let syncManagerRef: SyncManager<TLink, TCommand, TSchema, TEvent>
@@ -372,7 +400,22 @@ async function wireComponents(
 export const bootstrapOnlineOnly: BootstrapFn = async (config = {}) => {
   const storage = new InMemoryStorage<TLink, TCommand>()
   await storage.initialize()
-  return wireComponents(config, storage)
+
+  // Mode-A view dispatcher — wraps the InMemoryStorage's iteration.
+  let viewExecutor: ViewExecutor<TLink> | undefined
+  if (config.views && config.views.length > 0) {
+    const viewLocalApi: ViewLocalApi = {
+      iterate<T>(collection: string) {
+        return storage.iterateReadModels<T>(collection)
+      },
+    }
+    viewExecutor = new ViewExecutor<TLink>(
+      config.views,
+      createInMemoryDispatcher<TLink>(viewLocalApi),
+    )
+  }
+
+  return wireComponents(config, storage, viewExecutor)
 }
 
 /**
@@ -389,7 +432,7 @@ export const bootstrapOnlineOnly: BootstrapFn = async (config = {}) => {
 export const bootstrapWorkerSide: BootstrapFn = async (config = {}) => {
   const collections = config.collections ?? []
   const collectionNames = collections.map((c) => c.name)
-  const migrations: [SchemaMigration, ...SchemaMigration[]] = [
+  const migrations: [SchemaMigration, ...SchemaMigration[]] = config.migrations ?? [
     {
       version: 1,
       message: 'Integration test schema',
@@ -403,7 +446,15 @@ export const bootstrapWorkerSide: BootstrapFn = async (config = {}) => {
   const db = new BetterSqliteDb()
   const storage = new SQLiteStorage<TLink, TCommand>({ db, migrations })
   await storage.initialize()
-  return wireComponents(config, storage)
+
+  // SQL view dispatcher — runs the view's `sql.query` (and optional `sql.count`)
+  // against the same SQLite db the storage uses.
+  const viewExecutor =
+    config.views && config.views.length > 0
+      ? new ViewExecutor<TLink>(config.views, createSqlDispatcher<TLink>(db))
+      : undefined
+
+  return wireComponents(config, storage, viewExecutor)
 }
 
 // ---------------------------------------------------------------------------
@@ -434,7 +485,13 @@ export function buildIntegrationClient<TL extends Link, TC extends EnqueueComman
     kind: 'window',
     status: 'ready',
     events$: parts.eventBus.events$ as Observable<LibraryEvent<TL>>,
-    storage: parts.storage,
+    // Test scaffolding wraps both Mode-A (InMemoryStorage, implements
+    // IWindowStorage) and Mode-C (SQLiteStorage, doesn't) in a single window
+    // adapter shape to skip RPC ceremony. Production Mode-C never flows
+    // through IWindowAdapter; iterateReadModels would never be invoked on
+    // the SQL backend here because Mode-C views dispatch via SQL, not the
+    // in-memory dispatcher.
+    storage: parts.storage as IWindowStorage<TL, TC>,
     eventBus: parts.eventBus,
     sessionManager: parts.sessionManager,
     async initialize() {},

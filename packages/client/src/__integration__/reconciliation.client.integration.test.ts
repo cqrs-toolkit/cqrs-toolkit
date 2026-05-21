@@ -151,7 +151,10 @@ describe.each(bootstrapVariants)('$name reconciliation (client)', ({ bootstrap }
             ctx.client.events$.pipe(
               filter(
                 (e): e is ReadmodelUpdatedEvent =>
-                  e.type === 'readmodel:updated' && e.data.ids.includes('todo-1'),
+                  e.type === 'readmodel:updated' &&
+                  (e.data.created?.includes('todo-1') === true ||
+                    e.data.updated?.includes('todo-1') === true ||
+                    e.data.deleted?.includes('todo-1') === true),
               ),
             ),
           )
@@ -281,7 +284,10 @@ describe.each(bootstrapVariants)('$name reconciliation (client)', ({ bootstrap }
               ctx.client.events$.pipe(
                 filter(
                   (e): e is ReadmodelUpdatedEvent =>
-                    e.type === 'readmodel:updated' && e.data.ids.includes('todo-1'),
+                    e.type === 'readmodel:updated' &&
+                    (e.data.created?.includes('todo-1') === true ||
+                      e.data.updated?.includes('todo-1') === true ||
+                      e.data.deleted?.includes('todo-1') === true),
                 ),
               ),
             )

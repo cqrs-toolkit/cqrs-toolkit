@@ -3,4 +3,11 @@
  */
 
 export { ReadModelStore } from './ReadModelStore.js'
-export type { ReadModel, ReadModelQueryOptions, RevisionMeta } from './ReadModelStore.js'
+export type {
+  CommitClassification,
+  CommitCollectionClassification,
+  ReadModel,
+  ReadModelQueryOptions,
+  RevisionMeta,
+  WriteOutcome,
+} from './ReadModelStore.js'

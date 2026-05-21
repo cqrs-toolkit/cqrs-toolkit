@@ -57,6 +57,15 @@ function createMockQueryManager() {
     watchById() {
       throw new Error('Not used in list tests')
     },
+    watchList() {
+      throw new Error('Not used in list tests — these cover the pull `list` + watchCollection path')
+    },
+    async getView() {
+      throw new Error('Not used in list tests')
+    },
+    watchView() {
+      throw new Error('Not used in list tests')
+    },
     async getLocallyById() {
       return undefined
     },

@@ -11,8 +11,10 @@ import type {
 } from '../core/cache-manager/CacheKey.js'
 import type { IAnticipatedEvent } from '../core/command-lifecycle/AnticipatedEventShape.js'
 import type { ICommandSender } from '../core/command-queue/types.js'
+import { validatePath } from '../core/entity-ref/ref-path.js'
 import type { ProcessorRegistration } from '../core/event-processor/types.js'
 import { defaultProblemJsonMapper } from '../core/failure-mapper/index.js'
+import type { AnyViewRegistration } from '../core/views/types.js'
 import type {
   AggregateConfig,
   DirectIdReference,
@@ -71,14 +73,103 @@ export interface LibraryStep {
 }
 
 /**
+ * A custom column on a managed read-model table.
+ *
+ * Emitted as a SQLite **VIRTUAL** generated column derived from
+ * `_effective_data`. VIRTUAL avoids row-level storage duplication — column
+ * values are computed on demand; indexes that reference the column still
+ * store their key values (intrinsic to indexing, not to generated-column
+ * kind). At 1e5+ rows under OPFS quotas, STORED's per-row duplication is
+ * unacceptable; VIRTUAL is the only kind exposed by this surface.
+ *
+ * Mode A (in-memory) ignores `columns` entirely — they're a SQL-mode concern.
+ * The consumer-facing row shape on both backends remains
+ * `JSON.parse(_effective_data)`.
+ */
+export interface CustomColumn {
+  /**
+   * Column name. Must be snake_case, start with a lowercase letter, and not
+   * begin with `_` (library-owned prefix) or `__` (library-owned prefix).
+   * Must not collide with library-owned columns: `id`, `updated_at`.
+   */
+  name: string
+  type: 'TEXT' | 'INTEGER' | 'REAL'
+  /**
+   * Simple JSONPath into `_effective_data`. Library emits
+   * `json_extract(_effective_data, '<path>')` as the generated-column
+   * expression. Mutually exclusive with `expression`.
+   *
+   * Subset accepted: root `$`, dot members, bracket members (`['key']`),
+   * array indexes. Wildcards (`[*]`) are rejected — `json_extract` returns
+   * a single scalar, not an array.
+   */
+  path?: JSONPathExpression
+  /**
+   * Escape hatch — raw SQLite expression dropped into the
+   * `GENERATED ALWAYS AS (...)` clause verbatim. Mutually exclusive with
+   * `path`. Use for case-folded sort keys, computed values across multiple
+   * fields, or anything `json_extract` alone can't express.
+   *
+   * Example: `lower(json_extract(_effective_data, '$.name'))`.
+   */
+  expression?: string
+  /**
+   * SQLite collating sequence applied to the column. Default `BINARY`.
+   * `NOCASE` enables index-backed case-insensitive prefix `LIKE` queries.
+   */
+  collation?: 'BINARY' | 'NOCASE' | 'RTRIM'
+}
+
+/**
+ * An index on a managed read-model table.
+ *
+ * Declared separately from columns to support composite indexes without
+ * forcing every column inside a composite to also carry its own redundant
+ * single-column index. Index columns may reference any
+ * {@link CustomColumn} on the same table or library-owned columns
+ * (`id`, `updated_at`).
+ */
+export interface CustomIndex {
+  /**
+   * Optional index name. Defaults to
+   * `idx_rm_<table>_<col1>_<col2>_...` based on the column list.
+   */
+  name?: string
+  /** Ordered list of column names — composite-aware. Non-empty. */
+  columns: readonly string[]
+  unique?: boolean
+  /**
+   * Partial-index predicate dropped into `WHERE (...)` verbatim. Useful for
+   * specializing hot-path filters (e.g.
+   * `where: "status IN ('approved', 'submitted')"` to speed up aggregations
+   * over a specific subset).
+   */
+  where?: string
+}
+
+/**
  * A managed read model collection.
  *
- * The library owns the table schema — `generateCollectionDDL(name)` creates
- * `rm_{name}` with the standard columns.
+ * The library owns the table schema — fresh-create DDL via
+ * `generateCollectionDDL(def)` produces `rm_{name}` with library-owned
+ * bookkeeping columns plus any declared {@link CustomColumn}s and
+ * {@link CustomIndex}es.
  */
 export interface ManagedCollectionDef {
   type: 'managed'
   name: string
+  /**
+   * Custom VIRTUAL generated columns extracted from `_effective_data`.
+   * Used by SQL views for filter / sort / join expressions. Ignored by
+   * the in-memory backend.
+   */
+  columns?: CustomColumn[]
+  /**
+   * Indexes — single-column or composite, optional UNIQUE, optional partial
+   * (`WHERE` predicate). Reference declared columns or library-owned
+   * columns by name.
+   */
+  indexes?: CustomIndex[]
 }
 
 /**
@@ -343,6 +434,24 @@ export interface Collection<TLink extends Link> {
   readonly seedOnDemand?: SeedOnDemandConfig<TLink>
 
   /**
+   * List-query settings — apply to both pull (`list`) and push (`watchList`).
+   */
+  readonly list?: {
+    /**
+     * Whether `total` is part of the list/watchList contract for this collection.
+     *
+     * When `false` (default), {@link ListQueryResult.total} is `undefined` and
+     * `watchList` does not issue count re-fetches.
+     *
+     * When `true`, `list()` returns the cache-key-scoped row count as `total`,
+     * and `watchList` issues a count re-fetch on `created` / `deleted` events
+     * in a watched cache key so `total` stays current across off-page changes.
+     * Tracked-id matches re-fetch the data page (and the total along with it).
+     */
+    readonly total?: boolean
+  }
+
+  /**
    * Test whether a streamId belongs to this collection.
    * Called for WS events and command response events to route them.
    * Multiple collections may match the same streamId.
@@ -416,6 +525,81 @@ function injectCollectionDefaults<TLink extends Link>(
 
     return c
   })
+}
+
+function tryValidateRegistrationPath(path: JSONPathExpression, where: string): void {
+  try {
+    validatePath(path)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    throw new Error(`${where}: ${message}`)
+  }
+}
+
+function validateRegistrationPaths<
+  TLink extends Link,
+  TCommand extends EnqueueCommand,
+  TSchema,
+  TEvent extends IAnticipatedEvent,
+>(resolved: ResolvedConfig<TLink, TCommand, TSchema, TEvent>): void {
+  for (const collection of resolved.collections) {
+    if (collection.revisionPath) {
+      tryValidateRegistrationPath(
+        collection.revisionPath,
+        `Collection '${collection.name}' revisionPath`,
+      )
+    }
+    if (collection.idReferences) {
+      for (const ref of collection.idReferences) {
+        tryValidateRegistrationPath(ref.path, `Collection '${collection.name}' idReference path`)
+      }
+    }
+  }
+  for (const handler of resolved.commandHandlers) {
+    if (handler.commandIdReferences) {
+      for (const ref of handler.commandIdReferences) {
+        tryValidateRegistrationPath(
+          ref.path,
+          `Command '${handler.commandType}' commandIdReference path`,
+        )
+      }
+    }
+    if (handler.responseIdReferences) {
+      for (const ref of handler.responseIdReferences) {
+        tryValidateRegistrationPath(
+          ref.path,
+          `Command '${handler.commandType}' responseIdReference path`,
+        )
+        if (ref.revisionPath) {
+          tryValidateRegistrationPath(
+            ref.revisionPath,
+            `Command '${handler.commandType}' responseIdReference revisionPath`,
+          )
+        }
+      }
+    }
+  }
+  for (const view of resolved.views) {
+    for (const join of view.joinSources) {
+      tryValidateRegistrationPath(
+        join.fromPath,
+        `View '${view.name}' joinSource '${join.collection}' fromPath`,
+      )
+    }
+  }
+  for (const migration of resolved.storage.migrations) {
+    for (const step of migration.steps) {
+      if (step.type !== 'managed' || !step.columns) continue
+      for (const column of step.columns) {
+        if (column.path !== undefined) {
+          tryValidateRegistrationPath(
+            column.path,
+            `Migration v${migration.version} collection '${step.name}' column '${column.name}' path`,
+          )
+        }
+      }
+    }
+  }
 }
 
 function injectCommandHandlerDefaults<
@@ -493,6 +677,23 @@ export interface CqrsConfig<
    * Collection configurations.
    */
   collections?: Collection<TLink>[]
+
+  /**
+   * Cross-collection view registrations. Each entry pairs a sync in-memory
+   * implementation with an async SQL implementation; the library dispatches
+   * based on the active storage backend.
+   *
+   * View names must be unique; duplicates throw at executor construction.
+   * The `cacheKeys` callback resolves the declared keys per call; V1
+   * "assume-ambient" semantics mean the library does not acquire or hold
+   * resolved keys — the consumer's UI is responsible for ensuring they're
+   * present.
+   *
+   * Referenced from the public API by name via
+   * {@link IQueryManager.getView} (and, when watching is wired, the future
+   * `watchView` method).
+   */
+  views?: AnyViewRegistration<TLink>[]
 
   /**
    * Command sender for submitting commands to the server.
@@ -639,6 +840,7 @@ export interface ResolvedConfig<
     | 'collections'
     | 'processors'
     | 'logger'
+    | 'views'
   >
 > {
   commandHandlers: CommandHandlerRegistration<TLink, TCommand, TSchema, TEvent>[]
@@ -647,6 +849,7 @@ export interface ResolvedConfig<
   workerSetup?: string[]
   collections: Collection<TLink>[]
   processors: ProcessorRegistration[]
+  views: AnyViewRegistration<TLink>[]
   logger?: ILogger
 }
 
@@ -661,7 +864,7 @@ export function resolveConfig<
 >(
   config: CqrsConfig<TLink, TCommand, TSchema, TEvent>,
 ): ResolvedConfig<TLink, TCommand, TSchema, TEvent> {
-  return {
+  const resolved: ResolvedConfig<TLink, TCommand, TSchema, TEvent> = {
     aggregates: config.aggregates,
     commandHandlers: injectCommandHandlerDefaults(config.commandHandlers),
     commandSender: config.commandSender,
@@ -687,11 +890,14 @@ export function resolveConfig<
     },
     collections: injectCollectionDefaults(config.collections) ?? [],
     processors: config.processors ?? [],
+    views: config.views ?? [],
     retainTerminal: config.retainTerminal ?? false,
     debug: config.debug ?? hasDevtools(),
     logger: config.logger,
     workerSetup: config.workerSetup,
   }
+  validateRegistrationPaths(resolved)
+  return resolved
 }
 
 /**

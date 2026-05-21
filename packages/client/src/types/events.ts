@@ -163,7 +163,24 @@ export interface LibraryEventData<TLink extends Link> {
   'error:storage': { message: string; code?: string }
   'error:network': { message: string; code?: string }
 
-  'readmodel:updated': { collection: string; ids: string[]; commandIds: string[] }
+  /**
+   * Emitted after a batch of read-model writes for one collection lands.
+   *
+   * Carries per-op buckets so paged subscriptions can apply gate checks
+   * without filtering: `updated` drives row-update intersection against
+   * tracked page ids; `created` and `deleted` drive page-shift detection.
+   * Empty buckets are omitted. `cacheKeys` is the union of cache keys
+   * affected across all ids in this emit (used to gate by scope before
+   * touching per-id state).
+   */
+  'readmodel:updated': {
+    collection: string
+    created?: string[]
+    updated?: string[]
+    deleted?: string[]
+    cacheKeys: string[]
+    commandIds: string[]
+  }
   /** Emitted after a read model row is migrated from a client-generated temp ID
    *  to the server-assigned ID. Fired once per collection per migration, after
    *  the row is durably renamed in storage. */

@@ -72,6 +72,15 @@ Offset for pagination
 
 ---
 
+### sort?
+
+> `optional` **sort**: `Sort`
+
+Sort specification. When omitted, results are returned in the storage
+backend's natural order (undefined — do not rely on it).
+
+---
+
 ### windowId?
 
 > `optional` **windowId**: `string`

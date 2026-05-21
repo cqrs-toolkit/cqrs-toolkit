@@ -45,6 +45,8 @@ import type { ProcessorContext, ProcessorResult } from '../event-processor/types
 import type { EventBus } from '../events/EventBus.js'
 import type { IQueryManagerInternal } from '../query-manager/types.js'
 import type {
+  CommitClassification,
+  CommitCollectionClassification,
   ReadModel,
   ReadModelMutation,
   ReadModelStore,
@@ -730,16 +732,13 @@ export class SyncManager<
       }
     }
 
-    // 11. Invalidate active queries so connected windows re-fetch (now-empty) data.
-    //     In shared-worker mode the worker survives page reloads, so windows that
-    //     mounted before setAuthenticated may still be showing stale read models.
-    for (const collection of this.collections) {
-      this.eventBus.emit('readmodel:updated', {
-        collection: collection.name,
-        ids: [],
-        commandIds: [],
-      })
-    }
+    // 11. Active queries pick up the session reset via `session:destroyed`
+    //     (and `watchCollection`'s `session-reset` signal projection) rather
+    //     than a synthetic per-collection `readmodel:updated` emit. That
+    //     keeps `readmodel:updated` honest as a row-level signal — its three
+    //     buckets (`created` / `updated` / `deleted`) carry no information
+    //     for a wholesale wipe, so the previous empty-ids emit was just a
+    //     re-check ping shaped like an update.
   }
 
   /**
@@ -950,19 +949,15 @@ export class SyncManager<
       if (!res.ok) return res
     }
 
-    // Notify reactive queries that seeding is complete.
-    // Unlike seedWithEvents (where each `apply-seed-events` op routes through
-    // the reconcile pipeline, which emits `readmodel:updated` per batch from
-    // Phase 6), record-based seeding writes directly to storage, so a single
-    // bulk notification is needed after all pages are loaded.
-    // Always emit, even for zero records — consumers need the signal to
-    // resolve loading state for genuinely empty collections.
-    this.eventBus.emit('readmodel:updated', {
-      collection: collection.name,
-      ids: [],
-      commandIds: [],
-    })
-
+    // Notify reactive queries that seeding is complete via the canonical
+    // `sync:seed-completed` event. `watchCollection` already projects this
+    // into a `seed-completed` signal, so consumers (`createListQuery`,
+    // `createItemQuery`) re-fetch on it. Previously a synthetic empty-ids
+    // `readmodel:updated` was also emitted here for the same effect — that
+    // emit is now dropped to keep `readmodel:updated` honest as a row-level
+    // signal (record-based seeding doesn't have per-row classification at
+    // this layer since writes happen via `apply-records` ops that fan out
+    // through `reconcileAndPersist` and emit per-batch from Phase 6).
     this.eventBus.emit('sync:seed-completed', {
       collection: collection.name,
       cacheKey,
@@ -2261,6 +2256,24 @@ export class SyncManager<
    *   - Populating `idMap` + `tempIdsToDelete` if id resolution was detected.
    *   - Pre-loading entity records into `preloadedRecords` (for merge + metadata).
    */
+  private emitReadModelUpdatedFromClassification(
+    collection: string,
+    entry: CommitCollectionClassification,
+    commandIdsByCollection: ReadonlyMap<string, ReadonlySet<string>>,
+  ): void {
+    if (entry.created.length === 0 && entry.updated.length === 0 && entry.deleted.length === 0) {
+      return
+    }
+    this.eventBus.emit('readmodel:updated', {
+      collection,
+      ...(entry.created.length > 0 ? { created: entry.created } : {}),
+      ...(entry.updated.length > 0 ? { updated: entry.updated } : {}),
+      ...(entry.deleted.length > 0 ? { deleted: entry.deleted } : {}),
+      cacheKeys: Array.from(entry.cacheKeys),
+      commandIds: Array.from(commandIdsByCollection.get(collection) ?? []),
+    })
+  }
+
   private async reconcileAndPersist(change: ServerStateChangeResult<TLink>): Promise<void> {
     const {
       dirtyEntityKeys,
@@ -2399,8 +2412,10 @@ export class SyncManager<
     // renames so later ops targeting tempIds land on the migrated serverIds.
     const mutations: ReadModelMutation[] = []
 
-    // Id-resolution migrations (tempId → serverId). The modified-collection
-    // emission records both ids so reactive consumers re-read both.
+    // Id-resolution migrations (tempId → serverId). Classification of these
+    // ids (fromId → deleted, toId → created) is produced by `commit`; we
+    // still record them in `modifiedByCollection` so the metadata-stamping
+    // pass below can find their mappings.
     for (const key of tempIdsToDelete) {
       const sep = key.indexOf(':')
       if (sep < 0) continue
@@ -2452,15 +2467,12 @@ export class SyncManager<
     // remaining Phase 4-6 work is a no-op — flush the mutation list gathered
     // so far (pendingApplications + any migrations) and emit.
     if (!this.domainExecutor && idMap.size === 0) {
-      if (mutations.length > 0) {
-        await this.readModelStore.commit(mutations)
-      }
-      for (const [collection, ids] of modifiedByCollection) {
-        this.eventBus.emit('readmodel:updated', {
-          collection,
-          ids: Array.from(ids),
-          commandIds: Array.from(commandIdsByCollection.get(collection) ?? []),
-        })
+      const classification: CommitClassification =
+        mutations.length > 0
+          ? await this.readModelStore.commit(mutations)
+          : new Map<string, CommitCollectionClassification>()
+      for (const [collection, entry] of classification) {
+        this.emitReadModelUpdatedFromClassification(collection, entry, commandIdsByCollection)
       }
       return
     }
@@ -2815,20 +2827,18 @@ export class SyncManager<
     // client overlays, and `_clientMetadata` stamps. Preserves every
     // side effect of the old per-row setter path (three-way merge, no-op
     // short-circuit, cacheKey preservation, revision/position handling).
-    if (mutations.length > 0) {
-      await this.readModelStore.commit(mutations)
-    }
+    const classification: CommitClassification =
+      mutations.length > 0
+        ? await this.readModelStore.commit(mutations)
+        : new Map<string, CommitCollectionClassification>()
 
     // Emit `readmodel:updated` once per collection so reactive queries and
     // UI subscriptions refresh. Aggregated across all phases — Phase 3
     // (server writes), Phase 6 step 3 (client overlay writes), and
-    // Phase 6 step 4 (tempId deletions).
-    for (const [collection, ids] of modifiedByCollection) {
-      this.eventBus.emit('readmodel:updated', {
-        collection,
-        ids: Array.from(ids),
-        commandIds: Array.from(commandIdsByCollection.get(collection) ?? []),
-      })
+    // Phase 6 step 4 (tempId deletions). The classification comes from
+    // `commit` so creates/updates/deletes land in the right buckets.
+    for (const [collection, entry] of classification) {
+      this.emitReadModelUpdatedFromClassification(collection, entry, commandIdsByCollection)
     }
 
     // Advance aggregate chain revisions from server data so AutoRevision

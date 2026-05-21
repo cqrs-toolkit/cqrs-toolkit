@@ -28,10 +28,12 @@ import type {
   CollectionSignal,
   GetByIdParams,
   GetByIdsParams,
+  GetViewParams,
   IQueryManager,
   ItemMeta,
   ListParams,
   ListQueryResult,
+  PagedViewResult,
   QueryResult,
 } from './types.js'
 
@@ -107,9 +109,26 @@ export class StableRefQueryManager<TLink extends Link> implements IQueryManager<
 
   async list<T>(params: ListParams<TLink>): Promise<ListQueryResult<TLink, T>> {
     const result = await this.inner.list<T>(params)
+    return this.reconcileListResult(params.collection, result)
+  }
 
+  /**
+   * Apply reference reconciliation to a list result against this manager's
+   * per-collection ref cache. Shared by {@link list} and {@link watchList}
+   * so each watch emission goes through the same stable-ref logic as a
+   * one-shot list call.
+   *
+   * Replaces the per-collection cache wholesale — items not in this result
+   * lose their cached ref. Callers that want per-emission cache scope
+   * (e.g. multi-page lists sharing a collection) need to layer their own
+   * scoping; this manager assumes one canonical list per collection.
+   */
+  private reconcileListResult<T>(
+    collection: string,
+    result: ListQueryResult<TLink, T>,
+  ): ListQueryResult<TLink, T> {
     const newCache = new Map<string, CachedRef>()
-    const oldCache = this.refCache.get(params.collection)
+    const oldCache = this.refCache.get(collection)
 
     const reconciledData: T[] = []
 
@@ -132,8 +151,7 @@ export class StableRefQueryManager<TLink extends Link> implements IQueryManager<
       }
     }
 
-    // Replace entire collection cache — items not in current result are dropped
-    this.refCache.set(params.collection, newCache)
+    this.refCache.set(collection, newCache)
 
     return {
       data: reconciledData,
@@ -146,6 +164,24 @@ export class StableRefQueryManager<TLink extends Link> implements IQueryManager<
 
   watchCollection(collection: string): Observable<CollectionSignal> {
     return this.inner.watchCollection(collection)
+  }
+
+  watchList<T>(params: ListParams<TLink>): Observable<ListQueryResult<TLink, T>> {
+    return this.inner
+      .watchList<T>(params)
+      .pipe(map((result) => this.reconcileListResult(params.collection, result)))
+  }
+
+  getView<T, TParams = unknown>(
+    params: GetViewParams<TParams>,
+  ): Promise<PagedViewResult<TLink, T>> {
+    return this.inner.getView<T, TParams>(params)
+  }
+
+  watchView<T, TParams = unknown>(
+    params: GetViewParams<TParams>,
+  ): Observable<PagedViewResult<TLink, T>> {
+    return this.inner.watchView<T, TParams>(params)
   }
 
   watchById<T>(params: GetByIdParams<TLink>): Observable<T | undefined> {
