@@ -8,6 +8,7 @@ import type {
   EnqueueCommand,
   IQueryManager,
   LibraryEvent,
+  ListFilter,
   ListParams,
   ListQueryResult,
   ScopeCacheKey,
@@ -492,6 +493,192 @@ describe('createListQuery', () => {
       // Old cache key should be released
       expect(releaseSpy).toHaveBeenCalledWith('ck-a')
       expect(state.items).toHaveLength(2)
+
+      dispose()
+    })
+  })
+
+  it('refetches with new params when sort accessor changes — without releasing the cache key', async () => {
+    const { qm, setListResult, releaseSpy, listSpy } = createMockQueryManager()
+
+    setListResult({
+      data: [TODO_A],
+      meta: [{ id: '1', updatedAt: 1000 }],
+      total: 1,
+      hasLocalChanges: false,
+      cacheKey: TODOS_KEY,
+    })
+
+    await withContext(createMockClient(qm), async (dispose) => {
+      const [sort, setSort] = createSignal<ListParams<ServiceLink>['sort']>([
+        { column: 'updated_at', direction: 'desc' },
+      ])
+      const state = createListQuery<ServiceLink, Todo>({
+        collection: 'todos',
+        cacheKey: TODOS_KEY,
+        sort,
+      })
+      await tick()
+
+      // Initial fetch picked up the starting sort.
+      expect(listSpy).toHaveBeenLastCalledWith({
+        collection: 'todos',
+        hold: true,
+        cacheKey: TODOS_KEY,
+        limit: undefined,
+        offset: undefined,
+        sort: [{ column: 'updated_at', direction: 'desc' }],
+        filter: undefined,
+      })
+      expect(state.loading).toBe(false)
+      expect(state.items).toHaveLength(1)
+
+      // Change the sort — should refetch with the new value.
+      setListResult({
+        data: [TODO_B, TODO_A],
+        meta: [
+          { id: '2', updatedAt: 2000 },
+          { id: '1', updatedAt: 1000 },
+        ],
+        total: 2,
+        hasLocalChanges: false,
+        cacheKey: TODOS_KEY,
+      })
+      setSort([{ column: 'title', direction: 'asc' }])
+      await tick()
+
+      expect(listSpy).toHaveBeenLastCalledWith({
+        collection: 'todos',
+        hold: true,
+        cacheKey: TODOS_KEY,
+        limit: undefined,
+        offset: undefined,
+        sort: [{ column: 'title', direction: 'asc' }],
+        filter: undefined,
+      })
+      expect(state.items).toHaveLength(2)
+
+      // The cache key must not have been released — sort changes are
+      // in-session refetches, not session restarts.
+      expect(releaseSpy).not.toHaveBeenCalled()
+
+      dispose()
+    })
+  })
+
+  it('keeps the loading flag stable across a sort-driven refetch', async () => {
+    // Sort changes route through the same in-session fetch path as
+    // watchCollection signals do — they must not flip `loading` back to
+    // true, otherwise consumers would see a flash of empty/loading UI on
+    // every UI-driven sort tweak.
+    const { qm, setListResult } = createMockQueryManager()
+
+    setListResult({
+      data: [TODO_A],
+      meta: [{ id: '1', updatedAt: 1000 }],
+      total: 1,
+      hasLocalChanges: false,
+      cacheKey: TODOS_KEY,
+    })
+
+    await withContext(createMockClient(qm), async (dispose) => {
+      const [sort, setSort] = createSignal<ListParams<ServiceLink>['sort']>([
+        { column: 'updated_at', direction: 'desc' },
+      ])
+      const state = createListQuery<ServiceLink, Todo>({
+        collection: 'todos',
+        cacheKey: TODOS_KEY,
+        sort,
+      })
+      await tick()
+      expect(state.loading).toBe(false)
+      expect(state.state.status).toBe('ready')
+
+      setSort([{ column: 'title', direction: 'asc' }])
+      // Don't tick yet — the fetch is in flight. The store should still
+      // be showing the previous items and ready state.
+      expect(state.loading).toBe(false)
+      expect(state.state.status).toBe('ready')
+      expect(state.items).toHaveLength(1)
+
+      await tick()
+      expect(state.loading).toBe(false)
+      expect(state.state.status).toBe('ready')
+    })
+  })
+
+  it('keeps the watchCollection subscription attached across a sort change', async () => {
+    // Sort changes must not unsubscribe and resubscribe — that drops any
+    // optimization the QueryManager makes around subscription identity
+    // and would shuffle WS topic state on top of the cache-key churn.
+    const { qm, setListResult, collectionUpdate$: signal$ } = createMockQueryManager()
+
+    setListResult({
+      data: [TODO_A],
+      meta: [{ id: '1', updatedAt: 1000 }],
+      total: 1,
+      hasLocalChanges: false,
+      cacheKey: TODOS_KEY,
+    })
+
+    await withContext(createMockClient(qm), async (dispose) => {
+      const [sort, setSort] = createSignal<ListParams<ServiceLink>['sort']>([
+        { column: 'updated_at', direction: 'desc' },
+      ])
+      createListQuery<ServiceLink, Todo>({
+        collection: 'todos',
+        cacheKey: TODOS_KEY,
+        get sort() {
+          return sort()
+        },
+      })
+      await tick()
+      expect(signal$.observed).toBe(true)
+
+      setSort([{ column: 'title', direction: 'asc' }])
+      await tick()
+
+      // Subscription still attached — the same Subject is still observed.
+      expect(signal$.observed).toBe(true)
+
+      dispose()
+    })
+  })
+
+  it('refetches when the filter accessor changes — without releasing the cache key', async () => {
+    const { qm, setListResult, releaseSpy, listSpy } = createMockQueryManager()
+
+    setListResult({
+      data: [],
+      meta: [],
+      total: 0,
+      hasLocalChanges: false,
+      cacheKey: TODOS_KEY,
+    })
+
+    await withContext(createMockClient(qm), async (dispose) => {
+      const [filter, setFilter] = createSignal<ListFilter | undefined>(undefined)
+      createListQuery<ServiceLink, Todo>({
+        collection: 'todos',
+        cacheKey: TODOS_KEY,
+        filter,
+      })
+      await tick()
+      const initialCalls = listSpy.mock.calls.length
+
+      const nextFilter: ListFilter = {
+        params: { done: true },
+        memory: (row) => (row as Todo).done,
+        sql: () => ({ sql: 'done = 1', bindings: [] }),
+      }
+      setFilter(nextFilter)
+      await tick()
+
+      expect(listSpy.mock.calls.length).toBeGreaterThan(initialCalls)
+      expect(listSpy).toHaveBeenLastCalledWith(
+        expect.objectContaining({ filter: nextFilter, cacheKey: TODOS_KEY }),
+      )
+      expect(releaseSpy).not.toHaveBeenCalled()
 
       dispose()
     })

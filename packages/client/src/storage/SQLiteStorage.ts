@@ -11,7 +11,7 @@
 import { assert } from '#utils'
 import { Link } from '@meticoeus/ddd-es'
 import { CommandFilter, CommandRecord, CommandStatus, EnqueueCommand } from '../types/commands.js'
-import type { SchemaMigration } from '../types/config.js'
+import type { CollationConfig, SchemaMigration } from '../types/config.js'
 import { EntityId, entityIdToString } from '../types/index.js'
 import { execStmt, ISqliteDb, queryStmt, SqliteBatchStatement } from './ISqliteDb.js'
 import {
@@ -21,13 +21,20 @@ import {
   CacheKeyRecord,
   DeleteReadModelEntry,
   IStorage,
+  IStorageListFilter,
   IStorageQueryOptions,
   MigrateReadModelIdParams,
   ReadModelRecord,
   SessionRecord,
   UpdateCommandsEntry,
 } from './IStorage.js'
-import { getCollectionNames, getSqlForStep, validateSchemaMigrations } from './schema/rm-schema.js'
+import {
+  assertNoCustomCollations,
+  getCollectionNames,
+  getSqlForStep,
+  type UnsupportedCollationsPolicy,
+  validateSchemaMigrations,
+} from './schema/rm-schema.js'
 import { assertValidSqlIdentifier } from './schema/sql-identifier.js'
 
 const MIGRATIONS_TABLE = `CREATE TABLE migrations (
@@ -43,6 +50,39 @@ export interface SQLiteStorageConfig {
   db: ISqliteDb
   /** Schema migrations — validated at construction time */
   migrations: [SchemaMigration, ...SchemaMigration[]]
+  /**
+   * Custom collations referenced by the schema. Validated against
+   * {@link CustomColumn.collation} references at construction time; the
+   * actual registration against the SQLite connection happens in
+   * `loadAndOpenDb`.
+   */
+  collations?: readonly CollationConfig[]
+  /**
+   * Policy applied when the active SQLite backend can't register custom
+   * collations (better-sqlite3 in Electron — neither it nor `node:sqlite`
+   * currently expose `sqlite3_create_collation_v2`). Built-in names
+   * (`BINARY`, `NOCASE`, `RTRIM`) are unaffected either way.
+   *
+   * Omit (or leave `undefined`) for backends that do support collations —
+   * the sqlite-wasm path in the worker modes. Setting this field signals
+   * "the backend won't register comparators; here's what to do about any
+   * custom names the migrations declare."
+   *
+   * - `'error'`: throw at construction. Suitable as the conservative
+   *   default in Electron so a misaligned config fails loud, not at first
+   *   query.
+   * - `'degrade'`: emit DDL with the `COLLATE <name>` clause stripped for
+   *   non-built-in collations. SQL ordering falls back to `BINARY` on those
+   *   columns; locale-aware ordering is lost for the SQL path. Explicit
+   *   consumer opt-in so the same shared config can boot across
+   *   environments.
+   */
+  unsupportedCollations?: UnsupportedCollationsPolicy
+  /**
+   * Human-readable backend label used in the `'error'` policy's error
+   * message. Defaults to `'this SQLite backend'`.
+   */
+  backendLabel?: string
 }
 
 /**
@@ -55,10 +95,15 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
   private readonly db: ISqliteDb
   private readonly migrations: [SchemaMigration, ...SchemaMigration[]]
   private readonly collections: Set<string>
+  private readonly stripCustomCollations: boolean
   private initialized = false
 
   constructor(config: SQLiteStorageConfig) {
-    validateSchemaMigrations(config.migrations)
+    validateSchemaMigrations(config.migrations, config.collations)
+    if (config.unsupportedCollations === 'error') {
+      assertNoCustomCollations(config.migrations, config.backendLabel ?? 'this SQLite backend')
+    }
+    this.stripCustomCollations = config.unsupportedCollations === 'degrade'
     this.db = config.db
     this.migrations = config.migrations
     this.collections = new Set(getCollectionNames(config.migrations))
@@ -867,13 +912,38 @@ ON CONFLICT(id) DO UPDATE SET
   ): Promise<ReadModelRecord[]> {
     this.assertInitialized()
     const table = this.rmTable(collection)
+    const junctionTable = this.rmCacheKeyTable(collection)
     const ck = joinCacheKeys({
       srcAlias: 'rm',
-      junctionTable: this.rmCacheKeyTable(collection),
+      junctionTable,
       fk: 'entity_id',
     })
-    let sql = `SELECT rm.*, '${collection}' as collection, ${ck.column} FROM ${table} rm ${ck.join}`
+
+    let sql = `SELECT rm.*, '${collection}' as collection, ${ck.column} FROM ${table} rm`
+
+    // Cache-key scoping is an INNER JOIN on the junction so rows without
+    // the requested key are excluded entirely before the aggregate join
+    // builds the cache_keys array.
     const params: unknown[] = []
+    const whereClauses: string[] = []
+    if (options?.cacheKey !== undefined) {
+      sql += ` INNER JOIN ${junctionTable} filter_ck ON filter_ck.entity_id = rm.id`
+      whereClauses.push('filter_ck.cache_key = ?')
+      params.push(options.cacheKey)
+    }
+
+    sql += ` ${ck.join}`
+
+    // User filter fragment is always parens-wrapped, so OR-groups inside
+    // never bleed past the cache-key clause.
+    if (options?.filter?.sqlFragment) {
+      whereClauses.push(`(${options.filter.sqlFragment.sql})`)
+      params.push(...options.filter.sqlFragment.bindings)
+    }
+
+    if (whereClauses.length > 0) {
+      sql += ` WHERE ${whereClauses.join(' AND ')}`
+    }
 
     sql += ` ${ck.groupBy}`
 
@@ -928,18 +998,32 @@ ON CONFLICT(id) DO UPDATE SET
     return allRecords
   }
 
-  async countReadModels(collection: string, cacheKey?: string): Promise<number> {
+  async countReadModels(
+    collection: string,
+    cacheKey?: string,
+    filter?: IStorageListFilter,
+  ): Promise<number> {
     this.assertInitialized()
     const table = this.rmTable(collection)
     const cacheKeyTable = this.rmCacheKeyTable(collection)
-    if (cacheKey) {
-      const rows = await this.query<{ cnt: number }>(
-        `SELECT COUNT(*) as cnt FROM ${table} rm JOIN ${cacheKeyTable} j ON rm.id = j.entity_id WHERE j.cache_key = ?`,
-        [cacheKey],
-      )
-      return rows[0]?.cnt ?? 0
+
+    let sql = `SELECT COUNT(*) as cnt FROM ${table} rm`
+    const params: unknown[] = []
+    const whereClauses: string[] = []
+    if (cacheKey !== undefined) {
+      sql += ` INNER JOIN ${cacheKeyTable} filter_ck ON filter_ck.entity_id = rm.id`
+      whereClauses.push('filter_ck.cache_key = ?')
+      params.push(cacheKey)
     }
-    const rows = await this.query<{ cnt: number }>(`SELECT COUNT(*) as cnt FROM ${table}`)
+    if (filter?.sqlFragment) {
+      whereClauses.push(`(${filter.sqlFragment.sql})`)
+      params.push(...filter.sqlFragment.bindings)
+    }
+    if (whereClauses.length > 0) {
+      sql += ` WHERE ${whereClauses.join(' AND ')}`
+    }
+
+    const rows = await this.query<{ cnt: number }>(sql, params)
     return rows[0]?.cnt ?? 0
   }
 
@@ -1399,7 +1483,9 @@ ON CONFLICT(client_id) DO UPDATE SET
 
       const statements: SqliteBatchStatement[] = []
       for (const step of migration.steps) {
-        for (const sql of getSqlForStep(step)) {
+        for (const sql of getSqlForStep(step, {
+          stripCustomCollations: this.stripCustomCollations,
+        })) {
           statements.push({ sql })
         }
       }

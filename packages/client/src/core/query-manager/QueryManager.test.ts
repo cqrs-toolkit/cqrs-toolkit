@@ -896,7 +896,7 @@ describe('QueryManager', () => {
           {
             name: 'projects-with-assets',
             primarySource: 'projects',
-            joinSources: [{ collection: 'assets', fromPath: '$.assetId' }],
+            joinSources: [{ collection: 'assets', referencedIdPath: '$.assetId' }],
             cacheKeys: () => [
               { kind: 'scope' as const, scopeType: 'projects' },
               { kind: 'scope' as const, scopeType: 'assets' },
@@ -1111,6 +1111,109 @@ describe('QueryManager', () => {
       expect(emissions).toHaveLength(1)
     })
 
+    it('wanted-id gate: re-emits when a previously-missing join id arrives', async () => {
+      // project-1 references asset-b, which is NOT yet in storage. The
+      // initial view emits with a null embed. When asset-b's create event
+      // fires, the referencingIds gate (driven by joinSources[].referencingIdPath)
+      // should trigger a re-fetch even though referencedIds doesn't contain
+      // asset-b yet.
+      await storage.saveReadModel({
+        id: 'project-1',
+        collection: 'projects',
+        cacheKeys: ['ck-projects'],
+        serverData: '{"id":"project-1","assetId":"asset-b"}',
+        effectiveData: '{"id":"project-1","assetId":"asset-b"}',
+        hasLocalChanges: false,
+        updatedAt: 1000,
+        revision: null,
+        position: null,
+        _clientMetadata: null,
+      })
+
+      const viewExecutor = new ViewExecutor<ServiceLink>(
+        [
+          {
+            name: 'projects-with-assets',
+            primarySource: 'projects',
+            joinSources: [
+              {
+                collection: 'assets',
+                referencedIdPath: '$._embedded.asset.id',
+                referencingIdPath: '$.assetId',
+              },
+            ],
+            cacheKeys: () => [
+              { kind: 'scope' as const, scopeType: 'projects' },
+              { kind: 'scope' as const, scopeType: 'assets' },
+            ],
+            memory: (api: ViewLocalApi) => {
+              const assets = new Map<string, { id: string; name: string }>()
+              for (const a of api.iterate<{ id: string; name: string }>('assets')) {
+                assets.set(a.id, a.data)
+              }
+              const out: ProjectRow[] = []
+              for (const p of api.iterate<{ id: string; assetId: string }>('projects')) {
+                out.push({
+                  ...p.data,
+                  _embedded: { asset: assets.get(p.data.assetId) ?? null },
+                })
+              }
+              return out
+            },
+            sql: { query: () => ({ sql: 'SELECT 1', bindings: [] }) },
+          },
+        ],
+        createInMemoryDispatcher({
+          iterate<T>(collection: string) {
+            return storage.iterateReadModels<T>(collection)
+          },
+        }),
+      )
+      const qm = new QueryManager<ServiceLink, EnqueueCommand>(
+        eventBus,
+        cacheManager,
+        readModelStore,
+        [],
+        viewExecutor,
+      )
+      const initial = await qm.getView<ProjectRow>({
+        view: 'projects-with-assets',
+        params: {},
+      })
+      expect(initial.data[0]?._embedded.asset).toBeNull()
+
+      const emissions: (ProjectRow[] | undefined)[] = []
+      const sub = qm
+        .watchView<ProjectRow>({ view: 'projects-with-assets', params: {} })
+        .subscribe((r) => emissions.push(r.data))
+      cleanup.push(() => sub.unsubscribe())
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(1)
+      expect(emissions[0]?.[0]?._embedded.asset).toBeNull()
+
+      await storage.saveReadModel({
+        id: 'asset-b',
+        collection: 'assets',
+        cacheKeys: ['ck-assets'],
+        serverData: '{"id":"asset-b","name":"B"}',
+        effectiveData: '{"id":"asset-b","name":"B"}',
+        hasLocalChanges: false,
+        updatedAt: 2000,
+        revision: null,
+        position: null,
+        _clientMetadata: null,
+      })
+      eventBus.emit('readmodel:updated', {
+        collection: 'assets',
+        created: ['asset-b'],
+        cacheKeys: initial.cacheKeys.map((k) => k.key),
+        commandIds: [],
+      })
+      await new Promise((r) => setTimeout(r, 20))
+      expect(emissions).toHaveLength(2)
+      expect(emissions[1]?.[0]?._embedded.asset).toEqual({ id: 'asset-b', name: 'B' })
+    })
+
     it('force re-runs on session:destroyed', async () => {
       const { qm } = await setupProjectView()
       const emissions: number[] = []
@@ -1145,7 +1248,7 @@ describe('QueryManager', () => {
       expect(getViewSpy.mock.calls.length).toBe(callsBeforeUnsub)
     })
 
-    it('extracts embedIds via bracket-with-dot fromPath (canonical _embedded shape)', async () => {
+    it('extracts referencedIds via bracket-with-dot referencedIdPath (canonical _embedded shape)', async () => {
       // Canonical HAL-style embed path: `$._embedded['pms.Asset'].id`. Verifies
       // the join-source FK extraction handles a bracket member whose key
       // contains a literal dot — the on-the-wire shape mirrors what
@@ -1184,7 +1287,9 @@ describe('QueryManager', () => {
           {
             name: 'projects-with-hal-embeds',
             primarySource: 'projects',
-            joinSources: [{ collection: 'assets', fromPath: "$._embedded['pms.Asset'].id" }],
+            joinSources: [
+              { collection: 'assets', referencedIdPath: "$._embedded['pms.Asset'].id" },
+            ],
             cacheKeys: () => [
               { kind: 'scope' as const, scopeType: 'projects' },
               { kind: 'scope' as const, scopeType: 'assets' },

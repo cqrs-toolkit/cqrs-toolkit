@@ -122,12 +122,13 @@ export class WorkerOrchestrator<
       if (!probeResult.ok) {
         throw probeResult.error
       }
-      db = await loadAndOpenDb({ dbName, vfs })
+      db = await loadAndOpenDb({ dbName, vfs, collations: config.collations })
     }
 
     const storage = new SQLiteStorage<TLink, TCommand>({
       db,
       migrations: config.storage.migrations,
+      collations: config.collations,
     })
     await storage.initialize()
     this.storage = storage

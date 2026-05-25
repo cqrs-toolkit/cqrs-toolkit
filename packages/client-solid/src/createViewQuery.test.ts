@@ -14,7 +14,7 @@ import type {
 import { ServiceLink } from '@meticoeus/ddd-es'
 import { Observable, Subject } from 'rxjs'
 import { createComponent, createRoot, createSignal } from 'solid-js'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { CqrsContext } from './context.js'
 import { createViewQuery } from './createViewQuery.js'
 
@@ -33,12 +33,16 @@ interface MockViewBundle {
   push(result: PagedViewResult<ServiceLink, ProjectRow>): void
   pushError(err: unknown): void
   subscriptionCount(): number
+  holdSpy: ReturnType<typeof vi.fn<IQueryManager<ServiceLink>['hold']>>
+  releaseSpy: ReturnType<typeof vi.fn<IQueryManager<ServiceLink>['release']>>
 }
 
 function createMockViewQueryManager(): MockViewBundle {
   // Each subscription gets its own subject (mirrors per-subscription state
   // in the real watchView).
   const subjects: Subject<PagedViewResult<ServiceLink, ProjectRow>>[] = []
+  const holdSpy = vi.fn<IQueryManager<ServiceLink>['hold']>().mockResolvedValue(undefined)
+  const releaseSpy = vi.fn<IQueryManager<ServiceLink>['release']>().mockResolvedValue(undefined)
   const qm: IQueryManager<ServiceLink> = {
     async list() {
       throw new Error('Not used in view tests')
@@ -86,8 +90,8 @@ function createMockViewQueryManager(): MockViewBundle {
       return 0
     },
     async touch() {},
-    async hold() {},
-    async release() {},
+    hold: holdSpy,
+    release: releaseSpy,
     async releaseAll() {},
     async destroy() {},
   }
@@ -106,6 +110,8 @@ function createMockViewQueryManager(): MockViewBundle {
     subscriptionCount() {
       return subjects.length
     },
+    holdSpy,
+    releaseSpy,
   }
 }
 
@@ -306,6 +312,124 @@ describe('createViewQuery', () => {
       dispose()
       await tick()
       expect(bundle.subscriptionCount()).toBe(0)
+    })
+  })
+
+  it('holds every resolved cache key on first emission', async () => {
+    const bundle = createMockViewQueryManager()
+    await withContext(createMockClient(bundle.qm), async (dispose) => {
+      createViewQuery<ServiceLink, ProjectRow, { workspaceId: string }>({
+        view: 'projects-in-workspace',
+        params: { workspaceId: 'w1' },
+      })
+
+      bundle.push({
+        data: [{ id: 'p1', workspaceId: 'w1', title: 'Alpha' }],
+        cacheKeys: [scopeKey('ck-a'), scopeKey('ck-b')],
+      })
+      await tick()
+
+      expect(bundle.holdSpy).toHaveBeenCalledTimes(2)
+      expect(bundle.holdSpy).toHaveBeenCalledWith('ck-a')
+      expect(bundle.holdSpy).toHaveBeenCalledWith('ck-b')
+      expect(bundle.releaseSpy).not.toHaveBeenCalled()
+
+      dispose()
+    })
+  })
+
+  it('releases every held key on dispose', async () => {
+    const bundle = createMockViewQueryManager()
+    await withContext(createMockClient(bundle.qm), async (dispose) => {
+      createViewQuery<ServiceLink, ProjectRow, { workspaceId: string }>({
+        view: 'projects-in-workspace',
+        params: { workspaceId: 'w1' },
+      })
+
+      bundle.push({
+        data: [{ id: 'p1', workspaceId: 'w1', title: 'Alpha' }],
+        cacheKeys: [scopeKey('ck-a'), scopeKey('ck-b')],
+      })
+      await tick()
+      bundle.releaseSpy.mockClear()
+
+      dispose()
+      await tick()
+
+      expect(bundle.releaseSpy).toHaveBeenCalledTimes(2)
+      expect(bundle.releaseSpy).toHaveBeenCalledWith('ck-a')
+      expect(bundle.releaseSpy).toHaveBeenCalledWith('ck-b')
+    })
+  })
+
+  it('skips hold and release for the overlap when the resolved set is unchanged', async () => {
+    const bundle = createMockViewQueryManager()
+    const [workspaceId, setWorkspaceId] = createSignal('w1')
+
+    await withContext(createMockClient(bundle.qm), async (dispose) => {
+      createViewQuery<ServiceLink, ProjectRow, { workspaceId: string }>({
+        view: 'projects-in-workspace',
+        params: () => ({ workspaceId: workspaceId() }),
+      })
+
+      bundle.push({
+        data: [{ id: 'p1', workspaceId: 'w1', title: 'Alpha' }],
+        cacheKeys: [scopeKey('ck-a'), scopeKey('ck-b')],
+      })
+      await tick()
+
+      bundle.holdSpy.mockClear()
+      bundle.releaseSpy.mockClear()
+
+      // Force a watchView resubscribe by flipping the params signal, then
+      // emit the *same* cache-key set against the fresh subscription.
+      setWorkspaceId('w2')
+      await tick()
+      bundle.push({
+        data: [{ id: 'p2', workspaceId: 'w2', title: 'Beta' }],
+        cacheKeys: [scopeKey('ck-a'), scopeKey('ck-b')],
+      })
+      await tick()
+
+      // Same resolved set across the subscription boundary — holds persist
+      // untouched, no churn.
+      expect(bundle.holdSpy).not.toHaveBeenCalled()
+      expect(bundle.releaseSpy).not.toHaveBeenCalled()
+
+      dispose()
+    })
+  })
+
+  it('releases only the keys that left the resolved set on a partial overlap', async () => {
+    const bundle = createMockViewQueryManager()
+    await withContext(createMockClient(bundle.qm), async (dispose) => {
+      createViewQuery<ServiceLink, ProjectRow, { workspaceId: string }>({
+        view: 'projects-in-workspace',
+        params: { workspaceId: 'w1' },
+      })
+
+      // Initial set: {ck-a, ck-b}
+      bundle.push({
+        data: [{ id: 'p1', workspaceId: 'w1', title: 'Alpha' }],
+        cacheKeys: [scopeKey('ck-a'), scopeKey('ck-b')],
+      })
+      await tick()
+      bundle.holdSpy.mockClear()
+      bundle.releaseSpy.mockClear()
+
+      // Next emission: {ck-b, ck-c} — drop ck-a, add ck-c, keep ck-b.
+      bundle.push({
+        data: [{ id: 'p1', workspaceId: 'w1', title: 'Alpha' }],
+        cacheKeys: [scopeKey('ck-b'), scopeKey('ck-c')],
+      })
+      await tick()
+
+      expect(bundle.releaseSpy).toHaveBeenCalledTimes(1)
+      expect(bundle.releaseSpy).toHaveBeenCalledWith('ck-a')
+      expect(bundle.holdSpy).toHaveBeenCalledTimes(1)
+      expect(bundle.holdSpy).toHaveBeenCalledWith('ck-c')
+
+      dispose()
     })
   })
 })

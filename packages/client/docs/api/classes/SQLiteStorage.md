@@ -153,9 +153,13 @@ Close the storage backend and release resources.
 
 ### countReadModels()
 
-> **countReadModels**(`collection`, `cacheKey?`): `Promise`\<`number`\>
+> **countReadModels**(`collection`, `cacheKey?`, `filter?`): `Promise`\<`number`\>
 
-Count read model records in a collection, optionally filtered by cache key.
+Count read model records in a collection, optionally filtered by
+cache key and a user fragment. When a IStorageListFilter
+is supplied, both the cache-key clause and the user fragment are
+applied; the returned count reflects the filtered subset so list
+totals stay coherent with the page result.
 
 #### Parameters
 
@@ -166,6 +170,10 @@ Count read model records in a collection, optionally filtered by cache key.
 ##### cacheKey?
 
 `string`
+
+##### filter?
+
+`IStorageListFilter`
 
 #### Returns
 

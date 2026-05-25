@@ -73,20 +73,50 @@ interface ParentPort {
 }
 
 /**
+ * Options for {@link startElectronWorker}.
+ *
+ * Electron uses better-sqlite3, which does not expose
+ * `sqlite3_create_collation_v2` (neither does `node:sqlite` at the time of
+ * writing). A shared CQRS config that declares custom collations therefore
+ * needs an explicit policy for the Electron variant — fail loud, or accept
+ * BINARY ordering on the affected columns.
+ */
+export interface StartElectronWorkerOptions {
+  /**
+   * Policy for managed columns referencing a non-built-in collation.
+   *
+   * - `'error'` (default): construction throws with a descriptive error.
+   *   Suitable when the same config is meant to run only in environments
+   *   that support custom collations.
+   * - `'degrade'`: emit DDL with the `COLLATE <name>` clause stripped for
+   *   non-built-in collations. SQL ordering on those columns falls back
+   *   to `BINARY`; opt-in trade-off so a shared config can boot here too.
+   *
+   * Built-in collations (`BINARY`, `NOCASE`, `RTRIM`) are unaffected.
+   */
+  unsupportedCollations?: 'error' | 'degrade'
+}
+
+/**
  * Bootstrap an Electron utility process with CQRS orchestration.
  *
  * Listens on `process.parentPort` for the init message from the main
  * process bridge, then creates the full component stack.
  *
  * @param config - Shared CQRS config (same object the renderer uses)
+ * @param options - Backend-specific opt-ins (see {@link StartElectronWorkerOptions})
  */
 export function startElectronWorker<
   TLink extends Link,
   TCommand extends EnqueueCommand,
   TSchema,
   TEvent extends IAnticipatedEvent,
->(config: CqrsConfig<TLink, TCommand, TSchema, TEvent>): void {
+>(
+  config: CqrsConfig<TLink, TCommand, TSchema, TEvent>,
+  options: StartElectronWorkerOptions = {},
+): void {
   const resolved = resolveConfig(config)
+  const unsupportedCollations = options.unsupportedCollations ?? 'error'
   const parentPort = (process as unknown as { parentPort: ParentPort }).parentPort
 
   parentPort.on('message', (event) => {
@@ -99,9 +129,11 @@ export function startElectronWorker<
       return
     }
 
-    bootstrapWorker(resolved, port, data as unknown as InitMessage).catch((err) => {
-      logProvider.log.error({ err }, 'Failed to initialize Electron CQRS worker')
-    })
+    bootstrapWorker(resolved, port, data as unknown as InitMessage, unsupportedCollations).catch(
+      (err) => {
+        logProvider.log.error({ err }, 'Failed to initialize Electron CQRS worker')
+      },
+    )
   })
 }
 
@@ -114,6 +146,7 @@ async function bootstrapWorker<
   config: ResolvedConfig<TLink, TCommand, TSchema, TEvent>,
   port: ElectronMessagePort,
   init: InitMessage,
+  unsupportedCollations: 'error' | 'degrade',
 ): Promise<void> {
   const messageHandler = new protocol.WorkerMessageHandler({
     responseTarget: port,
@@ -125,10 +158,21 @@ async function bootstrapWorker<
   // Register lifecycle RPCs — initialize builds all components, close tears them down
   messageHandler.registerMethod('orchestrator.initialize', async () => {
     // 1. Database + storage
+    //
+    // better-sqlite3 doesn't expose sqlite3_create_collation_v2 through
+    // its JS API (neither does node:sqlite at the time of writing), so any
+    // managed column declaring a non-built-in COLLATE either fails loud
+    // here ('error') or has its COLLATE clause stripped from the emitted
+    // DDL ('degrade'). The default is 'error' so a config-environment
+    // mismatch is obvious; the consumer opts into 'degrade' explicitly
+    // when they want one shared config to boot in Electron too.
     const db = new BetterSqliteDb(init.dbPath)
     const storage = new SQLiteStorage<TLink, TCommand>({
       db,
       migrations: config.storage.migrations,
+      collations: config.collations,
+      unsupportedCollations,
+      backendLabel: 'better-sqlite3',
     })
     await storage.initialize()
 

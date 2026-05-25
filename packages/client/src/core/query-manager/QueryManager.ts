@@ -7,11 +7,13 @@
 
 import { assert } from '#utils'
 import { type Link, logProvider } from '@meticoeus/ddd-es'
-import type { Observable } from 'rxjs'
 import {
-  Observable as RxObservable,
+  BehaviorSubject,
+  EMPTY,
+  Observable,
   Subject,
   catchError,
+  defer,
   distinctUntilChanged,
   filter,
   from,
@@ -21,7 +23,10 @@ import {
   startWith,
   switchMap,
   takeUntil,
+  tap,
+  throwError,
 } from 'rxjs'
+import type { IStorageListFilter, ReadModelRecord } from '../../storage/IStorage.js'
 import type { Collection } from '../../types/config.js'
 import type { EntityId } from '../../types/entities.js'
 import { entityIdToString } from '../../types/entities.js'
@@ -38,10 +43,13 @@ import type {
   GetByIdsParams,
   GetViewParams,
   IQueryManagerInternal,
+  ListFilter,
   ListParams,
   ListQueryResult,
   PagedViewResult,
+  PreEvaluatedListFilter,
   QueryResult,
+  Sort,
 } from './types.js'
 
 // Re-export types for backwards compatibility
@@ -100,6 +108,42 @@ export class QueryManager<
    */
   private collectionListTotal(name: string): boolean {
     return this.collectionsByName.get(name)?.list?.total === true
+  }
+
+  /**
+   * Resolve the effective sort for a list call: the per-call override
+   * if set, otherwise the collection's `list.defaultSort`, otherwise
+   * undefined (storage natural order).
+   */
+  private resolveSort(name: string, override: Sort | undefined): Sort | undefined {
+    if (override !== undefined) return override
+    return this.collectionsByName.get(name)?.list?.defaultSort
+  }
+
+  /**
+   * Resolve a {@link ListFilter} or {@link PreEvaluatedListFilter} into
+   * the storage-shape filter the read-model store consumes. The user's
+   * `memory(row, params)` is wrapped to operate on `ReadModelRecord`
+   * (parse effectiveData once per row); the user's `sql(params)` is
+   * invoked exactly once and the result captured as the SQL fragment.
+   *
+   * On the worker side, the proxy has already substituted the SQL
+   * callback for a pre-evaluated fragment; we pass it through.
+   */
+  private resolveListFilter(
+    filter: ListFilter | PreEvaluatedListFilter | undefined,
+  ): IStorageListFilter | undefined {
+    if (filter === undefined) return undefined
+    if ('sqlFragment' in filter) return { sqlFragment: filter.sqlFragment }
+    const userFilter = filter
+    const predicate = (record: ReadModelRecord): boolean => {
+      const data = JSON.parse(record.effectiveData) as unknown
+      return userFilter.memory(data, userFilter.params)
+    }
+    return {
+      predicate,
+      sqlFragment: userFilter.sql(userFilter.params),
+    }
   }
 
   /**
@@ -179,15 +223,22 @@ export class QueryManager<
       windowId: params.windowId,
     })
 
+    const storageFilter = this.resolveListFilter(params.filter)
+    const sort = this.resolveSort(params.collection, params.sort)
+
     const models = await this.readModelStore.list<T>(params.collection, {
       limit: params.limit,
       offset: params.offset,
-      sort: params.sort,
+      sort,
       cacheKey: cacheKeyIdentity.key,
+      filter: storageFilter,
     })
 
+    // Total respects the same filter as the page result — list UIs that
+    // show "showing X of Y" need the filtered count, not the raw cache-
+    // key-scoped count.
     const total = this.collectionListTotal(params.collection)
-      ? await this.readModelStore.count(params.collection, cacheKeyIdentity.key)
+      ? await this.readModelStore.count(params.collection, cacheKeyIdentity.key, storageFilter)
       : undefined
 
     return {
@@ -216,9 +267,9 @@ export class QueryManager<
       filter((e) => e.data.collection === collection),
       map((e): CollectionSignal => {
         // Flatten the per-op buckets back into a single `ids` array for the
-        // coarse signal. Consumers that need op-kind discrimination read
-        // `readmodel:updated` directly; `watchCollection` is the legacy
-        // "something changed in this collection, re-fetch" pathway.
+        // coarse "something changed in this collection, re-fetch" signal.
+        // Consumers that need op-kind discrimination subscribe to
+        // `readmodel:updated` directly.
         const ids: string[] = []
         if (e.data.created) ids.push(...e.data.created)
         if (e.data.updated) ids.push(...e.data.updated)
@@ -234,9 +285,8 @@ export class QueryManager<
       filter((e) => e.data.collection === collection),
       map((e): CollectionSignal => ({ type: 'sync-failed', error: e.data.error })),
     )
-    // Session-reset projection — replaces the previously synthesized
-    // empty-ids `readmodel:updated` that SyncManager fired after session
-    // wipe. Collection name is constant; the signal is per-watch.
+    // Project session destruction as a session-reset signal so subscribers
+    // can clear per-collection state without a separate session subscription.
     const sessionReset$ = this.eventBus
       .on('session:destroyed')
       .pipe(map((): CollectionSignal => ({ type: 'session-reset' })))
@@ -303,9 +353,13 @@ export class QueryManager<
       throw new Error(`Unknown view: '${params.view}'`)
     }
 
-    // Resolve declared cache keys to identities. V1: assume ambient — touch
-    // (lastAccessedAt) but do not hold. The consumer's UI is responsible for
-    // having acquired and held these keys before getView is called.
+    // Resolve declared cache keys to identities. `getView` is a one-shot
+    // pull and is hold-agnostic — touch (lastAccessedAt) so any
+    // pre-existing holds don't age out, but don't pin anything ourselves.
+    // The subscription-style entry point (createViewQuery → watchView)
+    // holds the resulting identities for the subscription's lifetime;
+    // consumers calling `getView` directly own whatever lifecycle they want
+    // around the read.
     const templates = view.cacheKeys(params.params)
     const identities: CacheKeyIdentity<TLink>[] = []
     for (const template of templates as readonly CacheKeyTemplate<TLink>[]) {
@@ -338,110 +392,128 @@ export class QueryManager<
    * you unsubscribe.
    */
   watchList<T>(params: ListParams<TLink>): Observable<ListQueryResult<TLink, T>> {
-    return new RxObservable<ListQueryResult<TLink, T>>((subscriber) => {
+    return defer(() => {
       const liveTotal = this.collectionListTotal(params.collection)
-      let cancelled = false
-      let dataVersion = 0
-      let countVersion = 0
-      let pageIds: string[] = []
-      let resolvedCacheKey: string | undefined
-      let lastResult: ListQueryResult<TLink, T> | undefined
+      // Resolve the user filter once per subscription. The SQL fragment
+      // and the wrapped predicate are reused across data and count
+      // re-fetches so the user's `sql` callback isn't invoked twice per
+      // re-fetch and the predicate closure is shared.
+      const storageFilter = this.resolveListFilter(params.filter)
 
-      // Full data re-fetch — runs `list()`, which already returns total
-      // when the collection opts into it. Updates pageIds and resolvedCacheKey.
-      const runData = async (): Promise<void> => {
-        const myVersion = ++dataVersion
-        try {
-          const result = await this.list<T>(params)
-          if (cancelled || myVersion !== dataVersion) return
-          resolvedCacheKey = result.cacheKey.key
-          pageIds = result.meta.map((m) => m.id)
-          lastResult = result
-          subscriber.next(result)
-        } catch (err) {
-          if (!cancelled && myVersion === dataVersion) subscriber.error(err)
-        }
+      interface ListState {
+        pageIds: string[]
+        resolvedCacheKey: string | undefined
+        lastResult: ListQueryResult<TLink, T> | undefined
       }
 
-      // Count-only re-fetch — re-runs the count primitive and emits the
-      // previous data with the new total. Only meaningful when the
-      // collection opts into live totals.
-      const runCount = async (): Promise<void> => {
-        if (!liveTotal) return
-        if (resolvedCacheKey === undefined || lastResult === undefined) return
-        const myVersion = ++countVersion
-        try {
-          const total = await this.readModelStore.count(params.collection, resolvedCacheKey)
-          if (cancelled || myVersion !== countVersion) return
-          const next: ListQueryResult<TLink, T> = { ...lastResult, total }
-          lastResult = next
-          subscriber.next(next)
-        } catch (err) {
-          if (!cancelled && myVersion === countVersion) subscriber.error(err)
-        }
-      }
-
-      void runData()
-
-      const updatedSub = this.eventBus.on('readmodel:updated').subscribe((event) => {
-        if (cancelled) return
-        if (event.data.collection !== params.collection) return
-        if (resolvedCacheKey === undefined) return
-
-        // Data re-fetch — fires when any event id is currently on the page.
-        // Cache-key attribution doesn't matter: the row IS what's rendered.
-        const hitsTracked =
-          eventIdInSet(event.data.created, pageIds) ||
-          eventIdInSet(event.data.updated, pageIds) ||
-          eventIdInSet(event.data.deleted, pageIds)
-        if (hitsTracked) {
-          void runData()
-          return
-        }
-
-        // Count-only re-fetch — fires when the event touches the watched
-        // cache key with a create or delete (the only ops that can move the
-        // count) and the collection opts into live totals. Pure updates and
-        // events in unwatched keys are dropped without a re-fetch.
-        if (!liveTotal) return
-        const hasCreateOrDelete =
-          (event.data.created?.length ?? 0) > 0 || (event.data.deleted?.length ?? 0) > 0
-        if (!hasCreateOrDelete) return
-        if (!event.data.cacheKeys.includes(resolvedCacheKey)) return
-        void runCount()
+      const emptyState = (): ListState => ({
+        pageIds: [],
+        resolvedCacheKey: undefined,
+        lastResult: undefined,
       })
 
-      const seedSub = this.eventBus.on('sync:seed-completed').subscribe((event) => {
-        if (cancelled) return
-        if (event.data.collection !== params.collection) return
-        void runData()
+      // Per-subscription state. switchMap below handles in-flight cancellation;
+      // this subject only carries post-result state the event gates consult.
+      const state$ = new BehaviorSubject<ListState>(emptyState())
+
+      const deriveState = (result: ListQueryResult<TLink, T>): ListState => ({
+        pageIds: result.meta.map((m) => m.id),
+        resolvedCacheKey: result.cacheKey.key,
+        lastResult: result,
       })
 
-      const sessionSub = this.eventBus.on('session:destroyed').subscribe(() => {
-        if (cancelled) return
-        pageIds = []
-        resolvedCacheKey = undefined
-        lastResult = undefined
-        void runData()
-      })
+      type Trigger = 'data' | 'count'
 
-      const evictedSub = this.eventBus.on('cache:evicted').subscribe((event) => {
-        if (cancelled) return
-        if (resolvedCacheKey === undefined) return
-        if (event.data.cacheKey.key !== resolvedCacheKey) return
-        pageIds = []
-        lastResult = undefined
-        void runData()
-      })
+      const initial$ = of<Trigger>('data')
 
-      return () => {
-        cancelled = true
-        updatedSub.unsubscribe()
-        seedSub.unsubscribe()
-        sessionSub.unsubscribe()
-        evictedSub.unsubscribe()
-      }
-    }).pipe(takeUntil(this.destroy$))
+      const seed$ = this.eventBus.on('sync:seed-completed').pipe(
+        filter((event) => event.data.collection === params.collection),
+        map<unknown, Trigger>(() => 'data'),
+      )
+
+      // session:destroyed fires for any collection — unconditional reset.
+      const session$ = this.eventBus.on('session:destroyed').pipe(
+        tap(() => state$.next(emptyState())),
+        map<unknown, Trigger>(() => 'data'),
+      )
+
+      // cache:evicted preserves resolvedCacheKey; the next data fetch
+      // repopulates it. Events arriving in the interim still match the
+      // resolved key.
+      const evicted$ = this.eventBus.on('cache:evicted').pipe(
+        filter((event) => {
+          const s = state$.value
+          if (s.resolvedCacheKey === undefined) return false
+          return event.data.cacheKey.key === s.resolvedCacheKey
+        }),
+        tap(() => {
+          const s = state$.value
+          state$.next({
+            pageIds: [],
+            resolvedCacheKey: s.resolvedCacheKey,
+            lastResult: undefined,
+          })
+        }),
+        map<unknown, Trigger>(() => 'data'),
+      )
+
+      const updated$ = this.eventBus.on('readmodel:updated').pipe(
+        filter((event) => event.data.collection === params.collection),
+        map((event): Trigger | undefined => {
+          const s = state$.value
+          if (s.resolvedCacheKey === undefined) return undefined
+
+          // Data re-fetch — any event id is currently on the page.
+          // Cache-key attribution doesn't matter: the row IS what's rendered.
+          if (
+            eventIdInSet(event.data.created, s.pageIds) ||
+            eventIdInSet(event.data.updated, s.pageIds) ||
+            eventIdInSet(event.data.deleted, s.pageIds)
+          ) {
+            return 'data'
+          }
+
+          // Count-only re-fetch — event touches the watched cache key with
+          // a create or delete (the only ops that can move the count) and
+          // the collection opts into live totals.
+          if (!liveTotal) return undefined
+          const hasCreateOrDelete =
+            (event.data.created?.length ?? 0) > 0 || (event.data.deleted?.length ?? 0) > 0
+          if (!hasCreateOrDelete) return undefined
+          if (!event.data.cacheKeys.includes(s.resolvedCacheKey)) return undefined
+          return 'count'
+        }),
+        filter((t): t is Trigger => t !== undefined),
+      )
+
+      return merge(initial$, seed$, session$, evicted$, updated$).pipe(
+        switchMap((trigger) => {
+          if (trigger === 'count') {
+            const cacheKey = state$.value.resolvedCacheKey
+            if (!liveTotal || cacheKey === undefined || state$.value.lastResult === undefined) {
+              return EMPTY
+            }
+            return from(this.readModelStore.count(params.collection, cacheKey, storageFilter)).pipe(
+              map((total): ListQueryResult<TLink, T> | undefined => {
+                const last = state$.value.lastResult
+                if (last === undefined) return undefined
+                return { ...last, total }
+              }),
+              filter((r): r is ListQueryResult<TLink, T> => r !== undefined),
+              tap((next) => {
+                state$.next({ ...state$.value, lastResult: next })
+              }),
+            )
+          }
+          return from(this.list<T>(params)).pipe(
+            tap((result) => {
+              state$.next(deriveState(result))
+            }),
+          )
+        }),
+        takeUntil(this.destroy$),
+      )
+    })
   }
 
   /**
@@ -453,8 +525,8 @@ export class QueryManager<
    *
    * - `watchedCacheKeys` — resolved key set from `view.cacheKeys(params)`.
    * - `pageIds` — primary-source ids; read from each emitted row's `id`.
-   * - `embedIds[collection]` — FK values extracted from each row via the
-   *   corresponding `joinSources[i].fromPath`, used for join-source row
+   * - `referencedIds[collection]` — FK values extracted from each row via the
+   *   corresponding `joinSources[i].referencedIdPath`, used for join-source row
    *   updates.
    *
    * The view registration must be configured at construction time; throws
@@ -464,19 +536,18 @@ export class QueryManager<
   watchView<T, TParams = unknown>(
     params: GetViewParams<TParams>,
   ): Observable<PagedViewResult<TLink, T>> {
-    return new RxObservable<PagedViewResult<TLink, T>>((subscriber) => {
+    return defer(() => {
       if (!this.viewExecutor) {
-        subscriber.error(
-          new Error(
-            `watchView('${params.view}') called but no views are registered. Add a 'views' array to CqrsConfig.`,
-          ),
+        return throwError(
+          () =>
+            new Error(
+              `watchView('${params.view}') called but no views are registered. Add a 'views' array to CqrsConfig.`,
+            ),
         )
-        return
       }
       const view = this.viewExecutor.get(params.view)
       if (!view) {
-        subscriber.error(new Error(`Unknown view: '${params.view}'`))
-        return
+        return throwError(() => new Error(`Unknown view: '${params.view}'`))
       }
 
       const primarySource = view.primarySource
@@ -488,129 +559,170 @@ export class QueryManager<
       const hasCount =
         typeof view.memoryCount === 'function' || typeof view.sql?.count === 'function'
 
-      let cancelled = false
-      let dataVersion = 0
-      let countVersion = 0
-      let pageIds: string[] = []
-      let embedIds: Map<string, Set<string>> = new Map()
-      let watchedCacheKeys: Set<string> = new Set()
-      let lastResult: PagedViewResult<TLink, T> | undefined
+      interface ViewState {
+        pageIds: string[]
+        referencedIds: Map<string, Set<string>>
+        referencingIds: Map<string, Set<string>>
+        watchedCacheKeys: Set<string>
+        lastResult: PagedViewResult<TLink, T> | undefined
+      }
 
-      // Full data re-fetch via `getView`. Captures fresh pageIds, embedIds,
-      // watchedCacheKeys, and total (when the view supplies count callbacks).
-      const runData = async (): Promise<void> => {
-        const myVersion = ++dataVersion
-        try {
-          const result = await this.getView<T, TParams>(params)
-          if (cancelled || myVersion !== dataVersion) return
+      const emptyState = (): ViewState => ({
+        pageIds: [],
+        referencedIds: new Map(),
+        referencingIds: new Map(),
+        watchedCacheKeys: new Set(),
+        lastResult: undefined,
+      })
 
-          watchedCacheKeys = new Set(result.cacheKeys.map((k) => k.key))
-          pageIds = []
+      // Per-subscription state. switchMap below handles in-flight cancellation,
+      // so no version counters; this subject only carries the post-result state
+      // the event gates consult to decide whether to refetch.
+      const state$ = new BehaviorSubject<ViewState>(emptyState())
+
+      const deriveState = (result: PagedViewResult<TLink, T>): ViewState => {
+        const pageIds: string[] = []
+        for (const row of result.data) {
+          const id = (row as { id?: unknown }).id
+          if (typeof id === 'string') pageIds.push(id)
+        }
+        const referencedIds = new Map<string, Set<string>>()
+        const referencingIds = new Map<string, Set<string>>()
+        for (const join of joinSources) {
+          const referencedSet = new Set<string>()
           for (const row of result.data) {
-            const id = (row as { id?: unknown }).id
-            if (typeof id === 'string') pageIds.push(id)
+            const value = getAtPath(row, join.referencedIdPath)
+            if (typeof value === 'string') referencedSet.add(value)
           }
-          embedIds = new Map()
-          for (const join of joinSources) {
-            const set = new Set<string>()
+          referencedIds.set(join.collection, referencedSet)
+
+          if (join.referencingIdPath) {
+            const referencingSet = new Set<string>()
             for (const row of result.data) {
-              const value = getAtPath(row, join.fromPath)
-              if (typeof value === 'string') set.add(value)
+              const value = getAtPath(row, join.referencingIdPath)
+              if (typeof value === 'string') referencingSet.add(value)
             }
-            embedIds.set(join.collection, set)
+            const existing = referencingIds.get(join.collection)
+            if (existing) {
+              for (const id of referencingSet) existing.add(id)
+            } else {
+              referencingIds.set(join.collection, referencingSet)
+            }
           }
-          lastResult = result
-          subscriber.next(result)
-        } catch (err) {
-          if (!cancelled && myVersion === dataVersion) subscriber.error(err)
+        }
+        return {
+          pageIds,
+          referencedIds,
+          referencingIds,
+          watchedCacheKeys: new Set(result.cacheKeys.map((k) => k.key)),
+          lastResult: result,
         }
       }
 
-      // Count-only re-fetch. Re-executes the view (which runs both data
-      // and count) but only emits the previous data with the new total —
-      // the data may have changed underneath but off-page changes aren't
-      // supposed to shift the visible rows. (A future refinement could run
-      // the count callback in isolation; the executor doesn't expose that
-      // surface yet, so we re-execute and project the total only.)
-      const runCount = async (): Promise<void> => {
-        if (!hasCount || lastResult === undefined) return
-        const myVersion = ++countVersion
-        try {
-          const result = await this.getView<T, TParams>(params)
-          if (cancelled || myVersion !== countVersion) return
-          if (result.total === undefined) return
-          const next: PagedViewResult<TLink, T> = { ...lastResult, total: result.total }
-          lastResult = next
-          subscriber.next(next)
-        } catch (err) {
-          if (!cancelled && myVersion === countVersion) subscriber.error(err)
-        }
-      }
+      type Trigger = 'data' | 'count'
 
-      void runData()
+      const initial$ = of<Trigger>('data')
 
-      const updatedSub = this.eventBus.on('readmodel:updated').subscribe((event) => {
-        if (cancelled) return
-        if (!sourceCollections.has(event.data.collection)) return
+      const seed$ = this.eventBus.on('sync:seed-completed').pipe(
+        filter((event) => sourceCollections.has(event.data.collection)),
+        map<unknown, Trigger>(() => 'data'),
+      )
 
-        // Data re-fetch — any event id in this collection's tracked set.
-        // pageIds for the primary source; embedIds[collection] for joins.
-        const trackedSet =
-          event.data.collection === primarySource
-            ? pageIds
-            : (embedIds.get(event.data.collection) ?? new Set<string>())
-        const hitsTracked =
-          eventIdInSet(event.data.created, trackedSet) ||
-          eventIdInSet(event.data.updated, trackedSet) ||
-          eventIdInSet(event.data.deleted, trackedSet)
-        if (hitsTracked) {
-          void runData()
-          return
-        }
+      // session:destroyed fires for any collection — unconditional reset.
+      const session$ = this.eventBus.on('session:destroyed').pipe(
+        tap(() => state$.next(emptyState())),
+        map<unknown, Trigger>(() => 'data'),
+      )
 
-        // Count-only re-fetch — fires when the event touches a watched
-        // cache key with a create or delete (the only ops that can move
-        // the count) and the view declares a count callback.
-        if (!hasCount) return
-        const hasCreateOrDelete =
-          (event.data.created?.length ?? 0) > 0 || (event.data.deleted?.length ?? 0) > 0
-        if (!hasCreateOrDelete) return
-        if (!event.data.cacheKeys.some((k) => watchedCacheKeys.has(k))) return
-        void runCount()
-      })
+      // cache:evicted preserves watchedCacheKeys (unlike session:destroyed
+      // which clears them). The next data fetch repopulates the set;
+      // events arriving in the interim still match the watched keys.
+      const evicted$ = this.eventBus.on('cache:evicted').pipe(
+        filter((event) => state$.value.watchedCacheKeys.has(event.data.cacheKey.key)),
+        tap(() => {
+          const current = state$.value
+          state$.next({
+            pageIds: [],
+            referencedIds: new Map(),
+            referencingIds: new Map(),
+            watchedCacheKeys: current.watchedCacheKeys,
+            lastResult: undefined,
+          })
+        }),
+        map<unknown, Trigger>(() => 'data'),
+      )
 
-      const seedSub = this.eventBus.on('sync:seed-completed').subscribe((event) => {
-        if (cancelled) return
-        if (!sourceCollections.has(event.data.collection)) return
-        void runData()
-      })
+      const updated$ = this.eventBus.on('readmodel:updated').pipe(
+        filter((event) => sourceCollections.has(event.data.collection)),
+        map((event): Trigger | undefined => {
+          const s = state$.value
 
-      const sessionSub = this.eventBus.on('session:destroyed').subscribe(() => {
-        if (cancelled) return
-        pageIds = []
-        embedIds = new Map()
-        watchedCacheKeys = new Set()
-        lastResult = undefined
-        void runData()
-      })
+          // Data re-fetch — any event id in this collection's tracked set.
+          // pageIds for the primary source; referencedIds[collection] for joins.
+          const trackedSet =
+            event.data.collection === primarySource
+              ? s.pageIds
+              : (s.referencedIds.get(event.data.collection) ?? new Set<string>())
+          if (
+            eventIdInSet(event.data.created, trackedSet) ||
+            eventIdInSet(event.data.updated, trackedSet) ||
+            eventIdInSet(event.data.deleted, trackedSet)
+          ) {
+            return 'data'
+          }
 
-      const evictedSub = this.eventBus.on('cache:evicted').subscribe((event) => {
-        if (cancelled) return
-        if (!watchedCacheKeys.has(event.data.cacheKey.key)) return
-        pageIds = []
-        embedIds = new Map()
-        lastResult = undefined
-        void runData()
-      })
+          // Missing-join re-fetch — fires when a join collection produces a
+          // create/update for an id the projection wanted to join on but
+          // didn't have at last run (declared via joinSources[].referencingIdPath).
+          if (event.data.collection !== primarySource) {
+            const referencingSet = s.referencingIds.get(event.data.collection)
+            if (referencingSet && referencingSet.size > 0) {
+              if (
+                eventIdInSet(event.data.created, referencingSet) ||
+                eventIdInSet(event.data.updated, referencingSet)
+              ) {
+                return 'data'
+              }
+            }
+          }
 
-      return () => {
-        cancelled = true
-        updatedSub.unsubscribe()
-        seedSub.unsubscribe()
-        sessionSub.unsubscribe()
-        evictedSub.unsubscribe()
-      }
-    }).pipe(takeUntil(this.destroy$))
+          // Count-only re-fetch — fires when the event touches a watched
+          // cache key with a create or delete (the only ops that can move
+          // the count) and the view declares a count callback.
+          if (!hasCount) return undefined
+          const hasCreateOrDelete =
+            (event.data.created?.length ?? 0) > 0 || (event.data.deleted?.length ?? 0) > 0
+          if (!hasCreateOrDelete) return undefined
+          if (!event.data.cacheKeys.some((k) => s.watchedCacheKeys.has(k))) return undefined
+          return 'count'
+        }),
+        filter((t): t is Trigger => t !== undefined),
+      )
+
+      return merge(initial$, seed$, session$, evicted$, updated$).pipe(
+        switchMap((trigger) =>
+          from(this.getView<T, TParams>(params)).pipe(
+            map((result): PagedViewResult<TLink, T> | undefined => {
+              if (trigger === 'count') {
+                const last = state$.value.lastResult
+                if (last === undefined || result.total === undefined) return undefined
+                return { ...last, total: result.total }
+              }
+              return result
+            }),
+            filter((r): r is PagedViewResult<TLink, T> => r !== undefined),
+            tap((emission) => {
+              if (trigger === 'count') {
+                state$.next({ ...state$.value, lastResult: emission })
+              } else {
+                state$.next(deriveState(emission))
+              }
+            }),
+          ),
+        ),
+        takeUntil(this.destroy$),
+      )
+    })
   }
 
   /**

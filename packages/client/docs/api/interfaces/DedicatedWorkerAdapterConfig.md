@@ -4,11 +4,28 @@
 
 [@cqrs-toolkit/client](../globals.md) / DedicatedWorkerAdapterConfig
 
-# Interface: DedicatedWorkerAdapterConfig
+# Interface: DedicatedWorkerAdapterConfig\<TLink\>
 
 Configuration for DedicatedWorkerAdapter.
 
+## Type Parameters
+
+### TLink
+
+`TLink` _extends_ `Link`
+
 ## Properties
+
+### collections?
+
+> `optional` **collections**: readonly [`Collection`](Collection.md)\<`TLink`\>[]
+
+Collection registrations passed to the main-thread
+QueryManagerProxy so `watchList` can resolve per-collection
+settings (e.g. `list.total`) locally without an RPC round-trip on every
+subscription.
+
+---
 
 ### debug?
 
@@ -28,6 +45,17 @@ and toggled via the `debug.enable` RPC. Defaults to `false`.
 > `optional` **requestTimeout**: `number`
 
 Request timeout in milliseconds (default: 30000)
+
+---
+
+### views?
+
+> `optional` **views**: readonly [`AnyViewRegistration`](../type-aliases/AnyViewRegistration.md)\<`TLink`\>[]
+
+View registrations passed to the main-thread QueryManagerProxy
+so `watchView` has metadata (primary / join sources) for its local
+gate logic. The worker has its own copy via [CqrsConfig.views](CqrsConfig.md#views)
+for SQL execution; this is the main-thread mirror.
 
 ---
 

@@ -143,11 +143,11 @@ Current adapter status.
 
 #### Get Signature
 
-> **get** **storage**(): [`IStorage`](../interfaces/IStorage.md)\<`TLink`, `TCommand`\>
+> **get** **storage**(): `IWindowStorage`\<`TLink`, `TCommand`\>
 
 ##### Returns
 
-[`IStorage`](../interfaces/IStorage.md)\<`TLink`, `TCommand`\>
+`IWindowStorage`\<`TLink`, `TCommand`\>
 
 #### Implementation of
 

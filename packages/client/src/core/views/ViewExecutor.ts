@@ -125,12 +125,22 @@ export class ViewExecutor<TLink extends Link> {
       }
       for (const join of view.joinSources) {
         try {
-          validatePath(join.fromPath)
+          validatePath(join.referencedIdPath)
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err)
           throw new Error(
-            `Invalid fromPath on view '${view.name}' joinSource for collection '${join.collection}': ${message}`,
+            `Invalid referencedIdPath on view '${view.name}' joinSource for collection '${join.collection}': ${message}`,
           )
+        }
+        if (join.referencingIdPath !== undefined) {
+          try {
+            validatePath(join.referencingIdPath)
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            throw new Error(
+              `Invalid referencingIdPath on view '${view.name}' joinSource for collection '${join.collection}': ${message}`,
+            )
+          }
         }
       }
       // The registration's `TParams` is contravariantly `never`; the

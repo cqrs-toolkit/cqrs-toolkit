@@ -16,6 +16,12 @@ SolidJS reactive primitives for @cqrs-toolkit/client.
 - [ListQueryParams](interfaces/ListQueryParams.md)
 - [ListQueryState](interfaces/ListQueryState.md)
 - [ReconciledId](interfaces/ReconciledId.md)
+- [ViewQueryParams](interfaces/ViewQueryParams.md)
+- [ViewQueryState](interfaces/ViewQueryState.md)
+
+## Type Aliases
+
+- [ViewQueryStatus](type-aliases/ViewQueryStatus.md)
 
 ## Functions
 
@@ -24,4 +30,5 @@ SolidJS reactive primitives for @cqrs-toolkit/client.
 - [createItemQuery](functions/createItemQuery.md)
 - [createListQuery](functions/createListQuery.md)
 - [createScopeCacheKey](functions/createScopeCacheKey.md)
+- [createViewQuery](functions/createViewQuery.md)
 - [useClient](functions/useClient.md)

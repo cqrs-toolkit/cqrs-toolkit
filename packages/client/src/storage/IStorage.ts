@@ -174,14 +174,35 @@ export interface CommandIdMappingRecord {
 /**
  * One sort term in a {@link IStorageQueryOptions.sort} list.
  *
- * V1 scope: `column` refers to a library-owned column on the read-model row
- * (`id`, `updated_at`). Custom-column sort lands once in-memory storage
- * exposes the column ↔ path mapping needed to resolve declared columns
- * back to JSON fields in `_effective_data`.
+ * `column` accepts a library-owned column on the read-model row
+ * (`id`, `updated_at`) or any custom column declared on the collection's
+ * managed-collection definition. SQLite resolves declared custom columns
+ * as VIRTUAL generated columns; the in-memory backend falls back to the
+ * top-level `effectiveData` key with the same name.
  */
 export interface StorageSortTerm {
   column: string
   direction: 'asc' | 'desc'
+}
+
+/**
+ * Storage-level filter passed alongside list options.
+ *
+ * - `predicate` is applied per record by the in-memory backend during
+ *   its single-pass scan. Operates on the raw {@link ReadModelRecord}
+ *   shape; callers (typically {@link ReadModelStore.list}) wrap any
+ *   data-typed user predicate to project effective-data before invoking.
+ *
+ * - `sqlFragment` is the inner WHERE clause for the SQL backend.
+ *   The library composes
+ *   `WHERE <cache-key-clause> AND (<sqlFragment.sql>)`; bindings are
+ *   appended after the cache-key bindings.
+ *
+ * Each backend uses only the half relevant to it and ignores the other.
+ */
+export interface IStorageListFilter {
+  predicate?: (record: ReadModelRecord) => boolean
+  sqlFragment?: { sql: string; bindings: readonly unknown[] }
 }
 
 /**
@@ -196,6 +217,18 @@ export interface IStorageQueryOptions {
    * (undefined — callers must not rely on it).
    */
   sort?: readonly StorageSortTerm[]
+  /**
+   * Restrict the result to rows associated with this cache key. When
+   * present, the storage backend joins its cache-key bookkeeping
+   * (junction in SQL, `cacheKeys` array in memory) and scopes the
+   * WHERE clause accordingly. Unfiltered when omitted.
+   */
+  cacheKey?: string
+  /**
+   * Per-call filter applied after cache-key scoping. See
+   * {@link IStorageListFilter}.
+   */
+  filter?: IStorageListFilter
 }
 
 export interface MigrateReadModelIdParams {
@@ -515,9 +548,17 @@ export interface IStorage<TLink extends Link, TCommand extends EnqueueCommand> {
   getReadModelsByCacheKey(cacheKey: string): Promise<ReadModelRecord[]>
 
   /**
-   * Count read model records in a collection, optionally filtered by cache key.
+   * Count read model records in a collection, optionally filtered by
+   * cache key and a user fragment. When a {@link IStorageListFilter}
+   * is supplied, both the cache-key clause and the user fragment are
+   * applied; the returned count reflects the filtered subset so list
+   * totals stay coherent with the page result.
    */
-  countReadModels(collection: string, cacheKey?: string): Promise<number>
+  countReadModels(
+    collection: string,
+    cacheKey?: string,
+    filter?: IStorageListFilter,
+  ): Promise<number>
 
   /**
    * Batch-fetch read model records for a set of `(collection, id)` pairs.

@@ -14,6 +14,26 @@ Query options for list operations.
 
 ## Properties
 
+### cacheKey?
+
+> `optional` **cacheKey**: `string`
+
+Restrict the result to rows associated with this cache key. When
+present, the storage backend joins its cache-key bookkeeping
+(junction in SQL, `cacheKeys` array in memory) and scopes the
+WHERE clause accordingly. Unfiltered when omitted.
+
+---
+
+### filter?
+
+> `optional` **filter**: `IStorageListFilter`
+
+Per-call filter applied after cache-key scoping. See
+IStorageListFilter.
+
+---
+
 ### limit?
 
 > `optional` **limit**: `number`

@@ -11,11 +11,11 @@ import type { Link } from '@meticoeus/ddd-es'
 import type {
   ClientMetadata,
   IStorage,
+  IStorageListFilter,
   IStorageQueryOptions,
   MigrateReadModelIdParams,
   ReadModelRecord,
 } from '../../storage/IStorage.js'
-import { sortReadModelRecords } from '../../storage/sort-read-models.js'
 import { EnqueueCommand, EntityId, entityIdToString } from '../../types/index.js'
 import type { ICommandIdMappingStore } from '../command-id-mapping-store/ICommandIdMappingStore.js'
 import type { EventBus } from '../events/EventBus.js'
@@ -187,32 +187,26 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
   /**
    * List read models in a collection.
    *
+   * Single path: cache-key scoping, user filter, sort, and pagination all
+   * flow through {@link IStorage.getReadModelsByCollection} so each
+   * backend applies them in its native form (one SQL query, or one
+   * in-memory scan).
+   *
+   * `localChangesOnly` is applied after fetch — it inspects the parsed
+   * record's `hasLocalChanges` flag and isn't worth pushing into storage.
+   *
    * @param collection - Collection name
-   * @param options - Query options
+   * @param options - Query options (cache key, filter, sort, page, etc.)
    * @returns Array of read models
    */
   async list<T>(collection: string, options?: ReadModelQueryOptions): Promise<ReadModel<T>[]> {
-    let records: ReadModelRecord[]
-
-    if (options?.cacheKey) {
-      records = await this.storage.getReadModelsByCacheKey(options.cacheKey)
-      records = records.filter((r) => r.collection === collection)
-      if (options.sort && options.sort.length > 0) {
-        records = sortReadModelRecords(records, options.sort)
-      }
-      if (options.offset !== undefined) {
-        records = records.slice(options.offset)
-      }
-      if (options.limit !== undefined) {
-        records = records.slice(0, options.limit)
-      }
-    } else {
-      records = await this.storage.getReadModelsByCollection(collection, options)
-    }
+    const records: ReadModelRecord[] = await this.storage.getReadModelsByCollection(
+      collection,
+      options,
+    )
 
     let models = records.map((r) => this.recordToReadModel<T>(r))
 
-    // Apply additional filters
     if (options?.localChangesOnly) {
       models = models.filter((m) => m.hasLocalChanges)
     }
@@ -258,11 +252,12 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
   /**
    * Get the count of read models in a collection.
    *
-   * @param collection - Collection name
-   * @returns Count of read models
+   * When a {@link IStorageListFilter} is supplied, the count reflects
+   * the filtered subset (cache-key clause AND user fragment), so list
+   * totals stay coherent with the page result.
    */
-  async count(collection: string, cacheKey?: string): Promise<number> {
-    return this.storage.countReadModels(collection, cacheKey)
+  async count(collection: string, cacheKey?: string, filter?: IStorageListFilter): Promise<number> {
+    return this.storage.countReadModels(collection, cacheKey, filter)
   }
 
   /**

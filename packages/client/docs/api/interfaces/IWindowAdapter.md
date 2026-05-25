@@ -84,7 +84,7 @@ Current adapter status.
 
 ### storage
 
-> `readonly` **storage**: [`IStorage`](IStorage.md)\<`TLink`, `TCommand`\>
+> `readonly` **storage**: `IWindowStorage`\<`TLink`, `TCommand`\>
 
 ## Methods
 

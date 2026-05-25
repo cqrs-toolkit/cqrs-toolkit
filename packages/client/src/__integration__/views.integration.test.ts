@@ -90,7 +90,7 @@ function notebooksWithLatestNoteView(opts?: {
   const view: AnyViewRegistration<ServiceLink> = {
     name: 'notebooks-for-owner',
     primarySource: 'notebooks',
-    joinSources: [{ collection: 'notes', fromPath: "$._embedded['nb.Note'].id" }],
+    joinSources: [{ collection: 'notes', referencedIdPath: "$._embedded['nb.Note'].id" }],
     cacheKeys: () => [
       { kind: 'scope', scopeType: 'notebooks' },
       { kind: 'scope', scopeType: 'notes' },
@@ -394,7 +394,7 @@ describe.each(bootstrapVariants)('$name views', ({ bootstrap }) => {
         const before = emissions.length
 
         // Rename the latest note. The view gate's tracked-id branch matches
-        // n1b in embedIds['notes'] and re-fetches. readModelStore writers
+        // n1b in referencedIds['notes'] and re-fetches. readModelStore writers
         // don't emit events themselves (production emits flow from
         // AnticipatedEventHandler / SyncManager after committing batches);
         // emit explicitly here.

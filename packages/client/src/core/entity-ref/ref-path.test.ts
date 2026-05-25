@@ -56,7 +56,7 @@ describe('getAtPath', () => {
   })
 
   it('reads a dot member chained after a bracket member with a dotted key', () => {
-    // The full canonical join-source `fromPath` for projects-with-assets.
+    // The full canonical join-source `referencedIdPath` for projects-with-assets.
     const data = { _embedded: { 'pms.Asset': { id: 'asset-1', name: 'A' } } }
     expect(getAtPath(data, "$._embedded['pms.Asset'].id")).toBe('asset-1')
   })

@@ -4,7 +4,9 @@
  */
 
 import type { Link } from '@meticoeus/ddd-es'
+import { getAtPath } from '../core/entity-ref/ref-path.js'
 import { CommandFilter, CommandRecord, CommandStatus, EnqueueCommand } from '../types/commands.js'
+import type { CollationConfig, SchemaMigration } from '../types/config.js'
 import { EntityId, entityIdToString } from '../types/index.js'
 import {
   AddCacheKeysToEventEntry,
@@ -13,6 +15,7 @@ import {
   CachedEventRecord,
   CommandIdMappingRecord,
   DeleteReadModelEntry,
+  IStorageListFilter,
   IStorageQueryOptions,
   IWindowStorage,
   MigrateReadModelIdParams,
@@ -20,7 +23,27 @@ import {
   SessionRecord,
   UpdateCommandsEntry,
 } from './IStorage.js'
-import { sortReadModelRecords } from './sort-read-models.js'
+import {
+  type SortColumnResolver,
+  type SortResolverLookup,
+  sortReadModelRecords,
+} from './sort-read-models.js'
+
+/**
+ * Optional configuration for {@link InMemoryStorage}.
+ *
+ * When the consumer declares custom collations on `CqrsConfig` and references
+ * them from a managed collection's `CustomColumn`, supply both pieces here
+ * so JS-side ordering matches what the SQL backend would produce.
+ *
+ * Omitting either field collapses sort ordering to the built-in raw
+ * comparison — fine for tests and demos that don't exercise locale-aware
+ * sort.
+ */
+export interface InMemoryStorageConfig {
+  migrations?: readonly SchemaMigration[]
+  collations?: readonly CollationConfig[]
+}
 
 /**
  * In-memory storage implementation.
@@ -39,6 +62,12 @@ export class InMemoryStorage<
   private commandIdMappingsByServerId: Map<string, CommandIdMappingRecord> = new Map()
 
   private initialized = false
+
+  private readonly resolveColumn: SortResolverLookup | undefined
+
+  constructor(config: InMemoryStorageConfig = {}) {
+    this.resolveColumn = buildSortResolverLookup(config)
+  }
 
   // Lifecycle
 
@@ -457,21 +486,27 @@ export class InMemoryStorage<
     collection: string,
     options?: IStorageQueryOptions,
   ): Promise<ReadModelRecord[]> {
-    let records = Array.from(this.readModels.values()).filter(
-      (record) => record.collection === collection,
-    )
+    const cacheKey = options?.cacheKey
+    const predicate = options?.filter?.predicate
 
-    // Apply composite ordering. V1 supports library-owned columns on
-    // `ReadModelRecord` directly — `id` and `updated_at` are the canonical
-    // sort keys for cursor pagination. Custom-column sort needs the
-    // column ↔ path mapping (deferred); unknown columns fall back to
-    // `_effective_data[column]` for backward compatibility with the
-    // pre-sort `orderBy` behaviour (which assumed top-level JSON keys).
-    if (options?.sort && options.sort.length > 0) {
-      records = sortReadModelRecords(records, options.sort)
+    // Single-pass scan: collection + cache-key scoping + user predicate
+    // applied in one loop, no second iteration over the result set.
+    let records: ReadModelRecord[] = []
+    for (const record of this.readModels.values()) {
+      if (record.collection !== collection) continue
+      if (cacheKey !== undefined && !record.cacheKeys.includes(cacheKey)) continue
+      if (predicate && !predicate(record)) continue
+      records.push(record)
     }
 
-    // Apply pagination
+    // Library-owned columns on `ReadModelRecord` (`id`, `updated_at`,
+    // `_revision`, ...) read directly off the record; any other column
+    // name falls back to a top-level key in the parsed `effectiveData`
+    // JSON — sufficient for shallow declared paths like `$.<field>`.
+    if (options?.sort && options.sort.length > 0) {
+      records = sortReadModelRecords(records, options.sort, this.resolveColumn)
+    }
+
     if (options?.offset !== undefined) {
       records = records.slice(options.offset)
     }
@@ -491,11 +526,17 @@ export class InMemoryStorage<
     return records
   }
 
-  async countReadModels(collection: string, cacheKey?: string): Promise<number> {
+  async countReadModels(
+    collection: string,
+    cacheKey?: string,
+    filter?: IStorageListFilter,
+  ): Promise<number> {
+    const predicate = filter?.predicate
     let count = 0
     for (const record of this.readModels.values()) {
       if (record.collection !== collection) continue
       if (cacheKey && !record.cacheKeys.includes(cacheKey)) continue
+      if (predicate && !predicate(record)) continue
       count++
     }
     return count
@@ -667,4 +708,54 @@ export class InMemoryStorage<
     this.commandIdMappingsByClientId.clear()
     this.commandIdMappingsByServerId.clear()
   }
+}
+
+/**
+ * Build a {@link SortResolverLookup} from declared migrations + collations.
+ *
+ * Walks every managed collection's `columns` and records two pieces of
+ * per-column information that the JS-side sort path can't infer on its own:
+ *
+ * - The column's JSONPath, so `data[column]` (which would miss the actual
+ *   value, since custom columns live at a path like `$.name`) can be
+ *   replaced with a real walk via {@link getAtPath}.
+ * - The column's collation, mapped to its registered comparator, so string
+ *   sort matches the SQL backend's `COLLATE` ordering.
+ *
+ * Returns `undefined` when no managed column declares either a path nor a
+ * registered collation, so callers that don't need custom resolution stay
+ * on the default fast path with no per-call indirection.
+ */
+function buildSortResolverLookup(config: InMemoryStorageConfig): SortResolverLookup | undefined {
+  const { migrations, collations } = config
+  if (!migrations) return undefined
+
+  const comparators = new Map<string, (a: string, b: string) => number>()
+  for (const c of collations ?? []) {
+    comparators.set(c.name.toUpperCase(), c.compare)
+  }
+
+  const resolvers = new Map<string, SortColumnResolver>()
+  for (const migration of migrations) {
+    for (const step of migration.steps) {
+      if (step.type !== 'managed') continue
+      for (const column of step.columns ?? []) {
+        const resolver: SortColumnResolver = {}
+        if (column.path !== undefined) {
+          const path = column.path
+          resolver.readValue = (data) => getAtPath(data, path)
+        }
+        if (column.collation !== undefined) {
+          const comparator = comparators.get(column.collation.toUpperCase())
+          if (comparator !== undefined) resolver.compareStrings = comparator
+        }
+        if (resolver.readValue !== undefined || resolver.compareStrings !== undefined) {
+          resolvers.set(column.name, resolver)
+        }
+      }
+    }
+  }
+
+  if (resolvers.size === 0) return undefined
+  return (column) => resolvers.get(column)
 }

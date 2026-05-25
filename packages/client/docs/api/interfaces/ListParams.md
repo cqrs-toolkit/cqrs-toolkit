@@ -44,6 +44,19 @@ Collection name
 
 ---
 
+### filter?
+
+> `optional` **filter**: [`ListFilter`](ListFilter.md) \| [`PreEvaluatedListFilter`](PreEvaluatedListFilter.md)
+
+Per-call filter. The library ANDs the user fragment onto its own
+cache-key clause; see [ListFilter](ListFilter.md) for the wrapping contract.
+
+`ListFilter` is the form consumers author. `PreEvaluatedListFilter`
+appears on the worker side after the proxy serializes the user
+fragment for transport.
+
+---
+
 ### hold?
 
 > `optional` **hold**: `boolean`
@@ -74,10 +87,11 @@ Offset for pagination
 
 ### sort?
 
-> `optional` **sort**: `Sort`
+> `optional` **sort**: [`Sort`](../type-aliases/Sort.md)
 
-Sort specification. When omitted, results are returned in the storage
-backend's natural order (undefined — do not rely on it).
+Per-call sort override. When omitted, falls back to
+`Collection.list.defaultSort` if set, otherwise the storage backend's
+natural order.
 
 ---
 

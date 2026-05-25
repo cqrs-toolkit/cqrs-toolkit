@@ -6,13 +6,19 @@
 
 # Function: startSqliteWorker()
 
-> **startSqliteWorker**(): `void`
+> **startSqliteWorker**(`options?`): `void`
 
 Bootstrap the SQLite worker.
 
 Listens for probe/routing-port setup messages on self.onmessage,
 and handles SQLite init/exec/close on the routing port (Mode C)
 or directly on self.onmessage (Mode B fallback).
+
+## Parameters
+
+### options?
+
+`StartSqliteWorkerOptions` = `{}`
 
 ## Returns
 

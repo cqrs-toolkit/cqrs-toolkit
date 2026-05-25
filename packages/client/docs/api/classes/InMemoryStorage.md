@@ -21,13 +21,19 @@ Thread-safe within a single JavaScript context.
 
 ## Implements
 
-- [`IStorage`](../interfaces/IStorage.md)\<`TLink`, `TCommand`\>
+- `IWindowStorage`\<`TLink`, `TCommand`\>
 
 ## Constructors
 
 ### Constructor
 
-> **new InMemoryStorage**\<`TLink`, `TCommand`\>(): `InMemoryStorage`\<`TLink`, `TCommand`\>
+> **new InMemoryStorage**\<`TLink`, `TCommand`\>(`config?`): `InMemoryStorage`\<`TLink`, `TCommand`\>
+
+#### Parameters
+
+##### config?
+
+`InMemoryStorageConfig` = `{}`
 
 #### Returns
 
@@ -55,7 +61,7 @@ readonly `AddCacheKeysToEventEntry`[]
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`addCacheKeysToEvents`](../interfaces/IStorage.md#addcachekeystoevents)
+`IWindowStorage.addCacheKeysToEvents`
 
 ---
 
@@ -86,7 +92,7 @@ Used when a read model is relevant to additional active cache keys.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`addCacheKeysToReadModel`](../interfaces/IStorage.md#addcachekeystoreadmodel)
+`IWindowStorage.addCacheKeysToReadModel`
 
 ---
 
@@ -110,7 +116,7 @@ readonly `AddCacheKeysToReadModelEntry`[]
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`addCacheKeysToReadModels`](../interfaces/IStorage.md#addcachekeystoreadmodels)
+`IWindowStorage.addCacheKeysToReadModels`
 
 ---
 
@@ -126,7 +132,7 @@ Clear all data from storage.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`clear`](../interfaces/IStorage.md#clear)
+`IWindowStorage.clear`
 
 ---
 
@@ -142,15 +148,19 @@ Close the storage backend and release resources.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`close`](../interfaces/IStorage.md#close)
+`IWindowStorage.close`
 
 ---
 
 ### countReadModels()
 
-> **countReadModels**(`collection`, `cacheKey?`): `Promise`\<`number`\>
+> **countReadModels**(`collection`, `cacheKey?`, `filter?`): `Promise`\<`number`\>
 
-Count read model records in a collection, optionally filtered by cache key.
+Count read model records in a collection, optionally filtered by
+cache key and a user fragment. When a IStorageListFilter
+is supplied, both the cache-key clause and the user fragment are
+applied; the returned count reflects the filtered subset so list
+totals stay coherent with the page result.
 
 #### Parameters
 
@@ -162,13 +172,17 @@ Count read model records in a collection, optionally filtered by cache key.
 
 `string`
 
+##### filter?
+
+`IStorageListFilter`
+
 #### Returns
 
 `Promise`\<`number`\>
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`countReadModels`](../interfaces/IStorage.md#countreadmodels)
+`IWindowStorage.countReadModels`
 
 ---
 
@@ -184,7 +198,7 @@ Delete all command ID mappings (e.g., on session clear).
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`deleteAllCommandIdMappings`](../interfaces/IStorage.md#deleteallcommandidmappings)
+`IWindowStorage.deleteAllCommandIdMappings`
 
 ---
 
@@ -200,7 +214,7 @@ Delete all commands (e.g., on session clear).
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`deleteAllCommands`](../interfaces/IStorage.md#deleteallcommands)
+`IWindowStorage.deleteAllCommands`
 
 ---
 
@@ -222,7 +236,7 @@ Delete all anticipated events for a command.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`deleteAnticipatedEventsByCommand`](../interfaces/IStorage.md#deleteanticipatedeventsbycommand)
+`IWindowStorage.deleteAnticipatedEventsByCommand`
 
 ---
 
@@ -246,7 +260,7 @@ readonly `string`[]
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`deleteAnticipatedEventsByCommands`](../interfaces/IStorage.md#deleteanticipatedeventsbycommands)
+`IWindowStorage.deleteAnticipatedEventsByCommands`
 
 ---
 
@@ -268,7 +282,7 @@ Delete a cached event.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`deleteCachedEvent`](../interfaces/IStorage.md#deletecachedevent)
+`IWindowStorage.deleteCachedEvent`
 
 ---
 
@@ -290,7 +304,7 @@ Delete a cache key and all associated data.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`deleteCacheKey`](../interfaces/IStorage.md#deletecachekey)
+`IWindowStorage.deleteCacheKey`
 
 ---
 
@@ -312,7 +326,7 @@ Delete multiple cache keys and their associated events/read models in a batch.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`deleteCacheKeys`](../interfaces/IStorage.md#deletecachekeys)
+`IWindowStorage.deleteCacheKeys`
 
 ---
 
@@ -334,7 +348,7 @@ Delete a command.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`deleteCommand`](../interfaces/IStorage.md#deletecommand)
+`IWindowStorage.deleteCommand`
 
 ---
 
@@ -356,7 +370,7 @@ Delete command ID mappings older than a timestamp.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`deleteCommandIdMappingsOlderThan`](../interfaces/IStorage.md#deletecommandidmappingsolderthan)
+`IWindowStorage.deleteCommandIdMappingsOlderThan`
 
 ---
 
@@ -380,7 +394,7 @@ Returns the number of events deleted.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`deleteProcessedCachedEvents`](../interfaces/IStorage.md#deleteprocessedcachedevents)
+`IWindowStorage.deleteProcessedCachedEvents`
 
 ---
 
@@ -406,7 +420,7 @@ Delete a read model record.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`deleteReadModel`](../interfaces/IStorage.md#deletereadmodel)
+`IWindowStorage.deleteReadModel`
 
 ---
 
@@ -430,7 +444,7 @@ readonly `DeleteReadModelEntry`[]
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`deleteReadModels`](../interfaces/IStorage.md#deletereadmodels)
+`IWindowStorage.deleteReadModels`
 
 ---
 
@@ -452,7 +466,7 @@ Delete all read model records for a collection.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`deleteReadModelsByCollection`](../interfaces/IStorage.md#deletereadmodelsbycollection)
+`IWindowStorage.deleteReadModelsByCollection`
 
 ---
 
@@ -468,7 +482,7 @@ Delete the current session and all associated data.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`deleteSession`](../interfaces/IStorage.md#deletesession)
+`IWindowStorage.deleteSession`
 
 ---
 
@@ -490,7 +504,7 @@ Filter an array of cache key strings to only those that exist in storage.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`filterExistingCacheKeys`](../interfaces/IStorage.md#filterexistingcachekeys)
+`IWindowStorage.filterExistingCacheKeys`
 
 ---
 
@@ -508,7 +522,7 @@ query rather than N per-command queries.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getAllAnticipatedEvents`](../interfaces/IStorage.md#getallanticipatedevents)
+`IWindowStorage.getAllAnticipatedEvents`
 
 ---
 
@@ -524,7 +538,7 @@ Get all cache keys.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getAllCacheKeys`](../interfaces/IStorage.md#getallcachekeys)
+`IWindowStorage.getAllCacheKeys`
 
 ---
 
@@ -546,7 +560,7 @@ Get anticipated events for a command.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getAnticipatedEventsByCommand`](../interfaces/IStorage.md#getanticipatedeventsbycommand)
+`IWindowStorage.getAnticipatedEventsByCommand`
 
 ---
 
@@ -568,7 +582,7 @@ Get a cached event by ID.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getCachedEvent`](../interfaces/IStorage.md#getcachedevent)
+`IWindowStorage.getCachedEvent`
 
 ---
 
@@ -590,7 +604,7 @@ Get cached events for a cache key.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getCachedEventsByCacheKey`](../interfaces/IStorage.md#getcachedeventsbycachekey)
+`IWindowStorage.getCachedEventsByCacheKey`
 
 ---
 
@@ -612,7 +626,7 @@ Get cached events for a stream.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getCachedEventsByStream`](../interfaces/IStorage.md#getcachedeventsbystream)
+`IWindowStorage.getCachedEventsByStream`
 
 ---
 
@@ -634,7 +648,7 @@ Get a cache key record.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getCacheKey`](../interfaces/IStorage.md#getcachekey)
+`IWindowStorage.getCacheKey`
 
 ---
 
@@ -656,7 +670,7 @@ Get child cache keys whose parentKey matches the given key.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getChildCacheKeys`](../interfaces/IStorage.md#getchildcachekeys)
+`IWindowStorage.getChildCacheKeys`
 
 ---
 
@@ -678,7 +692,7 @@ Get a command by ID.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getCommand`](../interfaces/IStorage.md#getcommand)
+`IWindowStorage.getCommand`
 
 ---
 
@@ -700,7 +714,7 @@ Get a command ID mapping by client ID.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getCommandIdMapping`](../interfaces/IStorage.md#getcommandidmapping)
+`IWindowStorage.getCommandIdMapping`
 
 ---
 
@@ -722,7 +736,7 @@ Get a command ID mapping by server ID.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getCommandIdMappingByServerId`](../interfaces/IStorage.md#getcommandidmappingbyserverid)
+`IWindowStorage.getCommandIdMappingByServerId`
 
 ---
 
@@ -744,7 +758,7 @@ Get commands matching a filter.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getCommands`](../interfaces/IStorage.md#getcommands)
+`IWindowStorage.getCommands`
 
 ---
 
@@ -766,7 +780,7 @@ Get commands blocked by a specific command.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getCommandsBlockedBy`](../interfaces/IStorage.md#getcommandsblockedby)
+`IWindowStorage.getCommandsBlockedBy`
 
 ---
 
@@ -792,7 +806,7 @@ readonly `string`[]
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getCommandsByIds`](../interfaces/IStorage.md#getcommandsbyids)
+`IWindowStorage.getCommandsByIds`
 
 ---
 
@@ -814,7 +828,7 @@ Get commands by status.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getCommandsByStatus`](../interfaces/IStorage.md#getcommandsbystatus)
+`IWindowStorage.getCommandsByStatus`
 
 ---
 
@@ -834,7 +848,7 @@ its local sequence counter so new commands get monotonically increasing seq valu
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getCommandSequence`](../interfaces/IStorage.md#getcommandsequence)
+`IWindowStorage.getCommandSequence`
 
 ---
 
@@ -856,7 +870,7 @@ Get cache keys eligible for eviction (leaf keys with holdCount = 0, not frozen o
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getEvictableCacheKeys`](../interfaces/IStorage.md#getevictablecachekeys)
+`IWindowStorage.getEvictableCacheKeys`
 
 ---
 
@@ -882,7 +896,7 @@ readonly `string`[]
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getExistingCachedEventIds`](../interfaces/IStorage.md#getexistingcachedeventids)
+`IWindowStorage.getExistingCachedEventIds`
 
 ---
 
@@ -908,7 +922,7 @@ Get a read model record.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getReadModel`](../interfaces/IStorage.md#getreadmodel)
+`IWindowStorage.getReadModel`
 
 ---
 
@@ -924,7 +938,7 @@ Get the total count of read model records.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getReadModelCount`](../interfaces/IStorage.md#getreadmodelcount)
+`IWindowStorage.getReadModelCount`
 
 ---
 
@@ -947,7 +961,7 @@ Used by SyncManager to restore knownRevisions on startup.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getReadModelRevisions`](../interfaces/IStorage.md#getreadmodelrevisions)
+`IWindowStorage.getReadModelRevisions`
 
 ---
 
@@ -977,7 +991,7 @@ remains a straight filter over its map.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getReadModels`](../interfaces/IStorage.md#getreadmodels)
+`IWindowStorage.getReadModels`
 
 ---
 
@@ -999,7 +1013,7 @@ Get read model records by cache key.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getReadModelsByCacheKey`](../interfaces/IStorage.md#getreadmodelsbycachekey)
+`IWindowStorage.getReadModelsByCacheKey`
 
 ---
 
@@ -1025,7 +1039,7 @@ Get all read model records for a collection.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getReadModelsByCollection`](../interfaces/IStorage.md#getreadmodelsbycollection)
+`IWindowStorage.getReadModelsByCollection`
 
 ---
 
@@ -1041,7 +1055,7 @@ Get the current session, if any.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`getSession`](../interfaces/IStorage.md#getsession)
+`IWindowStorage.getSession`
 
 ---
 
@@ -1063,7 +1077,7 @@ Increment hold count for a cache key.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`holdCacheKey`](../interfaces/IStorage.md#holdcachekey)
+`IWindowStorage.holdCacheKey`
 
 ---
 
@@ -1080,7 +1094,45 @@ For SQLite, this creates tables and runs migrations.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`initialize`](../interfaces/IStorage.md#initialize)
+`IWindowStorage.initialize`
+
+---
+
+### iterateReadModels()
+
+> **iterateReadModels**\<`T`\>(`collection`): `Generator`\<\{ `data`: `T`; `hasLocalChanges`: `boolean`; `id`: `string`; \}\>
+
+Sync iteration over read-models in a collection — Mode-A-only contract
+for view dispatch. Not part of [IStorage](../interfaces/IStorage.md); SQLite-backed storage
+doesn't expose this surface.
+
+Yields each record's parsed `effectiveData` along with id and
+`hasLocalChanges`. Iteration order is the underlying `Map` insertion
+order; consumers that need a specific order build their own index.
+
+Returns `Iterable<...>` (not `IterableIterator`) so the consumer's
+memory closure can choose to use `for...of` directly or pass the
+iterable to other consumers (e.g. `new Map(api.iterate(...))`-style).
+
+#### Type Parameters
+
+##### T
+
+`T`
+
+#### Parameters
+
+##### collection
+
+`string`
+
+#### Returns
+
+`Generator`\<\{ `data`: `T`; `hasLocalChanges`: `boolean`; `id`: `string`; \}\>
+
+#### Implementation of
+
+`IWindowStorage.iterateReadModels`
 
 ---
 
@@ -1107,7 +1159,7 @@ then select all remaining records.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`loadAndPurgeCommandIdMappings`](../interfaces/IStorage.md#loadandpurgecommandidmappings)
+`IWindowStorage.loadAndPurgeCommandIdMappings`
 
 ---
 
@@ -1129,7 +1181,7 @@ Mark cached events as processed by setting processed_at timestamp.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`markCachedEventsProcessed`](../interfaces/IStorage.md#markcachedeventsprocessed)
+`IWindowStorage.markCachedEventsProcessed`
 
 ---
 
@@ -1161,7 +1213,7 @@ No-op when no row exists at `(collection, fromId)`.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`migrateReadModelIds`](../interfaces/IStorage.md#migratereadmodelids)
+`IWindowStorage.migrateReadModelIds`
 
 ---
 
@@ -1183,7 +1235,7 @@ Decrement hold count for a cache key.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`releaseCacheKey`](../interfaces/IStorage.md#releasecachekey)
+`IWindowStorage.releaseCacheKey`
 
 ---
 
@@ -1207,7 +1259,7 @@ Returns the IDs of events that were fully deleted.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`removeCacheKeyFromEvents`](../interfaces/IStorage.md#removecachekeyfromevents)
+`IWindowStorage.removeCacheKeyFromEvents`
 
 ---
 
@@ -1230,7 +1282,7 @@ Deletes read models that have no remaining cache key associations.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`removeCacheKeyFromReadModels`](../interfaces/IStorage.md#removecachekeyfromreadmodels)
+`IWindowStorage.removeCacheKeyFromReadModels`
 
 ---
 
@@ -1252,7 +1304,7 @@ Save a cached event.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`saveCachedEvent`](../interfaces/IStorage.md#savecachedevent)
+`IWindowStorage.saveCachedEvent`
 
 ---
 
@@ -1274,7 +1326,7 @@ Save multiple cached events in a batch.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`saveCachedEvents`](../interfaces/IStorage.md#savecachedevents)
+`IWindowStorage.saveCachedEvents`
 
 ---
 
@@ -1296,7 +1348,7 @@ Save or update a cache key.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`saveCacheKey`](../interfaces/IStorage.md#savecachekey)
+`IWindowStorage.saveCacheKey`
 
 ---
 
@@ -1318,7 +1370,7 @@ Save multiple cache key records in a batch.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`saveCacheKeys`](../interfaces/IStorage.md#savecachekeys)
+`IWindowStorage.saveCacheKeys`
 
 ---
 
@@ -1340,7 +1392,7 @@ Save a new command.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`saveCommand`](../interfaces/IStorage.md#savecommand)
+`IWindowStorage.saveCommand`
 
 ---
 
@@ -1362,7 +1414,7 @@ Save a command ID mapping.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`saveCommandIdMapping`](../interfaces/IStorage.md#savecommandidmapping)
+`IWindowStorage.saveCommandIdMapping`
 
 ---
 
@@ -1385,7 +1437,7 @@ readonly `CommandIdMappingRecord`[]
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`saveCommandIdMappings`](../interfaces/IStorage.md#savecommandidmappings)
+`IWindowStorage.saveCommandIdMappings`
 
 ---
 
@@ -1407,7 +1459,7 @@ Save a read model record.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`saveReadModel`](../interfaces/IStorage.md#savereadmodel)
+`IWindowStorage.saveReadModel`
 
 ---
 
@@ -1429,7 +1481,7 @@ Save multiple read model records in a batch.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`saveReadModels`](../interfaces/IStorage.md#savereadmodels)
+`IWindowStorage.saveReadModels`
 
 ---
 
@@ -1451,7 +1503,7 @@ Save or update the session.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`saveSession`](../interfaces/IStorage.md#savesession)
+`IWindowStorage.saveSession`
 
 ---
 
@@ -1473,7 +1525,7 @@ Touch a cache key (update lastAccessedAt).
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`touchCacheKey`](../interfaces/IStorage.md#touchcachekey)
+`IWindowStorage.touchCacheKey`
 
 ---
 
@@ -1489,7 +1541,7 @@ Update the last seen timestamp.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`touchSession`](../interfaces/IStorage.md#touchsession)
+`IWindowStorage.touchSession`
 
 ---
 
@@ -1515,7 +1567,7 @@ Update an existing command.
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`updateCommand`](../interfaces/IStorage.md#updatecommand)
+`IWindowStorage.updateCommand`
 
 ---
 
@@ -1540,4 +1592,4 @@ readonly `UpdateCommandsEntry`\<`TLink`, `TCommand`\>[]
 
 #### Implementation of
 
-[`IStorage`](../interfaces/IStorage.md).[`updateCommands`](../interfaces/IStorage.md#updatecommands)
+`IWindowStorage.updateCommands`

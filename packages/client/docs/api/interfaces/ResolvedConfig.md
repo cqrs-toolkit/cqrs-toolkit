@@ -10,7 +10,7 @@ Resolved shared configuration with all defaults applied.
 
 ## Extends
 
-- `Required`\<`Omit`\<[`CqrsConfig`](CqrsConfig.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>, `"commandHandlers"` \| `"commandSender"` \| `"schemaValidator"` \| `"workerSetup"` \| `"collections"` \| `"processors"` \| `"logger"`\>\>
+- `Required`\<`Omit`\<[`CqrsConfig`](CqrsConfig.md)\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>, `"commandHandlers"` \| `"commandSender"` \| `"schemaValidator"` \| `"workerSetup"` \| `"collections"` \| `"processors"` \| `"logger"` \| `"views"`\>\>
 
 ## Type Parameters
 
@@ -67,6 +67,22 @@ Cache configuration.
 #### Inherited from
 
 [`CqrsClientConfig`](CqrsClientConfig.md).[`cache`](CqrsClientConfig.md#cache)
+
+---
+
+### collations
+
+> **collations**: readonly [`CollationConfig`](CollationConfig.md)[]
+
+Custom SQLite collating sequences. Registered against every database
+connection the client opens; referenced from [CustomColumn.collation](CustomColumn.md#collation)
+by name. The same comparator is used by the JS-side fallback sort in
+Mode A so list ordering stays consistent across backends. See
+[CollationConfig](CollationConfig.md).
+
+#### Inherited from
+
+[`CqrsClientConfig`](CqrsClientConfig.md).[`collations`](CqrsClientConfig.md#collations)
 
 ---
 
@@ -189,6 +205,12 @@ Storage configuration.
 #### Inherited from
 
 [`CqrsClientConfig`](CqrsClientConfig.md).[`storage`](CqrsClientConfig.md#storage)
+
+---
+
+### views
+
+> **views**: [`AnyViewRegistration`](../type-aliases/AnyViewRegistration.md)\<`TLink`\>[]
 
 ---
 

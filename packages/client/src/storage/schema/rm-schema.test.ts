@@ -540,6 +540,39 @@ describe('custom columns and indexes', () => {
     }
     expect(() => validateSchemaMigrations([ok])).not.toThrow()
   })
+
+  it("rejects a non-partial index on just ['id'] as redundant with the primary key", () => {
+    const bad: SchemaMigration = {
+      version: 1,
+      message: 'redundant id index',
+      steps: [
+        clientSchema.init,
+        {
+          type: 'managed',
+          name: 'tasks',
+          indexes: [{ columns: ['id'] }],
+        },
+      ],
+    }
+    expect(() => validateSchemaMigrations([bad])).toThrow(/redundant with the primary key/)
+  })
+
+  it("allows a partial index on ['id'] (the `where` clause makes it distinct from the PK)", () => {
+    const ok: SchemaMigration = {
+      version: 1,
+      message: 'partial id index',
+      steps: [
+        clientSchema.init,
+        {
+          type: 'managed',
+          name: 'tasks',
+          columns: [{ name: 'status', type: 'TEXT', path: '$.status' }],
+          indexes: [{ columns: ['id'], where: "status = 'open'" }],
+        },
+      ],
+    }
+    expect(() => validateSchemaMigrations([ok])).not.toThrow()
+  })
 })
 
 describe('getCollectionNames', () => {

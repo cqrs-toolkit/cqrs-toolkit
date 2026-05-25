@@ -59,6 +59,36 @@ references to an aggregate id/link (e.g. `notebookId` on a Note pointing at the 
 
 ---
 
+### list?
+
+> `readonly` `optional` **list**: `object`
+
+List-query settings — apply to both pull (`list`) and push (`watchList`).
+
+#### defaultSort?
+
+> `readonly` `optional` **defaultSort**: [`Sort`](../type-aliases/Sort.md)
+
+Default sort applied when a `list` / `watchList` call does not
+supply its own [ListParams.sort](ListParams.md#sort). Reference declared custom
+columns or library-owned columns (`id`, `updated_at`).
+
+#### total?
+
+> `readonly` `optional` **total**: `boolean`
+
+Whether `total` is part of the list/watchList contract for this collection.
+
+When `false` (default), [ListQueryResult.total](ListQueryResult.md#total) is `undefined` and
+`watchList` does not issue count re-fetches.
+
+When `true`, `list()` returns the cache-key-scoped row count as `total`,
+and `watchList` issues a count re-fetch on `created` / `deleted` events
+in a watched cache key so `total` stays current across off-page changes.
+Tracked-id matches re-fetch the data page (and the total along with it).
+
+---
+
 ### name
 
 > `readonly` **name**: `string`

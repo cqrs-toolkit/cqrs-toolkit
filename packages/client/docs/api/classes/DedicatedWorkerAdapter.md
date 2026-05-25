@@ -38,7 +38,7 @@ This adapter:
 
 ##### config
 
-[`DedicatedWorkerAdapterConfig`](../interfaces/DedicatedWorkerAdapterConfig.md)
+[`DedicatedWorkerAdapterConfig`](../interfaces/DedicatedWorkerAdapterConfig.md)\<`TLink`\>
 
 #### Returns
 

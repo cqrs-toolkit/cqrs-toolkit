@@ -26,7 +26,7 @@ Query manager.
 
 ### Constructor
 
-> **new QueryManager**\<`TLink`, `TCommand`\>(`eventBus`, `cacheManager`, `readModelStore`): `QueryManager`\<`TLink`, `TCommand`\>
+> **new QueryManager**\<`TLink`, `TCommand`\>(`eventBus`, `cacheManager`, `readModelStore`, `collections?`, `viewExecutor?`): `QueryManager`\<`TLink`, `TCommand`\>
 
 #### Parameters
 
@@ -41,6 +41,14 @@ Query manager.
 ##### readModelStore
 
 [`ReadModelStore`](ReadModelStore.md)\<`TLink`, `TCommand`\>
+
+##### collections?
+
+readonly [`Collection`](../interfaces/Collection.md)\<`TLink`\>[] = `[]`
+
+##### viewExecutor?
+
+`ViewExecutor`\<`TLink`\>
 
 #### Returns
 
@@ -214,6 +222,45 @@ Returns `undefined` if the entity is not present in the local store.
 #### Implementation of
 
 `IQueryManagerInternal.getLocallyById`
+
+---
+
+### getView()
+
+> **getView**\<`T`, `TParams`\>(`params`): `Promise`\<[`PagedViewResult`](../interfaces/PagedViewResult.md)\<`TLink`, `T`\>\>
+
+Execute a registered cross-collection view by name.
+
+Resolves the view's declared cache keys to identities (does not hold —
+V1 assume-ambient), dispatches to the appropriate implementation via
+the configured ViewExecutor, and packages the result.
+
+Throws when no executor is configured (no `views` in CqrsConfig) or
+the view name is unknown.
+
+#### Type Parameters
+
+##### T
+
+`T`
+
+##### TParams
+
+`TParams` = `unknown`
+
+#### Parameters
+
+##### params
+
+[`GetViewParams`](../interfaces/GetViewParams.md)\<`TParams`\>
+
+#### Returns
+
+`Promise`\<[`PagedViewResult`](../interfaces/PagedViewResult.md)\<`TLink`, `T`\>\>
+
+#### Implementation of
+
+`IQueryManagerInternal.getView`
 
 ---
 
@@ -501,3 +548,90 @@ Observable of update notifications
 #### Implementation of
 
 `IQueryManagerInternal.watchCollection`
+
+---
+
+### watchList()
+
+> **watchList**\<`T`\>(`params`): `Observable`\<[`ListQueryResult`](../interfaces/ListQueryResult.md)\<`TLink`, `T`\>\>
+
+Paged-subscription observable over a single collection.
+
+See [IQueryManager.watchList](../interfaces/IQueryManager.md#watchlist) for the gate semantics. V1 implementation:
+
+- Runs an initial `list` on subscribe and emits the result.
+- Listens to `readmodel:updated`, `sync:seed-completed`, `session:destroyed`,
+  and `cache:evicted` events, applies the three gates per event, re-runs and
+  emits when a gate fires.
+- Last-write-wins: concurrent in-flight re-runs are versioned; stale results
+  are dropped.
+
+Hold lifecycle stays consumer-managed — pass `hold: true` on the initial
+params if you want the cache key pinned for the duration; release it when
+you unsubscribe.
+
+#### Type Parameters
+
+##### T
+
+`T`
+
+#### Parameters
+
+##### params
+
+[`ListParams`](../interfaces/ListParams.md)\<`TLink`\>
+
+#### Returns
+
+`Observable`\<[`ListQueryResult`](../interfaces/ListQueryResult.md)\<`TLink`, `T`\>\>
+
+#### Implementation of
+
+`IQueryManagerInternal.watchList`
+
+---
+
+### watchView()
+
+> **watchView**\<`T`, `TParams`\>(`params`): `Observable`\<[`PagedViewResult`](../interfaces/PagedViewResult.md)\<`TLink`, `T`\>\>
+
+Paged-subscription observable over a registered view.
+
+Reuses the three-gate engine from [watchList](#watchlist) extended with the
+primary-source vs join-source distinction declared on the view
+registration. Per-emission state:
+
+- `watchedCacheKeys` — resolved key set from `view.cacheKeys(params)`.
+- `pageIds` — primary-source ids; read from each emitted row's `id`.
+- `referencedIds[collection]` — FK values extracted from each row via the
+  corresponding `joinSources[i].referencedIdPath`, used for join-source row
+  updates.
+
+The view registration must be configured at construction time; throws
+on the underlying observable when no executor is wired or the view name
+is unknown.
+
+#### Type Parameters
+
+##### T
+
+`T`
+
+##### TParams
+
+`TParams` = `unknown`
+
+#### Parameters
+
+##### params
+
+[`GetViewParams`](../interfaces/GetViewParams.md)\<`TParams`\>
+
+#### Returns
+
+`Observable`\<[`PagedViewResult`](../interfaces/PagedViewResult.md)\<`TLink`, `T`\>\>
+
+#### Implementation of
+
+`IQueryManagerInternal.watchView`

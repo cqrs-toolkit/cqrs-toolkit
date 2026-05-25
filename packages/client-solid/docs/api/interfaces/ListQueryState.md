@@ -66,4 +66,7 @@ Lifecycle state with status-specific data
 
 ### total
 
-> `readonly` **total**: `number`
+> `readonly` **total**: `number` \| `undefined`
+
+Total row count for the collection's cache-key scope. Defined when the
+underlying collection has `list.total: true`; `undefined` otherwise.

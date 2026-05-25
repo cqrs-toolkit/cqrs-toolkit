@@ -92,18 +92,50 @@ describe('ViewExecutor (in-memory dispatch)', () => {
     ).toThrow(/Duplicate view registration/)
   })
 
-  it('throws at registration when a joinSource fromPath is syntactically invalid', () => {
+  it('throws at registration when a joinSource referencedIdPath is syntactically invalid', () => {
     const bad = makeMemoryView({
-      joinSources: [{ collection: 'assets', fromPath: `$._embedded['pms.Asset"].id` }],
+      joinSources: [{ collection: 'assets', referencedIdPath: `$._embedded['pms.Asset"].id` }],
     })
     expect(
       () => new ViewExecutor<ServiceLink>([bad], createInMemoryDispatcher(makeApi([]))),
-    ).toThrow(/Invalid fromPath on view 'projects-in-workspace'.*Unterminated bracket member/)
+    ).toThrow(
+      /Invalid referencedIdPath on view 'projects-in-workspace'.*Unterminated bracket member/,
+    )
   })
 
   it('accepts double-quoted bracket members in joinSource paths', () => {
     const view = makeMemoryView({
-      joinSources: [{ collection: 'assets', fromPath: '$._embedded["pms.Asset"].id' }],
+      joinSources: [{ collection: 'assets', referencedIdPath: '$._embedded["pms.Asset"].id' }],
+    })
+    expect(
+      () => new ViewExecutor<ServiceLink>([view], createInMemoryDispatcher(makeApi([]))),
+    ).not.toThrow()
+  })
+
+  it('throws at registration when a joinSource referencingIdPath is syntactically invalid', () => {
+    const bad = makeMemoryView({
+      joinSources: [
+        {
+          collection: 'assets',
+          referencedIdPath: '$._embedded["pms.Asset"].id',
+          referencingIdPath: '$.association[',
+        },
+      ],
+    })
+    expect(
+      () => new ViewExecutor<ServiceLink>([bad], createInMemoryDispatcher(makeApi([]))),
+    ).toThrow(/Invalid referencingIdPath on view 'projects-in-workspace'.*assets/)
+  })
+
+  it('accepts a joinSource referencingIdPath alongside referencedIdPath', () => {
+    const view = makeMemoryView({
+      joinSources: [
+        {
+          collection: 'assets',
+          referencedIdPath: '$._embedded["pms.Asset"].id',
+          referencingIdPath: '$.association.id',
+        },
+      ],
     })
     expect(
       () => new ViewExecutor<ServiceLink>([view], createInMemoryDispatcher(makeApi([]))),

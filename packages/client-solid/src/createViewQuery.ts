@@ -6,25 +6,26 @@
  * page can be reactive accessors so the query restarts when navigation or
  * filter state changes.
  *
- * Hold lifecycle is not auto-managed — `watchView` itself follows the
- * V1 assume-ambient cache-key contract. Consumers that want the underlying
- * data pinned for the duration of the query must hold the relevant cache
- * keys themselves (typically via `createScopeCacheKey` / `createEntityCacheKey`
- * + `client.queryManager.hold(key)` in a parent effect).
+ * Holds every cache key the view resolves to for the subscription's
+ * lifetime. On each emission, diffs `PagedViewResult.cacheKeys` against
+ * the currently-held set: holds entries that are new, releases entries
+ * that have left, leaves the overlap untouched. All remaining holds are
+ * released on dispose.
  *
  * Row reconciliation uses each row's `id` (via `_id` injection) for stable
- * `<For>` identity, matching `createListQuery`. View rows that don't carry
- * `id` (e.g. single-row aggregations) need a different primitive — this
- * one constrains `T extends Identifiable`.
+ * `<For>` identity. View rows that don't carry `id` (e.g. single-row
+ * aggregations) need a different primitive — this one constrains
+ * `T extends Identifiable`.
  */
 
-import type { PageRange } from '@cqrs-toolkit/client'
+import type { CacheKeyIdentity, PageRange } from '@cqrs-toolkit/client'
 import { entityIdToString } from '@cqrs-toolkit/client'
 import type { Link } from '@meticoeus/ddd-es'
 import { createComputed, onCleanup } from 'solid-js'
 import { createStore, reconcile } from 'solid-js/store'
 import { useClient } from './context.js'
 import type { Identifiable, ViewQueryParams, ViewQueryState, ViewQueryStatus } from './types.js'
+import { isAccessor } from './utils.js'
 
 interface ViewQueryStore<T extends Identifiable> {
   items: T[]
@@ -52,14 +53,34 @@ export function createViewQuery<TLink extends Link, T extends Identifiable, TPar
 
   const [store, setStore] = createStore<ViewQueryStore<T>>(initialState)
 
-  const paramsAccessor: () => TParams | undefined =
-    typeof queryParams.params === 'function'
-      ? (queryParams.params as () => TParams | undefined)
-      : () => queryParams.params as TParams
-  const pageAccessor: () => PageRange | undefined =
-    typeof queryParams.page === 'function'
-      ? (queryParams.page as () => PageRange | undefined)
-      : () => queryParams.page as PageRange | undefined
+  const params = queryParams.params
+  const paramsAccessor: () => TParams | undefined = isAccessor(params) ? params : () => params
+
+  const page = queryParams.page
+  const pageAccessor: () => PageRange | undefined = isAccessor(page) ? page : () => page
+
+  // Lives outside the session scope so holds persist across subscription
+  // restarts; an unchanged resolved set diffs to nothing.
+  const heldKeys = new Map<string, CacheKeyIdentity<TLink>>()
+
+  function reconcileHolds(newKeys: readonly CacheKeyIdentity<TLink>[]): void {
+    const newUuids = new Set<string>()
+    for (const identity of newKeys) newUuids.add(identity.key)
+
+    // Release keys that left the resolved set.
+    for (const uuid of [...heldKeys.keys()]) {
+      if (newUuids.has(uuid)) continue
+      void queryManager.release(uuid)
+      heldKeys.delete(uuid)
+    }
+
+    // Hold keys that entered the resolved set.
+    for (const identity of newKeys) {
+      if (heldKeys.has(identity.key)) continue
+      void queryManager.hold(identity.key)
+      heldKeys.set(identity.key, identity)
+    }
+  }
 
   let currentSession: Session | undefined
 
@@ -81,6 +102,7 @@ export function createViewQuery<TLink extends Link, T extends Identifiable, TPar
     const subscription = observable.subscribe({
       next: (result) => {
         if (cancelled) return
+        reconcileHolds(result.cacheKeys)
         // Inject `_id` as a plain string for `reconcile` keying; EntityRef
         // ids are objects and break strict-equality matching.
         const items = result.data.map((row) => ({
@@ -128,8 +150,14 @@ export function createViewQuery<TLink extends Link, T extends Identifiable, TPar
     currentSession = startSession(params, page)
   })
 
+  // Tear down the subscription before releasing — once `cancelled` is set,
+  // a late emission can't slip in and re-hold a key we're about to drop.
   onCleanup(() => {
     currentSession?.cleanup()
+    for (const uuid of heldKeys.keys()) {
+      void queryManager.release(uuid)
+    }
+    heldKeys.clear()
   })
 
   return store

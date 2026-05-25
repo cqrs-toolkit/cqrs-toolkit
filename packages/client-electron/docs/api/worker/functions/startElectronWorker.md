@@ -6,7 +6,7 @@
 
 # Function: startElectronWorker()
 
-> **startElectronWorker**\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>(`config`): `void`
+> **startElectronWorker**\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>(`config`, `options?`): `void`
 
 Bootstrap an Electron utility process with CQRS orchestration.
 
@@ -38,6 +38,12 @@ process bridge, then creates the full component stack.
 `CqrsConfig`\<`TLink`, `TCommand`, `TSchema`, `TEvent`\>
 
 Shared CQRS config (same object the renderer uses)
+
+### options?
+
+[`StartElectronWorkerOptions`](../interfaces/StartElectronWorkerOptions.md) = `{}`
+
+Backend-specific opt-ins (see [StartElectronWorkerOptions](../interfaces/StartElectronWorkerOptions.md))
 
 ## Returns
 

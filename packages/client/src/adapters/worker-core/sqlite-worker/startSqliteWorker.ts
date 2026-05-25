@@ -16,7 +16,9 @@
  * The consumer writes a small worker file:
  * ```ts
  * import { startSqliteWorker } from '@cqrs-toolkit/client'
- * startSqliteWorker()
+ * import { cqrsConfig } from '../bootstrap/cqrs-config.js'
+ *
+ * startSqliteWorker({ collations: cqrsConfig.collations })
  * ```
  */
 
@@ -24,7 +26,20 @@
 
 import type { ISqliteDb } from '../../../storage/ISqliteDb.js'
 import { loadAndOpenDb } from '../../../storage/LocalSqliteDb.js'
+import type { CollationConfig } from '../../../types/config.js'
 import type { SqliteRequest, SqliteResponse } from './protocol.js'
+
+/**
+ * Options for {@link startSqliteWorker}.
+ *
+ * Collation comparator functions can't ride postMessage, so the consumer's
+ * sqlite worker entry imports the shared config module and forwards its
+ * collations into this call — same pattern as `startDedicatedWorker` /
+ * `startSharedWorker`.
+ */
+export interface StartSqliteWorkerOptions {
+  collations?: readonly CollationConfig[]
+}
 
 /**
  * Bootstrap the SQLite worker.
@@ -33,7 +48,7 @@ import type { SqliteRequest, SqliteResponse } from './protocol.js'
  * and handles SQLite init/exec/close on the routing port (Mode C)
  * or directly on self.onmessage (Mode B fallback).
  */
-export function startSqliteWorker(): void {
+export function startSqliteWorker(options: StartSqliteWorkerOptions = {}): void {
   let db: ISqliteDb | undefined
 
   const self = globalThis as unknown as DedicatedWorkerGlobalScope
@@ -51,6 +66,7 @@ export function startSqliteWorker(): void {
           const localDb = await loadAndOpenDb({
             dbName: request.config.dbName,
             vfs: request.config.vfs,
+            collations: options.collations,
           })
           db = localDb
           respond(respondTo, request.requestId, true)

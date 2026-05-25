@@ -61,6 +61,18 @@ Cache configuration.
 
 ---
 
+### collations?
+
+> `optional` **collations**: readonly [`CollationConfig`](CollationConfig.md)[]
+
+Custom SQLite collating sequences. Registered against every database
+connection the client opens; referenced from [CustomColumn.collation](CustomColumn.md#collation)
+by name. The same comparator is used by the JS-side fallback sort in
+Mode A so list ordering stays consistent across backends. See
+[CollationConfig](CollationConfig.md).
+
+---
+
 ### collections?
 
 > `optional` **collections**: [`Collection`](Collection.md)\<`TLink`\>[]
@@ -185,6 +197,25 @@ agree on the schema type (JSONSchema7, z.ZodType, etc.).
 > **storage**: [`StorageConfig`](StorageConfig.md)
 
 Storage configuration.
+
+---
+
+### views?
+
+> `optional` **views**: [`AnyViewRegistration`](../type-aliases/AnyViewRegistration.md)\<`TLink`\>[]
+
+Cross-collection view registrations. Each entry pairs a sync in-memory
+implementation with an async SQL implementation; the library dispatches
+based on the active storage backend.
+
+View names must be unique; duplicates throw at executor construction.
+Each registration's `cacheKeys` callback resolves the declared keys per
+call. [IQueryManager.getView](IQueryManager.md#getview) and [IQueryManager.watchView](IQueryManager.md#watchview)
+are both hold-agnostic — they touch the resolved identities (so any
+existing holds don't age out) but don't pin them. `createViewQuery` in
+`@cqrs-toolkit/client-solid` wraps `watchView` and holds the resolved
+identities for the subscription's lifetime; direct `getView` /
+`watchView` callers own whatever lifecycle they want.
 
 ---
 

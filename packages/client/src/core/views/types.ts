@@ -100,18 +100,44 @@ export interface ViewRegistration<TLink extends Link, TParams, TRow, T = TRow> {
   primarySource: string
 
   /**
-   * Embed-target collections. {@link IQueryManager.watchView} tracks the FK
-   * id sets these contribute via `fromPath` for its row-level gate; in
-   * `getView` (pull) the joinSources are advisory and aren't enforced.
+   * Join-target collections. {@link IQueryManager.watchView} tracks two id
+   * sets per join for its row-level gates; in `getView` (pull) the
+   * joinSources are advisory and aren't enforced.
+   *
+   * `referencedIdPath` (required) is the id of the foreign target as it
+   * appears on the projected row *after* the join — non-empty only when the
+   * target was loaded. Gates on updates / deletes to currently-loaded join
+   * targets. Applies to every join shape, including ones where no specific
+   * target id is known up front (e.g. "latest note in notebook" — the path
+   * resolves to the embedded latest note's id when present).
+   *
+   * `referencingIdPath` (optional) is the foreign-key-style id the primary
+   * row carries to indicate which target it joins to, always present on the
+   * projected row when the join is applicable (regardless of whether the
+   * target was loaded). Gates on arrivals (`created` / `updated`) of
+   * currently-missing join targets — closes the cold-start case. Only
+   * applicable to key-based joins where the primary itself carries the id;
+   * predicate-based joins (latest-note-in-notebook) leave this undeclared.
+   *
+   * The projection must preserve the source field on the result row when
+   * declaring `referencingIdPath` (e.g., spread the primary row before
+   * adding `_embedded`).
    */
-  joinSources: readonly { collection: string; fromPath: JSONPathExpression }[]
+  joinSources: readonly {
+    collection: string
+    referencedIdPath: JSONPathExpression
+    referencingIdPath?: JSONPathExpression
+  }[]
 
   /**
    * Returns the cache-key templates the view reads from. The library resolves
    * each template to its {@link CacheKeyIdentity} for inclusion in the result.
-   * V1 default is **assume-ambient** — the library does not acquire or hold
-   * the resolved keys; the consumer's UI is responsible for ensuring they're
-   * present.
+   *
+   * `createViewQuery` (in `@cqrs-toolkit/client-solid`) holds the resolved
+   * identities for the subscription's lifetime — pages don't redeclare or
+   * hand-hold them. Standalone `getView` is hold-agnostic; callers that need
+   * the underlying data to outlive the read manage holds via the cache
+   * manager directly.
    */
   cacheKeys: (params: TParams) => readonly CacheKeyTemplate<TLink>[]
 

@@ -7,6 +7,7 @@
  */
 
 import { assert } from '#utils'
+import type { CollationConfig } from '../types/config.js'
 import type { BatchResult, ISqliteDb, SqliteBatchStatement } from './ISqliteDb.js'
 
 /**
@@ -22,6 +23,17 @@ export interface LoadAndOpenDbConfig {
   dbName: string
   /** VFS to use */
   vfs: VfsType
+  /**
+   * Custom collations to register against the opened connection. Built-in
+   * SQLite collations (`BINARY`, `NOCASE`, `RTRIM`) are always available and
+   * need not be listed.
+   *
+   * Registration is per-connection — collation names are not persisted in
+   * the DB file. Every code path that opens this database must register the
+   * same set or queries against `COLLATE <name>` columns fail with
+   * `no such collation sequence`.
+   */
+  collations?: readonly CollationConfig[]
 }
 
 // ---------------------------------------------------------------------------
@@ -48,7 +60,15 @@ interface SAHPoolUtil {
 }
 
 /**
- * SQLite WASM module type.
+ * `xCompare` callback shape used by `sqlite3_create_collation_v2`. The
+ * sqlite-wasm binding layer wraps a JS function with this signature into a
+ * WASM function-table entry automatically — no `installFunction` call is
+ * required from us.
+ */
+type WasmCompareFn = (pCtx: number, len1: number, p1: number, len2: number, p2: number) => number
+
+/**
+ * SQLite WASM module type. Narrowed to the bits this module actually touches.
  */
 interface SqliteModule {
   oo1: {
@@ -61,6 +81,21 @@ interface SqliteModule {
     directory?: string
     name?: string
   }) => Promise<SAHPoolUtil>
+  capi: {
+    SQLITE_UTF8: number
+    SQLITE_OK: number
+    sqlite3_create_collation_v2: (
+      db: RawSqliteDb | number,
+      zName: string,
+      eTextRep: number,
+      pArg: number,
+      xCompare: WasmCompareFn | number,
+      xDestroy: ((pCtx: number) => void) | number,
+    ) => number
+  }
+  wasm: {
+    heap8u: () => Uint8Array
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -79,7 +114,54 @@ export async function loadAndOpenDb(config: LoadAndOpenDbConfig): Promise<LocalS
   const sqlite3 = (await sqlite3InitModule.default()) as SqliteModule
 
   const rawDb = await openDatabase(sqlite3, config)
+
+  if (config.collations !== undefined) {
+    for (const collation of config.collations) {
+      registerCollation(sqlite3, rawDb, collation)
+    }
+  }
+
   return new LocalSqliteDb(rawDb)
+}
+
+/**
+ * Register a single {@link CollationConfig} against the opened WASM database.
+ *
+ * SQLite passes the two operands as non-NUL-terminated byte ranges in the
+ * WASM heap; we decode them as UTF-8 and delegate to the consumer-supplied
+ * `compare`. Heap views can be invalidated when the heap grows, so we fetch
+ * `heap8u()` inside each comparison rather than capturing it in the closure.
+ *
+ * The TextDecoder is captured once because constructing it is non-trivial
+ * relative to the steady-state cost of a comparison.
+ */
+function registerCollation(
+  sqlite3: SqliteModule,
+  rawDb: RawSqliteDb,
+  collation: CollationConfig,
+): void {
+  const decoder = new TextDecoder('utf-8')
+  const xCompare: WasmCompareFn = (_pCtx, len1, p1, len2, p2) => {
+    const heap = sqlite3.wasm.heap8u()
+    const a = decoder.decode(heap.subarray(p1, p1 + len1))
+    const b = decoder.decode(heap.subarray(p2, p2 + len2))
+    const result = collation.compare(a, b)
+    if (result < 0) return -1
+    if (result > 0) return 1
+    return 0
+  }
+  const rc = sqlite3.capi.sqlite3_create_collation_v2(
+    rawDb,
+    collation.name,
+    sqlite3.capi.SQLITE_UTF8,
+    0,
+    xCompare,
+    0,
+  )
+  assert(
+    rc === sqlite3.capi.SQLITE_OK,
+    `Failed to register collation '${collation.name}' (sqlite rc=${rc})`,
+  )
 }
 
 /**

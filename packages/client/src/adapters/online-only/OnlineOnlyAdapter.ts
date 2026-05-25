@@ -34,8 +34,10 @@ export class OnlineOnlyAdapter<
   private _status: AdapterStatus = 'uninitialized'
   private _storage: IWindowStorage<TLink, TCommand> | undefined
   private _sessionManager: SessionManager<TLink, TCommand> | undefined
+  private readonly _config: ResolvedConfig<TLink, TCommand, TSchema, TEvent>
 
   constructor(config: ResolvedConfig<TLink, TCommand, TSchema, TEvent>) {
+    this._config = config
     this.eventBus = new EventBus()
     this.eventBus.debug = config.debug
   }
@@ -64,7 +66,10 @@ export class OnlineOnlyAdapter<
     this._status = 'initializing'
 
     try {
-      this._storage = new InMemoryStorage()
+      this._storage = new InMemoryStorage({
+        migrations: this._config.storage.migrations,
+        collations: this._config.collations,
+      })
       await this._storage.initialize()
 
       this._sessionManager = new SessionManager(this._storage, this.eventBus)

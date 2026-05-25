@@ -14,6 +14,7 @@ import type { ICommandSender } from '../core/command-queue/types.js'
 import { validatePath } from '../core/entity-ref/ref-path.js'
 import type { ProcessorRegistration } from '../core/event-processor/types.js'
 import { defaultProblemJsonMapper } from '../core/failure-mapper/index.js'
+import type { Sort } from '../core/query-manager/types.js'
 import type { AnyViewRegistration } from '../core/views/types.js'
 import type {
   AggregateConfig,
@@ -115,9 +116,14 @@ export interface CustomColumn {
   expression?: string
   /**
    * SQLite collating sequence applied to the column. Default `BINARY`.
+   *
+   * Built-in names — `BINARY`, `NOCASE`, `RTRIM` — are always accepted.
    * `NOCASE` enables index-backed case-insensitive prefix `LIKE` queries.
+   *
+   * Any other name must be declared on {@link CqrsConfig.collations} and is
+   * matched against that registry at schema-build time.
    */
-  collation?: 'BINARY' | 'NOCASE' | 'RTRIM'
+  collation?: string
 }
 
 /**
@@ -199,6 +205,39 @@ export interface StorageConfig {
   vfs?: SqliteVfsType
   /** Schema migrations — required, non-empty */
   migrations: [SchemaMigration, ...SchemaMigration[]]
+}
+
+/**
+ * A custom SQLite collating sequence.
+ *
+ * Names declared here are registered against every database connection the
+ * client opens (per-connection registration — collations don't persist in
+ * the DB file). Once registered, a {@link CustomColumn} may set
+ * `collation: '<name>'` and the same name is used by the JS-side fallback
+ * sort in Mode A so list ordering is locale-consistent across backends.
+ *
+ * Built-in SQLite collations (`BINARY`, `NOCASE`, `RTRIM`) are always
+ * available without registration and need not be declared here.
+ *
+ * The comparator must define a **total order** that is stable for the
+ * lifetime of any index that mentions this collation name. Changing the
+ * comparator's behaviour after rows are indexed corrupts those indexes;
+ * a behaviour change must be accompanied by a schema migration that
+ * `REINDEX`es the affected tables.
+ */
+export interface CollationConfig {
+  /**
+   * Identifier referenced by {@link CustomColumn.collation}. Must follow the
+   * same SQL-identifier rules as a column name (snake_case, starts with a
+   * lowercase letter). Names are matched case-insensitively by SQLite, so
+   * `locale_en` and `LOCALE_EN` collide.
+   */
+  name: string
+  /**
+   * Total-ordering comparator. Wrap an {@link Intl.Collator} for locale-aware
+   * sort: `compare: new Intl.Collator('en', { numeric: true }).compare`.
+   */
+  compare: (a: string, b: string) => number
 }
 
 /**
@@ -449,6 +488,12 @@ export interface Collection<TLink extends Link> {
      * Tracked-id matches re-fetch the data page (and the total along with it).
      */
     readonly total?: boolean
+    /**
+     * Default sort applied when a `list` / `watchList` call does not
+     * supply its own {@link ListParams.sort}. Reference declared custom
+     * columns or library-owned columns (`id`, `updated_at`).
+     */
+    readonly defaultSort?: Sort
   }
 
   /**
@@ -582,9 +627,15 @@ function validateRegistrationPaths<
   for (const view of resolved.views) {
     for (const join of view.joinSources) {
       tryValidateRegistrationPath(
-        join.fromPath,
-        `View '${view.name}' joinSource '${join.collection}' fromPath`,
+        join.referencedIdPath,
+        `View '${view.name}' joinSource '${join.collection}' referencedIdPath`,
       )
+      if (join.referencingIdPath !== undefined) {
+        tryValidateRegistrationPath(
+          join.referencingIdPath,
+          `View '${view.name}' joinSource '${join.collection}' referencingIdPath`,
+        )
+      }
     }
   }
   for (const migration of resolved.storage.migrations) {
@@ -664,6 +715,15 @@ export interface CqrsConfig<
   storage: StorageConfig
 
   /**
+   * Custom SQLite collating sequences. Registered against every database
+   * connection the client opens; referenced from {@link CustomColumn.collation}
+   * by name. The same comparator is used by the JS-side fallback sort in
+   * Mode A so list ordering stays consistent across backends. See
+   * {@link CollationConfig}.
+   */
+  collations?: readonly CollationConfig[]
+
+  /**
    * Retry configuration for commands.
    */
   retry?: RetryConfig
@@ -684,14 +744,13 @@ export interface CqrsConfig<
    * based on the active storage backend.
    *
    * View names must be unique; duplicates throw at executor construction.
-   * The `cacheKeys` callback resolves the declared keys per call; V1
-   * "assume-ambient" semantics mean the library does not acquire or hold
-   * resolved keys — the consumer's UI is responsible for ensuring they're
-   * present.
-   *
-   * Referenced from the public API by name via
-   * {@link IQueryManager.getView} (and, when watching is wired, the future
-   * `watchView` method).
+   * Each registration's `cacheKeys` callback resolves the declared keys per
+   * call. {@link IQueryManager.getView} and {@link IQueryManager.watchView}
+   * are both hold-agnostic — they touch the resolved identities (so any
+   * existing holds don't age out) but don't pin them. `createViewQuery` in
+   * `@cqrs-toolkit/client-solid` wraps `watchView` and holds the resolved
+   * identities for the subscription's lifetime; direct `getView` /
+   * `watchView` callers own whatever lifecycle they want.
    */
   views?: AnyViewRegistration<TLink>[]
 
@@ -880,6 +939,7 @@ export function resolveConfig<
       vfs: config.storage.vfs,
       migrations: config.storage.migrations,
     },
+    collations: config.collations ?? [],
     retry: {
       ...DEFAULT_CONFIG.retry,
       ...config.retry,

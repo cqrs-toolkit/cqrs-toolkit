@@ -56,6 +56,8 @@ Identity metadata parallel to data (same length and order)
 
 ### total
 
-> **total**: `number`
+> **total**: `number` \| `undefined`
 
-Total count (may differ from data.length with pagination)
+Total row count for the cache-key-scoped query, independent of
+pagination. Returned when the collection's [Collection.list](Collection.md#list).total
+is `true`; `undefined` otherwise.

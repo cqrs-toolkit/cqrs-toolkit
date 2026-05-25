@@ -6,9 +6,11 @@
 
 import { type Link, logProvider } from '@meticoeus/ddd-es'
 import {
+  BehaviorSubject,
   Observable,
   Subject,
   catchError,
+  defer,
   distinctUntilChanged,
   filter,
   from,
@@ -18,6 +20,8 @@ import {
   startWith,
   switchMap,
   takeUntil,
+  tap,
+  throwError,
 } from 'rxjs'
 import type { CacheKeyIdentity } from '../../core/cache-manager/CacheKey.js'
 import { getAtPath } from '../../core/entity-ref/ref-path.js'
@@ -67,6 +71,25 @@ function anyMatch(
   return false
 }
 
+/**
+ * Substitute a {@link ListFilter}'s callbacks with a structured-cloneable
+ * {@link PreEvaluatedListFilter} before crossing the worker boundary.
+ * Closures aren't transferable; we resolve the SQL fragment on the main
+ * thread (sync, pure) and drop the memory predicate (the worker only
+ * runs SQL storage).
+ *
+ * Idempotent: a filter already in pre-evaluated form is returned as-is.
+ */
+function preEvaluateListFilter<TLink extends Link>(params: ListParams<TLink>): ListParams<TLink> {
+  const f = params.filter
+  if (f === undefined) return params
+  if ('sqlFragment' in f) return params
+  return {
+    ...params,
+    filter: { sqlFragment: f.sql(f.params) },
+  }
+}
+
 export class QueryManagerProxy<TLink extends Link> implements IQueryManager<TLink> {
   private readonly destroy$ = new Subject<void>()
   private readonly viewsByName: ReadonlyMap<string, AnyViewRegistration<TLink>>
@@ -106,7 +129,7 @@ export class QueryManagerProxy<TLink extends Link> implements IQueryManager<TLin
 
   async list<T>(params: ListParams<TLink>): Promise<ListQueryResult<TLink, T>> {
     return this.channel.request<ListQueryResult<TLink, T>>('queryManager.list', [
-      { ...params, windowId: this.windowId },
+      { ...preEvaluateListFilter(params), windowId: this.windowId },
     ])
   }
 
@@ -203,56 +226,72 @@ export class QueryManagerProxy<TLink extends Link> implements IQueryManager<TLin
    * state independently.
    */
   watchList<T>(params: ListParams<TLink>): Observable<ListQueryResult<TLink, T>> {
-    return new Observable<ListQueryResult<TLink, T>>((subscriber) => {
+    return defer(() => {
       const liveTotal = this.collectionListTotal(params.collection)
-      let cancelled = false
-      let dataVersion = 0
-      let countVersion = 0
-      let pageIds: string[] = []
-      let resolvedCacheKey: string | undefined
-      let lastResult: ListQueryResult<TLink, T> | undefined
 
-      const runData = async (): Promise<void> => {
-        const myVersion = ++dataVersion
-        try {
-          const result = await this.list<T>(params)
-          if (cancelled || myVersion !== dataVersion) return
-          resolvedCacheKey = result.cacheKey.key
-          pageIds = result.meta.map((m) => m.id)
-          lastResult = result
-          subscriber.next(result)
-        } catch (err) {
-          if (!cancelled && myVersion === dataVersion) subscriber.error(err)
-        }
+      type ListState = {
+        pageIds: string[]
+        resolvedCacheKey: string | undefined
+        lastResult: ListQueryResult<TLink, T> | undefined
       }
 
-      // Count-only re-fetch through the proxy: re-runs `list` (which
-      // computes total when the collection opts in), keeps the previous
-      // data, projects the new total into the emission. The proxy doesn't
-      // have a count RPC of its own, so the cost is one extra list query
-      // — the data fetch dominates anyway and SQLite resolves both via
-      // indexed reads.
-      const runCount = async (): Promise<void> => {
-        if (!liveTotal || lastResult === undefined) return
-        const myVersion = ++countVersion
-        try {
-          const result = await this.list<T>(params)
-          if (cancelled || myVersion !== countVersion) return
-          if (result.total === undefined) return
-          const next: ListQueryResult<TLink, T> = { ...lastResult, total: result.total }
-          lastResult = next
-          subscriber.next(next)
-        } catch (err) {
-          if (!cancelled && myVersion === countVersion) subscriber.error(err)
-        }
-      }
+      const emptyState = (): ListState => ({
+        pageIds: [],
+        resolvedCacheKey: undefined,
+        lastResult: undefined,
+      })
 
-      void runData()
+      // Per-subscription state. switchMap below cancels in-flight RPCs; this
+      // subject only carries post-result state the event gates consult.
+      const state$ = new BehaviorSubject<ListState>(emptyState())
 
-      const updatedSub = this.broadcastEvents$
-        .pipe(filter((event) => event.eventName === 'readmodel:updated'))
-        .subscribe((event) => {
-          if (cancelled) return
+      const deriveState = (result: ListQueryResult<TLink, T>): ListState => ({
+        pageIds: result.meta.map((m) => m.id),
+        resolvedCacheKey: result.cacheKey.key,
+        lastResult: result,
+      })
+
+      type Trigger = 'data' | 'count'
+
+      const initial$ = of<Trigger>('data')
+
+      const seed$ = this.broadcastEvents$.pipe(
+        filter((event) => event.eventName === 'sync:seed-completed'),
+        filter((event) => (event.data as { collection: string }).collection === params.collection),
+        map<unknown, Trigger>(() => 'data'),
+      )
+
+      const session$ = this.broadcastEvents$.pipe(
+        filter((event) => event.eventName === 'session:destroyed'),
+        tap(() => state$.next(emptyState())),
+        map<unknown, Trigger>(() => 'data'),
+      )
+
+      // cache:evicted preserves resolvedCacheKey; the next data fetch
+      // repopulates it. Events arriving in the interim still match the
+      // previously-resolved key.
+      const evicted$ = this.broadcastEvents$.pipe(
+        filter((event) => event.eventName === 'cache:evicted'),
+        filter((event) => {
+          const s = state$.value
+          if (s.resolvedCacheKey === undefined) return false
+          const data = event.data as { cacheKey: { key: string } }
+          return data.cacheKey.key === s.resolvedCacheKey
+        }),
+        tap(() => {
+          const s = state$.value
+          state$.next({
+            pageIds: [],
+            resolvedCacheKey: s.resolvedCacheKey,
+            lastResult: undefined,
+          })
+        }),
+        map<unknown, Trigger>(() => 'data'),
+      )
+
+      const updated$ = this.broadcastEvents$.pipe(
+        filter((event) => event.eventName === 'readmodel:updated'),
+        map((event): Trigger | undefined => {
           const data = event.data as {
             collection: string
             created?: string[]
@@ -260,65 +299,52 @@ export class QueryManagerProxy<TLink extends Link> implements IQueryManager<TLin
             deleted?: string[]
             cacheKeys: string[]
           }
-          if (data.collection !== params.collection) return
-          if (resolvedCacheKey === undefined) return
+          if (data.collection !== params.collection) return undefined
+          const s = state$.value
+          if (s.resolvedCacheKey === undefined) return undefined
 
-          const hitsTracked =
-            anyMatch(data.created, pageIds) ||
-            anyMatch(data.updated, pageIds) ||
-            anyMatch(data.deleted, pageIds)
-          if (hitsTracked) {
-            void runData()
-            return
+          if (
+            anyMatch(data.created, s.pageIds) ||
+            anyMatch(data.updated, s.pageIds) ||
+            anyMatch(data.deleted, s.pageIds)
+          ) {
+            return 'data'
           }
 
-          if (!liveTotal) return
+          if (!liveTotal) return undefined
           const hasCreateOrDelete =
             (data.created?.length ?? 0) > 0 || (data.deleted?.length ?? 0) > 0
-          if (!hasCreateOrDelete) return
-          if (!data.cacheKeys.includes(resolvedCacheKey)) return
-          void runCount()
-        })
+          if (!hasCreateOrDelete) return undefined
+          if (!data.cacheKeys.includes(s.resolvedCacheKey)) return undefined
+          return 'count'
+        }),
+        filter((t): t is Trigger => t !== undefined),
+      )
 
-      const seedSub = this.broadcastEvents$
-        .pipe(filter((event) => event.eventName === 'sync:seed-completed'))
-        .subscribe((event) => {
-          if (cancelled) return
-          const data = event.data as { collection: string }
-          if (data.collection !== params.collection) return
-          void runData()
-        })
-
-      const sessionSub = this.broadcastEvents$
-        .pipe(filter((event) => event.eventName === 'session:destroyed'))
-        .subscribe(() => {
-          if (cancelled) return
-          pageIds = []
-          resolvedCacheKey = undefined
-          lastResult = undefined
-          void runData()
-        })
-
-      const evictedSub = this.broadcastEvents$
-        .pipe(filter((event) => event.eventName === 'cache:evicted'))
-        .subscribe((event) => {
-          if (cancelled) return
-          if (resolvedCacheKey === undefined) return
-          const data = event.data as { cacheKey: { key: string } }
-          if (data.cacheKey.key !== resolvedCacheKey) return
-          pageIds = []
-          lastResult = undefined
-          void runData()
-        })
-
-      return () => {
-        cancelled = true
-        updatedSub.unsubscribe()
-        seedSub.unsubscribe()
-        sessionSub.unsubscribe()
-        evictedSub.unsubscribe()
-      }
-    }).pipe(takeUntil(this.destroy$))
+      return merge(initial$, seed$, session$, evicted$, updated$).pipe(
+        switchMap((trigger) =>
+          from(this.list<T>(params)).pipe(
+            map((result): ListQueryResult<TLink, T> | undefined => {
+              if (trigger === 'count') {
+                const last = state$.value.lastResult
+                if (last === undefined || result.total === undefined) return undefined
+                return { ...last, total: result.total }
+              }
+              return result
+            }),
+            filter((r): r is ListQueryResult<TLink, T> => r !== undefined),
+            tap((emission) => {
+              if (trigger === 'count') {
+                state$.next({ ...state$.value, lastResult: emission })
+              } else {
+                state$.next(deriveState(emission))
+              }
+            }),
+          ),
+        ),
+        takeUntil(this.destroy$),
+      )
+    })
   }
 
   /**
@@ -331,11 +357,10 @@ export class QueryManagerProxy<TLink extends Link> implements IQueryManager<TLin
   watchView<T, TParams = unknown>(
     params: GetViewParams<TParams>,
   ): Observable<PagedViewResult<TLink, T>> {
-    return new Observable<PagedViewResult<TLink, T>>((subscriber) => {
+    return defer(() => {
       const view = this.viewsByName.get(params.view)
       if (!view) {
-        subscriber.error(new Error(`Unknown view: '${params.view}'`))
-        return
+        return throwError(() => new Error(`Unknown view: '${params.view}'`))
       }
 
       const primarySource = view.primarySource
@@ -347,63 +372,103 @@ export class QueryManagerProxy<TLink extends Link> implements IQueryManager<TLin
       const hasCount =
         typeof view.memoryCount === 'function' || typeof view.sql?.count === 'function'
 
-      let cancelled = false
-      let dataVersion = 0
-      let countVersion = 0
-      let pageIds: string[] = []
-      let embedIds: Map<string, Set<string>> = new Map()
-      let watchedCacheKeys: Set<string> = new Set()
-      let lastResult: PagedViewResult<TLink, T> | undefined
+      type ViewState = {
+        pageIds: string[]
+        referencedIds: Map<string, Set<string>>
+        referencingIds: Map<string, Set<string>>
+        watchedCacheKeys: Set<string>
+        lastResult: PagedViewResult<TLink, T> | undefined
+      }
 
-      const runData = async (): Promise<void> => {
-        const myVersion = ++dataVersion
-        try {
-          const result = await this.getView<T, TParams>(params)
-          if (cancelled || myVersion !== dataVersion) return
+      const emptyState = (): ViewState => ({
+        pageIds: [],
+        referencedIds: new Map(),
+        referencingIds: new Map(),
+        watchedCacheKeys: new Set(),
+        lastResult: undefined,
+      })
 
-          watchedCacheKeys = new Set(result.cacheKeys.map((k) => k.key))
-          pageIds = []
+      const state$ = new BehaviorSubject<ViewState>(emptyState())
+
+      const deriveState = (result: PagedViewResult<TLink, T>): ViewState => {
+        const pageIds: string[] = []
+        for (const row of result.data) {
+          const id = (row as { id?: unknown }).id
+          if (typeof id === 'string') pageIds.push(id)
+        }
+        const referencedIds = new Map<string, Set<string>>()
+        const referencingIds = new Map<string, Set<string>>()
+        for (const join of joinSources) {
+          const referencedSet = new Set<string>()
           for (const row of result.data) {
-            const id = (row as { id?: unknown }).id
-            if (typeof id === 'string') pageIds.push(id)
+            const value = getAtPath(row, join.referencedIdPath)
+            if (typeof value === 'string') referencedSet.add(value)
           }
-          embedIds = new Map()
-          for (const join of joinSources) {
-            const set = new Set<string>()
+          referencedIds.set(join.collection, referencedSet)
+
+          if (join.referencingIdPath !== undefined) {
+            const referencingSet = new Set<string>()
             for (const row of result.data) {
-              const value = getAtPath(row, join.fromPath)
-              if (typeof value === 'string') set.add(value)
+              const value = getAtPath(row, join.referencingIdPath)
+              if (typeof value === 'string') referencingSet.add(value)
             }
-            embedIds.set(join.collection, set)
+            const existing = referencingIds.get(join.collection)
+            if (existing) {
+              for (const id of referencingSet) existing.add(id)
+            } else {
+              referencingIds.set(join.collection, referencingSet)
+            }
           }
-          lastResult = result
-          subscriber.next(result)
-        } catch (err) {
-          if (!cancelled && myVersion === dataVersion) subscriber.error(err)
+        }
+        return {
+          pageIds,
+          referencedIds,
+          referencingIds,
+          watchedCacheKeys: new Set(result.cacheKeys.map((k) => k.key)),
+          lastResult: result,
         }
       }
 
-      const runCount = async (): Promise<void> => {
-        if (!hasCount || lastResult === undefined) return
-        const myVersion = ++countVersion
-        try {
-          const result = await this.getView<T, TParams>(params)
-          if (cancelled || myVersion !== countVersion) return
-          if (result.total === undefined) return
-          const next: PagedViewResult<TLink, T> = { ...lastResult, total: result.total }
-          lastResult = next
-          subscriber.next(next)
-        } catch (err) {
-          if (!cancelled && myVersion === countVersion) subscriber.error(err)
-        }
-      }
+      type Trigger = 'data' | 'count'
 
-      void runData()
+      const initial$ = of<Trigger>('data')
 
-      const updatedSub = this.broadcastEvents$
-        .pipe(filter((event) => event.eventName === 'readmodel:updated'))
-        .subscribe((event) => {
-          if (cancelled) return
+      const seed$ = this.broadcastEvents$.pipe(
+        filter((event) => event.eventName === 'sync:seed-completed'),
+        filter((event) => sourceCollections.has((event.data as { collection: string }).collection)),
+        map<unknown, Trigger>(() => 'data'),
+      )
+
+      const session$ = this.broadcastEvents$.pipe(
+        filter((event) => event.eventName === 'session:destroyed'),
+        tap(() => state$.next(emptyState())),
+        map<unknown, Trigger>(() => 'data'),
+      )
+
+      // cache:evicted preserves watchedCacheKeys. The next data fetch
+      // repopulates the set; events arriving in the interim still match.
+      const evicted$ = this.broadcastEvents$.pipe(
+        filter((event) => event.eventName === 'cache:evicted'),
+        filter((event) => {
+          const data = event.data as { cacheKey: { key: string } }
+          return state$.value.watchedCacheKeys.has(data.cacheKey.key)
+        }),
+        tap(() => {
+          const current = state$.value
+          state$.next({
+            pageIds: [],
+            referencedIds: new Map(),
+            referencingIds: new Map(),
+            watchedCacheKeys: current.watchedCacheKeys,
+            lastResult: undefined,
+          })
+        }),
+        map<unknown, Trigger>(() => 'data'),
+      )
+
+      const updated$ = this.broadcastEvents$.pipe(
+        filter((event) => event.eventName === 'readmodel:updated'),
+        map((event): Trigger | undefined => {
           const data = event.data as {
             collection: string
             created?: string[]
@@ -411,69 +476,67 @@ export class QueryManagerProxy<TLink extends Link> implements IQueryManager<TLin
             deleted?: string[]
             cacheKeys: string[]
           }
-          if (!sourceCollections.has(data.collection)) return
+          if (!sourceCollections.has(data.collection)) return undefined
+          const s = state$.value
 
           const trackedSet =
             data.collection === primarySource
-              ? pageIds
-              : (embedIds.get(data.collection) ?? new Set<string>())
-          const hitsTracked =
+              ? s.pageIds
+              : (s.referencedIds.get(data.collection) ?? new Set<string>())
+          if (
             anyMatch(data.created, trackedSet) ||
             anyMatch(data.updated, trackedSet) ||
             anyMatch(data.deleted, trackedSet)
-          if (hitsTracked) {
-            void runData()
-            return
+          ) {
+            return 'data'
           }
 
-          if (!hasCount) return
+          if (data.collection !== primarySource) {
+            const referencingSet = s.referencingIds.get(data.collection)
+            if (referencingSet && referencingSet.size > 0) {
+              if (
+                anyMatch(data.created, referencingSet) ||
+                anyMatch(data.updated, referencingSet)
+              ) {
+                return 'data'
+              }
+            }
+          }
+
+          if (!hasCount) return undefined
           const hasCreateOrDelete =
             (data.created?.length ?? 0) > 0 || (data.deleted?.length ?? 0) > 0
-          if (!hasCreateOrDelete) return
-          if (!data.cacheKeys.some((k) => watchedCacheKeys.has(k))) return
-          void runCount()
-        })
+          if (!hasCreateOrDelete) return undefined
+          if (!data.cacheKeys.some((k) => s.watchedCacheKeys.has(k))) return undefined
+          return 'count'
+        }),
+        filter((t): t is Trigger => t !== undefined),
+      )
 
-      const seedSub = this.broadcastEvents$
-        .pipe(filter((event) => event.eventName === 'sync:seed-completed'))
-        .subscribe((event) => {
-          if (cancelled) return
-          const data = event.data as { collection: string }
-          if (!sourceCollections.has(data.collection)) return
-          void runData()
-        })
-
-      const sessionSub = this.broadcastEvents$
-        .pipe(filter((event) => event.eventName === 'session:destroyed'))
-        .subscribe(() => {
-          if (cancelled) return
-          pageIds = []
-          embedIds = new Map()
-          watchedCacheKeys = new Set()
-          lastResult = undefined
-          void runData()
-        })
-
-      const evictedSub = this.broadcastEvents$
-        .pipe(filter((event) => event.eventName === 'cache:evicted'))
-        .subscribe((event) => {
-          if (cancelled) return
-          const data = event.data as { cacheKey: { key: string } }
-          if (!watchedCacheKeys.has(data.cacheKey.key)) return
-          pageIds = []
-          embedIds = new Map()
-          lastResult = undefined
-          void runData()
-        })
-
-      return () => {
-        cancelled = true
-        updatedSub.unsubscribe()
-        seedSub.unsubscribe()
-        sessionSub.unsubscribe()
-        evictedSub.unsubscribe()
-      }
-    }).pipe(takeUntil(this.destroy$))
+      return merge(initial$, seed$, session$, evicted$, updated$).pipe(
+        switchMap((trigger) =>
+          from(this.getView<T, TParams>(params)).pipe(
+            map((result): PagedViewResult<TLink, T> | undefined => {
+              if (trigger === 'count') {
+                const last = state$.value.lastResult
+                if (last === undefined || result.total === undefined) return undefined
+                return { ...last, total: result.total }
+              }
+              return result
+            }),
+            filter((r): r is PagedViewResult<TLink, T> => r !== undefined),
+            tap((emission) => {
+              if (trigger === 'count') {
+                state$.next({ ...state$.value, lastResult: emission })
+              } else {
+                state$.next(deriveState(emission))
+              }
+            }),
+          ),
+        ),
+        takeUntil(this.destroy$),
+      )
+    })
   }
 
   async getLocallyById<T>(collection: string, id: EntityId): Promise<T | undefined> {

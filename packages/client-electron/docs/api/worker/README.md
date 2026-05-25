@@ -21,6 +21,10 @@ import { cqrsConfig } from './cqrs-config'
 startElectronWorker(cqrsConfig)
 ```
 
+## Interfaces
+
+- [StartElectronWorkerOptions](interfaces/StartElectronWorkerOptions.md)
+
 ## Functions
 
 - [startElectronWorker](functions/startElectronWorker.md)

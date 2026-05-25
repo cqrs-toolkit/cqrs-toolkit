@@ -64,9 +64,12 @@ export interface GetByIdsParams<TLink extends Link> extends QueryOptions<TLink> 
 /**
  * One sort term in a {@link Sort} spec — column name plus direction.
  *
- * V1 scope: `column` must refer to a library-owned column on the read-model
- * table (`id`, `updated_at`). Custom-column sort support lands alongside
- * `watchList` once in-memory column-to-path resolution is in place.
+ * `column` accepts any library-owned column on the read-model table
+ * (`id`, `updated_at`) or any custom column declared on the collection's
+ * {@link ManagedCollectionDef}. SQLite resolves declared custom columns
+ * as VIRTUAL generated columns; the in-memory backend falls back to the
+ * top-level effective-data key with the same name when no path resolver
+ * is wired (sufficient for shallow paths like `$.<field>`).
  */
 export interface SortTerm {
   column: string
@@ -77,8 +80,47 @@ export interface SortTerm {
  * Composite sort spec — ordered list of {@link SortTerm}s. Earlier terms
  * dominate; later terms break ties. Used by both `list` for ordering and by
  * paged subscriptions for cursor pagination and Gate 3 boundary checks.
+ *
+ * The `sort` field on {@link ListParams} overrides the collection-level
+ * default ({@link Collection.list}.defaultSort) when present.
  */
 export type Sort = readonly SortTerm[]
+
+/**
+ * Filter applied to a {@link IQueryManager.list} / {@link IQueryManager.watchList}
+ * call. Ships both backends.
+ *
+ * - `memory` runs inline against each row of the cache-key-scoped scan —
+ *   one loop, no second pass. The row arg is the parsed effective-data
+ *   shape; cast to your row type at the call site.
+ * - `sql` returns the inner predicate **only** — no `WHERE`, no leading
+ *   `AND`. The library wraps the fragment as:
+ *
+ *       WHERE <library-cache-key-clause> AND (<your-fragment>)
+ *
+ *   so the cache-key scope cannot be broken by author choice. Author
+ *   OR-groups inside your fragment freely; the outer parens are guaranteed.
+ *   The library invokes the callback exactly once per `list` (or per
+ *   `watchList` re-fetch) and never inspects it again, so closure
+ *   variables are captured at call time.
+ */
+export interface ListFilter {
+  params: unknown
+  memory: (row: unknown, params: unknown) => boolean
+  sql: (params: unknown) => { sql: string; bindings: readonly unknown[] }
+}
+
+/**
+ * Pre-evaluated {@link ListFilter} produced by the worker-mode proxy
+ * before crossing the structured-clone boundary (closures don't
+ * serialize). On the worker side, `ListParams.filter` shows up in this
+ * form; the inner {@link QueryManager} normalizes both forms identically.
+ *
+ * Consumers should not construct this directly — author {@link ListFilter}.
+ */
+export interface PreEvaluatedListFilter {
+  sqlFragment: { sql: string; bindings: readonly unknown[] }
+}
 
 /**
  * Parameters for {@link IQueryManager.getView}.
@@ -101,10 +143,20 @@ export interface ListParams<TLink extends Link> extends QueryOptions<TLink> {
   /** Offset for pagination */
   offset?: number
   /**
-   * Sort specification. When omitted, results are returned in the storage
-   * backend's natural order (undefined — do not rely on it).
+   * Per-call sort override. When omitted, falls back to
+   * `Collection.list.defaultSort` if set, otherwise the storage backend's
+   * natural order.
    */
   sort?: Sort
+  /**
+   * Per-call filter. The library ANDs the user fragment onto its own
+   * cache-key clause; see {@link ListFilter} for the wrapping contract.
+   *
+   * `ListFilter` is the form consumers author. `PreEvaluatedListFilter`
+   * appears on the worker side after the proxy serializes the user
+   * fragment for transport.
+   */
+  filter?: ListFilter | PreEvaluatedListFilter
 }
 
 /**
@@ -209,10 +261,13 @@ export interface IQueryManager<TLink extends Link> {
    * on the active storage backend. The library does not validate
    * cross-mode shape parity; the consumer owns it.
    *
-   * V1 cache-key semantics: **assume-ambient**. The library resolves the
-   * cache key templates declared by the view to {@link CacheKeyIdentity}s
-   * and surfaces them in the result, but does not acquire or hold them —
-   * the consumer's UI is responsible for ensuring the keys are present.
+   * Cache-key semantics: hold-agnostic. The library resolves the cache key
+   * templates declared by the view to {@link CacheKeyIdentity}s and surfaces
+   * them in `result.cacheKeys`, but does not acquire holds — `getView` is a
+   * one-shot read and the caller knows whether the underlying data needs to
+   * outlive the call. For subscription-style queries that should keep their
+   * data pinned, use `watchView` via `createViewQuery`, which holds the
+   * resolved identities for the subscription's lifetime.
    */
   getView<T, TParams = unknown>(params: GetViewParams<TParams>): Promise<PagedViewResult<TLink, T>>
 
@@ -225,15 +280,17 @@ export interface IQueryManager<TLink extends Link> {
    * - **Cache-key gate** — event must touch one of the view's resolved keys.
    * - **ID gate** — for events on the view's `primarySource`, `updated`
    *   intersect `pageIds`; for events on a `joinSources[].collection`,
-   *   `updated`/`deleted` intersect that collection's tracked `embedIds`
-   *   (FK values extracted from the visible rows via `fromPath`).
+   *   `updated`/`deleted` intersect that collection's tracked `referencedIds`
+   *   (FK values extracted from the visible rows via `referencedIdPath`).
    * - **Page-shift gate** — only triggered by creates / deletes in
    *   `primarySource` within a watched key. Join-source creates / deletes
    *   never shift the page composition (LEFT JOIN returns null embeds).
    *
    * Subscription state is per-call (per window). Each emission is a fresh
-   * {@link PagedViewResult} — `pageIds` and `embedIds` rebuild from each
-   * re-run. Hold lifecycle stays consumer-managed.
+   * {@link PagedViewResult} — `pageIds` and `referencedIds` rebuild from each
+   * re-run. The watchView observable itself is hold-agnostic; `createViewQuery`
+   * (in `@cqrs-toolkit/client-solid`) wraps it and manages holds on the
+   * emitted identities for the subscription's lifetime.
    *
    * Page identity: each row's `id` property is treated as the primary
    * source id. If `T` doesn't carry `id`, structure the row shape (or the

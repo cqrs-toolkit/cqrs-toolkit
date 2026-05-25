@@ -98,7 +98,7 @@ interface ProjectWithAsset {
   id: string
   title: string
   workspaceId: string
-  _embedded: { 'pms.Asset': AssetData | null }
+  _embedded: { 'pms.asset': AssetData | null }
 }
 interface SqlRow {
   id: string
@@ -115,7 +115,7 @@ interface SqlRow {
 const projectsByWorkspaceView: AnyViewRegistration<ServiceLink> = {
   name: 'projects-by-workspace',
   primarySource: 'projects',
-  joinSources: [{ collection: 'assets', fromPath: "$._embedded['pms.Asset'].id" }],
+  joinSources: [{ collection: 'assets', referencedIdPath: "$._embedded['pms.asset'].id" }],
   cacheKeys: () => [
     { kind: 'scope', scopeType: 'projects' },
     { kind: 'scope', scopeType: 'assets' },
@@ -154,7 +154,7 @@ const projectsByWorkspaceView: AnyViewRegistration<ServiceLink> = {
         id: project.id,
         workspaceId: project.workspaceId,
         title: project.title,
-        _embedded: { 'pms.Asset': asset },
+        _embedded: { 'pms.asset': asset },
       }
     },
   },
@@ -260,8 +260,8 @@ describe('views via declared custom columns (SQLite)', () => {
         })
 
         expect(result.data.map((r) => r.id)).toEqual(['p1', 'p2'])
-        expect(result.data[0]?._embedded['pms.Asset']?.name).toBe('Alpha')
-        expect(result.data[1]?._embedded['pms.Asset']?.name).toBe('Beta')
+        expect(result.data[0]?._embedded['pms.asset']?.name).toBe('Alpha')
+        expect(result.data[1]?._embedded['pms.asset']?.name).toBe('Beta')
         expect(result.total).toBe(2)
       },
     ),
@@ -309,7 +309,7 @@ describe('views via declared custom columns (SQLite)', () => {
 
         await new Promise((r) => setTimeout(r, 50))
         expect(emissions.length).toBeGreaterThanOrEqual(1)
-        expect(emissions[0]?.[0]?._embedded['pms.Asset']?.name).toBe('Original')
+        expect(emissions[0]?.[0]?._embedded['pms.asset']?.name).toBe('Original')
 
         const before = emissions.length
 
@@ -330,7 +330,7 @@ describe('views via declared custom columns (SQLite)', () => {
         await new Promise((r) => setTimeout(r, 50))
         expect(emissions.length).toBeGreaterThan(before)
         const last = emissions[emissions.length - 1]
-        expect(last?.[0]?._embedded['pms.Asset']?.name).toBe('Renamed')
+        expect(last?.[0]?._embedded['pms.asset']?.name).toBe('Renamed')
 
         sub.unsubscribe()
       },

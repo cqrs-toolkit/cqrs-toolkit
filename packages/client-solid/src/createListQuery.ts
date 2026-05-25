@@ -2,7 +2,13 @@
  * SolidJS reactive primitive for list queries.
  */
 
-import type { CacheKeyIdentity, CollectionSignal, ListParams } from '@cqrs-toolkit/client'
+import type {
+  CacheKeyIdentity,
+  CollectionSignal,
+  ListFilter,
+  ListParams,
+  Sort,
+} from '@cqrs-toolkit/client'
 import { entityIdToString } from '@cqrs-toolkit/client'
 import type { Link } from '@meticoeus/ddd-es'
 import { createComputed, onCleanup } from 'solid-js'
@@ -15,6 +21,7 @@ import type {
   ListQueryStatus,
   ReconciledId,
 } from './types.js'
+import { isAccessor } from './utils.js'
 
 interface ListQueryStore<T extends Identifiable> {
   items: T[]
@@ -23,10 +30,6 @@ interface ListQueryStore<T extends Identifiable> {
   hasLocalChanges: boolean
   state: ListQueryStatus
   reconciled: ReconciledId[]
-}
-
-interface Session {
-  cleanup: () => void
 }
 
 /**
@@ -42,13 +45,25 @@ interface Session {
  * The `reconciled` field exposes these mappings for consumers holding entity
  * IDs in external signals (selection state, URL params).
  *
- * The `cacheKey` parameter is required. When it is a reactive accessor,
- * the query re-subscribes when the cache key identity changes — releasing
- * the old key and resetting to loading state.
+ * ### Reactive inputs
+ *
+ * `cacheKey`, `sort`, and `filter` all accept a reactive accessor, but
+ * they fire on different scopes:
+ *
+ * - **`cacheKey` change → full session restart.** Cancels the in-flight
+ *   fetch, unsubscribes the collection watcher, releases the held cache
+ *   key, resets the store to `loading`, then starts fresh.
+ * - **`sort` / `filter` change → in-session refetch only.** Re-runs
+ *   `queryManager.list` with the new params against the *same* held cache
+ *   key. The watcher stays attached and the key is never released, so a
+ *   sort tweak doesn't tag along with the side effects of dropping a hold
+ *   (WS topic resubscribe, invalidation reordering, reseed attempts on
+ *   reacquire). Items stay visible across the refetch — `reconcile`
+ *   replaces them when the new data arrives.
  *
  * Uses the CQRS client from context (via `useClient()`).
  *
- * @param params - Query parameters (collection, cacheKey, limit, offset)
+ * @param params - Query parameters (collection, cacheKey, limit, offset, sort, filter)
  * @returns Reactive store with items, loading, total, hasLocalChanges, state, reconciled
  */
 export function createListQuery<TLink extends Link, T extends Identifiable>(
@@ -67,29 +82,38 @@ export function createListQuery<TLink extends Link, T extends Identifiable>(
 
   const [store, setStore] = createStore<ListQueryStore<T>>(initialState)
 
-  // Normalize cacheKey to an accessor
-  const cacheKeyAccessor: () => CacheKeyIdentity<TLink> | undefined =
-    typeof params.cacheKey === 'function'
-      ? params.cacheKey
-      : () => params.cacheKey as CacheKeyIdentity<TLink>
+  // Normalize each input to an accessor. Reads happen inside reactive
+  // scopes below, where they're tracked per scope's intended granularity.
+  const cacheKey = params.cacheKey
+  const cacheKeyAccessor: () => CacheKeyIdentity<TLink> | undefined = isAccessor(cacheKey)
+    ? cacheKey
+    : () => cacheKey
 
-  let currentSession: Session | undefined
+  const sort = params.sort
+  const sortAccessor: () => Sort | undefined = isAccessor(sort) ? sort : () => sort
 
-  function startSession(cacheKey: CacheKeyIdentity<TLink>): Session {
-    let resolvedCacheKey: string | undefined
-    let fetchVersion = 0
-    let cancelled = false
-    let settled = false
+  const filter = params.filter
+  const filterAccessor: () => ListFilter | undefined = isAccessor(filter) ? filter : () => filter
 
-    const listParams: ListParams<TLink> = {
-      collection: params.collection,
-      cacheKey,
-      hold: true,
-      limit: params.limit,
-      offset: params.offset,
-    }
+  // Outer scope: cacheKey lifecycle.
+  //
+  // Tracks `cacheKeyAccessor()` only. The session — cache-key hold, the
+  // watchCollection subscription, the in-flight fetch — is bound to this
+  // scope. Solid disposes the inner computed and runs `onCleanup` on
+  // re-run, so a cacheKey change cleanly tears down everything before
+  // starting fresh.
+  //
+  // sort/filter changes are deliberately routed through the nested
+  // computed below so they refetch without releasing the cache key.
+  // Releasing a held key has visible side effects on the cache manager —
+  // it can shuffle invalidation order, drop WS topic subscriptions, or
+  // trigger reseed attempts on the next acquire — none of which a sort
+  // or filter tweak should incur.
+  createComputed(() => {
+    const cacheKey = cacheKeyAccessor()
 
-    // Reset store to loading state for the new session
+    // Reset the store on every session boundary, including the inactive
+    // case (cacheKey === undefined).
     setStore('items', [])
     setStore('loading', true)
     setStore('total', undefined)
@@ -97,7 +121,27 @@ export function createListQuery<TLink extends Link, T extends Identifiable>(
     setStore('state', { status: 'loading' })
     setStore('reconciled', [])
 
-    async function fetch(): Promise<void> {
+    if (cacheKey === undefined) return
+
+    // Session-local state. All closures below close over these.
+    let resolvedCacheKey: string | undefined
+    let fetchVersion = 0
+    let cancelled = false
+    let settled = false
+
+    // Latest list-params snapshot for handleSignal-triggered refetches.
+    // The inner computed below replaces this whenever sort/filter changes
+    // (immutable swap so already-issued fetches keep their old snapshot
+    // — defends against any QueryManager that reads params across awaits).
+    let currentListParams: ListParams<TLink> = {
+      collection: params.collection,
+      cacheKey,
+      hold: true,
+      limit: params.limit,
+      offset: params.offset,
+    }
+
+    async function fetch(listParams: ListParams<TLink>): Promise<void> {
       fetchVersion++
       const version = fetchVersion
 
@@ -190,10 +234,11 @@ export function createListQuery<TLink extends Link, T extends Identifiable>(
         case 'updated':
         case 'seed-completed':
         case 'session-reset':
-          // Re-fetch data, then settle if not already settled. Session reset
-          // arrives when the session wipes data; re-fetch will return empty
-          // (or whatever the new session populated by the time it runs).
-          void fetch().then(() => {
+          // Re-fetch data with the current sort/filter, then settle if
+          // not already settled. Session reset arrives when the session
+          // wipes data; re-fetch will return empty (or whatever the new
+          // session populated by the time it runs).
+          void fetch(currentListParams).then(() => {
             if (!cancelled && !settled) {
               settle()
             }
@@ -214,47 +259,33 @@ export function createListQuery<TLink extends Link, T extends Identifiable>(
       }
     }
 
-    // Initial fetch
-    void fetch()
+    // Inner scope: sort/filter lifecycle.
+    //
+    // Tracks `sortAccessor()` and `filterAccessor()` only. On change,
+    // rebuilds `currentListParams` (immutable swap) and refetches —
+    // without releasing the cache key or unsubscribing the watcher.
+    // The first run kicks off the initial fetch; the session is
+    // otherwise inert until data arrives.
+    createComputed(() => {
+      currentListParams = {
+        ...currentListParams,
+        sort: sortAccessor(),
+        filter: filterAccessor(),
+      }
+      void fetch(currentListParams)
+    })
 
-    // Subscribe to collection lifecycle signals
+    // Subscribe to collection lifecycle signals.
     const subscription = queryManager.watchCollection(params.collection).subscribe(handleSignal)
 
-    return {
-      cleanup() {
-        cancelled = true
-        subscription.unsubscribe()
-        if (resolvedCacheKey !== undefined) {
-          void queryManager.release(resolvedCacheKey)
-        }
-      },
-    }
-  }
-
-  // createComputed runs synchronously (unlike createEffect which is deferred),
-  // ensuring the initial fetch starts immediately and re-runs when cacheKey changes.
-  // When the accessor returns undefined, no session is active (loading state with no data).
-  createComputed(() => {
-    const cacheKey = cacheKeyAccessor()
-    currentSession?.cleanup()
-    currentSession = undefined
-
-    if (cacheKey === undefined) {
-      // No active query — show loading/empty state
-      setStore('items', [])
-      setStore('loading', true)
-      setStore('total', undefined)
-      setStore('hasLocalChanges', false)
-      setStore('state', { status: 'loading' })
-      setStore('reconciled', [])
-      return
-    }
-
-    currentSession = startSession(cacheKey)
-  })
-
-  onCleanup(() => {
-    currentSession?.cleanup()
+    // Session teardown — runs on the next cacheKey change or component dispose.
+    onCleanup(() => {
+      cancelled = true
+      subscription.unsubscribe()
+      if (resolvedCacheKey !== undefined) {
+        void queryManager.release(resolvedCacheKey)
+      }
+    })
   })
 
   return store

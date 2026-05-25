@@ -4,6 +4,7 @@
 
 import { assert } from '#utils'
 import type {
+  CollationConfig,
   CustomColumn,
   CustomIndex,
   LibraryStep,
@@ -21,6 +22,25 @@ import { assertValidSqlIdentifier } from './sql-identifier.js'
 const LIBRARY_OWNED_COLUMNS: ReadonlySet<string> = new Set(['id', 'updated_at'])
 
 /**
+ * Built-in SQLite collation names. Always available without registration.
+ * SQLite matches collation names case-insensitively, so this set holds the
+ * upper-case forms and lookups normalize via `toUpperCase()`.
+ */
+const BUILTIN_COLLATIONS: ReadonlySet<string> = new Set(['BINARY', 'NOCASE', 'RTRIM'])
+
+/**
+ * Allowed shape for a custom collation name as it appears on a
+ * {@link CollationConfig} or {@link CustomColumn.collation} reference.
+ *
+ * Permits both cases (SQLite is case-insensitive on collation names) and
+ * keeps the same SQL-identifier discipline as column/table names — letters,
+ * digits, underscores, starting with a letter. Defends the DDL emit path
+ * against unintended SQL injection when the name is interpolated into the
+ * `COLLATE` clause verbatim.
+ */
+const COLLATION_NAME_RE = /^[A-Za-z][A-Za-z0-9_]*$/
+
+/**
  * Validate the consumer's migration sequence.
  *
  * Checks:
@@ -32,10 +52,29 @@ const LIBRARY_OWNED_COLUMNS: ReadonlySet<string> = new Set(['id', 'updated_at'])
  */
 export function validateSchemaMigrations(
   migrations: [SchemaMigration, ...SchemaMigration[]],
+  collations: readonly CollationConfig[] = [],
 ): void {
   const seenCollections = new Set<string>()
   const seenLibraryStepIds = new Set<string>()
   let lastLibraryStepVersion = 0
+
+  const registeredCollations = new Set<string>()
+  for (const c of collations) {
+    assert(
+      COLLATION_NAME_RE.test(c.name),
+      `Collation name must match ${COLLATION_NAME_RE} (got '${c.name}')`,
+    )
+    const upper = c.name.toUpperCase()
+    assert(
+      !BUILTIN_COLLATIONS.has(upper),
+      `Collation '${c.name}' collides with a built-in SQLite collation (${Array.from(BUILTIN_COLLATIONS).join(', ')}); drop the registration and reference the built-in directly.`,
+    )
+    assert(
+      !registeredCollations.has(upper),
+      `Duplicate collation registration: '${c.name}' (collation names are case-insensitive)`,
+    )
+    registeredCollations.add(upper)
+  }
 
   for (let i = 0; i < migrations.length; i++) {
     const migration = migrations[i] as SchemaMigration
@@ -62,7 +101,7 @@ export function validateSchemaMigrations(
         // index references can check column names against the declared set.
         const declaredColumns = new Set<string>()
         for (const column of step.columns ?? []) {
-          validateCustomColumn(step.name, column, declaredColumns)
+          validateCustomColumn(step.name, column, declaredColumns, registeredCollations)
           declaredColumns.add(column.name)
         }
         for (const index of step.indexes ?? []) {
@@ -98,6 +137,7 @@ function validateCustomColumn(
   collection: string,
   column: CustomColumn,
   declaredColumns: ReadonlySet<string>,
+  registeredCollations: ReadonlySet<string>,
 ): void {
   const where = `collection '${collection}', column '${column.name}'`
 
@@ -120,10 +160,13 @@ function validateCustomColumn(
 
   if (column.collation !== undefined) {
     assert(
-      column.collation === 'BINARY' ||
-        column.collation === 'NOCASE' ||
-        column.collation === 'RTRIM',
-      `${where}: collation must be BINARY, NOCASE, or RTRIM`,
+      COLLATION_NAME_RE.test(column.collation),
+      `${where}: collation name must match ${COLLATION_NAME_RE} (got '${column.collation}')`,
+    )
+    const upper = column.collation.toUpperCase()
+    assert(
+      BUILTIN_COLLATIONS.has(upper) || registeredCollations.has(upper),
+      `${where}: collation '${column.collation}' is not registered. Declare it on CqrsConfig.collations, or use a built-in (${Array.from(BUILTIN_COLLATIONS).join(', ')}).`,
     )
   }
 }
@@ -165,6 +208,16 @@ function validateCustomIndex(
       `${where}: references unknown column '${col}'. Declare it under 'columns' or use a library-owned column (${Array.from(LIBRARY_OWNED_COLUMNS).join(', ')}).`,
     )
   }
+
+  // A non-partial index on just `id` duplicates the primary key's implicit
+  // unique index. Partial indexes on `id` (with a `where` clause) are
+  // genuinely distinct and remain allowed.
+  const hasWhere = typeof index.where === 'string' && index.where.length > 0
+  if (index.columns.length === 1 && index.columns[0] === 'id' && !hasWhere) {
+    assert.fail(
+      `${where}: index on ['id'] is redundant with the primary key. Remove it, or add a 'where' clause to make it a partial index.`,
+    )
+  }
 }
 
 /**
@@ -172,6 +225,20 @@ function validateCustomIndex(
  */
 function defaultIndexName(collection: string, columns: readonly string[]): string {
   return `idx_rm_${collection}_${columns.join('_')}`
+}
+
+/**
+ * Options for {@link generateCollectionDDL} / {@link getSqlForStep}.
+ */
+export interface GenerateDdlOptions {
+  /**
+   * Strip `COLLATE <name>` clauses for custom (non-built-in) collations
+   * during DDL emission. Use with the `unsupportedCollations: 'degrade'`
+   * policy when the active SQLite backend can't register comparators
+   * (better-sqlite3 in Electron). Built-in names — `BINARY`, `NOCASE`,
+   * `RTRIM` — are emitted unchanged.
+   */
+  stripCustomCollations?: boolean
 }
 
 /**
@@ -185,7 +252,10 @@ function defaultIndexName(collection: string, columns: readonly string[]): strin
  *   reconciliation metadata
  * - Anything else: consumer-declared {@link CustomColumn} (VIRTUAL generated)
  */
-export function generateCollectionDDL(def: ManagedCollectionDef): string[] {
+export function generateCollectionDDL(
+  def: ManagedCollectionDef,
+  options: GenerateDdlOptions = {},
+): string[] {
   const { name } = def
   const columnLines = [
     'id TEXT PRIMARY KEY',
@@ -200,7 +270,7 @@ export function generateCollectionDDL(def: ManagedCollectionDef): string[] {
   ]
 
   for (const column of def.columns ?? []) {
-    columnLines.push(generateCustomColumnLine(column))
+    columnLines.push(generateCustomColumnLine(column, options))
   }
 
   const ddl: string[] = [
@@ -225,13 +295,24 @@ export function generateCollectionDDL(def: ManagedCollectionDef): string[] {
  * AS (<expression>) VIRTUAL [COLLATE <collation>]`. Always VIRTUAL: see
  * {@link CustomColumn} for the storage rationale.
  */
-function generateCustomColumnLine(column: CustomColumn): string {
+function generateCustomColumnLine(column: CustomColumn, options: GenerateDdlOptions): string {
   const expression =
     typeof column.expression === 'string' && column.expression.length > 0
       ? column.expression
       : `json_extract(_effective_data, '${column.path}')`
-  const collation = column.collation !== undefined ? ` COLLATE ${column.collation}` : ''
+  const collation = resolveCollationClause(column.collation, options)
   return `${column.name} ${column.type} GENERATED ALWAYS AS (${expression}) VIRTUAL${collation}`
+}
+
+function resolveCollationClause(
+  collation: string | undefined,
+  options: GenerateDdlOptions,
+): string {
+  if (collation === undefined) return ''
+  if (options.stripCustomCollations === true && !BUILTIN_COLLATIONS.has(collation.toUpperCase())) {
+    return ''
+  }
+  return ` COLLATE ${collation}`
 }
 
 /**
@@ -274,9 +355,51 @@ export function getCollectionNames(migrations: [SchemaMigration, ...SchemaMigrat
  * need the set of known managed tables to apply ALTER TABLE operations.
  * The hook approach also applies to future `type: 'custom'` collections.
  */
-export function getSqlForStep(step: MigrationStep): string[] {
+export function getSqlForStep(step: MigrationStep, options: GenerateDdlOptions = {}): string[] {
   if (step.type === 'library') {
     return (step as LibraryStep).sql
   }
-  return generateCollectionDDL(step)
+  return generateCollectionDDL(step, options)
+}
+
+/**
+ * Policy applied when the active SQLite backend cannot register custom
+ * collations (better-sqlite3 in Electron; built-in collations stay
+ * available either way). Built-in names (`BINARY`, `NOCASE`, `RTRIM`)
+ * are never affected.
+ *
+ * - `'error'`: throw at construction if any managed column declares a
+ *   non-built-in collation. Suitable as the conservative default when the
+ *   backend has no fallback.
+ * - `'degrade'`: emit DDL with the `COLLATE <name>` clause stripped for
+ *   non-built-in collations. SQL ordering falls back to `BINARY` for
+ *   those columns; locale-aware ordering is lost for the SQL path.
+ *   Consumer-opt-in trade-off so a shared CQRS config can boot in a
+ *   backend without collation support.
+ */
+export type UnsupportedCollationsPolicy = 'error' | 'degrade'
+
+/**
+ * Enforce the `'error'` half of {@link UnsupportedCollationsPolicy}: walk
+ * the migrations and throw on the first managed column whose `collation`
+ * resolves to a custom (non-built-in) name. Called by {@link SQLiteStorage}
+ * when the active backend has declared it can't register comparators and
+ * the consumer hasn't opted into `'degrade'`.
+ */
+export function assertNoCustomCollations(
+  migrations: readonly SchemaMigration[],
+  backendLabel: string,
+): void {
+  for (const migration of migrations) {
+    for (const step of migration.steps) {
+      if (step.type !== 'managed') continue
+      for (const column of step.columns ?? []) {
+        if (column.collation === undefined) continue
+        if (BUILTIN_COLLATIONS.has(column.collation.toUpperCase())) continue
+        throw new Error(
+          `Migration v${migration.version} collection '${step.name}' column '${column.name}' references custom collation '${column.collation}', but the active SQLite backend (${backendLabel}) cannot register one. Use a built-in collation (${Array.from(BUILTIN_COLLATIONS).join(', ')}), drop the collation, or pass \`unsupportedCollations: 'degrade'\` to fall back to BINARY ordering on this column.`,
+        )
+      }
+    }
+  }
 }

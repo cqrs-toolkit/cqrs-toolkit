@@ -29,11 +29,11 @@ function baseConfig(): CqrsConfig<ServiceLink, EnqueueCommand> {
   }
 }
 
-function makeView(fromPath: string): AnyViewRegistration<ServiceLink> {
+function makeView(referencedIdPath: string): AnyViewRegistration<ServiceLink> {
   const view: ViewRegistration<ServiceLink, { id: string }, { id: string }> = {
     name: 'todos-with-notes',
     primarySource: 'todos',
-    joinSources: [{ collection: 'notes', fromPath }],
+    joinSources: [{ collection: 'notes', referencedIdPath }],
     cacheKeys: () => [],
     memory: () => [],
     sql: { query: () => ({ sql: 'SELECT 1', bindings: [] }) },
@@ -46,18 +46,40 @@ describe('resolveConfig — registration path validation', () => {
     expect(() => resolveConfig(baseConfig())).not.toThrow()
   })
 
-  it('throws when a view joinSource fromPath has mismatched bracket quotes', () => {
+  it('throws when a view joinSource referencedIdPath has mismatched bracket quotes', () => {
     const config = baseConfig()
     config.views = [makeView(`$._embedded['pms.Asset"].id`)]
     expect(() => resolveConfig(config)).toThrow(
-      /View 'todos-with-notes' joinSource 'notes' fromPath: Unterminated bracket member/,
+      /View 'todos-with-notes' joinSource 'notes' referencedIdPath: Unterminated bracket member/,
     )
   })
 
-  it('accepts a view joinSource fromPath with double-quoted bracket members', () => {
+  it('accepts a view joinSource referencedIdPath with double-quoted bracket members', () => {
     const config = baseConfig()
     config.views = [makeView('$._embedded["pms.Asset"].id')]
     expect(() => resolveConfig(config)).not.toThrow()
+  })
+
+  it('throws when a view joinSource referencingIdPath is syntactically invalid', () => {
+    const config = baseConfig()
+    const view: ViewRegistration<ServiceLink, { id: string }, { id: string }> = {
+      name: 'todos-with-notes',
+      primarySource: 'todos',
+      joinSources: [
+        {
+          collection: 'notes',
+          referencedIdPath: '$._embedded["note"].id',
+          referencingIdPath: '$.association[',
+        },
+      ],
+      cacheKeys: () => [],
+      memory: () => [],
+      sql: { query: () => ({ sql: 'SELECT 1', bindings: [] }) },
+    }
+    config.views = [view]
+    expect(() => resolveConfig(config)).toThrow(
+      /View 'todos-with-notes' joinSource 'notes' referencingIdPath:/,
+    )
   })
 
   it('throws when a collection idReference path is syntactically invalid', () => {

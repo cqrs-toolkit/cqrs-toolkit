@@ -42,7 +42,7 @@ This adapter:
 
 ##### config
 
-[`SharedWorkerAdapterConfig`](../interfaces/SharedWorkerAdapterConfig.md)
+[`SharedWorkerAdapterConfig`](../interfaces/SharedWorkerAdapterConfig.md)\<`TLink`\>
 
 #### Returns
 

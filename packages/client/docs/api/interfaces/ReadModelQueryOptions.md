@@ -20,6 +20,23 @@ Query options for listing read models.
 
 Filter by cache key
 
+#### Overrides
+
+[`IStorageQueryOptions`](IStorageQueryOptions.md).[`cacheKey`](IStorageQueryOptions.md#cachekey)
+
+---
+
+### filter?
+
+> `optional` **filter**: `IStorageListFilter`
+
+Per-call filter applied after cache-key scoping. See
+IStorageListFilter.
+
+#### Inherited from
+
+[`IStorageQueryOptions`](IStorageQueryOptions.md).[`filter`](IStorageQueryOptions.md#filter)
+
 ---
 
 ### limit?

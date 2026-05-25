@@ -167,9 +167,13 @@ readonly `ReadModelMutation`[]
 
 ### count()
 
-> **count**(`collection`, `cacheKey?`): `Promise`\<`number`\>
+> **count**(`collection`, `cacheKey?`, `filter?`): `Promise`\<`number`\>
 
 Get the count of read models in a collection.
+
+When a IStorageListFilter is supplied, the count reflects
+the filtered subset (cache-key clause AND user fragment), so list
+totals stay coherent with the page result.
 
 #### Parameters
 
@@ -177,17 +181,17 @@ Get the count of read models in a collection.
 
 `string`
 
-Collection name
-
 ##### cacheKey?
 
 `string`
 
+##### filter?
+
+`IStorageListFilter`
+
 #### Returns
 
 `Promise`\<`number`\>
-
-Count of read models
 
 ---
 
@@ -406,6 +410,14 @@ Used by SyncManager to restore knownRevisions on startup.
 
 List read models in a collection.
 
+Single path: cache-key scoping, user filter, sort, and pagination all
+flow through [IStorage.getReadModelsByCollection](../interfaces/IStorage.md#getreadmodelsbycollection) so each
+backend applies them in its native form (one SQL query, or one
+in-memory scan).
+
+`localChangesOnly` is applied after fetch — it inspects the parsed
+record's `hasLocalChanges` flag and isn't worth pushing into storage.
+
 #### Type Parameters
 
 ##### T
@@ -424,7 +436,7 @@ Collection name
 
 [`ReadModelQueryOptions`](../interfaces/ReadModelQueryOptions.md)
 
-Query options
+Query options (cache key, filter, sort, page, etc.)
 
 #### Returns
 
