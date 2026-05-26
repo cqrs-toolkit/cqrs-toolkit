@@ -51,5 +51,6 @@
     }
   },
   "required": ["self"],
+  "title": "HalCollectionLinksV1_0_0",
   "type": "object"
 }

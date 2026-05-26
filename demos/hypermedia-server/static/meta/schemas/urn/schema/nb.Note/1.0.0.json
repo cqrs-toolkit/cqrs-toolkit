@@ -24,5 +24,6 @@
     }
   },
   "required": ["id", "notebookId", "title", "body", "createdAt", "updatedAt", "latestRevision"],
+  "title": "NoteReadModelV1_0_0",
   "type": "object"
 }

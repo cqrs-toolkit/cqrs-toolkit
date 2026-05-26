@@ -53,6 +53,7 @@ export const BaseProblemSchema = {
 
 export const FieldErrorSchema = {
   $id: `urn:schema:${PROBLEM_SERVICE}.FieldError:1.0.0`,
+  title: 'FieldErrorV1_0_0',
   type: 'object',
   properties: {
     path: { type: 'string' },
@@ -75,6 +76,7 @@ export interface Problem extends BaseProblem {
  */
 export const ProblemSchema = {
   $id: `urn:schema:${PROBLEM_SERVICE}.Problem:1.0.0`,
+  title: 'ProblemV1_0_0',
   type: 'object',
   properties: {
     ...BaseProblemSchema.properties,

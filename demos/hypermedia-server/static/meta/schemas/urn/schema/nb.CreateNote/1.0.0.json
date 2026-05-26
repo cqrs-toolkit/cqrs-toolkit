@@ -15,5 +15,6 @@
     }
   },
   "required": ["notebookId", "title", "body"],
+  "title": "NbCreateNoteV1_0_0",
   "type": "object"
 }

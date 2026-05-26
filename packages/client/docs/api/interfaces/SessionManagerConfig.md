@@ -16,7 +16,7 @@ Session manager configuration.
 
 ### TCommand
 
-`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md)
+`TCommand` _extends_ [`EnqueueCommand`](../type-aliases/EnqueueCommand.md)
 
 ## Properties
 

@@ -1,6 +1,8 @@
+export { auditTitles } from '../cli/audit-titles.js'
 export { build } from '../cli/build.js'
 export { resolveConfig, type CommandOptions, type ResolvedConfig } from '../cli/config.js'
 export { docs } from '../cli/docs.js'
+export { auditSchemaTitles, type AuditSchemaTitlesResult } from './audit-titles.js'
 export { generateHydraDocumentation } from './generate.js'
 export type { GenerateConfig, GenerateResult } from './generate.js'
 export { buildHydraApiDocumentation } from './HydraBuilder.js'

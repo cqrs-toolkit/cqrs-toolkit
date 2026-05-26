@@ -28,7 +28,12 @@ export default defineConfig({
       'urn:command:nb.UpdateTodoContent:1.0.0',
       'urn:command:nb.ChangeTodoStatus:1.0.0',
       'urn:command:nb.DeleteTodo:1.0.0',
-      'urn:command:nb.CreateNote:1.0.0',
+      {
+        urn: 'urn:command:nb.CreateNote:1.0.0',
+        idReferences: [
+          { kind: 'id', path: '$.notebookId', aggregateUrn: 'urn:aggregate:nb.Notebook' },
+        ],
+      },
       'urn:command:nb.UpdateNoteTitle:1.0.0',
       'urn:command:nb.UpdateNoteBody:1.0.0',
       'urn:command:nb.DeleteNote:1.0.0',
@@ -37,15 +42,41 @@ export default defineConfig({
       'urn:command:nb.DeleteNotebook:1.0.0',
       'urn:command:nb.AddNotebookTag:1.0.0',
       'urn:command:nb.RemoveNotebookTag:1.0.0',
-      'urn:command:storage.CreateFileObject:1.0.0',
+      {
+        urn: 'urn:command:storage.CreateFileObject:1.0.0',
+        idReferences: [{ kind: 'id', path: '$.noteId', aggregateUrn: 'urn:aggregate:nb.Note' }],
+      },
       'urn:command:storage.DeleteFileObject:1.0.0',
     ],
 
+    // Per-rep idReferences. Mirrors the runtime collection configs:
+    // self-id (`$.id`) entries with no aggregateUrn are typing-only;
+    // foreign-id entries (with aggregateUrn) also propagate to the
+    // manifest's `generatedIdReferences` for `getGeneratedIdReferences`.
     representations: [
-      'urn:representation:nb.Todo:1.0.0',
-      'urn:representation:nb.Note:1.0.0',
-      'urn:representation:nb.Notebook:1.0.0',
-      'urn:representation:storage.FileObject:1.0.0',
+      {
+        urn: 'urn:representation:nb.Todo:1.0.0',
+        idReferences: [{ kind: 'id', path: '$.id' }],
+      },
+      {
+        urn: 'urn:representation:nb.Note:1.0.0',
+        idReferences: [
+          { kind: 'id', path: '$.id' },
+          { kind: 'id', path: '$.notebookId', aggregateUrn: 'urn:aggregate:nb.Notebook' },
+        ],
+      },
+      {
+        urn: 'urn:representation:nb.Notebook:1.0.0',
+        idReferences: [{ kind: 'id', path: '$.id' }],
+      },
+      {
+        urn: 'urn:representation:storage.FileObject:1.0.0',
+        idReferences: [
+          { kind: 'id', path: '$.id' },
+          { kind: 'id', path: '$.noteId', aggregateUrn: 'urn:aggregate:nb.Note' },
+          { kind: 'id', path: '$.notebookId', aggregateUrn: 'urn:aggregate:nb.Notebook' },
+        ],
+      },
     ],
   },
 })

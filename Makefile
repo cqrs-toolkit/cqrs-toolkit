@@ -1,7 +1,7 @@
 CACHE = ./scripts/cache-run.sh
 DOCS = ./scripts/docs-run.sh
 WITH_HM_SERVER = ./demos/hypermedia-server/scripts/with-server.sh
-.PHONY: build docs clean clean-cache hm-server-docs hm-client-init
+.PHONY: build docs clean clean-cache hm-server-docs hm-client-init hm-client-pull
 
 # -----------------------------------------------------------------------------
 # Build-cache dependency rule
@@ -101,7 +101,11 @@ hm-start-electron:
 	$(WITH_HM_SERVER) npm run start -w @cqrs-toolkit/hypermedia-electron
 
 hm-server-docs:
-	$(WITH_HM_SERVER) npm run cqrs:server:docs -w @cqrs-toolkit/hypermedia-server
+	npm run cqrs:server:docs -w @cqrs-toolkit/hypermedia-server
+	npm run cqrs:server:titles -w @cqrs-toolkit/hypermedia-server
 
 hm-client-init:
 	$(WITH_HM_SERVER) npm run cqrs:client:init -w @cqrs-toolkit/hypermedia-base
+
+hm-client-pull:
+	$(WITH_HM_SERVER) npm run cqrs:client:pull -w @cqrs-toolkit/hypermedia-base

@@ -20,7 +20,7 @@ validation but before the handler runs).
 
 ### TCommand
 
-`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md)
+`TCommand` _extends_ [`EnqueueCommand`](../type-aliases/EnqueueCommand.md)
 
 ### TSchema
 

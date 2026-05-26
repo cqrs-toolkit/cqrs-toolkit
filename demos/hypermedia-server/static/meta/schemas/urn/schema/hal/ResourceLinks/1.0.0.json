@@ -21,5 +21,6 @@
     }
   },
   "required": ["self"],
+  "title": "HalResourceLinksV1_0_0",
   "type": "object"
 }

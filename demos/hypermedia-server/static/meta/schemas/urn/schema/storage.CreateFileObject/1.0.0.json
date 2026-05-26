@@ -16,5 +16,6 @@
     }
   },
   "required": ["noteId", "filename", "size"],
+  "title": "StorageCreateFileObjectV1_0_0",
   "type": "object"
 }

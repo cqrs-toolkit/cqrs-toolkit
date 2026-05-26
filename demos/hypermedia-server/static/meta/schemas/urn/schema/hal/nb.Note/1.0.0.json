@@ -36,5 +36,6 @@
     "latestRevision",
     "_links"
   ],
+  "title": "NoteReadModelV1_0_0",
   "type": "object"
 }

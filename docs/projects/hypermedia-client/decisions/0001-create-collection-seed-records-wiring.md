@@ -130,6 +130,7 @@ Considered to avoid duplicating JSONPath logic. Rejected for now in favour of an
 
 ## Related
 
+- [ADR-0002](0002-create-collection-contributor-shape.md) — reshapes `createCollection` into a contributor (drops every pass-through option, returns only `revisionPath` + the three representation-derived fetchers). The two records-wiring fields introduced here (`revisionPath`, `fetchTemplateVariables`) survive intact; only the surrounding helper API reshapes.
 - Sourced from exploration: [`../explorations/createCollection-seed-records-wiring.md`](../explorations/createCollection-seed-records-wiring.md). The exploration persists past this ADR's acceptance, kept for the Q1–Q6 alternatives discussion — including the corrected Q4 that recorded the URLSearchParams approach as evolved-and-rejected. The only genuinely deferred item is Q6 (scoped aggregate-event endpoints), tracked there until a real driver surfaces.
 - Touches `Collection.revisionPath` from [`@cqrs-toolkit/client`'s config](../../../../packages/client/src/types/config.ts) — no semantic change, only forwarding.
 - Depends on the server-side envelope shapes produced by [`@cqrs-toolkit/hypermedia`'s `formatCollection`](../../../../packages/hypermedia/src/server/format.ts) (HAL via `HAL.fromCollection`, JSON via the `{ entities, nextCursor, totalItems, _counts }` fallback).

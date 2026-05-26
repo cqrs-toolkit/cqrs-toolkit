@@ -14,5 +14,6 @@
     }
   },
   "required": ["type", "data"],
+  "title": "NbUpdateNoteTitleBodyV1_0_0",
   "type": "object"
 }

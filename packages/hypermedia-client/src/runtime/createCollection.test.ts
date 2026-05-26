@@ -1,9 +1,4 @@
-import {
-  type AggregateConfig,
-  type CacheKeyIdentity,
-  deriveScopeKey,
-  type FetchContext,
-} from '@cqrs-toolkit/client'
+import { type CacheKeyIdentity, deriveScopeKey, type FetchContext } from '@cqrs-toolkit/client'
 import type { ServiceLink } from '@meticoeus/ddd-es'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createCollection } from './createCollection.js'
@@ -14,14 +9,8 @@ import type { RepresentationSurfaces } from './types.js'
 // Fixtures
 // ---------------------------------------------------------------------------
 
-const NoteAggregate: AggregateConfig<ServiceLink> = {
-  service: 'nb',
-  type: 'Note',
-  getStreamId: (id) => `nb.Note-${String(id)}`,
-  getLinkMatcher: () => ({ service: 'nb', type: 'Note' }) as Omit<ServiceLink, 'id'>,
-}
-
 const noteRepresentation: RepresentationSurfaces = {
+  urn: 'urn:representation:nb.Note:1.0.0',
   version: '1.0.0',
   collection: { href: '/api/notes', template: '/api/notes{?cursor,limit}' },
   resource: { template: '/api/notes/{id}' },
@@ -147,41 +136,29 @@ describe('expandCollectionTemplate', () => {
 // ---------------------------------------------------------------------------
 
 describe('createCollection', () => {
-  it('forwards revisionPath to the returned Collection', () => {
-    const collection = createCollection<ServiceLink>({
-      name: 'notes',
-      aggregate: NoteAggregate,
+  it('forwards revisionPath to the contribution', () => {
+    const wiring = createCollection<ServiceLink>({
       revisionPath: '$.latestRevision',
       representation: noteRepresentation,
-      cacheKeysFromTopics: () => [],
-      matchesStream: (s) => s.startsWith('nb.Note-'),
     })
-    expect(collection.revisionPath).toBe('$.latestRevision')
+    expect(wiring.revisionPath).toBe('$.latestRevision')
   })
 
   it('does not wire fetchSeedRecords when fetchTemplateVariables is absent', () => {
-    const collection = createCollection<ServiceLink>({
-      name: 'notes',
-      aggregate: NoteAggregate,
+    const wiring = createCollection<ServiceLink>({
       representation: noteRepresentation,
-      cacheKeysFromTopics: () => [],
-      matchesStream: (s) => s.startsWith('nb.Note-'),
     })
-    expect(collection.fetchSeedRecords).toBeUndefined()
-    expect(collection.fetchSeedEvents).toBeDefined()
+    expect(wiring.fetchSeedRecords).toBeUndefined()
+    expect(wiring.fetchSeedEvents).toBeDefined()
   })
 
   it('wires fetchSeedRecords when fetchTemplateVariables is provided', () => {
-    const collection = createCollection<ServiceLink>({
-      name: 'notes',
-      aggregate: NoteAggregate,
+    const wiring = createCollection<ServiceLink>({
       representation: noteRepresentation,
-      cacheKeysFromTopics: () => [],
-      matchesStream: (s) => s.startsWith('nb.Note-'),
       fetchTemplateVariables: () => ({}),
     })
-    expect(collection.fetchSeedRecords).toBeDefined()
-    expect(collection.fetchSeedEvents).toBeDefined()
+    expect(wiring.fetchSeedRecords).toBeDefined()
+    expect(wiring.fetchSeedEvents).toBeDefined()
   })
 })
 
@@ -203,19 +180,15 @@ describe('createCollection.fetchSeedRecords', () => {
   it('expands path-scoped template variables and merges library cursor/limit', async () => {
     fetchSpy.mockResolvedValueOnce(jsonResponse({ entities: [], nextCursor: null }))
 
-    const collection = createCollection<ServiceLink>({
-      name: 'notes',
-      aggregate: NoteAggregate,
+    const wiring = createCollection<ServiceLink>({
       representation: scopedNoteRepresentation,
-      cacheKeysFromTopics: () => [],
-      matchesStream: (s) => s.startsWith('nb.Note-'),
       fetchTemplateVariables: (cacheKey) => {
         expect(cacheKey.kind).toBe('scope')
         return { notebookId: 'nb-1' }
       },
     })
 
-    await collection.fetchSeedRecords!({
+    await wiring.fetchSeedRecords!({
       ctx: ctxFor(),
       cursor: 'CURSOR_X',
       limit: 50,
@@ -230,12 +203,8 @@ describe('createCollection.fetchSeedRecords', () => {
   it('emits consumer-supplied query-scoped variables when the template declares no path placeholders', async () => {
     fetchSpy.mockResolvedValueOnce(jsonResponse({ entities: [], nextCursor: null }))
 
-    const collection = createCollection<ServiceLink>({
-      name: 'milestones',
-      aggregate: NoteAggregate,
+    const wiring = createCollection<ServiceLink>({
       representation: queryScopedRepresentation,
-      cacheKeysFromTopics: () => [],
-      matchesStream: () => false,
       fetchTemplateVariables: () => ({
         tenantId: 't1',
         workspaceId: 'w1',
@@ -243,7 +212,7 @@ describe('createCollection.fetchSeedRecords', () => {
       }),
     })
 
-    await collection.fetchSeedRecords!({
+    await wiring.fetchSeedRecords!({
       ctx: ctxFor(),
       cursor: null,
       limit: 100,
@@ -259,17 +228,13 @@ describe('createCollection.fetchSeedRecords', () => {
   it('sends Accept: application/hal+json with JSON fallback and merges fetchHeaders', async () => {
     fetchSpy.mockResolvedValueOnce(jsonResponse({ entities: [], nextCursor: null }))
 
-    const collection = createCollection<ServiceLink>({
-      name: 'notes',
-      aggregate: NoteAggregate,
+    const wiring = createCollection<ServiceLink>({
       representation: noteRepresentation,
-      cacheKeysFromTopics: () => [],
-      matchesStream: (s) => s.startsWith('nb.Note-'),
       fetchTemplateVariables: () => ({}),
       fetchHeaders: () => ({ 'x-tenant-id': 't1' }),
     })
 
-    await collection.fetchSeedRecords!({
+    await wiring.fetchSeedRecords!({
       ctx: ctxFor(),
       cursor: null,
       limit: 100,
@@ -293,17 +258,13 @@ describe('createCollection.fetchSeedRecords', () => {
       }),
     )
 
-    const collection = createCollection<ServiceLink>({
-      name: 'notes',
-      aggregate: NoteAggregate,
+    const wiring = createCollection<ServiceLink>({
       revisionPath: '$.latestRevision',
       representation: noteRepresentation,
-      cacheKeysFromTopics: () => [],
-      matchesStream: (s) => s.startsWith('nb.Note-'),
       fetchTemplateVariables: () => ({}),
     })
 
-    const page = await collection.fetchSeedRecords!({
+    const page = await wiring.fetchSeedRecords!({
       ctx: ctxFor(),
       cursor: null,
       limit: 100,
@@ -349,17 +310,13 @@ describe('createCollection.fetchSeedRecords', () => {
       ),
     )
 
-    const collection = createCollection<ServiceLink>({
-      name: 'notes',
-      aggregate: NoteAggregate,
+    const wiring = createCollection<ServiceLink>({
       revisionPath: '$.latestRevision',
       representation: noteRepresentation,
-      cacheKeysFromTopics: () => [],
-      matchesStream: (s) => s.startsWith('nb.Note-'),
       fetchTemplateVariables: () => ({}),
     })
 
-    const page = await collection.fetchSeedRecords!({
+    const page = await wiring.fetchSeedRecords!({
       ctx: ctxFor(),
       cursor: null,
       limit: 100,
@@ -414,16 +371,12 @@ describe('createCollection.fetchSeedRecords', () => {
       ),
     )
 
-    const collection = createCollection<ServiceLink>({
-      name: 'notes',
-      aggregate: NoteAggregate,
+    const wiring = createCollection<ServiceLink>({
       representation: noteRepresentation,
-      cacheKeysFromTopics: () => [],
-      matchesStream: (s) => s.startsWith('nb.Note-'),
       fetchTemplateVariables: () => ({}),
     })
 
-    const page = await collection.fetchSeedRecords!({
+    const page = await wiring.fetchSeedRecords!({
       ctx: ctxFor(),
       cursor: null,
       limit: 100,
@@ -463,16 +416,12 @@ describe('createCollection.fetchSeedRecords', () => {
       }),
     )
 
-    const collection = createCollection<ServiceLink>({
-      name: 'notes',
-      aggregate: NoteAggregate,
+    const wiring = createCollection<ServiceLink>({
       representation: noteRepresentation,
-      cacheKeysFromTopics: () => [],
-      matchesStream: (s) => s.startsWith('nb.Note-'),
       fetchTemplateVariables: () => ({}),
     })
 
-    const page = await collection.fetchSeedRecords!({
+    const page = await wiring.fetchSeedRecords!({
       ctx: ctxFor(),
       cursor: null,
       limit: 100,
@@ -483,17 +432,13 @@ describe('createCollection.fetchSeedRecords', () => {
   })
 
   it('throws when a declared template variable is not provided by fetchTemplateVariables', async () => {
-    const collection = createCollection<ServiceLink>({
-      name: 'notes',
-      aggregate: NoteAggregate,
+    const wiring = createCollection<ServiceLink>({
       representation: scopedNoteRepresentation,
-      cacheKeysFromTopics: () => [],
-      matchesStream: (s) => s.startsWith('nb.Note-'),
       fetchTemplateVariables: () => ({}),
     })
 
     await expect(
-      collection.fetchSeedRecords!({
+      wiring.fetchSeedRecords!({
         ctx: ctxFor(),
         cursor: null,
         limit: 100,

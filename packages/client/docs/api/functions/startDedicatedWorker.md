@@ -23,7 +23,7 @@ trigger component creation (includes OPFS probe for Mode B).
 
 ### TCommand
 
-`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md)\<`unknown`\>
+`TCommand` _extends_ [`EnqueueCommand`](../type-aliases/EnqueueCommand.md)
 
 ### TSchema
 

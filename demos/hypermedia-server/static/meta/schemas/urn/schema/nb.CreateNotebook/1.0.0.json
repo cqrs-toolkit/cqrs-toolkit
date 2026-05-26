@@ -8,5 +8,6 @@
     }
   },
   "required": ["name"],
+  "title": "NbCreateNotebookV1_0_0",
   "type": "object"
 }

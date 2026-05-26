@@ -645,11 +645,24 @@ interface TimeWindow {
 const OVERVIEW_HEIGHT = 80
 const OVERVIEW_LABEL_HEIGHT = 18
 const LANE_TOP_PADDING = 2
+const LANE_BOTTOM_PADDING = 2
 const LANE_ITEM_HEIGHT = 6
 // 2px gap between lanes — when a row is selected its 1px outline shrinks
 // the visible gap to 1px without intersecting the next lane.
 const LANE_GAP = 2
 const LANE_STRIDE = LANE_ITEM_HEIGHT + LANE_GAP
+// Total lanes the strip can show without clipping; the bottommost lane is
+// reserved as the overflow aggregator so further-concurrent rows still
+// register their density instead of escaping the container.
+const MAX_LANES = Math.max(
+  2,
+  Math.floor(
+    (OVERVIEW_HEIGHT - OVERVIEW_LABEL_HEIGHT - LANE_TOP_PADDING - LANE_BOTTOM_PADDING) /
+      LANE_STRIDE,
+  ),
+)
+const OVERFLOW_LANE = MAX_LANES - 1
+const NORMAL_LANE_CAP = MAX_LANES - 1
 
 const Overview: Component<{
   rows: NetworkRow[]
@@ -753,23 +766,30 @@ const Overview: Component<{
    * Greedy lane assignment: rows sorted by start time descend through lanes
    * (oldest start = topmost) and slot into the first lane whose last-end is
    * already at or before this row's start. Overlapping rows therefore stack
-   * downward without colliding.
+   * downward without colliding. Once the normal lane budget is exhausted,
+   * further rows collapse into the bottom overflow lane so they remain
+   * visible as a density indicator without escaping the strip.
    */
-  const placedRows = createMemo((): { row: NetworkRow; lane: number }[] => {
+  const placedRows = createMemo((): { row: NetworkRow; lane: number; overflow: boolean }[] => {
     const sorted = [...props.rows].sort((a, b) => rowStart(a) - rowStart(b))
     const laneEnds: number[] = []
-    const out: { row: NetworkRow; lane: number }[] = []
+    const out: { row: NetworkRow; lane: number; overflow: boolean }[] = []
     for (const row of sorted) {
       const start = rowStart(row)
       const end = rowEnd(row)
       let lane = laneEnds.findIndex((e) => e <= start)
       if (lane === -1) {
-        lane = laneEnds.length
-        laneEnds.push(end)
+        if (laneEnds.length < NORMAL_LANE_CAP) {
+          lane = laneEnds.length
+          laneEnds.push(end)
+        } else {
+          out.push({ row, lane: OVERFLOW_LANE, overflow: true })
+          continue
+        }
       } else {
         laneEnds[lane] = end
       }
-      out.push({ row, lane })
+      out.push({ row, lane, overflow: false })
     }
     return out
   })
@@ -856,6 +876,7 @@ const Overview: Component<{
                 position: 'relative',
                 height: `${OVERVIEW_HEIGHT - OVERVIEW_LABEL_HEIGHT}px`,
                 cursor: 'crosshair',
+                overflow: 'hidden',
                 'background-image': `repeating-linear-gradient(
                   to right,
                   transparent 0,
@@ -865,11 +886,25 @@ const Overview: Component<{
                 )`,
               }}
             >
+              <Show when={placedRows().some((p) => p.overflow)}>
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    right: 0,
+                    top: `${LANE_TOP_PADDING + OVERFLOW_LANE * LANE_STRIDE - 1}px`,
+                    height: '1px',
+                    'border-top': '1px dashed var(--border)',
+                    'pointer-events': 'none',
+                  }}
+                />
+              </Show>
               <For each={placedRows()}>
                 {(placed) => (
                   <OverviewBar
                     row={placed.row}
                     lane={placed.lane}
+                    overflow={placed.overflow}
                     window={w()}
                     highlighted={props.selectedRowId === placed.row.id}
                   />
@@ -899,6 +934,7 @@ const Overview: Component<{
 const OverviewBar: Component<{
   row: NetworkRow
   lane: number
+  overflow: boolean
   window: TimeWindow
   highlighted: boolean
 }> = (props) => {
@@ -919,12 +955,12 @@ const OverviewBar: Component<{
         top: `${top}px`,
         height: `${LANE_ITEM_HEIGHT}px`,
         background: color,
-        opacity: props.highlighted ? 1 : 0.85,
-        'border-radius': '1px',
+        opacity: props.highlighted ? 1 : props.overflow ? 0.55 : 0.85,
+        'border-radius': props.overflow ? '0' : '1px',
         'min-width': '1px',
         'pointer-events': 'none',
         outline: props.highlighted ? '1px solid var(--text-primary)' : 'none',
-        'z-index': props.highlighted ? 3 : 1,
+        'z-index': props.highlighted ? 3 : props.overflow ? 2 : 1,
       }}
     />
   )

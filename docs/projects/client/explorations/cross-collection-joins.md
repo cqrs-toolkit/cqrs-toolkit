@@ -14,6 +14,8 @@ The intent appears in [`§9.5.3`](../intent/requirements/0009-query-manager.md#9
 - **2026-05-19.** Event-shape prerequisite landed: enriched `readmodel:updated` with `created` / `updated` / `deleted` buckets and `cacheKeys`; new `CollectionSignal.session-reset` variant projected from `session:destroyed`; both synthetic empty-ids emits dropped. Classification produced at commit time by the read-model store. Followed by design convergence on custom columns: rejected STORED generated columns (storage doubling unacceptable at 1e5 rows under quotas), settled on VIRTUAL throughout — column values aren't duplicated on disk, indexes carry their own storage cost as they do for any indexing strategy. Use cases extended beyond FK columns to status filters, date-range queries, polymorphic FKs, name-prefix search, and aggregations. Composite indexes declared separately from columns to avoid redundant single-column indexes. Library does not provide a SQL builder; the user writes SQL directly, with an optional per-view `transform` step in JS to bridge the SQL-result shape to the memory-path output shape — keeps complex re-shaping in JS where SQLite's weaker JSON support doesn't impose ceremony.
 - **2026-05-20.** Gate semantics corrected after the first integration tests surfaced two issues. **First**, cache-key as a hard precondition was wrong: a row visible on the page is relevant when it updates, regardless of which cache key the event reports. The tracked-id check belongs first; the cache-key check is a fallback for ids the subscription doesn't recognize. **Second**, conservative re-fetch on off-page creates / deletes was over-eager: it shifts the visible page on every off-page write, which is worse UX than leaving the current page stable until the user paginates. Resolved by decoupling data re-fetch from count re-fetch — data re-runs only when a tracked id is in the event; count re-runs on any watched-cache-key match (when a count callback is configured). The "page count says 156 but I'm on page 9 of 8" inconsistency becomes a deliberate UX signal that the data has shifted, addressed at the user's next pagination action. Also added optional `memoryCount` / `sql.count` callbacks to `ViewRegistration` for explicit total support; `PagedViewResult.total` surfaces them. Solid `createViewQuery` primitive built on top.
 - **2026-05-20 (continued).** Two-trigger gate implementation landed across `QueryManager.watchList`, `QueryManager.watchView`, and both proxy mirrors. Count re-fetch is gated tighter than first proposed: it only fires when the event includes a `created` or `deleted` bucket (the only operations that move the count) AND the event's cache keys intersect the subscription's watched set. Pure off-page updates are dropped on both branches. `Collection.list.total` flag added — gates the count contract for paginated lists (default `false`; `list()` returns `total: undefined` and `watchList` does no count re-fetch). `ListQueryResult.total` made optional (`number | undefined`) to match. `Collection[]` threaded into `QueryManager` + `QueryManagerProxy` so `watchList` can resolve the flag without an RPC round-trip per subscription; adapter configs (`DedicatedWorkerAdapterConfig`, `SharedWorkerAdapterConfig`) grew `collections?` for the main-thread side. Integration test suite added covering both `bootstrapOnlineOnly` (in-memory dispatch) and `bootstrapWorkerSide` (real SQLite via better-sqlite3) — verifies `getView` joins, count callback totals, tracked-id re-emit on embedded asset updates, off-page primary-source creates leaving the visible page stable, and the count branch emitting fresh total without shifting rendered rows.
+- **2026-05-21.** Seed-loading state added to the view surface. Cross-collection join pages were hiding seeding gaps — a view over `projects` + `assets` would emit rows with null embeds while `assets` was still seeding, indistinguishable from "no asset associated." Resolved by rolling a single `seeded: boolean` into `PagedViewResult` / `ListQueryResult`, computed across the view's declared dependencies. Boolean over enum: consumers render a skeleton or render data; partial states (primary seeded, one join still seeding) collapse to "not ready." The Solid wrappers' local `'seeding' | 'ready'` computation goes away. Backing this: a new observable `watchCollectionStatus(collection, cacheKey)` on `CqrsClientSyncManager` mirrors the existing one-shot `getCollectionStatus`.
+- **2026-05-22.** Assume-ambient holds revoked. The original framing required consumers to redeclare the view's cache keys at the page level (typically via `createScopeCacheKey` + `client.queryManager.hold(key)`) so the underlying data stayed pinned for the subscription's lifetime. That made `view.cacheKeys(params)` redundant work — the declaration was already authoritative on the registration, and forcing the page to repeat it invited two failure modes: forgetting to hold (silent data eviction underneath an active view), and holding the wrong set (drift when the view's key derivation changes but the page's hand-rolled holds don't). `createListQuery` had always held its key for the duration of the subscription via `hold: true` on `ListParams`; `createViewQuery` should follow the same pattern across the N-key composite case. Replacement: `createViewQuery` tracks the resolved identities returned in `PagedViewResult.cacheKeys` and manages hold lifecycle directly — holds new identities on each emission, releases identities that dropped out of the resolved set, releases all on dispose. Standalone `getView` callers remain hold-agnostic (one-shot read; not their job to manage lifecycle). Pre-release; no back-compat concern.
 
 ## Scope
 
@@ -80,7 +82,7 @@ DDL generation in [`rm-schema.ts`](../../../../packages/client/src/storage/schem
 
 Substring `LIKE '%foo%'` is out of scope — that's FTS5 territory, which lives as a separate virtual table the consumer creates via a `library` migration step, not via `ManagedCollectionDef`.
 
-**Constraint:** any column the view's SQL `ORDER BY` references on the storage row, plus any column referenced by `joinSources.fromPath`, must be declared here — otherwise the SQL impl can't index against it.
+**Constraint:** any column the view's SQL `ORDER BY` references on the storage row, plus any column referenced by `joinSources.referencedIdPath`, must be declared here — otherwise the SQL impl can't index against it.
 
 ### View registration
 
@@ -93,8 +95,12 @@ interface ViewRegistration<TLink, TParams, TRow, T = TRow> {
   /** FROM table — primary source for tracked-id matching in watchView. */
   primarySource: string
 
-  /** Embed targets — contribute to embedIds tracking for the join-source branch. */
-  joinSources: readonly { collection: string; fromPath: JSONPathExpression }[]
+  /** Join targets — contribute to referencedIds (and optionally referencingIds) tracking for the join-source branches. */
+  joinSources: readonly {
+    collection: string
+    referencedIdPath: JSONPathExpression
+    referencingIdPath?: JSONPathExpression
+  }[]
 
   /** Resolved cache key set for this params combination. */
   cacheKeys: (params: TParams) => CacheKeyTemplate<TLink>[]
@@ -146,7 +152,13 @@ const projectsInWorkspace: ViewRegistration<
 > = {
   name: 'projects-in-workspace',
   primarySource: 'projects',
-  joinSources: [{ collection: 'assets', fromPath: '$._embedded["pms.Asset"].id' }],
+  joinSources: [
+    {
+      collection: 'assets',
+      referencedIdPath: '$._embedded["pms.Asset"].id',
+      referencingIdPath: '$.association.id',
+    },
+  ],
   cacheKeys: (p) => [projectScope(p.workspaceId), assetScope()],
 
   memory: (api, params) => {
@@ -204,7 +216,9 @@ Not part of [`IStorage`](../../../../packages/client/src/storage/IStorage.ts) �
 
 Views compose records from multiple cache keys. `tasks-with-assignments` reads tasks under the project scope key, users under either the tenant scope or global user scope key, and teams under the tenant scope key. The view declares all of them via `cacheKeys(params)`; the library uses this set for the invalidation gate below.
 
-**Hold semantics (V1 default — assume ambient):** `getView` does not auto-acquire the declared keys. The consumer's existing UI/routing has already acquired them; missing data renders as null embeds. Auto-acquire / seed-on-demand can be added later as opt-in flags on the registration if real consumers need it.
+**Hold semantics:** `createViewQuery` holds the resolved cache keys for the subscription's lifetime — same contract `createListQuery` already enforces via `hold: true` on `ListParams`, generalised to the N-key composite case. On each emission, the helper diffs `PagedViewResult.cacheKeys` against its tracked held set: holds newly-resolved identities, releases identities that left the set, releases all on dispose. The view's `cacheKeys(params)` declaration stays authoritative — the page never redeclares it.
+
+Standalone `getView` callers remain hold-agnostic. `getView` is a one-shot pull; the caller knows whether the underlying data needs to outlive the call and can use the regular `cacheManager.hold` / `release` primitives if so.
 
 ### Pagination
 
@@ -225,9 +239,41 @@ The view's `sql` builder inlines `LIMIT/OFFSET` (or cursor `WHERE` clause). The 
 
 Mode-A pagination: the online closure returns the full computed result; the library slices `[offset, offset+limit]`. Wasteful by design; Mode A is the in-memory escape hatch and large datasets are out of scope for it.
 
+### Seed-loading state
+
+Every paged view / list result carries a single `seeded: boolean` rolled up across the view's declared dependencies. The motivating case is cross-collection join pages: a `projects + assets` view emits rows with null embeds while `assets` is still seeding, and the consumer has no way to distinguish that from "no asset associated." A single rolled-up flag answers the only question the UI is actually asking — render a skeleton or render data?
+
+```ts
+interface PagedViewResult<TLink, T> {
+  data: T[]
+  cacheKeys: CacheKeyIdentity<TLink>[]
+  total?: number
+  seeded: boolean
+}
+
+interface ListQueryResult<TLink, T> {
+  data: T[]
+  meta: ListMeta
+  total?: number
+  hasLocalChanges: boolean
+  cacheKey: CacheKeyIdentity<TLink>
+  seeded: boolean
+}
+```
+
+**Rollup rule.** For each `(collection, cacheKey)` pair with `collection ∈ {primarySource, ...joinSources.collection}` and `cacheKey ∈ cacheKeys(params)`: if [`SeedStatusIndex`](../../../../packages/client/src/core/sync-manager/SeedStatusIndex.ts) has an entry for that pair that's not `'seeded'`, the rollup is `false`. Pairs with no index entry are skipped (no seed initiated for that combination — not relevant). `seeded === true` iff every relevant pair is seeded.
+
+For `watchList`, the rollup degenerates to a single pair: `(collection, cacheKey)`.
+
+**Boolean, not enum.** Consumers ask "skeleton or render?" There's no UX state between "still seeding" and "ready." A view with the primary source seeded but one join collection still seeding shows null embeds for the lagging join — that's "not ready" regardless of which dependency is lagging. Partial-loaded enum (`'partial'`) was considered and rejected as solving a problem no consumer has.
+
+**Re-emission.** `watchView` / `watchList` emit on transition to `seeded: true` (the rollup flips when the last contributing pair completes), in addition to the existing gates. Cheap to wire: `sync:seed-completed` already carries `collection` and `cacheKey`, and the subscription already tracks its watched cache-key set. No backwards transition to `false` is expected during a subscription's life — seeds don't un-seed without a session reset, which tears the subscription down anyway.
+
+**Underlying primitive.** [`CqrsClientSyncManager`](../../../../packages/client/src/createCqrsClient.ts) gains `watchCollectionStatus(collection, cacheKey): Observable<CollectionSyncStatus | undefined>` — the watchable counterpart of the existing one-shot `getCollectionStatus`. The view executor projects to a single boolean per pair internally; consumers who need pair-level subscription outside a view (e.g. a status indicator in DevTools) can use the observable directly.
+
 ### Subscription state is per-window, not per-(view, params)
 
-Each call to `watchView` / `watchList` creates its own subscription with its own page state — `pageIds`, `embedIds`, `watchedCacheKeys`, the last emitted total. Two windows on the same view + params + page each get an independent subscription. They share no gate state and re-run independently.
+Each call to `watchView` / `watchList` creates its own subscription with its own page state — `pageIds`, `referencedIds`, `referencingIds`, `watchedCacheKeys`, the last emitted total. Two windows on the same view + params + page each get an independent subscription. They share no gate state and re-run independently.
 
 The worker hosts the invalidation engine. Each `readmodel:updated` triggers iteration over every live subscription; each subscription's two re-fetch triggers run against its own state. Notifications route back to the originating window via the existing `windowId` plumbing (already first-class through [`QueryManagerFacade.holdForWindow`](../../../../packages/client/src/core/query-manager/QueryManagerFacade.ts) and `releaseForWindow`). On window close, all that window's subscriptions tear down with the rest of the window-scoped state.
 
@@ -241,9 +287,10 @@ The library tracks per active `watchView` / `watchList` subscription:
 
 - `watchedCacheKeys: Set<string>` — resolved from `cacheKeys(params)`.
 - `pageIds: string[]` — primary-source IDs currently visible, in order.
-- `embedIds: Map<collection, Set<string>>` — FK values referenced by visible rows, per join source, extracted via each `joinSources.fromPath`. (`watchView` only.)
+- `referencedIds: Map<collection, Set<string>>` — ids of join-target rows currently loaded into the projection, per join source, extracted via each `joinSources.referencedIdPath`. (`watchView` only.)
+- `referencingIds: Map<collection, Set<string>>` — ids the projection _carries as a reference_ to a join target (regardless of whether the target was loaded), per join source, extracted via each optional `joinSources.referencingIdPath`. Populated only when `referencingIdPath` is declared. (`watchView` only.)
 
-Two re-fetch triggers fire independently against each `readmodel:updated` event. Both feed into the same emission stream; coalesced when a single event matches both.
+Three re-fetch triggers fire independently against each `readmodel:updated` event. They feed into the same emission stream; coalesced when a single event matches more than one.
 
 **Data re-fetch — fires on a tracked-id match.**
 
@@ -251,13 +298,30 @@ Two re-fetch triggers fire independently against each `readmodel:updated` event.
 event.collection ∈ watched sources ?                   no  → no data re-fetch
 let tracked = (event.collection == primarySource)
               ? pageIds
-              : embedIds[event.collection]
+              : referencedIds[event.collection]
 any id ∈ (event.created ∪ event.updated ∪ event.deleted) is in tracked ?
   yes → re-run data query, emit
   no  → no data re-fetch
 ```
 
 The cache-key attribution on the event doesn't matter here. If a visible row is in the event, it's relevant — the row IS what we're rendering. Re-fetch.
+
+**Missing-join re-fetch — fires on a referencing-id match in a join collection.**
+
+```
+event.collection ∈ join sources ?                              no  → no missing-join re-fetch
+referencingIds[event.collection] populated ?                   no  → no missing-join re-fetch
+any id ∈ (event.created ∪ event.updated) is in referencing ?   yes → re-run data query, emit
+                                                               no  → no missing-join re-fetch
+```
+
+Closes the cold-start gap: on first render, a primary row may reference a join id whose target row hasn't arrived locally yet (other seed still in flight, race, or eviction). The tracked-id branch above can't see this — `referencedIds` only contains ids the projection _successfully_ loaded as join data, so a missing-then-arrived join id never triggers it. The referencing-id branch covers it: the view declares `joinSources[].referencingIdPath` pointing at the join id on the _primary_ row (always present regardless of join success, e.g. `$.association.id` for projects-with-assets), and the proxy gates on any subsequent create/update for that id.
+
+Deletes don't fire this branch: if the referenced id was already loaded, the tracked-id branch handles its delete via `referencedIds`; if it was never loaded, the delete is a no-op for the view. Only `created` / `updated` carry "now-available" semantics.
+
+The cache-key attribution on the event doesn't matter here either — cross-cache-key arrivals (a different scope seeded the referenced asset) should still trigger the re-fetch.
+
+**Why two paths, not one.** `referencedIdPath` is required and applies to every join, including those without a known target id up front (e.g. "latest note in notebook X" — the embedded latest note's id is the only handle the view has on join data). `referencingIdPath` is optional and only meaningful for key-based joins where the primary row itself carries the target id; predicate-shaped joins leave it undeclared. Together they let the gate detect both "the target we have changed" (referenced) and "the target we wanted has arrived" (referencing) cases declaratively.
 
 **Count re-fetch — fires on a watched-cache-key match (when a count callback is configured).**
 
@@ -270,7 +334,7 @@ event.cacheKeys ∩ watchedCacheKeys ≠ ∅ ?              no  → no count re-
 
 The count callback is the only signal for live totals in views that don't surface per-row changes affecting the visible page (creates landing off-page, deletes off-page, etc.). Without a count callback, the count branch is dead — and that's the consumer's choice (no `total` field needed, no re-fetch traffic for off-page changes).
 
-**Coalescing.** If a single event matches both triggers (some tracked id ∈ event AND event.cacheKeys ∩ watched), the data re-fetch wins: it re-runs both data and count atomically. The standalone count branch only fires when the tracked-id branch didn't.
+**Coalescing.** A data re-fetch always wins: if the event matches the tracked-id branch OR the missing-join branch, the count is implicitly refreshed too (the data re-fetch produces both). The standalone count branch only fires when neither data branch did.
 
 **Why off-page changes don't re-fetch data.**
 
@@ -285,9 +349,9 @@ Off-page changes show up via the count instead: "Showing 1-20 of 156" becomes "S
 **Cost at scale.** At 1e5 records across 1e2-3 cache keys:
 
 - Off-collection events: filtered immediately (collection set check). Zero per-row work.
-- On-collection events with no tracked-id and no cache-key match: dropped. Zero queries.
+- On-collection events with no tracked-id, no wanted-id, and no cache-key match: dropped. Zero queries.
 - On-collection events that hit only the cache-key branch: one count query (typically indexed `SELECT COUNT(*) WHERE ...`, resolves in ms).
-- On-collection events that hit the tracked-id branch: one data query (LIMIT-bounded; resolves in ms).
+- On-collection events that hit the tracked-id or missing-join branch: one data query (LIMIT-bounded; resolves in ms).
 
 ### No library SQL builder
 
@@ -323,7 +387,7 @@ These will harden into ADRs as the implementation lands:
 - The `memory` impl is **sync** and returns the full result before slicing; the `sql` impl is async, returns `{ sql, bindings }`, and optionally provides a sync `transform` for per-row JS reshape.
 - Both impls are required for every view (no `memory`-only or `sql`-only variants in V1).
 - `ViewLocalApi` exposes only `iterate(collection)` — nothing more.
-- The library does not auto-acquire declared cache keys; the consumer's UI owns hold lifecycle (assume-ambient).
+- `createViewQuery` holds the resolved cache keys for the subscription's lifetime, mirroring `createListQuery`'s `hold: true` contract across the N-key composite case. The page never redeclares the view's keys. Standalone `getView` is hold-agnostic — one-shot read, caller-owned lifecycle.
 - Embed missing-data: SQL `LEFT JOIN` returns null embeds; memory impl follows the same convention. No "drop the row" semantics in V1.
 - The library does not ship a SQL builder. Consumers write raw `{ sql, bindings }`.
 - Custom columns are always **VIRTUAL** generated columns (no STORED variant exposed). Indexes are declared separately and may be composite, unique, or partial.
@@ -331,6 +395,7 @@ These will harden into ADRs as the implementation lands:
 - **Two independent re-fetch triggers** per subscription: data on tracked-id match, count on watched-cache-key match. Coalesced when a single event matches both — data re-fetch wins.
 - **Off-page changes never shift the visible page.** The count diverging from displayed rows is a deliberate UX signal, not a bug.
 - **Count is optional on `watchView`** — declared via `memoryCount` / `sql.count` on the registration. Views without a count callback have a dead count branch and surface no `total`.
+- **`seeded` is a boolean rollup**, not a partial-loaded enum, computed across `{primarySource, joinSources.collection} × cacheKeys(params)` against `SeedStatusIndex`. Pairs with no index entry are skipped; otherwise any non-seeded pair → `false`. The view executor owns the rollup; consumers read `result.seeded` and don't see per-dependency state in V1.
 
 ## Open questions
 
@@ -339,8 +404,11 @@ These will harden into ADRs as the implementation lands:
 - **`watchList` initial fetch shape.** Today `list()` returns `{ data, meta, total }` atomically. Tracked-id data re-fetch reuses this — data + total move together. Confirming this stays the contract and we don't split `list` into data-only / count-only methods.
 - **Page contract V1 surface.** Ship both offset and cursor as a discriminated union, or start with one? Cursor is the durable choice but offset is what backend pagination defaults look like — and existing app pagination is often offset-based. May need both from day one.
 - **`hasLocalChanges` aggregation on `PagedViewResult`.** Per-row from the iterator yield is decided; the rollup at the view-result level should be the OR across the visible page.
-- **JSONPath subset for `joinSources.fromPath` and column extraction.** Should match the [EntityRef path subset](../intent/requirements/0014-entity-ref.md) (root, dot member, bracket member, wildcard, index — no slice, union, recursive descent, filter) so the same implementation serves both. Bracket-member-with-dot (`$._embedded['pms.Asset'].id`) verified 2026-05-19 — parser already handles it.
+- **JSONPath subset for `joinSources.referencedIdPath` / `referencingIdPath` and column extraction.** Should match the [EntityRef path subset](../intent/requirements/0014-entity-ref.md) (root, dot member, bracket member, wildcard, index — no slice, union, recursive descent, filter) so the same implementation serves both. Bracket-member-with-dot (`$._embedded['pms.Asset'].id`) verified 2026-05-19 — parser already handles it.
 - **Embed shape conventions** (`$._embedded['pms.Asset']` vs `$.asset` vs `{ service, type, instance }` polymorphic wrapping). Consumer-owned per view — library doesn't model. Worth documenting in a Swifttt-side convention rather than this exploration.
+- **Predicate-based dependencies** (e.g. "latest note in notebook X" — a view that depends on _any_ row in a target collection matching a filter, not on specific ids). The wanted-id machinery above only covers known-id misses; predicate dependencies need separate machinery, currently scoped out. See [`view-predicate-dependencies.md`](view-predicate-dependencies.md).
+- **Home of `watchCollectionStatus`.** Currently planned on `CqrsClientSyncManager` alongside `getCollectionStatus`, matching the existing `get*Status` family on `client.sync`. Could alternatively live on `IQueryManager` since views consume it internally. Current lean: sync-facade — the read is about sync state, not query state, and the existing pair-level API is already there.
+- **`seeded` field name in `ListQueryResult`.** Adding a fourth flag (`hasLocalChanges`, `total`, `cacheKey`, `seeded`) keeps the surface flat but means a brand new field on a shipped type. Worth confirming no consumer ships shape-strict assertions over this type before threading.
 
 ## Alternatives considered
 
@@ -373,12 +441,15 @@ Active — V1 implementation landed end-to-end. Design is ready to graduate into
 - `Collection.list.total` flag — opts a collection into live totals on both `list()` (returns `total`) and `watchList` (issues count re-fetches). Default `false` keeps the contract honest with future pull-side rework.
 - `Collection[]` threaded through `QueryManager` and `QueryManagerProxy` (via `DedicatedWorkerAdapterConfig.collections` / `SharedWorkerAdapterConfig.collections`) so the flag resolves locally without RPC round-trips.
 - Two-trigger gate model implemented across inner QueryManager and proxy: data re-fetch on tracked-id match (cache-key attribution doesn't gate), count re-fetch on watched-cache-key match with create/delete in the event (only ops that can move the count). Off-page changes never shift the visible page.
+- Third gate added 2026-05-21 — missing-join re-fetch on referencing-id match, driven by optional `joinSources[].referencingIdPath` declaration; existing `fromPath` renamed to `referencedIdPath` in the same change. Closes the cold-start case where a join target arrives after the projection ran with a null embed.
 - Solid `createViewQuery` primitive with reactive `params` / `page` accessors and `total` exposed in state.
+- `createViewQuery` holds the resolved cache keys for the subscription's lifetime (added 2026-05-22). Diffs `PagedViewResult.cacheKeys` against the tracked held set on each emission: holds new identities, releases identities that left, leaves the overlap untouched. Released on dispose. Page code no longer redeclares the view's cache keys.
 - JSONPath bracket-with-dot verified for `_embedded['pms.Asset'].id` canonical embed paths.
 - Integration tests covering both bootstrap variants (`bootstrapOnlineOnly` + `bootstrapWorkerSide` with real SQLite via better-sqlite3): `getView` joins, count callback totals, tracked-id re-emit on embedded asset updates, off-page primary-source create stability, count branch emitting fresh total without rendering shift.
 
 **Next concrete steps:**
 
 1. Resolve any remaining open questions above.
-2. Graduate this exploration into a proper `requirements/NNNN-views.md` entry. The accompanying ADRs (one or several) document the load-bearing decisions: VIRTUAL columns, `sql.transform`, assume-ambient holds, two-trigger invalidation, count-on-cache-key-match, `Collection.list.total` opt-in, off-page-stable page semantics.
-3. Consumer-side documentation in the Swifttt frontend repo (how to register views, how `createScopeCacheKey` ambient holds compose with view subscriptions).
+2. Land seed-loading state: `watchCollectionStatus` on `CqrsClientSyncManager`, `seeded: boolean` on `PagedViewResult` / `ListQueryResult`, view-executor rollup over `{primary, joins} × cacheKeys(params)`, re-emission on transition. Retire the Solid wrappers' local `'seeding' | 'ready'` computation in favour of the library-supplied flag.
+3. Graduate this exploration into a proper `requirements/NNNN-views.md` entry. The accompanying ADRs (one or several) document the load-bearing decisions: VIRTUAL columns, `sql.transform`, createViewQuery-managed view holds, two-trigger invalidation, count-on-cache-key-match, `Collection.list.total` opt-in, off-page-stable page semantics, boolean seeded rollup.
+4. Consumer-side documentation in the Swifttt frontend repo (how to register views — page code stops declaring view-internal cache keys now that `createViewQuery` holds them).

@@ -14,8 +14,32 @@ type PanelState = 'loading' | 'ready' | 'error'
 
 export default function DashboardPage() {
   const client = useClient<ServiceLink>()
-  const todosQuery = appCreateListQuery<Todo>('todos', deriveScopeKey({ scopeType: 'todos' }))
-  const notebooksQuery = appCreateListQuery<Notebook>('notebooks', NOTEBOOK_SEED_KEY)
+  // Dashboard panels show "recent incomplete todos" and "recent notebooks".
+  // Filter/sort/limit all push down to storage — SQLite for worker modes,
+  // single-pass scan for online-only. Notebooks override the collection's
+  // alphabetical defaultSort here because this panel is recency-driven.
+  const recentIncompleteTodosQuery = appCreateListQuery<Todo>(
+    'todos',
+    deriveScopeKey({ scopeType: 'todos' }),
+    {
+      limit: 5,
+      filter: {
+        params: {},
+        memory: (row) => (row as Todo).status !== 'completed',
+        sql: () => ({ sql: "status != 'completed'", bindings: [] }),
+      },
+    },
+  )
+  const recentNotebooksQuery = appCreateListQuery<Notebook>('notebooks', NOTEBOOK_SEED_KEY, {
+    limit: 5,
+    // Recency-driven, with `sort_name` as a stable tiebreaker. Bulk-seeded
+    // rows from a fresh fetch can share a single `updated_at` timestamp;
+    // without the secondary key the visible top-5 is order-undefined.
+    sort: [
+      { column: 'updated_at', direction: 'desc' },
+      { column: 'sort_name', direction: 'asc' },
+    ],
+  })
   const [todosState, setTodosState] = createSignal<PanelState>('loading')
   const [notebooksState, setNotebooksState] = createSignal<PanelState>('loading')
   const [todosSync, setTodosSync] = createSignal<CollectionSyncStatus>()
@@ -38,21 +62,6 @@ export default function DashboardPage() {
     ])
     setTodosSync(todosStatus)
     setNotebooksSync(notebooksStatus)
-  }
-
-  function recentIncompleteTodos(): Todo[] {
-    return [...todosQuery.items]
-      .filter((t) => t.status !== 'completed')
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-      .slice(-5)
-      .reverse()
-  }
-
-  function recentNotebooks(): Notebook[] {
-    return [...notebooksQuery.items]
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-      .slice(-5)
-      .reverse()
   }
 
   function syncLabel(status: CollectionSyncStatus | undefined): string {
@@ -133,13 +142,13 @@ export default function DashboardPage() {
             }
           >
             <Show
-              when={recentIncompleteTodos().length > 0}
+              when={recentIncompleteTodosQuery.items.length > 0}
               fallback={
                 <p class="dash-todo-empty text-neutral-400 text-sm">No incomplete todos.</p>
               }
             >
               <ul class="space-y-2 p-0">
-                <For each={recentIncompleteTodos()}>
+                <For each={recentIncompleteTodosQuery.items}>
                   {(todo) => (
                     <li class="dash-todo-item flex items-center gap-2 text-sm">
                       <span
@@ -173,13 +182,13 @@ export default function DashboardPage() {
             }
           >
             <Show
-              when={recentNotebooks().length > 0}
+              when={recentNotebooksQuery.items.length > 0}
               fallback={
                 <p class="dash-notebook-empty text-neutral-400 text-sm">No notebooks yet.</p>
               }
             >
               <ul class="space-y-2 p-0">
-                <For each={recentNotebooks()}>
+                <For each={recentNotebooksQuery.items}>
                   {(notebook) => (
                     <li class="dash-notebook-item text-sm">
                       <span class="dash-notebook-name font-medium truncate block">

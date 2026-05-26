@@ -1,18 +1,24 @@
 /**
- * Build a Collection from representation surface data + app-specific callbacks.
+ * Build the representation-driven wiring slice of a Collection.
  *
- * Wires fetchSeedEvents, fetchStreamEvents, and (when fetchTemplateVariables
- * is provided) fetchSeedRecords using the representation URLs and the
- * library's fetch helpers, so the consumer only provides app-specific
- * callbacks (topics, stream matching, scope variables).
+ * `createCollection` is a **contributor**, not a whole-Collection factory. It
+ * accepts only the inputs it needs to wire the representation surfaces
+ * (`representation` + scope/header callbacks + `revisionPath`) and returns only
+ * the fields it owns: `fetchSeedEvents`, `fetchStreamEvents`, `fetchSeedRecords`
+ * (when wired), and the forwarded `revisionPath`. Consumers spread the result
+ * into their own `Collection` literal, owning every other field (`name`,
+ * `aggregate`, `idReferences`, `cacheKeysFromTopics`, `matchesStream`,
+ * `seedOnInit`, `seedOnDemand`, `list`, ...) directly.
+ *
+ * This contributor shape decouples the helper from `Collection`'s evolution:
+ * new `Collection` fields land on the consumer literal without forcing a
+ * pass-through option here.
  */
 
 import {
-  AggregateConfig,
   CacheKeyIdentity,
   Collection,
   FetchContext,
-  IdReference,
   type JSONPathExpression,
 } from '@cqrs-toolkit/client'
 import type { Link } from '@meticoeus/ddd-es'
@@ -20,36 +26,25 @@ import { fetchEventPage, fetchSeedRecordPage, fetchStreamEvents } from './fetchH
 import type { RepresentationSurfaces } from './types.js'
 
 /**
- * Options for creating a collection from a representation.
+ * Inputs to {@link createCollection}.
+ *
+ * Only the fields the helper actually consumes — every other `Collection`
+ * field is set by the consumer on its own literal.
  */
 export interface CreateCollectionOptions<TLink extends Link> {
-  /** Collection name (e.g. 'todos') */
-  name: string
-  /** Forwarded to {@link Collection.aggregate}. */
-  aggregate: AggregateConfig<TLink>
-  /** Forwarded to {@link Collection.idReferences}. */
-  readonly idReferences?: IdReference<TLink>[]
-  /**
-   * Forwarded to {@link Collection.revisionPath}. Also used by the
-   * library-wired `fetchSeedRecords` to extract `SeedRecord.revision`
-   * from each member.
-   */
-  readonly revisionPath?: JSONPathExpression
-  /** Derive cache key identities from WS event topics. Forwarded to {@link Collection.cacheKeysFromTopics}. */
-  cacheKeysFromTopics: Collection<TLink>['cacheKeysFromTopics']
   /** Representation surface data from generated representations.ts */
   representation: RepresentationSurfaces
-  /** App-specific: test whether a streamId belongs to this collection */
-  matchesStream: (streamId: string) => boolean
+  /**
+   * Forwarded onto the returned wiring's `revisionPath`. Used by the records
+   * parser to extract `SeedRecord.revision` from each item, and downstream by
+   * `AggregateChain.lastKnownRevision` advancement.
+   */
+  readonly revisionPath?: JSONPathExpression
   /**
    * Extract aggregate ID from streamId for item event URL expansion.
    * Default: splits on first '-' (convention: 'Todo-{uuid}' → '{uuid}')
    */
   aggregateId?: (streamId: string) => string
-  /** Auto-seed config. Forwarded to {@link Collection.seedOnInit} */
-  seedOnInit?: Collection<TLink>['seedOnInit']
-  /** On-demand config. Forwarded to {@link Collection.seedOnDemand} */
-  seedOnDemand?: Collection<TLink>['seedOnDemand']
   /**
    * Derive extra headers from the cache key and fetch context.
    * Merged into the FetchContext headers for seed event and seed record fetches.
@@ -79,6 +74,16 @@ export interface CreateCollectionOptions<TLink extends Link> {
 }
 
 /**
+ * The slice of `Collection<TLink>` that {@link createCollection} contributes:
+ * `revisionPath` plus the three representation-derived fetch functions.
+ * Consumers spread this into their own `Collection` literal.
+ */
+export type CreateCollectionResult<TLink extends Link> = Pick<
+  Collection<TLink>,
+  'revisionPath' | 'fetchSeedEvents' | 'fetchStreamEvents' | 'fetchSeedRecords'
+>
+
+/**
  * Default aggregate ID extraction: split on first '-'.
  * Convention: stream IDs follow '{AggregateType}-{uuid}' format.
  */
@@ -97,36 +102,27 @@ function expandItemEventsPath(template: string, aggregateId: string): string {
 }
 
 /**
- * Create a `Collection` from representation surface data.
+ * Build the representation-driven wiring slice of a `Collection<TLink>`.
  *
- * The returned collection has `fetchSeedEvents` and `fetchStreamEvents`
- * pre-wired using the representation's aggregate events and item events URLs.
- * `fetchSeedRecords` is wired against `representation.collection.template`
- * when `fetchTemplateVariables` is provided; without it, `SyncManager` falls
- * back to `fetchSeedEvents` for seeding.
+ * Returns `fetchSeedEvents`, `fetchStreamEvents`, and `revisionPath`
+ * unconditionally; `fetchSeedRecords` is wired against
+ * `representation.collection.template` when `fetchTemplateVariables` is
+ * provided. Without it, `SyncManager` falls back to `fetchSeedEvents`-based
+ * seeding.
  *
- * `opts.revisionPath` is forwarded unconditionally onto
- * `Collection.revisionPath` — independent of records wiring — so consumers
- * declaring a revision path on `appCreateCollection = createCollection<TLink>`
- * always carry it through to `AggregateChain.lastKnownRevision` advancement.
+ * The result is intended to be spread into a consumer-owned `Collection`
+ * literal — see the module docstring for the contributor rationale.
  */
 export function createCollection<TLink extends Link>(
   opts: CreateCollectionOptions<TLink>,
-): Collection<TLink> {
-  const { name, aggregate, idReferences, representation, cacheKeysFromTopics, matchesStream } = opts
+): CreateCollectionResult<TLink> {
+  const { representation } = opts
   const extractId = opts.aggregateId ?? defaultAggregateId
   const aggregateEventsHref =
     representation.aggregateEvents.href ?? representation.aggregateEvents.template
 
-  const collection: Collection<TLink> = {
-    name,
-    aggregate,
-    idReferences,
+  const base: CreateCollectionResult<TLink> = {
     revisionPath: opts.revisionPath,
-    cacheKeysFromTopics,
-    matchesStream,
-    seedOnInit: opts.seedOnInit,
-    seedOnDemand: opts.seedOnDemand,
     fetchSeedEvents: ({ ctx, cursor, limit, cacheKey }) => {
       const mergedCtx = opts.fetchHeaders
         ? { ...ctx, headers: { ...ctx.headers, ...opts.fetchHeaders(cacheKey, ctx) } }
@@ -143,7 +139,7 @@ export function createCollection<TLink extends Link>(
   if (opts.fetchTemplateVariables) {
     const fetchTemplateVariables = opts.fetchTemplateVariables
     return {
-      ...collection,
+      ...base,
       fetchSeedRecords: ({ ctx, cursor, limit, cacheKey }) =>
         fetchSeedRecordPage({
           ctx,
@@ -157,5 +153,5 @@ export function createCollection<TLink extends Link>(
     }
   }
 
-  return collection
+  return base
 }

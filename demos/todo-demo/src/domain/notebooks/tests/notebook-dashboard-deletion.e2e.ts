@@ -27,7 +27,9 @@ test.describe('same-session (no WS)', () => {
       await addNotebook(page, `NB-${i}`)
     }
 
-    // Dashboard shows 5 most recent (NB-8 through NB-4)
+    // Dashboard sorts in-session writes by `updated_at desc` (most-recent
+    // first), distinct from the multi-session pageB path which renders the
+    // server's name-asc fetch order.
     await Notes.goToDashboard(page)
     await waitForDashNotebookCount(page, 5)
     expect(await getDashNotebookTexts(page)).toEqual(['NB-8', 'NB-7', 'NB-6', 'NB-5', 'NB-4'])
@@ -73,7 +75,7 @@ test.describe('same-session (with WS)', () => {
       await addNotebook(page, `NB-${i}`)
     }
 
-    // Dashboard shows 5 most recent
+    // Same-session dashboard is `updated_at desc` (recency-driven).
     await Notes.goToDashboard(page)
     await waitForDashNotebookCount(page, 5)
     expect(await getDashNotebookTexts(page)).toEqual(['NB-8', 'NB-7', 'NB-6', 'NB-5', 'NB-4'])
@@ -112,7 +114,7 @@ test.describe('same-session (with WS)', () => {
 })
 
 test.describe('multi-session WS', () => {
-  test('dashboard reflects deletions and rotates older notebooks in', async ({
+  test('dashboard reflects deletions and rotates higher-numbered notebooks in', async ({
     page,
     browser,
     mode,
@@ -127,43 +129,47 @@ test.describe('multi-session WS', () => {
         await addNotebook(page, `NB-${i}`)
       }
 
-      // pageB: dashboard shows 5 most recent (session B for OPFS isolation)
+      // pageB: dashboard shows lowest 5 (session B for OPFS isolation)
       await gotoWithWsSubscribed(pageB, url('/', { mode, ws: true, session: 'b' }))
       await waitForDashNotebookCount(pageB, 5)
-      expect(await getDashNotebookTexts(pageB)).toEqual(['NB-10', 'NB-9', 'NB-8', 'NB-7', 'NB-6'])
+      expect(await getDashNotebookTexts(pageB)).toEqual(['NB-1', 'NB-2', 'NB-3', 'NB-4', 'NB-5'])
 
-      // Delete NB-3 (off-dashboard) — pageB dashboard stays the same
-      await deleteNotebook(page, 'NB-3')
+      // Delete NB-8 (off-dashboard) — pageB dashboard stays the same
+      await deleteNotebook(page, 'NB-8')
       // Brief wait to ensure WS event propagates — dashboard should stay at 5 with same names
       await page.waitForTimeout(500)
       await waitForDashNotebookCount(pageB, 5)
-      expect(await getDashNotebookTexts(pageB)).toEqual(['NB-10', 'NB-9', 'NB-8', 'NB-7', 'NB-6'])
+      expect(await getDashNotebookTexts(pageB)).toEqual(['NB-1', 'NB-2', 'NB-3', 'NB-4', 'NB-5'])
 
-      // Delete NB-10 (on-dashboard) — pageB: NB-5 rotates in
-      await deleteNotebook(page, 'NB-10')
-      await waitForDashNotebookAbsent(pageB, 'NB-10')
-      await waitForDashNotebookCount(pageB, 5)
-      expect(await getDashNotebookTexts(pageB)).toEqual(['NB-9', 'NB-8', 'NB-7', 'NB-6', 'NB-5'])
-
-      // Delete NB-9 and NB-7 (on-dashboard)
-      await deleteNotebook(page, 'NB-9')
-      await waitForDashNotebookAbsent(pageB, 'NB-9')
-      await deleteNotebook(page, 'NB-7')
-      await waitForDashNotebookAbsent(pageB, 'NB-7')
-      await waitForDashNotebookCount(pageB, 5)
-      expect(await getDashNotebookTexts(pageB)).toEqual(['NB-8', 'NB-6', 'NB-5', 'NB-4', 'NB-2'])
-
-      // Delete remaining except NB-1
-      await deleteNotebook(page, 'NB-8')
-      await waitForDashNotebookAbsent(pageB, 'NB-8')
-      await deleteNotebook(page, 'NB-6')
-      await waitForDashNotebookAbsent(pageB, 'NB-6')
-      await deleteNotebook(page, 'NB-5')
-      await waitForDashNotebookAbsent(pageB, 'NB-5')
-      await deleteNotebook(page, 'NB-4')
-      await waitForDashNotebookAbsent(pageB, 'NB-4')
+      // Delete NB-2 (on-dashboard) — pageB: NB-6 rotates in.
+      // Avoid deleting NB-1 while NB-10 is present: the `deleteNotebook`
+      // helper's hasText filter does substring matching, so 'NB-1' resolves
+      // to both NB-1 and NB-10.
       await deleteNotebook(page, 'NB-2')
       await waitForDashNotebookAbsent(pageB, 'NB-2')
+      await waitForDashNotebookCount(pageB, 5)
+      expect(await getDashNotebookTexts(pageB)).toEqual(['NB-1', 'NB-3', 'NB-4', 'NB-5', 'NB-6'])
+
+      // Delete NB-3 and NB-5 (on-dashboard)
+      await deleteNotebook(page, 'NB-3')
+      await waitForDashNotebookAbsent(pageB, 'NB-3')
+      await deleteNotebook(page, 'NB-5')
+      await waitForDashNotebookAbsent(pageB, 'NB-5')
+      await waitForDashNotebookCount(pageB, 5)
+      // NB-8 was deleted earlier, so the rotation skips it: NB-7 then NB-9.
+      expect(await getDashNotebookTexts(pageB)).toEqual(['NB-1', 'NB-4', 'NB-6', 'NB-7', 'NB-9'])
+
+      // Delete remaining except NB-1
+      await deleteNotebook(page, 'NB-4')
+      await waitForDashNotebookAbsent(pageB, 'NB-4')
+      await deleteNotebook(page, 'NB-6')
+      await waitForDashNotebookAbsent(pageB, 'NB-6')
+      await deleteNotebook(page, 'NB-7')
+      await waitForDashNotebookAbsent(pageB, 'NB-7')
+      await deleteNotebook(page, 'NB-9')
+      await waitForDashNotebookAbsent(pageB, 'NB-9')
+      await deleteNotebook(page, 'NB-10')
+      await waitForDashNotebookAbsent(pageB, 'NB-10')
 
       await waitForDashNotebookCount(pageB, 1)
       expect(await getDashNotebookTexts(pageB)).toEqual(['NB-1'])
@@ -181,18 +187,20 @@ test.describe('multi-session WS', () => {
     try {
       const pageB = await context2.newPage()
 
-      // pageA: create 10 notebooks, then delete 2
+      // pageA: create 10 notebooks, then delete 2.
+      // Avoid deleting NB-1 while NB-10 exists: `deleteNotebook`'s hasText
+      // filter is substring-based, so 'NB-1' resolves to both NB-1 and NB-10.
       await gotoWithWsSubscribed(page, url('/notes', { mode, ws: true }))
       for (let i = 1; i <= 10; i++) {
         await addNotebook(page, `NB-${i}`)
       }
-      await deleteNotebook(page, 'NB-10')
-      await deleteNotebook(page, 'NB-9')
+      await deleteNotebook(page, 'NB-2')
+      await deleteNotebook(page, 'NB-3')
 
       // pageB: dashboard shows updated notebooks (session B for OPFS isolation)
       await gotoWithWsSubscribed(pageB, url('/', { mode, ws: true, session: 'b' }))
       await waitForDashNotebookCount(pageB, 5)
-      expect(await getDashNotebookTexts(pageB)).toEqual(['NB-8', 'NB-7', 'NB-6', 'NB-5', 'NB-4'])
+      expect(await getDashNotebookTexts(pageB)).toEqual(['NB-1', 'NB-4', 'NB-5', 'NB-6', 'NB-7'])
 
       // pageA: navigate to todos via SPA (WS connection persists)
       await Notes.goToDashboard(page)

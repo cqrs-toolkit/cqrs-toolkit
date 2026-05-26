@@ -22,7 +22,7 @@ using the same proxy-based interface as the browser worker modes.
 
 ### TCommand
 
-`TCommand` _extends_ `EnqueueCommand`\<`unknown`\>
+`TCommand` _extends_ `EnqueueCommand`
 
 ## Parameters
 

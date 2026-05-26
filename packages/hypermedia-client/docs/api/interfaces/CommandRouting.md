@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/hypermedia-client](../README.md) / CommandRouting
+[@cqrs-toolkit/hypermedia-client](../globals.md) / CommandRouting
 
 # Interface: CommandRouting
 

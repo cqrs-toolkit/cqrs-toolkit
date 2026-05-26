@@ -15,5 +15,6 @@
     }
   },
   "required": ["entities", "nextCursor"],
+  "title": "FileObjectCollectionReadModelV1_0_0",
   "type": "object"
 }

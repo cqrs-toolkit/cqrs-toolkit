@@ -27,6 +27,7 @@ export const TodoCommandIds = {
 // ---------------------------------------------------------------------------
 
 const updateTodoContentDataSchema: JSONSchema7 = {
+  title: 'NbUpdateTodoContentV1_0_0',
   type: 'object',
   properties: {
     content: { type: 'string', minLength: 1 },
@@ -36,6 +37,7 @@ const updateTodoContentDataSchema: JSONSchema7 = {
 }
 
 const changeTodoStatusDataSchema: JSONSchema7 = {
+  title: 'NbChangeTodoStatusV1_0_0',
   type: 'object',
   properties: {
     status: { type: 'string', enum: ['pending', 'in_progress', 'completed'] },
@@ -45,6 +47,7 @@ const changeTodoStatusDataSchema: JSONSchema7 = {
 }
 
 const deleteTodoDataSchema: JSONSchema7 = {
+  title: 'NbDeleteTodoV1_0_0',
   type: 'object',
   properties: {},
   additionalProperties: false,

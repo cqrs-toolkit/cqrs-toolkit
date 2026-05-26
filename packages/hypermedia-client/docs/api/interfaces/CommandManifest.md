@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/hypermedia-client](../README.md) / CommandManifest
+[@cqrs-toolkit/hypermedia-client](../globals.md) / CommandManifest
 
 # Interface: CommandManifest
 

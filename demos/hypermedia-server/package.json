@@ -9,7 +9,8 @@
   "scripts": {
     "server": "tsx src/server.ts",
     "compile": "tsc -p tsconfig.json --noEmit",
-    "cqrs:server:docs": "cqrs-toolkit server docs"
+    "cqrs:server:docs": "cqrs-toolkit server docs",
+    "cqrs:server:titles": "cqrs-toolkit server audit-titles"
   },
   "dependencies": {
     "@cqrs-toolkit/demo-base": "*",

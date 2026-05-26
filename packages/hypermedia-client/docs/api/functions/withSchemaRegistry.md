@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/hypermedia-client](../README.md) / withSchemaRegistry
+[@cqrs-toolkit/hypermedia-client](../globals.md) / withSchemaRegistry
 
 # Function: withSchemaRegistry()
 
@@ -29,7 +29,7 @@ commandHandlers: withSchemaRegistry(schemas, [...todoHandlers, ...noteHandlers])
 
 ### TCommand
 
-`TCommand` _extends_ `EnqueueCommand`\<`unknown`\>
+`TCommand` _extends_ `EnqueueCommand`
 
 ### TEvent
 

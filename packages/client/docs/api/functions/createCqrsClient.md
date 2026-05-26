@@ -21,7 +21,7 @@ wires all components, starts sync, and returns a fully initialized client.
 
 ### TCommand
 
-`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md)\<`unknown`\> = [`EnqueueCommand`](../interfaces/EnqueueCommand.md)\<`unknown`\>
+`TCommand` _extends_ [`EnqueueCommand`](../type-aliases/EnqueueCommand.md) = [`EnqueueCommand`](../type-aliases/EnqueueCommand.md)
 
 ### TSchema
 

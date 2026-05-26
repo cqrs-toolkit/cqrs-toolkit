@@ -22,5 +22,6 @@
     }
   },
   "required": ["id", "content", "status", "createdAt", "updatedAt", "latestRevision"],
+  "title": "TodoReadModelV1_0_0",
   "type": "object"
 }

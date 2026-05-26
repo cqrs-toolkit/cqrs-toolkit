@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/hypermedia-client](../README.md) / createPresignedUploadHandler
+[@cqrs-toolkit/hypermedia-client](../globals.md) / createPresignedUploadHandler
 
 # Function: createPresignedUploadHandler()
 
@@ -16,7 +16,7 @@
 
 ### TCommand
 
-`TCommand` _extends_ `EnqueueCommand`\<`unknown`\>
+`TCommand` _extends_ `EnqueueCommand`
 
 ## Returns
 

@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/hypermedia-client](../README.md) / isPresignedPermit
+[@cqrs-toolkit/hypermedia-client](../globals.md) / isPresignedPermit
 
 # Function: isPresignedPermit()
 

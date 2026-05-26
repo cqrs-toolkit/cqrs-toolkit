@@ -459,18 +459,15 @@ export interface FileRef {
 }
 
 /**
- * Command shape received by command handlers to produce anticipated events.
- * Contains the command identity, payload, file metadata, and the envelope
- * headers (with any {@link EntityRef}s visible) — but NOT File blobs,
- * revision, service, or dependency info (those are submit/send concerns).
+ * Always-present fields of a handler command — split out so {@link HandlerCommand}
+ * and {@link EnqueueCommand} can conditionally compose the `path` shape on
+ * top without duplicating the rest.
  */
-export interface HandlerCommand<TData = unknown, TPath = unknown> {
+export interface HandlerCommandBase<TData = unknown> {
   /** Command type */
   type: string
   /** Command data (HTTP body payload) */
   data: TData
-  /** URL path template values (e.g. `{ id: '...' }`). */
-  path?: TPath
   /** Escape-hatch envelope headers.
    *
    *  Values may be plain strings or {@link EntityId} (string | {@link EntityRef}).
@@ -492,11 +489,35 @@ export interface HandlerCommand<TData = unknown, TPath = unknown> {
 }
 
 /**
- * Command to enqueue via `client.submit()`.
- * Extends the handler shape with submit-time concerns: File blobs, revision,
- * service routing, and dependency declarations.
+ * Command shape received by command handlers to produce anticipated events.
+ *
+ * `TPath` controls the `path` requirement via a distributive conditional:
+ *
+ * - `TPath = unknown` (default, internal/queue usage) → `path?: unknown` open.
+ * - `TPath = undefined` (consumer-side "no path" sentinel) → `path?: never`
+ *   forbidden, catches passing a `path` to a command type that doesn't take one.
+ * - `TPath = { id: EntityId }` (or any concrete shape) → `path: TPath` required.
+ *
+ * Inside a registration's `handler(command, ...)` callback, `TPath` is
+ * inferred from the matched AppCommand union member at `domain.ts`'s
+ * `HandlerCommand<C['data'], C['path']>`, so handlers for commands that
+ * declare `path: { id: EntityId }` get required `path` automatically.
  */
-export interface EnqueueCommand<TData = unknown> extends HandlerCommand<TData> {
+export type HandlerCommand<TData = unknown, TPath = unknown> = HandlerCommandBase<TData> &
+  ([TPath] extends [undefined]
+    ? { path?: never }
+    : unknown extends TPath
+      ? { path?: unknown }
+      : { path: TPath })
+
+/**
+ * Command to enqueue via `client.submit()`.
+ *
+ * Composed from {@link HandlerCommand} with submit-time fields appended:
+ * File blobs, revision, service routing, dependency declarations. `TPath`
+ * threads through the conditional in {@link HandlerCommand} unchanged.
+ */
+export type EnqueueCommand<TData = unknown, TPath = unknown> = HandlerCommand<TData, TPath> & {
   /** File attachments for upload commands. Provide File objects (from input elements or `new File()`). */
   files?: File[]
   /** Revision for optimistic concurrency (mutate commands). Absent for creates. */

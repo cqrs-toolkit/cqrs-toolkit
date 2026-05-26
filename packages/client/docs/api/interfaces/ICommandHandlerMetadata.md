@@ -17,7 +17,7 @@ Allows the CommandQueue to access creates config by command type.
 
 ### TCommand
 
-`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md) = [`EnqueueCommand`](EnqueueCommand.md)
+`TCommand` _extends_ [`EnqueueCommand`](../type-aliases/EnqueueCommand.md) = [`EnqueueCommand`](../type-aliases/EnqueueCommand.md)
 
 ### TSchema
 

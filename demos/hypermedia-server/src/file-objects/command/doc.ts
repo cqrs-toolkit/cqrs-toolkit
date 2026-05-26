@@ -28,6 +28,7 @@ export const FileObjectCommandIds = {
  * the presigned upload form.
  */
 const createFileObjectPermitSchema: JSONSchema7 = {
+  title: 'StorageCreateFileObjectV1_0_0',
   type: 'object',
   properties: {
     noteId: { type: 'string', minLength: 1 },
@@ -40,6 +41,7 @@ const createFileObjectPermitSchema: JSONSchema7 = {
 
 const permitResponseSchema: JSONSchema7 = {
   $id: 'urn:schema:storage.PresignedPermitResponse:1.0.0',
+  title: 'StoragePresignedPermitResponseV1_0_0',
   type: 'object',
   properties: {
     id: { type: 'string' },
@@ -62,6 +64,7 @@ const permitResponseSchema: JSONSchema7 = {
 }
 
 const deleteFileObjectDataSchema: JSONSchema7 = {
+  title: 'StorageDeleteFileObjectV1_0_0',
   type: 'object',
   properties: {},
   additionalProperties: false,

@@ -2,5 +2,6 @@
   "$id": "urn:schema:nb.DeleteTodoData:1.0.0",
   "additionalProperties": false,
   "properties": {},
+  "title": "NbDeleteTodoV1_0_0",
   "type": "object"
 }

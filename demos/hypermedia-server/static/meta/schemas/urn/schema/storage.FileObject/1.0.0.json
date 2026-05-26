@@ -40,5 +40,6 @@
     "createdAt",
     "latestRevision"
   ],
+  "title": "FileObjectReadModelV1_0_0",
   "type": "object"
 }

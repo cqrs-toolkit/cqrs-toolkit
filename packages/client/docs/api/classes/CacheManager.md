@@ -16,7 +16,7 @@ Cache manager implementation.
 
 ### TCommand
 
-`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md)
+`TCommand` _extends_ [`EnqueueCommand`](../type-aliases/EnqueueCommand.md)
 
 ## Implements
 

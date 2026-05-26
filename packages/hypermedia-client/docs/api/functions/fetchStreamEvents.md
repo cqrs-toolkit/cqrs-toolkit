@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/hypermedia-client](../README.md) / fetchStreamEvents
+[@cqrs-toolkit/hypermedia-client](../globals.md) / fetchStreamEvents
 
 # Function: fetchStreamEvents()
 

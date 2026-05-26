@@ -3,5 +3,7 @@
   "additionalProperties": false,
   "properties": { "tag": { "minLength": 1, "type": "string" } },
   "required": ["tag"],
+  "svc:urn": "urn:schema:nb.RemoveNotebookTagData:1.0.0",
+  "title": "NbRemoveNotebookTagV1_0_0",
   "type": "object"
 }

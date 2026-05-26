@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/hypermedia-client](../README.md) / createAjvSchemaValidator
+[@cqrs-toolkit/hypermedia-client](../globals.md) / createAjvSchemaValidator
 
 # Function: createAjvSchemaValidator()
 

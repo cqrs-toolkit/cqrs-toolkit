@@ -21,7 +21,7 @@ process bridge, then creates the full component stack.
 
 ### TCommand
 
-`TCommand` _extends_ `EnqueueCommand`\<`unknown`\>
+`TCommand` _extends_ `EnqueueCommand`
 
 ### TSchema
 

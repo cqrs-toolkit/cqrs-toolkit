@@ -16,7 +16,7 @@ Persisted command record.
 
 ### TCommand
 
-`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md)
+`TCommand` _extends_ [`EnqueueCommand`](../type-aliases/EnqueueCommand.md)
 
 ### TResponse
 
@@ -140,7 +140,7 @@ File attachments — metadata at rest, hydrated with Blob data before send().
 > `optional` **headers**: `Record`\<`string`, [`EntityId`](../type-aliases/EntityId.md)\>
 
 Escape-hatch envelope headers — same shape as
-[HandlerCommand.headers](EnqueueCommand.md#headers).
+HandlerCommand.headers.
 
 Stored with [EntityRef](EntityRef.md)s intact at declared positions; the cascade
 rewrites them in-place to server-id strings when the producing

@@ -11,6 +11,7 @@
 import {
   clientSchema,
   cookieAuthStrategy,
+  type CollationConfig,
   type CqrsConfig,
   type IAnticipatedEvent,
 } from '@cqrs-toolkit/client'
@@ -29,7 +30,7 @@ import {
 } from '@cqrs-toolkit/hypermedia-client'
 import { ServiceLink } from '@meticoeus/ddd-es'
 import type { JSONSchema7 } from 'json-schema'
-import { type AppCommand, commands } from '../cqrs/commands.js'
+import { commands, type AppCommand } from '../cqrs/commands/manifest.js'
 import { schemas } from '../cqrs/schemas.js'
 import { fileObjectsCollection } from '../domain/file-objects/collection.js'
 import { fileObjectHandlers } from '../domain/file-objects/executor.js'
@@ -43,7 +44,18 @@ import { noteProcessors } from '../domain/notes/processor.js'
 import { todosCollection } from '../domain/todos/collection.js'
 import { todoHandlers } from '../domain/todos/executor.js'
 import { todoProcessors } from '../domain/todos/processor.js'
-export type { AppCommand } from '../cqrs/commands.js'
+export type { AppCommand } from '../cqrs/commands/manifest.js'
+
+/**
+ * English locale-aware collation. Drives the `sort_name` virtual column on
+ * notebooks and notes so list ordering matches reader expectations
+ * (case-folded letters, diacritics next to their base, numeric awareness)
+ * instead of SQLite's default code-point ordering.
+ */
+const LOCALE_EN: CollationConfig = {
+  name: 'locale_en',
+  compare: new Intl.Collator('en', { numeric: true }).compare,
+}
 
 export function createCqrsConfig(
   baseUrl: string,
@@ -62,14 +74,36 @@ export function createCqrsConfig(
           message: 'Initial setup',
           steps: [
             clientSchema.init,
-            { type: 'managed', name: 'todos' },
-            { type: 'managed', name: 'notebooks' },
-            { type: 'managed', name: 'notes' },
+            {
+              type: 'managed',
+              name: 'todos',
+              // `status` exposed as a generated column so the dashboard's
+              // "recent incomplete" list can push its filter down to SQL.
+              columns: [{ name: 'status', type: 'TEXT', path: '$.status' }],
+              indexes: [{ columns: ['status'] }],
+            },
+            {
+              type: 'managed',
+              name: 'notebooks',
+              columns: [
+                { name: 'sort_name', type: 'TEXT', path: '$.name', collation: 'locale_en' },
+              ],
+              indexes: [{ columns: ['sort_name', 'id'] }],
+            },
+            {
+              type: 'managed',
+              name: 'notes',
+              columns: [
+                { name: 'sort_name', type: 'TEXT', path: '$.title', collation: 'locale_en' },
+              ],
+              indexes: [{ columns: ['sort_name', 'id'] }],
+            },
             { type: 'managed', name: FILE_OBJECTS_COLLECTION_NAME },
           ],
         },
       ],
     },
+    collations: [LOCALE_EN],
     aggregates: {
       parseStreamId,
       aggregates: [TodoAggregate, NotebookAggregate, NoteAggregate, FileObjectAggregate],

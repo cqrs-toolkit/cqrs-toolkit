@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/hypermedia-client](../README.md) / SchemaRegistry
+[@cqrs-toolkit/hypermedia-client](../globals.md) / SchemaRegistry
 
 # Interface: SchemaRegistry
 

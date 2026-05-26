@@ -16,5 +16,6 @@
     }
   },
   "required": ["path", "code", "message", "params"],
+  "title": "FieldErrorV1_0_0",
   "type": "object"
 }

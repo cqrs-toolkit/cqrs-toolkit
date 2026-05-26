@@ -435,7 +435,12 @@ export function buildHydraApiDocumentation(opts: BuildOptions): BuildResult {
 
     // Representation response schemas
     for (const rep of cls.representations) {
-      for (const surf of [rep.resource, rep.collection]) {
+      const surfaces: HydraDoc.QuerySurface[] = [rep.resource, rep.collection]
+      if (isQueryRepresentation(rep)) {
+        if (rep.aggregateEvents) surfaces.push(rep.aggregateEvents)
+        if (rep.itemEvents) surfaces.push(rep.itemEvents)
+      }
+      for (const surf of surfaces) {
         collectResponseSchemas(surf.responses, true, `Rep ${rep.id}`)
       }
     }

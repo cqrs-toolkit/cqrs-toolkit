@@ -36,6 +36,7 @@ const noteRequired = [
 
 const noteResourceJsonSchema: JSONSchema7 = {
   $id: 'urn:schema:nb.Note:1.0.0',
+  title: 'NoteReadModelV1_0_0',
   type: 'object',
   properties: { ...noteProperties },
   required: [...noteRequired],
@@ -43,6 +44,7 @@ const noteResourceJsonSchema: JSONSchema7 = {
 
 const noteResourceHalSchema: JSONSchema7 = {
   $id: 'urn:schema:hal:nb.Note:1.0.0',
+  title: 'NoteReadModelV1_0_0',
   type: 'object',
   properties: {
     ...noteProperties,
@@ -53,6 +55,7 @@ const noteResourceHalSchema: JSONSchema7 = {
 
 const noteCollectionJsonSchema: JSONSchema7 = {
   $id: 'urn:schema:nb.NoteCollection:1.0.0',
+  title: 'NoteCollectionReadModelV1_0_0',
   type: 'object',
   properties: {
     entities: { type: 'array', items: noteResourceJsonSchema },
@@ -64,6 +67,7 @@ const noteCollectionJsonSchema: JSONSchema7 = {
 
 const noteCollectionHalSchema: JSONSchema7 = {
   $id: 'urn:schema:hal:nb.NoteCollection:1.0.0',
+  title: 'NoteCollectionReadModelV1_0_0',
   type: 'object',
   properties: {
     _links: halCollectionLinks,

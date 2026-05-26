@@ -2,5 +2,7 @@
   "$id": "http://localhost:3002/api/meta/schemas/urn/schema/storage.DeleteFileObjectData/1.0.0.json",
   "additionalProperties": false,
   "properties": {},
+  "svc:urn": "urn:schema:storage.DeleteFileObjectData:1.0.0",
+  "title": "StorageDeleteFileObjectV1_0_0",
   "type": "object"
 }

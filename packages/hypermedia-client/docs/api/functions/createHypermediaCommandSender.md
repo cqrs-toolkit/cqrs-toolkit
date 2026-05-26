@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/hypermedia-client](../README.md) / createHypermediaCommandSender
+[@cqrs-toolkit/hypermedia-client](../globals.md) / createHypermediaCommandSender
 
 # Function: createHypermediaCommandSender()
 
@@ -23,7 +23,7 @@ const sender = createHypermediaCommandSender(manifest, { baseUrl: 'http://localh
 
 ### TCommand
 
-`TCommand` _extends_ `EnqueueCommand`\<`unknown`\>
+`TCommand` _extends_ `EnqueueCommand`
 
 ## Parameters
 

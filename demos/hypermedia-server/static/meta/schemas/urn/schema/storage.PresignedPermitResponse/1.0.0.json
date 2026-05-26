@@ -27,5 +27,6 @@
     }
   },
   "required": ["id", "data"],
+  "title": "StoragePresignedPermitResponseV1_0_0",
   "type": "object"
 }

@@ -15,6 +15,10 @@ Define versioned command and query surfaces with `HydraDoc`; render HAL+JSON res
 
 Five entry points: core types (`HydraDoc`, `HAL`, embed spec types); server utilities (profile negotiation, command/embed planning, formatting, exceptions); a Fastify dev-server plugin (`createMetaPlugin`) that serves generated apidoc/openapi/schemas; build-time tooling (Hydra ApiDocumentation and OpenAPI generation, including HTTP request/response header documentation); and configuration types (`HydraConfig`, `OpenApiConfig`) for `cqrs-toolkit server` commands.
 
+## Wings
+
+- [`explorations/`](explorations/_overview.md) — design alternatives under evaluation; open questions and candidate approaches not yet committed.
+
 ## Where things live
 
 - Code: `packages/hypermedia/`

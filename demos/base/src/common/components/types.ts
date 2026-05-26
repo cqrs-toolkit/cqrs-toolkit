@@ -1,4 +1,9 @@
-import { type CacheKeyIdentity, type EntityId } from '@cqrs-toolkit/client'
+import {
+  type CacheKeyIdentity,
+  type EntityId,
+  type ListFilter,
+  type Sort,
+} from '@cqrs-toolkit/client'
 import {
   createItemQuery,
   createListQuery,
@@ -13,7 +18,12 @@ import { ServiceLink } from '@meticoeus/ddd-es'
 export function appCreateListQuery<T extends Identifiable>(
   collection: string,
   cacheKey: CacheKeyIdentity<ServiceLink> | (() => CacheKeyIdentity<ServiceLink> | undefined),
-  options?: { limit?: number; offset?: number },
+  options?: {
+    limit?: number
+    offset?: number
+    sort?: Sort | (() => Sort | undefined)
+    filter?: ListFilter | (() => ListFilter | undefined)
+  },
 ): ListQueryState<T> {
   const params: ListQueryParams<ServiceLink> = {
     collection,

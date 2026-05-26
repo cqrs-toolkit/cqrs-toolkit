@@ -3,5 +3,7 @@
   "additionalProperties": false,
   "properties": { "content": { "minLength": 1, "type": "string" } },
   "required": ["content"],
+  "svc:urn": "urn:schema:nb.CreateTodo:1.0.0",
+  "title": "NbCreateTodoV1_0_0",
   "type": "object"
 }

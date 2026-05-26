@@ -21,7 +21,7 @@ managing per-tab SQLite workers and active tab routing.
 
 ### TCommand
 
-`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md)\<`unknown`\>
+`TCommand` _extends_ [`EnqueueCommand`](../type-aliases/EnqueueCommand.md)
 
 ### TSchema
 

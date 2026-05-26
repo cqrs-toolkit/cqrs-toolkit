@@ -13,7 +13,7 @@ CLI for hypermedia tooling — invocation surface for build-time / dev-time hype
 ## Current state
 
 Two consumer-facing exports (`.` exposing a slim `loadConfigFile` helper for advanced consumers, `./config` exposing the `defineConfig` / `ToolkitConfig` type-helper for `cqrs-toolkit.config.ts` files), plus a binary published as both `cqrs-toolkit` and `cqrs`.
-The CLI exposes two command groups: `server` (`docs`, `build`) for hypermedia documentation generation, and `client` (`init`, `pull`) for typed client code generation.
+The CLI exposes two command groups: `server` (`docs`, `build`, `audit-titles`) for hypermedia documentation generation, and `client` (`init`, `pull`) for typed client code generation.
 Almost all logic is delegated through dynamic imports — `client` commands run from `@cqrs-toolkit/hypermedia-client/internals`; `server` commands run from `@cqrs-toolkit/hypermedia/builder`. The CLI itself is thin: argv parsing plus dispatch.
 
 ## Where things live

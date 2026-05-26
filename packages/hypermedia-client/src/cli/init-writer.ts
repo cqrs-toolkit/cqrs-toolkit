@@ -653,8 +653,12 @@ function bail(
 // ---------------------------------------------------------------------------
 
 interface ExistingRepEntry {
+  /** The URN string value as written in the config file. */
   id: string
-  node: TSESTree.StringLiteral
+  /** The whole entry node — string literal for shorthand form, object expression for full form. Used for removal. */
+  node: TSESTree.Expression
+  /** The string literal that holds the URN. Same as `node` for shorthand form; the inner `urn` property's value for object form. Used for URN overwrite. */
+  idNode: TSESTree.StringLiteral
 }
 
 interface ReconciledRep {
@@ -704,14 +708,22 @@ export function updateConfigRepresentations(
     )
   }
 
-  // Extract existing entries — representations are always string literals
+  // Extract existing entries — string shorthand OR object form
+  // (`{ urn: '...', idReferences: [...] }`).
   const existingEntries: ExistingRepEntry[] = []
   let hasBailEntry = false
   for (const element of arrayNode.elements) {
     if (!element) continue
     if (isStringLiteral(element)) {
-      existingEntries.push({ id: element.value, node: element })
+      existingEntries.push({ id: element.value, node: element, idNode: element })
       continue
+    }
+    if (isObjectExpression(element)) {
+      const urnProp = findObjectUrnProperty(element)
+      if (urnProp) {
+        existingEntries.push({ id: urnProp.value, node: element, idNode: urnProp.node })
+        continue
+      }
     }
     hasBailEntry = true
   }
@@ -746,8 +758,8 @@ export function updateConfigRepresentations(
   for (const rec of reconResult.reconciled) {
     if (rec.idChanged && rec.existingEntry) {
       s.overwrite(
-        rec.existingEntry.node.range[0],
-        rec.existingEntry.node.range[1],
+        rec.existingEntry.idNode.range[0],
+        rec.existingEntry.idNode.range[1],
         `${QUOTE}${rec.currentId}${QUOTE}`,
       )
     }

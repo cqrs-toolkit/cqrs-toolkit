@@ -5,11 +5,23 @@
 
 import type { HydraApiDocumentation } from '@cqrs-toolkit/hypermedia'
 import type { JSONSchema7 } from 'json-schema'
-import type { EnvelopeExtractor, PullConfig } from '../config.js'
+import type {
+  EnvelopeExtractor,
+  IdReferenceEntry,
+  IdReferencesForSchema,
+  PullConfig,
+} from '../config.js'
+import type { GeneratedIdReference, RepresentationManifest } from '../runtime/types.js'
 import { parseApidoc, type ParsedCommand } from './apidoc-parser.js'
-import { parseRepresentations } from './apidoc-representations.js'
+import {
+  parseRepresentations,
+  type RepresentationResponseSchemas,
+} from './apidoc-representations.js'
 import { fetchSchemas, type FetchedCommonSchema, type FetchedSchema } from './schema-fetcher.js'
 import { writeGeneratedOutput } from './ts-writer.js'
+import { generateTypes } from './type-codegen.js'
+
+const HAL_CONTENT_TYPE = 'application/hal+json'
 
 export async function pull(config: PullConfig): Promise<void> {
   const apidocUrl = `${config.server}${config.apidocPath}`
@@ -17,6 +29,7 @@ export async function pull(config: PullConfig): Promise<void> {
   // Extract URNs and per-command overrides from CommandEntry[]
   const commandUrns: string[] = []
   const perCommandExtractors = new Map<string, EnvelopeExtractor>()
+  const commandIdReferencesByUrn = new Map<string, IdReferenceEntry[]>()
   for (const entry of config.commands) {
     if (typeof entry === 'string') {
       commandUrns.push(entry)
@@ -24,6 +37,23 @@ export async function pull(config: PullConfig): Promise<void> {
       commandUrns.push(entry.urn)
       if (entry.extractEnvelope) {
         perCommandExtractors.set(entry.urn, entry.extractEnvelope)
+      }
+      if (entry.idReferences && entry.idReferences.length > 0) {
+        commandIdReferencesByUrn.set(entry.urn, entry.idReferences)
+      }
+    }
+  }
+
+  // Same for representations.
+  const representationUrns: string[] = []
+  const repIdReferencesByUrn = new Map<string, IdReferenceEntry[]>()
+  for (const entry of config.representations) {
+    if (typeof entry === 'string') {
+      representationUrns.push(entry)
+    } else {
+      representationUrns.push(entry.urn)
+      if (entry.idReferences && entry.idReferences.length > 0) {
+        repIdReferencesByUrn.set(entry.urn, entry.idReferences)
       }
     }
   }
@@ -51,8 +81,8 @@ export async function pull(config: PullConfig): Promise<void> {
   }
 
   // Parse representations
-  console.log(`Parsing ${config.representations.length} representation(s)`)
-  const repResult = parseRepresentations(apidoc, config.representations)
+  console.log(`Parsing ${representationUrns.length} representation(s)`)
+  const repResult = parseRepresentations(apidoc, representationUrns)
 
   if (repResult.missing.length > 0) {
     console.warn(`\nWarning: ${repResult.missing.length} representation(s) not found in apidoc:`)
@@ -61,11 +91,12 @@ export async function pull(config: PullConfig): Promise<void> {
     }
   }
 
-  // Fetch schemas (command + transitive $ref dependencies)
+  // Fetch schemas (command + response + transitive $ref dependencies)
   console.log(`Found ${commandResult.commands.size} command(s), fetching schemas...`)
-  const rawSchemas = await fetchSchemas(commandResult.commands)
+  const rawSchemas = await fetchSchemas(commandResult.commands, repResult.responseSchemas)
 
-  // Apply envelope extraction: resolve data schemas from envelope wrappers
+  // Apply envelope extraction: resolve command data schemas from envelope wrappers.
+  // Responses are pass-through; common is pruned to what surviving commands still reference.
   const extracted = applyEnvelopeExtraction(
     rawSchemas,
     commandResult.commands,
@@ -74,24 +105,93 @@ export async function pull(config: PullConfig): Promise<void> {
     config.extractCommand,
   )
 
-  // Write generated output
+  // Build per-schema idReferences by mapping each consumer-config entry's
+  // idReferences onto its resolved schema URL.
+  const idReferences = collectIdReferences({
+    commandIdReferencesByUrn,
+    repIdReferencesByUrn,
+    parsedCommands: commandResult.commands,
+    extractedCommands: extracted.commands,
+    repResponseSchemas: repResult.responseSchemas,
+    repUrnByClassName: buildRepUrnByClassName(repResult.representations),
+  })
+
+  // Generate TS types via the bundle → compile → classify → assemble pipeline.
+  const codegen = await generateTypes({
+    schemas: [
+      ...extracted.commands.map((s) => s.content),
+      ...extracted.responses.map((s) => s.content),
+      ...extracted.common.map((s) => s.content),
+    ],
+    commandUrns: extracted.commands.map((s) => s.url),
+    representationUrns: extracted.responses.map((s) => s.url),
+    idReferences,
+    linkType: config.linkType,
+    deriveTypeName: config.codegen?.deriveTypeName,
+  })
+
+  // Populate `generatedIdReferences` on each rep manifest entry. Filters
+  // self-id entries (no aggregateUrn) — they exist for codegen typing only.
+  populateGeneratedIdReferences(repResult.representations, repIdReferencesByUrn)
+
+  for (const warn of codegen.warnings) {
+    console.warn(`warning: ${warn}`)
+  }
+  if (codegen.unexpected.length > 0) {
+    console.warn(
+      `warning: compiler emitted ${codegen.unexpected.length} unexpected type name(s): ${codegen.unexpected.join(', ')}`,
+    )
+  }
+  if (codegen.errors.length > 0) {
+    for (const err of codegen.errors) {
+      console.error(`error: ${err}`)
+    }
+    throw new Error('Type generation failed; see errors above.')
+  }
+
+  // Build command-name → generated-TS-type-name map by reading `title` off
+  // each command's (post-extraction) data schema. The bundler uses `title` as
+  // the type name, so the same string appears in the generated commands-types
+  // file and lets the AppCommand union refer to it.
+  const commandDataTypeNames = new Map<string, string>()
+  for (const cmd of extracted.commands) {
+    try {
+      const schema: { title?: string } = JSON.parse(cmd.content)
+      if (typeof schema.title === 'string' && schema.title.length > 0) {
+        commandDataTypeNames.set(cmd.name, schema.title)
+      }
+    } catch {
+      // Schema parse failures will already surface in the codegen pass above.
+    }
+  }
+
   writeGeneratedOutput({
     outputDir: config.outputDir,
     apidocUrl,
     commands: commandResult.commands,
     representations: repResult.representations,
     schemas: extracted,
+    generatedTypes: {
+      shared: codegen.shared,
+      commands: codegen.commands,
+      reps: codegen.reps,
+    },
+    commandDataTypeNames,
   })
 
   const repCount = Object.keys(repResult.representations).length
-  const totalSchemas = extracted.commands.length + extracted.common.length
+  const totalSchemas =
+    extracted.commands.length + extracted.responses.length + extracted.common.length
   console.log(`\nWrote to ${config.outputDir}/`)
-  console.log(`  commands.ts         (${commandResult.commands.size} commands)`)
-  console.log(`  representations.ts  (${repCount} representations)`)
+  console.log(`  commands/manifest.ts (${commandResult.commands.size} commands)`)
+  console.log(`  commands/types.ts    (generated request types)`)
+  console.log(`  reps/manifest.ts     (${repCount} representations)`)
+  console.log(`  reps/types.ts        (generated response types)`)
+  console.log(`  shared/types.ts      (generated shared types)`)
   console.log(
-    `  schemas.ts          (${extracted.commands.length} command + ${extracted.common.length} common schemas)`,
+    `  schemas.ts           (${extracted.commands.length} command + ${extracted.responses.length} response + ${extracted.common.length} common schemas)`,
   )
-  console.log(`  schemas/            (${totalSchemas} files)`)
+  console.log(`  schemas/             (${totalSchemas} files)`)
   console.log(`  meta.json`)
 }
 
@@ -101,12 +201,17 @@ export async function pull(config: PullConfig): Promise<void> {
 
 interface ExtractedSchemas {
   commands: FetchedSchema[]
+  responses: FetchedSchema[]
   common: FetchedCommonSchema[]
   commonCommands: string[]
 }
 
 function applyEnvelopeExtraction(
-  raw: { commands: FetchedSchema[]; common: FetchedCommonSchema[] },
+  raw: {
+    commands: FetchedSchema[]
+    responses: FetchedSchema[]
+    common: FetchedCommonSchema[]
+  },
   parsedCommands: Map<string, ParsedCommand>,
   perCommandExtractors: Map<string, EnvelopeExtractor>,
   extractCreate: EnvelopeExtractor | undefined,
@@ -120,6 +225,7 @@ function applyEnvelopeExtraction(
 
   // For each command schema, apply extraction to resolve the data schema
   const resolvedCommands: FetchedSchema[] = []
+  const extractionErrors: string[] = []
   for (const cmdSchema of raw.commands) {
     const parsed = parsedCommands.get(cmdSchema.name)
     if (!parsed) {
@@ -153,10 +259,8 @@ function applyEnvelopeExtraction(
     // Replace the command schema with the referenced data schema
     const dataSchema = commonById.get(dataSchemaId)
     if (!dataSchema) {
-      throw new Error(
-        `Envelope extraction for "${cmdSchema.name}" resolved to $id "${dataSchemaId}" ` +
-          `but no schema with that $id was fetched. Check the $ref target exists.`,
-      )
+      extractionErrors.push(formatExtractionError(cmdSchema.name, dataSchemaId))
+      continue
     }
 
     resolvedCommands.push({
@@ -165,12 +269,27 @@ function applyEnvelopeExtraction(
       content: dataSchema.content,
     })
   }
+  if (extractionErrors.length > 0) {
+    throw new Error(
+      `pull: ${extractionErrors.length} error(s) resolving envelope extractions:\n\n${extractionErrors.join('\n\n')}`,
+    )
+  }
 
-  // Prune: walk resolved command schemas, collect only the common schemas they still reference
+  // Prune: walk resolved commands AND fetched responses, collect only the common
+  // schemas they still reference. Responses must be included or their $refs
+  // (e.g. a HAL collection embedding a HAL resource) drop out of the closure
+  // and the bundler will reject them as unresolved.
   const referencedIds = new Set<string>()
   const resolvedSchemaIds = new Set<string>()
   for (const cmd of resolvedCommands) {
     const schema: JSONSchema7 = JSON.parse(cmd.content)
+    if (typeof schema.$id === 'string') {
+      resolvedSchemaIds.add(schema.$id)
+    }
+    collectRefs(schema, referencedIds)
+  }
+  for (const rsp of raw.responses) {
+    const schema: JSONSchema7 = JSON.parse(rsp.content)
     if (typeof schema.$id === 'string') {
       resolvedSchemaIds.add(schema.$id)
     }
@@ -209,7 +328,21 @@ function applyEnvelopeExtraction(
     (c) => referencedIds.has(c.id) && !resolvedSchemaIds.has(c.id),
   )
 
-  return { commands: resolvedCommands, common: prunedCommon, commonCommands }
+  return {
+    commands: resolvedCommands,
+    responses: raw.responses,
+    common: prunedCommon,
+    commonCommands,
+  }
+}
+
+function formatExtractionError(commandName: string, dataSchemaId: string): string {
+  return [
+    `  unresolved envelope extraction`,
+    `    command: ${commandName}`,
+    `    $id:     ${dataSchemaId}`,
+    `    cause:   no schema with that $id was fetched (check the $ref target exists)`,
+  ].join('\n')
 }
 
 function collectRefs(node: unknown, refs: Set<string>): void {
@@ -226,5 +359,110 @@ function collectRefs(node: unknown, refs: Set<string>): void {
   }
   for (const value of Object.values(obj)) {
     collectRefs(value, refs)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// idReferences plumbing
+// ---------------------------------------------------------------------------
+
+interface CollectIdReferencesInput {
+  commandIdReferencesByUrn: Map<string, IdReferenceEntry[]>
+  repIdReferencesByUrn: Map<string, IdReferenceEntry[]>
+  parsedCommands: Map<string, ParsedCommand>
+  extractedCommands: FetchedSchema[]
+  repResponseSchemas: Record<string, RepresentationResponseSchemas>
+  repUrnByClassName: Map<string, string>
+}
+
+/**
+ * Map per-command / per-rep idReferences from consumer config onto the
+ * resolved schema URLs the bundler operates on.
+ *
+ * - For a command entry: paths apply to the command's resolved data schema
+ *   (post-envelope-extraction) — keyed by that schema's URL.
+ * - For a rep entry: paths apply to the rep's HAL resource response schema —
+ *   keyed by that schema's URL.
+ */
+function collectIdReferences(input: CollectIdReferencesInput): IdReferencesForSchema[] {
+  const out: IdReferencesForSchema[] = []
+
+  // Commands: command URN → resolved data schema URL via parsedCommands + extractedCommands.
+  // ParsedCommand has the command's name (the same key used in extractedCommands).
+  const commandUrnToDataUrl = new Map<string, string>()
+  for (const [name, parsed] of input.parsedCommands) {
+    const extracted = input.extractedCommands.find((s) => s.name === name)
+    if (extracted === undefined) continue
+    commandUrnToDataUrl.set(parsed.urn, extracted.url)
+  }
+  for (const [cmdUrn, refs] of input.commandIdReferencesByUrn) {
+    const url = commandUrnToDataUrl.get(cmdUrn)
+    if (url === undefined) continue
+    out.push({ urn: url, paths: refs })
+  }
+
+  // Reps: rep URN → HAL resource response schema URL.
+  for (const [repUrn, refs] of input.repIdReferencesByUrn) {
+    const className = findClassNameByRepUrn(input.repUrnByClassName, repUrn)
+    if (className === undefined) continue
+    const url = halResourceUrl(input.repResponseSchemas[className])
+    if (url === undefined) continue
+    out.push({ urn: url, paths: refs })
+  }
+
+  return out
+}
+
+function buildRepUrnByClassName(manifest: RepresentationManifest): Map<string, string> {
+  const map = new Map<string, string>()
+  for (const [className, surfaces] of Object.entries(manifest)) {
+    map.set(className, surfaces.urn)
+  }
+  return map
+}
+
+function findClassNameByRepUrn(
+  repUrnByClassName: Map<string, string>,
+  repUrn: string,
+): string | undefined {
+  for (const [className, urn] of repUrnByClassName) {
+    if (urn === repUrn) return className
+  }
+  return undefined
+}
+
+function halResourceUrl(responses: RepresentationResponseSchemas | undefined): string | undefined {
+  const resource = responses?.resource
+  if (!resource || resource.length === 0) return undefined
+  const hal = resource.find((r) => r.contentType === HAL_CONTENT_TYPE)
+  return (hal ?? resource[0])?.schemaUrl
+}
+
+/**
+ * Mutate the rep manifest entries in place to attach `generatedIdReferences`
+ * from each rep's consumer-config idReferences. Self-id entries (no
+ * aggregateUrn / aggregateUrns) are filtered — they exist for codegen
+ * typing only and have no runtime consumer.
+ */
+function populateGeneratedIdReferences(
+  manifest: RepresentationManifest,
+  repIdReferencesByUrn: Map<string, IdReferenceEntry[]>,
+): void {
+  for (const surfaces of Object.values(manifest)) {
+    const refs = repIdReferencesByUrn.get(surfaces.urn)
+    if (refs === undefined) continue
+    const generated: GeneratedIdReference[] = []
+    for (const ref of refs) {
+      if (ref.kind === 'id') {
+        if (ref.aggregateUrn === undefined) continue
+        generated.push({ kind: 'id', path: ref.path, aggregateUrn: ref.aggregateUrn })
+      } else {
+        if (ref.aggregateUrns === undefined || ref.aggregateUrns.length === 0) continue
+        generated.push({ kind: 'link', path: ref.path, aggregateUrns: ref.aggregateUrns })
+      }
+    }
+    if (generated.length > 0) {
+      surfaces.generatedIdReferences = generated
+    }
   }
 }

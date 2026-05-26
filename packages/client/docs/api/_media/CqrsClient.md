@@ -18,7 +18,7 @@ All fields are available immediately — the client is fully initialized at cons
 
 ### TCommand
 
-`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md)
+`TCommand` _extends_ [`EnqueueCommand`](../type-aliases/EnqueueCommand.md)
 
 ## Constructors
 

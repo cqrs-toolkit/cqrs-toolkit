@@ -1,6 +1,6 @@
 /**
  * Generated representation surfaces — do not edit.
- * Regenerate with: cqrs-pull generate
+ * Regenerate with: cqrs-toolkit client pull
  */
 
 import type { RepresentationSurfaces } from '@cqrs-toolkit/hypermedia-client'
@@ -14,6 +14,7 @@ interface Representations {
 
 export const representations: Representations = {
   'nb:Todo': {
+    urn: 'urn:representation:nb.Todo:1.0.0',
     version: '1.0.0',
     collection: { href: '/api/todos', template: '/api/todos{?cursor,limit}' },
     resource: { template: '/api/todos/{id}' },
@@ -27,6 +28,7 @@ export const representations: Representations = {
     },
   },
   'nb:Note': {
+    urn: 'urn:representation:nb.Note:1.0.0',
     version: '1.0.0',
     collection: { href: '/api/notes', template: '/api/notes{?cursor,limit}' },
     resource: { template: '/api/notes/{id}' },
@@ -38,8 +40,12 @@ export const representations: Representations = {
       href: '/api/events/notes',
       template: '/api/events/notes{?limit,afterPosition}',
     },
+    generatedIdReferences: [
+      { kind: 'id', path: '$.notebookId', aggregateUrn: 'urn:aggregate:nb.Notebook' },
+    ],
   },
   'nb:Notebook': {
+    urn: 'urn:representation:nb.Notebook:1.0.0',
     version: '1.0.0',
     collection: { href: '/api/notebooks', template: '/api/notebooks{?cursor,limit}' },
     resource: { template: '/api/notebooks/{id}' },
@@ -53,6 +59,7 @@ export const representations: Representations = {
     },
   },
   'storage:FileObject': {
+    urn: 'urn:representation:storage.FileObject:1.0.0',
     version: '1.0.0',
     collection: { href: '/api/file-objects', template: '/api/file-objects{?cursor,limit,noteId}' },
     resource: { template: '/api/file-objects/{id}' },
@@ -64,5 +71,9 @@ export const representations: Representations = {
       href: '/api/events/file-objects',
       template: '/api/events/file-objects{?limit,afterPosition}',
     },
+    generatedIdReferences: [
+      { kind: 'id', path: '$.noteId', aggregateUrn: 'urn:aggregate:nb.Note' },
+      { kind: 'id', path: '$.notebookId', aggregateUrn: 'urn:aggregate:nb.Notebook' },
+    ],
   },
 }

@@ -1,3 +1,4 @@
 import { startSqliteWorker } from '@cqrs-toolkit/client'
+import { cqrsConfig } from '../bootstrap/cqrs-config.js'
 
-startSqliteWorker()
+startSqliteWorker({ collations: cqrsConfig.collations })

@@ -1,0 +1,32 @@
+{
+  "$id": "http://localhost:3002/api/meta/schemas/urn/schema/hal/storage.FileObject/1.0.0.json",
+  "properties": {
+    "_links": {
+      "$ref": "http://localhost:3002/api/meta/schemas/urn/schema/hal/ResourceLinks/1.0.0.json"
+    },
+    "contentType": { "type": "string" },
+    "createdAt": { "type": "string" },
+    "id": { "type": "string" },
+    "latestRevision": { "type": "string" },
+    "name": { "type": "string" },
+    "noteId": { "type": "string" },
+    "notebookId": { "type": "string" },
+    "resource": { "type": "string" },
+    "size": { "type": "number" }
+  },
+  "required": [
+    "id",
+    "noteId",
+    "notebookId",
+    "name",
+    "contentType",
+    "resource",
+    "size",
+    "createdAt",
+    "latestRevision",
+    "_links"
+  ],
+  "svc:urn": "urn:schema:hal:storage.FileObject:1.0.0",
+  "title": "FileObjectReadModelV1_0_0",
+  "type": "object"
+}

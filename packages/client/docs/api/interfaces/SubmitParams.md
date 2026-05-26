@@ -20,7 +20,7 @@ Parameters for [CqrsClient.submit](../classes/CqrsClient.md#submit).
 
 ### TCommand
 
-`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md) = [`EnqueueCommand`](EnqueueCommand.md)
+`TCommand` _extends_ [`EnqueueCommand`](../type-aliases/EnqueueCommand.md) = [`EnqueueCommand`](../type-aliases/EnqueueCommand.md)
 
 ## Properties
 

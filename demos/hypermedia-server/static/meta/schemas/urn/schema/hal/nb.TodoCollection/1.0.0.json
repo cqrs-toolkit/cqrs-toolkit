@@ -21,5 +21,6 @@
     }
   },
   "required": ["_links", "_embedded"],
+  "title": "TodoCollectionReadModelV1_0_0",
   "type": "object"
 }

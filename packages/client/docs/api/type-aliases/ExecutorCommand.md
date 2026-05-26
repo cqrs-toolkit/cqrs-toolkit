@@ -6,7 +6,7 @@
 
 # Type Alias: ExecutorCommand
 
-> **ExecutorCommand** = [`HandlerCommand`](../interfaces/HandlerCommand.md)
+> **ExecutorCommand** = [`HandlerCommand`](HandlerCommand.md)
 
 Minimum command envelope shape for the domain executor dispatch layer.
 Extends HandlerCommand (what the handler receives) with no additional fields —

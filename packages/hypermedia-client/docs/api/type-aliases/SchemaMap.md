@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/hypermedia-client](../README.md) / SchemaMap
+[@cqrs-toolkit/hypermedia-client](../globals.md) / SchemaMap
 
 # Type Alias: SchemaMap
 

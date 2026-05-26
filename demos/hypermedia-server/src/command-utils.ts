@@ -28,9 +28,23 @@ import assert from 'node:assert'
 
 /**
  * Build a JSON schema for the flat command envelope: `{ type, data, revision? }`.
+ *
+ * The envelope's title is derived from the data schema's title by injecting
+ * `Body` before the trailing `Vn_n_n` version suffix. Keeps the envelope's
+ * type name distinct from the inner data schema's type name downstream.
  */
 export function buildCommandSchema(commandType: string, dataSchema: JSONSchema7): JSONSchema7 {
+  const dataTitle = dataSchema.title
+  let envelopeTitle: string | undefined = dataTitle
+  if (typeof dataTitle === 'string') {
+    envelopeTitle = dataTitle.replace(/(V\d+_\d+_\d+)$/, 'Body$1')
+    assert(
+      envelopeTitle !== dataTitle,
+      `Data schema title "${dataTitle}" must end with Vn_n_n version suffix`,
+    )
+  }
   return {
+    title: envelopeTitle,
     type: 'object',
     required: ['type', 'data'],
     additionalProperties: false,
@@ -144,6 +158,7 @@ const serializedEventSchema: JSONSchema7 = {
 
 export const commandSuccessResponseSchema = {
   $id: 'urn:schema:svc.CommandSuccessResponse:1.0.0',
+  title: 'SvcCommandSuccessResponseV1_0_0',
   type: 'object',
   properties: {
     id: { type: 'string' },

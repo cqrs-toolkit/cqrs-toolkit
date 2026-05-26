@@ -25,5 +25,6 @@
     }
   },
   "required": ["id", "content", "status", "createdAt", "updatedAt", "latestRevision", "_links"],
+  "title": "TodoReadModelV1_0_0",
   "type": "object"
 }

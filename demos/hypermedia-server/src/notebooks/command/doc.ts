@@ -28,6 +28,7 @@ export const NotebookCommandIds = {
 // ---------------------------------------------------------------------------
 
 const updateNotebookNameDataSchema: JSONSchema7 = {
+  title: 'NbUpdateNotebookNameV1_0_0',
   type: 'object',
   properties: {
     name: { type: 'string', minLength: 1 },
@@ -37,12 +38,14 @@ const updateNotebookNameDataSchema: JSONSchema7 = {
 }
 
 const deleteNotebookDataSchema: JSONSchema7 = {
+  title: 'NbDeleteNotebookV1_0_0',
   type: 'object',
   properties: {},
   additionalProperties: false,
 }
 
 const addNotebookTagDataSchema: JSONSchema7 = {
+  title: 'NbAddNotebookTagV1_0_0',
   type: 'object',
   properties: {
     tag: { type: 'string', minLength: 1 },
@@ -52,6 +55,7 @@ const addNotebookTagDataSchema: JSONSchema7 = {
 }
 
 const removeNotebookTagDataSchema: JSONSchema7 = {
+  title: 'NbRemoveNotebookTagV1_0_0',
   type: 'object',
   properties: {
     tag: { type: 'string', minLength: 1 },

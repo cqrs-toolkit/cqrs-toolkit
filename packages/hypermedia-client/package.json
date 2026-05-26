@@ -1,6 +1,6 @@
 {
   "name": "@cqrs-toolkit/hypermedia-client",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Hypermedia-driven command sender, schema validators, and CLI for CQRS client auto-wiring",
   "keywords": [
     "cqrs",
@@ -41,11 +41,12 @@
   "dependencies": {
     "@types/json-schema": "^7.0.15",
     "@typescript-eslint/typescript-estree": "^8.57.1",
+    "json-schema-to-typescript": "^15.0.4",
     "magic-string": "^0.30.21"
   },
   "peerDependencies": {
     "@cqrs-toolkit/client": ">=0.1.0",
-    "@cqrs-toolkit/hypermedia": "^0.3.0",
+    "@cqrs-toolkit/hypermedia": "^0.4.0",
     "@meticoeus/ddd-es": ">=0.7.3",
     "ajv": ">=8.0.0"
   }

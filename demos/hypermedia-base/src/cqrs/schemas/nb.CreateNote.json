@@ -7,5 +7,7 @@
     "title": { "minLength": 1, "type": "string" }
   },
   "required": ["notebookId", "title", "body"],
+  "svc:urn": "urn:schema:nb.CreateNote:1.0.0",
+  "title": "NbCreateNoteV1_0_0",
   "type": "object"
 }

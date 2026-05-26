@@ -15,5 +15,6 @@
     }
   },
   "required": ["entities", "nextCursor"],
+  "title": "NotebookCollectionReadModelV1_0_0",
   "type": "object"
 }

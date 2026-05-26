@@ -8,5 +8,6 @@
     }
   },
   "required": ["tag"],
+  "title": "NbRemoveNotebookTagV1_0_0",
   "type": "object"
 }

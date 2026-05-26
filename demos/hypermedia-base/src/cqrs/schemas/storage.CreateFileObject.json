@@ -7,5 +7,7 @@
     "size": { "exclusiveMinimum": 0, "type": "number" }
   },
   "required": ["noteId", "filename", "size"],
+  "svc:urn": "urn:schema:storage.CreateFileObject:1.0.0",
+  "title": "StorageCreateFileObjectV1_0_0",
   "type": "object"
 }

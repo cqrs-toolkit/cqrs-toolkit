@@ -3,5 +3,7 @@
   "additionalProperties": false,
   "properties": { "tag": { "minLength": 1, "type": "string" } },
   "required": ["tag"],
+  "svc:urn": "urn:schema:nb.AddNotebookTagData:1.0.0",
+  "title": "NbAddNotebookTagV1_0_0",
   "type": "object"
 }

@@ -94,9 +94,23 @@ export interface SurfaceEndpoint {
 }
 
 /**
+ * A typed-field annotation row in the generated representation manifest.
+ * Captures everything `getGeneratedIdReferences` needs to materialise a
+ * runtime `IdReference` against an `AggregateRegistry`.
+ *
+ * Self-id entries (no aggregateUrn) are filtered out at generation time —
+ * they affect codegen typing only and have no runtime consumer.
+ */
+export type GeneratedIdReference =
+  | { kind: 'id'; path: string; aggregateUrn: string }
+  | { kind: 'link'; path: string; aggregateUrns: string[] }
+
+/**
  * All surfaces for a single representation version.
  */
 export interface RepresentationSurfaces {
+  /** Representation URN, e.g. `urn:representation:nb.Todo:1.0.0`. */
+  urn: string
   /** Semver version */
   version: string
   /** Collection surface */
@@ -107,6 +121,12 @@ export interface RepresentationSurfaces {
   itemEvents: SurfaceEndpoint
   /** Global aggregate events surface */
   aggregateEvents: SurfaceEndpoint
+  /**
+   * ID-bearing fields surfaced from this rep's HAL resource schema via
+   * `idReferences` in the consumer config. Used by `getGeneratedIdReferences`
+   * to construct runtime `IdReference[]` for `createCollection`.
+   */
+  generatedIdReferences?: GeneratedIdReference[]
 }
 
 /**

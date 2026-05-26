@@ -3,7 +3,7 @@
  */
 
 export { createCollection } from './runtime/createCollection.js'
-export type { CreateCollectionOptions } from './runtime/createCollection.js'
+export type { CreateCollectionOptions, CreateCollectionResult } from './runtime/createCollection.js'
 export { createHypermediaCommandSender } from './runtime/createHypermediaCommandSender.js'
 export { createAjvSchemaValidator, withSchemaRegistry } from './runtime/createSchemaValidators.js'
 export type { SchemaMap, SchemaRegistry } from './runtime/createSchemaValidators.js'
@@ -14,12 +14,17 @@ export {
   fetchStreamEvents,
 } from './runtime/fetchHelpers.js'
 export type { FetchSeedRecordPageOptions } from './runtime/fetchHelpers.js'
+export {
+  getGeneratedIdReferences,
+  type AggregateRegistry,
+} from './runtime/get-generated-id-references.js'
 export { createPresignedUploadHandler, isPresignedPermit } from './runtime/presignedUpload.js'
 export type { PresignedPermit } from './runtime/presignedUpload.js'
 export type {
   AfterSendHandler,
   CommandManifest,
   CommandRouting,
+  GeneratedIdReference,
   HypermediaCommandSenderOptions,
   RepresentationManifest,
   RepresentationSurfaces,

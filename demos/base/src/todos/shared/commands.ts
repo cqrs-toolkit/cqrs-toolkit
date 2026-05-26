@@ -21,6 +21,7 @@ export interface CreateTodoCommand {
 }
 
 export const createTodoPayloadSchema = {
+  title: 'NbCreateTodoV1_0_0',
   type: 'object',
   properties: {
     content: { type: 'string', minLength: 1 },

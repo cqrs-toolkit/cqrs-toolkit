@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/hypermedia-client](../README.md) / AfterSendHandler
+[@cqrs-toolkit/hypermedia-client](../globals.md) / AfterSendHandler
 
 # Type Alias: AfterSendHandler()\<TLink, TCommand\>
 

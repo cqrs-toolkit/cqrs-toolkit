@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/hypermedia-client](../README.md) / PresignedPermit
+[@cqrs-toolkit/hypermedia-client](../globals.md) / PresignedPermit
 
 # Interface: PresignedPermit
 

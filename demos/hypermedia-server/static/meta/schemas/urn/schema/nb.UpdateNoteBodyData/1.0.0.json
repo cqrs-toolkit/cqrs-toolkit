@@ -7,5 +7,6 @@
     }
   },
   "required": ["body"],
+  "title": "NbUpdateNoteBodyV1_0_0",
   "type": "object"
 }

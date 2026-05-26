@@ -27,5 +27,6 @@
     }
   },
   "required": ["id", "name", "tags", "createdAt", "updatedAt", "latestRevision", "_links"],
+  "title": "NotebookReadModelV1_0_0",
   "type": "object"
 }

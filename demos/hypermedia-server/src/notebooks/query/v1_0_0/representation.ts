@@ -27,6 +27,7 @@ const notebookRequired = ['id', 'name', 'tags', 'createdAt', 'updatedAt', 'lates
 
 const notebookResourceJsonSchema: JSONSchema7 = {
   $id: 'urn:schema:nb.Notebook:1.0.0',
+  title: 'NotebookReadModelV1_0_0',
   type: 'object',
   properties: { ...notebookProperties },
   required: [...notebookRequired],
@@ -34,6 +35,7 @@ const notebookResourceJsonSchema: JSONSchema7 = {
 
 const notebookResourceHalSchema: JSONSchema7 = {
   $id: 'urn:schema:hal:nb.Notebook:1.0.0',
+  title: 'NotebookReadModelV1_0_0',
   type: 'object',
   properties: {
     ...notebookProperties,
@@ -44,6 +46,7 @@ const notebookResourceHalSchema: JSONSchema7 = {
 
 const notebookCollectionJsonSchema: JSONSchema7 = {
   $id: 'urn:schema:nb.NotebookCollection:1.0.0',
+  title: 'NotebookCollectionReadModelV1_0_0',
   type: 'object',
   properties: {
     entities: { type: 'array', items: notebookResourceJsonSchema },
@@ -55,6 +58,7 @@ const notebookCollectionJsonSchema: JSONSchema7 = {
 
 const notebookCollectionHalSchema: JSONSchema7 = {
   $id: 'urn:schema:hal:nb.NotebookCollection:1.0.0',
+  title: 'NotebookCollectionReadModelV1_0_0',
   type: 'object',
   properties: {
     _links: halCollectionLinks,

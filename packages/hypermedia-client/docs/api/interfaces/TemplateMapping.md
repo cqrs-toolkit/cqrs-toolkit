@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/hypermedia-client](../README.md) / TemplateMapping
+[@cqrs-toolkit/hypermedia-client](../globals.md) / TemplateMapping
 
 # Interface: TemplateMapping
 

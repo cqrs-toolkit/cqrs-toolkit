@@ -777,6 +777,77 @@ export default defineConfig({
       expect(unwrap(result).kind).toBe('bail')
     })
   })
+
+  describe('object-form entries', () => {
+    it('preserves object-form entries (with idReferences) when adding new reps', () => {
+      const source = repConfig(`representations: [
+    {
+      urn: '#demo-todo-v1_0_0',
+      idReferences: [{ kind: 'id', path: '$.id' }],
+    },
+  ]`)
+      const result = updateConfigRepresentations(source, ALL_REPS, LATEST_REPS)
+      const op = unwrapUpdated(result)
+      expect(op.added).toEqual(['#demo-note-v1_0_0', '#demo-notebook-v1_0_0'])
+      // Object form preserved untouched
+      expect(op.updatedSource).toContain("urn: '#demo-todo-v1_0_0'")
+      expect(op.updatedSource).toContain("idReferences: [{ kind: 'id', path: '$.id' }]")
+      // New entries added as plain strings (init scaffolds shorthand)
+      expect(op.updatedSource).toContain("'#demo-note-v1_0_0'")
+      expect(op.updatedSource).toContain("'#demo-notebook-v1_0_0'")
+    })
+
+    it('overwrites only the urn property when an object-form rep changes version', () => {
+      const allReps = [
+        rep('demo:Todo', '#demo-todo-v1_0_0', '1.0.0'),
+        rep('demo:Todo', '#demo-todo-v2_0_0', '2.0.0'),
+      ]
+      const latestReps = [rep('demo:Todo', '#demo-todo-v2_0_0', '2.0.0')]
+      const source = repConfig(`representations: [
+    {
+      urn: '#demo-todo-v1_0_0',
+      idReferences: [{ kind: 'id', path: '$.id' }],
+    },
+  ]`)
+      const result = updateConfigRepresentations(source, allReps, latestReps)
+      const op = unwrapUpdated(result)
+      expect(op.updated).toEqual([{ from: '#demo-todo-v1_0_0', to: '#demo-todo-v2_0_0' }])
+      // Object wrapper and idReferences preserved
+      expect(op.updatedSource).toContain("urn: '#demo-todo-v2_0_0'")
+      expect(op.updatedSource).toContain("idReferences: [{ kind: 'id', path: '$.id' }]")
+      expect(op.updatedSource).not.toContain('demo-todo-v1_0_0')
+    })
+
+    it('removes an object-form entry whose class is no longer in the apidoc', () => {
+      const allReps = [rep('demo:Note', '#demo-note-v1_0_0', '1.0.0')]
+      const latestReps = allReps
+      const source = repConfig(`representations: [
+    {
+      urn: '#demo-todo-v1_0_0',
+      idReferences: [{ kind: 'id', path: '$.id' }],
+    },
+    '#demo-note-v1_0_0',
+  ]`)
+      const result = updateConfigRepresentations(source, allReps, latestReps)
+      const op = unwrapUpdated(result)
+      expect(op.removed).toEqual(['#demo-todo-v1_0_0'])
+      expect(op.updatedSource).not.toContain('demo-todo-v1_0_0')
+      expect(op.updatedSource).toContain("'#demo-note-v1_0_0'")
+    })
+
+    it('mixed string + object entries roundtrip cleanly when no changes are needed', () => {
+      const source = repConfig(`representations: [
+    '#demo-todo-v1_0_0',
+    {
+      urn: '#demo-note-v1_0_0',
+      idReferences: [{ kind: 'id', path: '$.id' }],
+    },
+    '#demo-notebook-v1_0_0',
+  ]`)
+      const result = updateConfigRepresentations(source, ALL_REPS, LATEST_REPS)
+      expect(unwrap(result).kind).toBe('no-change')
+    })
+  })
 })
 
 // ---------------------------------------------------------------------------

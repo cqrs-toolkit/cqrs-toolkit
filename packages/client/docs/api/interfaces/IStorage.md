@@ -17,7 +17,7 @@ All methods are async to support both sync (in-memory) and async (SQLite) backen
 
 ### TCommand
 
-`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md)
+`TCommand` _extends_ [`EnqueueCommand`](../type-aliases/EnqueueCommand.md)
 
 ## Methods
 

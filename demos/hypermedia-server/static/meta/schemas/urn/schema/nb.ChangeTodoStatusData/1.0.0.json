@@ -8,5 +8,6 @@
     }
   },
   "required": ["status"],
+  "title": "NbChangeTodoStatusV1_0_0",
   "type": "object"
 }

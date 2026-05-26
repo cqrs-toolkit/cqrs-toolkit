@@ -44,5 +44,6 @@
     "latestRevision",
     "_links"
   ],
+  "title": "FileObjectReadModelV1_0_0",
   "type": "object"
 }

@@ -26,8 +26,9 @@ Run \`cqrs-toolkit <group> --help\` for command details.`
 const SERVER_USAGE = `Usage: cqrs-toolkit server <command> [options]
 
 Commands:
-  docs    Generate stable documentation artifacts (URNs)
-  build   Build resolved artifacts for deployment (real URLs)
+  docs           Generate stable documentation artifacts (URNs)
+  build          Build resolved artifacts for deployment (real URLs)
+  audit-titles   Warn about saved schemas missing a title
 
 Options:
   --env=<name>  Environment name (default: dev)
@@ -67,6 +68,11 @@ switch (group) {
       }
       case 'build': {
         const { run } = await import('../dist/src/server/build.js')
+        await run(process.cwd(), opts).catch(fatal)
+        break
+      }
+      case 'audit-titles': {
+        const { run } = await import('../dist/src/server/audit-titles.js')
         await run(process.cwd(), opts).catch(fatal)
         break
       }

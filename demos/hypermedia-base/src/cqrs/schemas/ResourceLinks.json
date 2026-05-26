@@ -1,0 +1,19 @@
+{
+  "$id": "http://localhost:3002/api/meta/schemas/urn/schema/hal/ResourceLinks/1.0.0.json",
+  "properties": {
+    "collection": {
+      "properties": { "href": { "type": "string" } },
+      "required": ["href"],
+      "type": "object"
+    },
+    "self": {
+      "properties": { "href": { "type": "string" } },
+      "required": ["href"],
+      "type": "object"
+    }
+  },
+  "required": ["self"],
+  "svc:urn": "urn:schema:hal:ResourceLinks:1.0.0",
+  "title": "HalResourceLinksV1_0_0",
+  "type": "object"
+}

@@ -15,6 +15,13 @@ export const notebooksCollection: Collection<ServiceLink> = {
     cacheKey: NOTEBOOK_SEED_KEY,
     topics: ['Notebook:*'],
   },
+  // Alphabetical by name (locale_en aware) — drives both the notebook list
+  // page and the dashboard's "recent notebooks" panel. The sort_name
+  // virtual column lives in the schema migration; the locale_en collation
+  // is registered on cqrsConfig.collations.
+  list: {
+    defaultSort: [{ column: 'sort_name', direction: 'asc' }],
+  },
   matchesStream: (streamId) => streamId.startsWith('nb.Notebook-'),
   fetchSeedRecords: ({ ctx, cursor, limit }) =>
     fetchSeedRecordPage(ctx, '/notebooks', cursor, limit),

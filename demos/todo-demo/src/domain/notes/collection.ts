@@ -15,6 +15,12 @@ export const notesCollection: Collection<ServiceLink> = {
   aggregate: NoteAggregate,
   idReferences: [{ path: '$.notebookId', aggregate: NotebookAggregate }],
   cacheKeysFromTopics,
+  // Alphabetical by title (locale_en aware) — the sort_name virtual column
+  // maps to `$.title`, defined in the schema migration; the comparator is
+  // registered on cqrsConfig.collations.
+  list: {
+    defaultSort: [{ column: 'sort_name', direction: 'asc' }],
+  },
   matchesStream: (streamId) => streamId.startsWith('nb.Note-'),
   seedOnDemand: {
     keyTypes: [{ kind: 'entity', link: { service: 'nb', type: 'Notebook' } }],

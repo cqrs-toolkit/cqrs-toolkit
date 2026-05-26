@@ -1,0 +1,34 @@
+{
+  "$id": "http://localhost:3002/api/meta/schemas/urn/schema/hal/CollectionLinks/1.0.0.json",
+  "properties": {
+    "first": {
+      "properties": { "href": { "type": "string" } },
+      "required": ["href"],
+      "type": "object"
+    },
+    "next": {
+      "properties": { "href": { "type": "string" } },
+      "required": ["href"],
+      "type": "object"
+    },
+    "prev": {
+      "properties": { "href": { "type": "string" } },
+      "required": ["href"],
+      "type": "object"
+    },
+    "search": {
+      "properties": { "href": { "type": "string" }, "templated": { "type": "boolean" } },
+      "required": ["href"],
+      "type": "object"
+    },
+    "self": {
+      "properties": { "href": { "type": "string" } },
+      "required": ["href"],
+      "type": "object"
+    }
+  },
+  "required": ["self"],
+  "svc:urn": "urn:schema:hal:CollectionLinks:1.0.0",
+  "title": "HalCollectionLinksV1_0_0",
+  "type": "object"
+}

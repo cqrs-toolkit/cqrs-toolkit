@@ -15,5 +15,6 @@
     }
   },
   "required": ["entities", "nextCursor"],
+  "title": "TodoCollectionReadModelV1_0_0",
   "type": "object"
 }

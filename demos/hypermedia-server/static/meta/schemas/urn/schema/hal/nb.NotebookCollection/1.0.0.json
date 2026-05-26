@@ -21,5 +21,6 @@
     }
   },
   "required": ["_links", "_embedded"],
+  "title": "NotebookCollectionReadModelV1_0_0",
   "type": "object"
 }

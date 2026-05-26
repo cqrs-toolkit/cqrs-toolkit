@@ -23,6 +23,7 @@ const templatedHalLink: JSONSchema7 = {
 /** _links for a single resource: self + collection */
 export const halResourceLinks: JSONSchema7 = {
   $id: 'urn:schema:hal:ResourceLinks:1.0.0',
+  title: 'HalResourceLinksV1_0_0',
   type: 'object',
   properties: {
     self: halLink,
@@ -34,6 +35,7 @@ export const halResourceLinks: JSONSchema7 = {
 /** _links for a collection: self + pagination + search */
 export const halCollectionLinks: JSONSchema7 = {
   $id: 'urn:schema:hal:CollectionLinks:1.0.0',
+  title: 'HalCollectionLinksV1_0_0',
   type: 'object',
   properties: {
     self: halLink,

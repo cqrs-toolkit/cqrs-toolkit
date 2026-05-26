@@ -1,75 +1,85 @@
 /**
  * Download JSON schemas by URL, including transitive $ref dependencies.
+ *
+ * Three buckets:
+ * - `commands`: request-body schemas for parsed commands (`cmd.schemaUrl`).
+ * - `responses`: response-body schemas from commands' `responseSchema[]` and
+ *   from representations' per-surface response schemas.
+ * - `common`: transitive `$ref` targets reached from any of the above that
+ *   aren't already in commands/responses.
+ *
+ * Buckets are URL-disjoint: a URL appears in at most one bucket
+ * (commands wins over responses wins over common).
  */
 
 import type { ParsedCommand } from './apidoc-parser.js'
+import type { RepresentationResponseSchemas } from './apidoc-representations.js'
 
 export interface FetchedSchema {
-  /** Command name key (matches ParseResult.commands key) */
+  /** Identifier derived from URL — used as the filename for `<name>.json`. */
   name: string
-  /** Schema URL (from the command's svc:jsonSchema) */
+  /** Source URL. */
   url: string
-  /** Raw JSON schema content */
+  /** Raw JSON schema content. */
   content: string
 }
 
 export interface FetchedCommonSchema {
-  /** Derived file name (e.g., 'UpdateNoteTitleData') */
+  /** Derived file name (e.g. `UpdateNoteTitleData`). */
   name: string
-  /** Schema $id URL */
+  /** Schema `$id` URL. */
   id: string
-  /** Raw JSON schema content */
+  /** Raw JSON schema content. */
   content: string
 }
 
 export interface FetchSchemasResult {
-  /** Command schemas keyed by command name */
   commands: FetchedSchema[]
-  /** Transitive $ref dependency schemas */
+  responses: FetchedSchema[]
   common: FetchedCommonSchema[]
 }
 
 /**
- * Fetch all JSON schemas referenced by parsed commands, plus transitive $ref dependencies.
- * Skips commands that have no schemaUrl.
+ * Fetch all JSON schemas for the supplied commands and representations,
+ * plus the transitive `$ref` closure reached from them.
+ *
+ * The second argument (representation response schemas keyed by class @id)
+ * may be omitted by callers that only have commands to pull.
  */
 export async function fetchSchemas(
   commands: Map<string, ParsedCommand>,
+  representationResponseSchemas: Record<string, RepresentationResponseSchemas> = {},
 ): Promise<FetchSchemasResult> {
-  const entries: { name: string; url: string }[] = []
+  const commandEntries: { name: string; url: string }[] = []
   for (const [name, cmd] of commands) {
-    if (cmd.schemaUrl) {
-      entries.push({ name, url: cmd.schemaUrl })
-    }
+    if (cmd.schemaUrl) commandEntries.push({ name, url: cmd.schemaUrl })
   }
 
-  // Fetch command schemas
+  const responseEntries = collectResponseEntries(commands, representationResponseSchemas)
+  const commandUrls = new Set(commandEntries.map((e) => e.url))
+  const dedupedResponses = dedupByUrlExcluding(responseEntries, commandUrls)
+
   const commandSchemas = await Promise.all(
-    entries.map(async (entry) => {
-      const res = await fetch(entry.url)
-      if (!res.ok) {
-        throw new Error(`Failed to fetch schema ${entry.url}: ${res.status} ${res.statusText}`)
-      }
-      const content = await res.text()
-      return { name: entry.name, url: entry.url, content }
-    }),
+    commandEntries.map(async (entry) => fetchOne(entry.url, entry.name)),
   )
 
-  // Crawl $ref dependencies from all command schemas
-  const fetchedUrls = new Set(commandSchemas.map((s) => s.url))
+  const responseSchemas = await Promise.all(
+    dedupedResponses.map(async (entry) => fetchOne(entry.url, entry.name)),
+  )
+
+  const intentionalUrls = new Set<string>([
+    ...commandSchemas.map((s) => s.url),
+    ...responseSchemas.map((s) => s.url),
+  ])
+
   const commonSchemas: FetchedCommonSchema[] = []
   const pendingRefs = new Set<string>()
-
-  // Collect initial $refs from command schemas
-  for (const schema of commandSchemas) {
+  for (const schema of [...commandSchemas, ...responseSchemas]) {
     for (const ref of extractRefs(schema.content)) {
-      if (!fetchedUrls.has(ref)) {
-        pendingRefs.add(ref)
-      }
+      if (!intentionalUrls.has(ref)) pendingRefs.add(ref)
     }
   }
 
-  // Transitive closure: fetch referenced schemas and their refs
   while (pendingRefs.size > 0) {
     const batch = [...pendingRefs]
     pendingRefs.clear()
@@ -87,32 +97,92 @@ export async function fetchSchemas(
     // Mark every URL in this batch as fetched before walking refs. Otherwise
     // a schema iterated early in the batch that references another schema
     // iterated later in the same batch would re-queue that peer for the next
-    // outer iteration (its `fetchedUrls.add` hasn't happened yet), fetching
-    // and pushing it twice.
+    // outer iteration (its `intentionalUrls.add` hasn't happened yet),
+    // fetching and pushing it twice.
     for (const { url } of fetched) {
-      fetchedUrls.add(url)
+      intentionalUrls.add(url)
     }
 
     for (const { url, content } of fetched) {
       const name = deriveNameFromUrl(url)
       commonSchemas.push({ name, id: url, content })
 
-      // Check for further $refs
       for (const ref of extractRefs(content)) {
-        if (!fetchedUrls.has(ref)) {
-          pendingRefs.add(ref)
-        }
+        if (!intentionalUrls.has(ref)) pendingRefs.add(ref)
       }
     }
   }
 
-  return { commands: commandSchemas, common: commonSchemas }
+  return { commands: commandSchemas, responses: responseSchemas, common: commonSchemas }
 }
 
+// ---------------------------------------------------------------------------
+// Private helpers
+// ---------------------------------------------------------------------------
+
+async function fetchOne(url: string, name: string): Promise<FetchedSchema> {
+  const res = await fetch(url)
+  if (!res.ok) {
+    throw new Error(`Failed to fetch schema ${url}: ${res.status} ${res.statusText}`)
+  }
+  return { name, url, content: await res.text() }
+}
+
+const HAL_CONTENT_TYPE = 'application/hal+json'
+
 /**
- * Extract all $ref URLs from a JSON schema string.
- * Only follows HTTP(S) URLs, not local fragment refs.
+ * Choose the schemas to emit types for from a per-surface
+ * `responseSchema[]` array.
+ *
+ * Default behaviour: when the server advertises HAL support
+ * (`application/hal+json`), use ONLY the HAL variant and skip the plain
+ * JSON twin. HAL and JSON variants commonly share the same `title`, and
+ * we'd rather emit one representation as the canonical form than collide.
+ *
+ * When HAL is absent, all advertised content-types pass through; the
+ * caller deduplicates by URL.
  */
+function selectPreferredResponseSchemas(
+  schemas: readonly { contentType: string; schemaUrl: string }[],
+): readonly { contentType: string; schemaUrl: string }[] {
+  const hal = schemas.filter((s) => s.contentType === HAL_CONTENT_TYPE)
+  return hal.length > 0 ? hal : schemas
+}
+
+function collectResponseEntries(
+  commands: Map<string, ParsedCommand>,
+  representationResponseSchemas: Record<string, RepresentationResponseSchemas>,
+): { name: string; url: string }[] {
+  const out: { name: string; url: string }[] = []
+  for (const [, cmd] of commands) {
+    if (!cmd.responseSchema) continue
+    for (const rs of selectPreferredResponseSchemas(cmd.responseSchema)) {
+      out.push({ name: deriveNameFromUrl(rs.schemaUrl), url: rs.schemaUrl })
+    }
+  }
+  for (const byClass of Object.values(representationResponseSchemas)) {
+    for (const schemas of Object.values(byClass)) {
+      if (!schemas) continue
+      for (const rs of selectPreferredResponseSchemas(schemas)) {
+        out.push({ name: deriveNameFromUrl(rs.schemaUrl), url: rs.schemaUrl })
+      }
+    }
+  }
+  return out
+}
+
+function dedupByUrlExcluding(
+  entries: { name: string; url: string }[],
+  excludeUrls: ReadonlySet<string>,
+): { name: string; url: string }[] {
+  const seen = new Set<string>()
+  return entries.filter((e) => {
+    if (excludeUrls.has(e.url) || seen.has(e.url)) return false
+    seen.add(e.url)
+    return true
+  })
+}
+
 function extractRefs(schemaJson: string): string[] {
   const schema: unknown = JSON.parse(schemaJson)
   const refs: string[] = []
@@ -137,21 +207,14 @@ function walkRefs(node: unknown, refs: string[]): void {
   }
 }
 
-/**
- * Derive a TypeScript-friendly name from a schema URL.
- * e.g., ".../demo.UpdateNoteTitleData/1.0.0.json" → "UpdateNoteTitleData"
- */
 function deriveNameFromUrl(url: string): string {
   const path = new URL(url).pathname
-  // Pattern: /schemas/urn/schema/demo.SomeName/version.json
   const match = path.match(/\/([^/]+)\/\d+\.\d+\.\d+\.json$/)
   if (match && match[1]) {
     const fullName = match[1]
-    // Strip namespace prefix (e.g., "demo.UpdateNoteTitleData" → "UpdateNoteTitleData")
     const dotIndex = fullName.lastIndexOf('.')
     return dotIndex >= 0 ? fullName.substring(dotIndex + 1) : fullName
   }
-  // Fallback: use last path segment without extension
   const segments = path.split('/')
   const last = segments[segments.length - 1] ?? 'Unknown'
   return last.replace(/\.json$/, '')

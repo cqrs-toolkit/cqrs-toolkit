@@ -1,0 +1,25 @@
+{
+  "$id": "http://localhost:3002/api/meta/schemas/urn/schema/hal/nb.TodoCollection/1.0.0.json",
+  "properties": {
+    "_embedded": {
+      "properties": {
+        "item": {
+          "items": {
+            "$ref": "http://localhost:3002/api/meta/schemas/urn/schema/hal/nb.Todo/1.0.0.json"
+          },
+          "type": "array"
+        }
+      },
+      "required": ["item"],
+      "type": "object"
+    },
+    "_links": {
+      "$ref": "http://localhost:3002/api/meta/schemas/urn/schema/hal/CollectionLinks/1.0.0.json"
+    },
+    "totalItems": { "type": "number" }
+  },
+  "required": ["_links", "_embedded"],
+  "svc:urn": "urn:schema:hal:nb.TodoCollection:1.0.0",
+  "title": "TodoCollectionReadModelV1_0_0",
+  "type": "object"
+}

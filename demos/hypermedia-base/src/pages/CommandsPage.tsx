@@ -4,7 +4,7 @@ import { ServiceLink } from '@meticoeus/ddd-es'
 import { createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
 import { useClient } from '../bootstrap/typed-client.js'
 import PageShell from '../components/PageShell.js'
-import { AppCommand } from '../cqrs/commands.js'
+import { AppCommand } from '../cqrs/commands/manifest.js'
 
 const ALL_STATUSES = new Set<CommandStatus>([
   'pending',

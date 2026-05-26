@@ -40,6 +40,7 @@ const fileObjectRequired = [
 
 const fileObjectResourceJsonSchema: JSONSchema7 = {
   $id: 'urn:schema:storage.FileObject:1.0.0',
+  title: 'FileObjectReadModelV1_0_0',
   type: 'object',
   properties: { ...fileObjectProperties },
   required: [...fileObjectRequired],
@@ -47,6 +48,7 @@ const fileObjectResourceJsonSchema: JSONSchema7 = {
 
 const fileObjectResourceHalSchema: JSONSchema7 = {
   $id: 'urn:schema:hal:storage.FileObject:1.0.0',
+  title: 'FileObjectReadModelV1_0_0',
   type: 'object',
   properties: {
     ...fileObjectProperties,
@@ -57,6 +59,7 @@ const fileObjectResourceHalSchema: JSONSchema7 = {
 
 const fileObjectCollectionJsonSchema: JSONSchema7 = {
   $id: 'urn:schema:storage.FileObjectCollection:1.0.0',
+  title: 'FileObjectCollectionReadModelV1_0_0',
   type: 'object',
   properties: {
     entities: { type: 'array', items: fileObjectResourceJsonSchema },
@@ -68,6 +71,7 @@ const fileObjectCollectionJsonSchema: JSONSchema7 = {
 
 const fileObjectCollectionHalSchema: JSONSchema7 = {
   $id: 'urn:schema:hal:storage.FileObjectCollection:1.0.0',
+  title: 'FileObjectCollectionReadModelV1_0_0',
   type: 'object',
   properties: {
     _links: halCollectionLinks,

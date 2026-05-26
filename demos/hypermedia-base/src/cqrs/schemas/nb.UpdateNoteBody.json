@@ -3,5 +3,7 @@
   "additionalProperties": false,
   "properties": { "body": { "type": "string" } },
   "required": ["body"],
+  "svc:urn": "urn:schema:nb.UpdateNoteBodyData:1.0.0",
+  "title": "NbUpdateNoteBodyV1_0_0",
   "type": "object"
 }

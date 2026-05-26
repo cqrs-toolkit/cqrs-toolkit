@@ -2,5 +2,6 @@
   "$id": "urn:schema:nb.DeleteNoteData:1.0.0",
   "additionalProperties": false,
   "properties": {},
+  "title": "NbDeleteNoteV1_0_0",
   "type": "object"
 }

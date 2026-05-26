@@ -22,6 +22,7 @@ export interface CreateNoteCommand {
 }
 
 export const createNotePayloadSchema = {
+  title: 'NbCreateNoteV1_0_0',
   type: 'object',
   properties: {
     notebookId: { type: 'string', minLength: 1 },

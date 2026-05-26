@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/hypermedia-client](../README.md) / HypermediaCommandSenderOptions
+[@cqrs-toolkit/hypermedia-client](../globals.md) / HypermediaCommandSenderOptions
 
 # Interface: HypermediaCommandSenderOptions\<TLink, TCommand\>
 

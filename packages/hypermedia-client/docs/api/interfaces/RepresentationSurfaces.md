@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/hypermedia-client](../README.md) / RepresentationSurfaces
+[@cqrs-toolkit/hypermedia-client](../globals.md) / RepresentationSurfaces
 
 # Interface: RepresentationSurfaces
 
@@ -26,6 +26,16 @@ Collection surface
 
 ---
 
+### generatedIdReferences?
+
+> `optional` **generatedIdReferences**: [`GeneratedIdReference`](../type-aliases/GeneratedIdReference.md)[]
+
+ID-bearing fields surfaced from this rep's HAL resource schema via
+`idReferences` in the consumer config. Used by `getGeneratedIdReferences`
+to construct runtime `IdReference[]` for `createCollection`.
+
+---
+
 ### itemEvents
 
 > **itemEvents**: [`SurfaceEndpoint`](SurfaceEndpoint.md)
@@ -39,6 +49,14 @@ Per-aggregate item events surface
 > **resource**: [`SurfaceEndpoint`](SurfaceEndpoint.md)
 
 Single resource surface
+
+---
+
+### urn
+
+> **urn**: `string`
+
+Representation URN, e.g. `urn:representation:nb.Todo:1.0.0`.
 
 ---
 

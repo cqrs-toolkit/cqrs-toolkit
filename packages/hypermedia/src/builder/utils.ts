@@ -26,6 +26,8 @@ export function normalizePathSegment(path: string): string {
 /**
  * Walk a JSON Schema and rewrite `$id` and `$ref` URN values to URLs.
  * Captures each `$id` URN → URL mapping into urnMap.
+ * Preserves the original `$id` URN as `svc:urn` on the same object so the
+ * served schema retains its stable identity alongside the dereferenceable URL.
  */
 export function resolveSchemaUrns(
   value: unknown,
@@ -45,6 +47,7 @@ export function resolveSchemaUrns(
         const url = schemaUrnToUrlMapper(v)
         if (k === '$id') {
           urnMap.set(v, url)
+          out['svc:urn'] = v
         }
         out[k] = url
       } else {

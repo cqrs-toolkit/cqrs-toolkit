@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/hypermedia-client](../README.md) / fetchEventPage
+[@cqrs-toolkit/hypermedia-client](../globals.md) / fetchEventPage
 
 # Function: fetchEventPage()
 

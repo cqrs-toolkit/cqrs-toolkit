@@ -47,5 +47,6 @@
     }
   },
   "required": ["id", "nextExpectedRevision", "events"],
+  "title": "SvcCommandSuccessResponseV1_0_0",
   "type": "object"
 }

@@ -97,6 +97,10 @@ export function withSchemaRegistry<
  */
 export function createAjvSchemaValidator(registry?: SchemaRegistry): SchemaValidator<JSONSchema7> {
   const ajv = new Ajv({ allErrors: true })
+  // `svc:urn` is the hypermedia server's stable URN annotation, preserved
+  // alongside the dereferenceable `$id` URL. Register it as a known annotation
+  // so AJV strict mode accepts schemas served from the meta endpoint.
+  ajv.addKeyword({ keyword: 'svc:urn' })
 
   if (registry) {
     // Register common $ref dependencies (cheap — no compilation)

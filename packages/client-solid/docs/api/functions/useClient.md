@@ -16,7 +16,7 @@
 
 ### TCommand
 
-`TCommand` _extends_ `EnqueueCommand`\<`unknown`\> = `EnqueueCommand`\<`unknown`\>
+`TCommand` _extends_ `EnqueueCommand` = `EnqueueCommand`
 
 ## Returns
 

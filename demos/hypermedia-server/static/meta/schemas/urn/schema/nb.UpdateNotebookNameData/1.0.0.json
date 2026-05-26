@@ -8,5 +8,6 @@
     }
   },
   "required": ["name"],
+  "title": "NbUpdateNotebookNameV1_0_0",
   "type": "object"
 }

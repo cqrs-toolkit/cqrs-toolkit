@@ -27,6 +27,7 @@ export const NoteCommandIds = {
 // ---------------------------------------------------------------------------
 
 const updateNoteTitleDataSchema: JSONSchema7 = {
+  title: 'NbUpdateNoteTitleV1_0_0',
   type: 'object',
   properties: {
     title: { type: 'string', minLength: 1 },
@@ -36,6 +37,7 @@ const updateNoteTitleDataSchema: JSONSchema7 = {
 }
 
 const updateNoteBodyDataSchema: JSONSchema7 = {
+  title: 'NbUpdateNoteBodyV1_0_0',
   type: 'object',
   properties: {
     body: { type: 'string' },
@@ -45,6 +47,7 @@ const updateNoteBodyDataSchema: JSONSchema7 = {
 }
 
 const deleteNoteDataSchema: JSONSchema7 = {
+  title: 'NbDeleteNoteV1_0_0',
   type: 'object',
   properties: {},
   additionalProperties: false,

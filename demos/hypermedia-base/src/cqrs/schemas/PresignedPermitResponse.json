@@ -1,0 +1,24 @@
+{
+  "$id": "http://localhost:3002/api/meta/schemas/urn/schema/storage.PresignedPermitResponse/1.0.0.json",
+  "properties": {
+    "data": {
+      "properties": {
+        "uploadForm": {
+          "properties": {
+            "fields": { "additionalProperties": { "type": "string" }, "type": "object" },
+            "url": { "type": "string" }
+          },
+          "required": ["url", "fields"],
+          "type": "object"
+        }
+      },
+      "required": ["uploadForm"],
+      "type": "object"
+    },
+    "id": { "type": "string" }
+  },
+  "required": ["id", "data"],
+  "svc:urn": "urn:schema:storage.PresignedPermitResponse:1.0.0",
+  "title": "StoragePresignedPermitResponseV1_0_0",
+  "type": "object"
+}

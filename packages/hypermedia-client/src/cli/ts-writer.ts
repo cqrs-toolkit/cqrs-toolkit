@@ -11,8 +11,15 @@ import type { FetchedCommonSchema, FetchedSchema } from './schema-fetcher.js'
 
 interface SchemasInput {
   commands: FetchedSchema[]
+  responses: FetchedSchema[]
   common: FetchedCommonSchema[]
   commonCommands: string[]
+}
+
+interface GeneratedTypes {
+  shared: string
+  commands: string
+  reps: string
 }
 
 /**
@@ -35,25 +42,50 @@ export function writeGeneratedOutput(opts: {
   commands: Map<string, ParsedCommand>
   representations: RepresentationManifest
   schemas: SchemasInput
+  generatedTypes: GeneratedTypes
+  /** Command name → generated TS type name for the command's data schema. */
+  commandDataTypeNames: Map<string, string>
 }): void {
-  const { outputDir, apidocUrl, commands, representations, schemas } = opts
+  const {
+    outputDir,
+    apidocUrl,
+    commands,
+    representations,
+    schemas,
+    generatedTypes,
+    commandDataTypeNames,
+  } = opts
 
   mkdirSync(outputDir, { recursive: true })
 
-  // commands.ts
-  writeFileSync(join(outputDir, 'commands.ts'), generateCommandsTs(commands))
+  // commands/{manifest,types}.ts
+  const commandsDir = join(outputDir, 'commands')
+  rmSync(commandsDir, { recursive: true, force: true })
+  mkdirSync(commandsDir, { recursive: true })
+  writeFileSync(
+    join(commandsDir, 'manifest.ts'),
+    generateCommandsTs(commands, commandDataTypeNames),
+  )
+  writeFileSync(join(commandsDir, 'types.ts'), generatedTypes.commands)
 
-  // representations.ts
-  writeFileSync(join(outputDir, 'representations.ts'), generateRepresentationsTs(representations))
+  // reps/{manifest,types}.ts
+  const repsDir = join(outputDir, 'reps')
+  rmSync(repsDir, { recursive: true, force: true })
+  mkdirSync(repsDir, { recursive: true })
+  writeFileSync(join(repsDir, 'manifest.ts'), generateRepresentationsTs(representations))
+  writeFileSync(join(repsDir, 'types.ts'), generatedTypes.reps)
+
+  // shared/types.ts
+  const sharedDir = join(outputDir, 'shared')
+  rmSync(sharedDir, { recursive: true, force: true })
+  mkdirSync(sharedDir, { recursive: true })
+  writeFileSync(join(sharedDir, 'types.ts'), generatedTypes.shared)
 
   // schemas/ directory + schemas.ts — clear stale files before writing
   const schemasDir = join(outputDir, 'schemas')
   rmSync(schemasDir, { recursive: true, force: true })
   mkdirSync(schemasDir, { recursive: true })
-  for (const schema of schemas.commands) {
-    writeFileSync(join(schemasDir, `${schema.name}.json`), schema.content + '\n')
-  }
-  for (const schema of schemas.common) {
+  for (const schema of [...schemas.commands, ...schemas.responses, ...schemas.common]) {
     writeFileSync(join(schemasDir, `${schema.name}.json`), schema.content + '\n')
   }
   writeFileSync(join(outputDir, 'schemas.ts'), generateSchemasTs(schemas))
@@ -63,6 +95,11 @@ export function writeGeneratedOutput(opts: {
     pulledAt: new Date().toISOString(),
     apidocUrl,
     schemas: schemas.commands.map((s) => ({
+      name: s.name,
+      url: s.url,
+      sha256: sha256(s.content),
+    })),
+    responseSchemas: schemas.responses.map((s) => ({
       name: s.name,
       url: s.url,
       sha256: sha256(s.content),
@@ -80,7 +117,10 @@ export function writeGeneratedOutput(opts: {
 // Generators
 // ---------------------------------------------------------------------------
 
-function generateCommandsTs(commands: Map<string, ParsedCommand>): string {
+function generateCommandsTs(
+  commands: Map<string, ParsedCommand>,
+  commandDataTypeNames: Map<string, string>,
+): string {
   const entries: string[] = []
   for (const [name, cmd] of commands) {
     const mappingsStr = cmd.mappings
@@ -108,16 +148,25 @@ function generateCommandsTs(commands: Map<string, ParsedCommand>): string {
     entries.push(`    '${name}': {\n${fields.join(',\n')},\n    }`)
   }
 
-  // Generate AppCommand discriminated union type
+  // Generate AppCommand discriminated union type. `data` is typed against the
+  // generated request-data interface in ./types.js when one exists; falls back
+  // to `unknown` otherwise (commands whose data schema didn't reach codegen).
   const unionMembers: string[] = []
+  const usedDataTypes = new Set<string>()
   for (const [name, cmd] of commands) {
     const requiredMappings = cmd.mappings.filter((m) => m.required)
     const fields: string[] = [`type: '${name}'`]
     if (requiredMappings.length > 0) {
-      const pathFields = requiredMappings.map((m) => `${m.variable}: string`).join('; ')
+      const pathFields = requiredMappings.map((m) => `${m.variable}: EntityId`).join('; ')
       fields.push(`path: { ${pathFields} }`)
     }
-    fields.push('data: unknown')
+    const dataTypeName = commandDataTypeNames.get(name)
+    if (dataTypeName !== undefined) {
+      usedDataTypes.add(dataTypeName)
+      fields.push(`data: ${dataTypeName}`)
+    } else {
+      fields.push('data: unknown')
+    }
     if (cmd.workflow) {
       // All upload workflows are single-file per request
       fields.push('files: [File]')
@@ -131,13 +180,18 @@ function generateCommandsTs(commands: Map<string, ParsedCommand>): string {
   const unionType =
     unionMembers.length > 0 ? `\nexport type AppCommand =\n${unionMembers.join('\n')}\n` : ''
 
+  const dataTypesImport =
+    usedDataTypes.size > 0
+      ? `\nimport type { ${[...usedDataTypes].sort().join(', ')} } from './types.js'`
+      : ''
+
   return `/**
  * Generated command routing manifest — do not edit.
  * Regenerate with: cqrs-toolkit client pull
  */
 
-import type { AutoRevision } from '@cqrs-toolkit/client'
-import type { CommandManifest } from '@cqrs-toolkit/hypermedia-client'
+import type { AutoRevision, EntityId } from '@cqrs-toolkit/client'
+import type { CommandManifest } from '@cqrs-toolkit/hypermedia-client'${dataTypesImport}
 
 export const commands: CommandManifest = {
   commands: {${block(entries, '  ')}},
@@ -152,13 +206,16 @@ function generateRepresentationsTs(representations: RepresentationManifest): str
       const fields = [...(s.href ? [`href: '${s.href}'`] : []), `template: '${s.template}'`]
       return `{ ${fields.join(', ')} }`
     }
+    const idRefsStr = formatGeneratedIdReferences(rep.generatedIdReferences)
+    const trailingIdRefs = idRefsStr === '' ? '' : `\n    generatedIdReferences: ${idRefsStr},`
 
     entries.push(`  '${className}': {
+    urn: '${rep.urn}',
     version: '${rep.version}',
     collection: ${surfaceStr(rep.collection)},
     resource: ${surfaceStr(rep.resource)},
     itemEvents: ${surfaceStr(rep.itemEvents)},
-    aggregateEvents: ${surfaceStr(rep.aggregateEvents)},
+    aggregateEvents: ${surfaceStr(rep.aggregateEvents)},${trailingIdRefs}
   }`)
   }
 
@@ -236,6 +293,20 @@ export const schemas: SchemaRegistry = {
 
 function sha256(content: string): string {
   return crypto.createHash('sha256').update(content).digest('hex')
+}
+
+function formatGeneratedIdReferences(
+  refs: RepresentationManifest[string]['generatedIdReferences'],
+): string {
+  if (refs === undefined || refs.length === 0) return ''
+  const lines = refs.map((r) => {
+    if (r.kind === 'id') {
+      return `      { kind: 'id', path: '${r.path}', aggregateUrn: '${r.aggregateUrn}' }`
+    }
+    const urns = r.aggregateUrns.map((u) => `'${u}'`).join(', ')
+    return `      { kind: 'link', path: '${r.path}', aggregateUrns: [${urns}] }`
+  })
+  return `[\n${lines.join(',\n')},\n    ]`
 }
 
 const VALID_IDENTIFIER = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/

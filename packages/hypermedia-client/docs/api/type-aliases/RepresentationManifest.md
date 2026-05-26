@@ -2,7 +2,7 @@
 
 ---
 
-[@cqrs-toolkit/hypermedia-client](../README.md) / RepresentationManifest
+[@cqrs-toolkit/hypermedia-client](../globals.md) / RepresentationManifest
 
 # Type Alias: RepresentationManifest
 

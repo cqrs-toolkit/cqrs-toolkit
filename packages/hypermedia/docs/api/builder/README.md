@@ -8,6 +8,7 @@
 
 ## Interfaces
 
+- [AuditSchemaTitlesResult](interfaces/AuditSchemaTitlesResult.md)
 - [BuildOptions](interfaces/BuildOptions.md)
 - [BuildResult](interfaces/BuildResult.md)
 - [CommandOptions](interfaces/CommandOptions.md)
@@ -27,6 +28,8 @@
 
 ## Functions
 
+- [auditSchemaTitles](functions/auditSchemaTitles.md)
+- [auditTitles](functions/auditTitles.md)
 - [build](functions/build.md)
 - [buildHydraApiDocumentation](functions/buildHydraApiDocumentation.md)
 - [buildOpenApiDocument](functions/buildOpenApiDocument.md)

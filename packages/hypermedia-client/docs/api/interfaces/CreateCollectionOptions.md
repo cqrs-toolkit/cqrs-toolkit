@@ -2,11 +2,14 @@
 
 ---
 
-[@cqrs-toolkit/hypermedia-client](../README.md) / CreateCollectionOptions
+[@cqrs-toolkit/hypermedia-client](../globals.md) / CreateCollectionOptions
 
 # Interface: CreateCollectionOptions\<TLink\>
 
-Options for creating a collection from a representation.
+Inputs to [createCollection](../functions/createCollection.md).
+
+Only the fields the helper actually consumes — every other `Collection`
+field is set by the consumer on its own literal.
 
 ## Type Parameters
 
@@ -15,14 +18,6 @@ Options for creating a collection from a representation.
 `TLink` _extends_ `Link`
 
 ## Properties
-
-### aggregate
-
-> **aggregate**: `AggregateConfig`\<`TLink`\>
-
-Forwarded to Collection.aggregate.
-
----
 
 ### aggregateId()?
 
@@ -43,68 +38,6 @@ Default: splits on first '-' (convention: 'Todo-{uuid}' → '{uuid}')
 
 ---
 
-### cacheKeysFromTopics()
-
-> **cacheKeysFromTopics**: (`topics`) => (`CacheKeyIdentity`\<`TLink`\> \| `CacheKeyTemplate`\<`TLink`\>)[]
-
-Derive cache key identities from WS event topics. Forwarded to Collection.cacheKeysFromTopics.
-
-Derive cache key identities from WS event topics.
-Called at WS ingestion to resolve which cache keys an event belongs to.
-The returned identities are attached to the event before processing —
-no further topic resolution happens downstream.
-
-#### Parameters
-
-##### topics
-
-readonly `string`[]
-
-Topic strings from the WS event message
-
-#### Returns
-
-(`CacheKeyIdentity`\<`TLink`\> \| `CacheKeyTemplate`\<`TLink`\>)[]
-
-Cache key identities or templates. Templates (no `.key`) are resolved
-by the caller via `registerCacheKeySync`.
-
----
-
-### idReferences?
-
-> `readonly` `optional` **idReferences**: `IdReference`\<`TLink`\>[]
-
-Forwarded to Collection.idReferences.
-
----
-
-### matchesStream()
-
-> **matchesStream**: (`streamId`) => `boolean`
-
-App-specific: test whether a streamId belongs to this collection
-
-#### Parameters
-
-##### streamId
-
-`string`
-
-#### Returns
-
-`boolean`
-
----
-
-### name
-
-> **name**: `string`
-
-Collection name (e.g. 'todos')
-
----
-
 ### representation
 
 > **representation**: [`RepresentationSurfaces`](RepresentationSurfaces.md)
@@ -117,25 +50,9 @@ Representation surface data from generated representations.ts
 
 > `readonly` `optional` **revisionPath**: `string`
 
-Forwarded to Collection.revisionPath. Also used by the
-library-wired `fetchSeedRecords` to extract `SeedRecord.revision`
-from each member.
-
----
-
-### seedOnDemand?
-
-> `optional` **seedOnDemand**: `SeedOnDemandConfig`\<`TLink`\>
-
-On-demand config. Forwarded to Collection.seedOnDemand
-
----
-
-### seedOnInit?
-
-> `optional` **seedOnInit**: `SeedOnInitConfig`\<`TLink`\>
-
-Auto-seed config. Forwarded to Collection.seedOnInit
+Forwarded onto the returned wiring's `revisionPath`. Used by the records
+parser to extract `SeedRecord.revision` from each item, and downstream by
+`AggregateChain.lastKnownRevision` advancement.
 
 ## Methods
 

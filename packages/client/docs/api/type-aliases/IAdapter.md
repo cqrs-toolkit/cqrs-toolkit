@@ -19,4 +19,4 @@ Discriminant: `kind` — `'window'` (main-thread) vs `'worker'` (background proc
 
 ### TCommand
 
-`TCommand` _extends_ [`EnqueueCommand`](../interfaces/EnqueueCommand.md)
+`TCommand` _extends_ [`EnqueueCommand`](EnqueueCommand.md)

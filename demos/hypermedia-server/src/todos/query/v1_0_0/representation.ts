@@ -34,6 +34,7 @@ const todoRequired = [
 
 const todoResourceJsonSchema: JSONSchema7 = {
   $id: 'urn:schema:nb.Todo:1.0.0',
+  title: 'TodoReadModelV1_0_0',
   type: 'object',
   properties: { ...todoProperties },
   required: [...todoRequired],
@@ -41,6 +42,7 @@ const todoResourceJsonSchema: JSONSchema7 = {
 
 const todoResourceHalSchema: JSONSchema7 = {
   $id: 'urn:schema:hal:nb.Todo:1.0.0',
+  title: 'TodoReadModelV1_0_0',
   type: 'object',
   properties: {
     ...todoProperties,
@@ -51,6 +53,7 @@ const todoResourceHalSchema: JSONSchema7 = {
 
 const todoCollectionJsonSchema: JSONSchema7 = {
   $id: 'urn:schema:nb.TodoCollection:1.0.0',
+  title: 'TodoCollectionReadModelV1_0_0',
   type: 'object',
   properties: {
     entities: { type: 'array', items: todoResourceJsonSchema },
@@ -62,6 +65,7 @@ const todoCollectionJsonSchema: JSONSchema7 = {
 
 const todoCollectionHalSchema: JSONSchema7 = {
   $id: 'urn:schema:hal:nb.TodoCollection:1.0.0',
+  title: 'TodoCollectionReadModelV1_0_0',
   type: 'object',
   properties: {
     _links: halCollectionLinks,

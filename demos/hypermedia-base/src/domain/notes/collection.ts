@@ -1,21 +1,37 @@
-import { NotebookAggregate } from '@cqrs-toolkit/demo-base/notebooks/domain'
+import type { Collection } from '@cqrs-toolkit/client'
 import {
-  cacheKeysFromTopics,
+  NOTES_COLLECTION_NAME,
   NoteAggregate,
+  cacheKeysFromTopics,
   subscribeTopics,
 } from '@cqrs-toolkit/demo-base/notes/domain'
-import { representations } from '../../cqrs/representations.js'
+import { getGeneratedIdReferences } from '@cqrs-toolkit/hypermedia-client'
+import type { ServiceLink } from '@meticoeus/ddd-es'
+import { representations } from '../../cqrs/reps/manifest.js'
+import { aggregateRegistry } from '../aggregate-registry.js'
 import { appCreateCollection } from '../utils/collection.js'
 
-export const notesCollection = appCreateCollection({
-  name: 'notes',
+export const notesCollection = {
+  name: NOTES_COLLECTION_NAME,
   aggregate: NoteAggregate,
-  idReferences: [{ path: '$.notebookId', aggregate: NotebookAggregate }],
-  representation: representations['nb:Note'],
+  idReferences: getGeneratedIdReferences(
+    'urn:representation:nb.Note:1.0.0',
+    representations,
+    aggregateRegistry,
+  ),
   cacheKeysFromTopics,
-  matchesStream: (streamId) => streamId.startsWith('nb.Note-'),
+  // Alphabetical by title (locale_en aware) — the sort_name virtual column
+  // maps to `$.title`, defined in the schema migration; the comparator is
+  // registered on cqrsConfig.collations.
+  list: {
+    defaultSort: [{ column: 'sort_name', direction: 'asc' }],
+  },
+  matchesStream: (streamId: string) => streamId.startsWith('nb.Note-'),
   seedOnDemand: {
     keyTypes: [{ kind: 'entity', link: { service: 'nb', type: 'Notebook' } }],
     subscribeTopics,
   },
-})
+  ...appCreateCollection({
+    representation: representations['nb:Note'],
+  }),
+} satisfies Collection<ServiceLink>
