@@ -31,3 +31,11 @@ The playbook is TypeScript-centric per the monorepo's expected scope.
 A new language toolchain (e.g., Rust via Tauri) would need separate evaluation before this playbook applies.
 
 Pre-publish setup (`repository`/`homepage`/`bugs` fields, `publishConfig: { access: public }`) is intentionally not part of this playbook — those belong in a future publishing playbook to be written when the publish flow is exercised through the castle for the first time.
+
+## 2026-05-27 — Added `@cqrs-toolkit/client-react`
+
+Created the React 18 companion to [`@cqrs-toolkit/client-solid`](../projects/client-solid/_overview.md): same API surface, same returned state shapes, same session lifecycle semantics, translated to React idioms. Exports `useListQuery`, `useItemQuery`, `useViewQuery`, `useEntityCacheKey`, `useScopeCacheKey`, and a `CqrsProvider` / `useClient` context.
+
+The React port adopts a different reactive-input shape than Solid — plain values driven by re-renders, not zero-arg accessors — but matches Solid's session semantics around cache-key holds and subscription continuity. The load-bearing implementation discipline that ensures this parity is captured in [`projects/client-react/explorations/observable-lifetime-across-rerenders.md`](../projects/client-react/explorations/observable-lifetime-across-rerenders.md) and is marked Always Read in the project overview.
+
+Workspace dep graph effects: a new `client-react` ← `client` edge, mirroring the existing `client-solid` ← `client` edge. Makefile gains `build-client-react` / `docs-client-react` targets wired into the aggregate `build:` / `docs:` flows.

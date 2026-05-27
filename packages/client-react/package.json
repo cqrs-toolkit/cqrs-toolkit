@@ -1,0 +1,47 @@
+{
+  "name": "@cqrs-toolkit/client-react",
+  "version": "0.1.0",
+  "description": "React 18 hooks for @cqrs-toolkit/client",
+  "keywords": [
+    "cqrs",
+    "event-sourcing",
+    "react",
+    "hooks"
+  ],
+  "license": "MIT",
+  "author": "Ontel, LLC",
+  "main": "dist/src/index.js",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.build.json",
+    "compile": "tsc -p tsconfig.json --noEmit",
+    "docs": "typedoc",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@cqrs-toolkit/client": "^0.1.0"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^18.3.29",
+    "@types/react-dom": "^18.3.7",
+    "fake-indexeddb": "^6.2.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "rxjs": "^7.8.2"
+  }
+}

@@ -5,6 +5,7 @@ export default defineConfig({
     projects: [
       'packages/client/vite.config.ts',
       'packages/client-solid/vite.config.ts',
+      'packages/client-react/vite.config.ts',
       'packages/client-electron/vite.config.ts',
       'packages/devtools/vite.config.ts',
       'packages/hypermedia/vite.config.ts',

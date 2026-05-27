@@ -31,6 +31,7 @@ The construction / procedure / reasoning triplet keeps the three "how" wings dis
 | --------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------- |
 | `@cqrs-toolkit/client`            | [`projects/client/`](projects/client/_overview.md)                       | experimental                              |
 | `@cqrs-toolkit/client-electron`   | [`projects/client-electron/`](projects/client-electron/_overview.md)     | experimental                              |
+| `@cqrs-toolkit/client-react`      | [`projects/client-react/`](projects/client-react/_overview.md)           | experimental                              |
 | `@cqrs-toolkit/client-solid`      | [`projects/client-solid/`](projects/client-solid/_overview.md)           | experimental                              |
 | `@cqrs-toolkit/devtools`          | [`projects/devtools/`](projects/devtools/_overview.md)                   | experimental                              |
 | `@cqrs-toolkit/hypermedia`        | [`projects/hypermedia/`](projects/hypermedia/_overview.md)               | experimental                              |

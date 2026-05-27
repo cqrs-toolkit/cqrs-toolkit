@@ -39,6 +39,8 @@ build-client:
 	$(CACHE) packages/client realtime -- npm run build -w packages/client
 build-client-solid:
 	$(CACHE) packages/client-solid client -- npm run build -w packages/client-solid
+build-client-react:
+	$(CACHE) packages/client-react client -- npm run build -w packages/client-react
 build-client-electron:
 	$(CACHE) packages/client-electron client -- npm run build -w packages/client-electron
 build-devtools:
@@ -76,6 +78,8 @@ docs-client-electron:
 	$(DOCS) packages/client-electron client -- npm run docs -w packages/client-electron
 docs-client-solid:
 	$(DOCS) packages/client-solid client -- npm run docs -w packages/client-solid
+docs-client-react:
+	$(DOCS) packages/client-react client -- npm run docs -w packages/client-react
 docs-hypermedia-client:
 	$(DOCS) packages/hypermedia-client client hypermedia -- npm run docs -w packages/hypermedia-client
 docs-hypermedia-server-meta:
@@ -83,7 +87,7 @@ docs-hypermedia-server-meta:
 
 docs:
 	@rm -f node_modules/.cache/docs-hashes/docs-staged
-	make -j docs-realtime docs-schema docs-hypermedia docs-client docs-client-electron docs-client-solid docs-hypermedia-client
+	make -j docs-realtime docs-schema docs-hypermedia docs-client docs-client-electron docs-client-solid docs-client-react docs-hypermedia-client
 	@./scripts/docs-stage.sh
 	make docs-hypermedia-server-meta
 
@@ -91,7 +95,7 @@ build:
 	make -j build-realtime build-schema
 	make build-hypermedia
 	make build-client
-	make -j build-client-solid build-client-electron build-hypermedia-client
+	make -j build-client-solid build-client-react build-client-electron build-hypermedia-client
 	make build-hypermedia-cli
 	make build-demo-base
 	make -j build-devtools build-hypermedia-base compile-todo-demo compile-hypermedia-server

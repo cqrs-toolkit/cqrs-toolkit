@@ -12,6 +12,7 @@ For project-specific work, descend into the relevant project castle:
 
 - `@cqrs-toolkit/client` → [`docs/projects/client/`](docs/projects/client/_overview.md)
 - `@cqrs-toolkit/client-electron` → [`docs/projects/client-electron/`](docs/projects/client-electron/_overview.md)
+- `@cqrs-toolkit/client-react` → [`docs/projects/client-react/`](docs/projects/client-react/_overview.md)
 - `@cqrs-toolkit/client-solid` → [`docs/projects/client-solid/`](docs/projects/client-solid/_overview.md)
 - `@cqrs-toolkit/devtools` → [`docs/projects/devtools/`](docs/projects/devtools/_overview.md)
 - `@cqrs-toolkit/hypermedia` → [`docs/projects/hypermedia/`](docs/projects/hypermedia/_overview.md)
