@@ -24,7 +24,7 @@ import {
   throwError,
 } from 'rxjs'
 import type { CacheKeyIdentity } from '../../core/cache-manager/CacheKey.js'
-import { getAtPath } from '../../core/entity-ref/ref-path.js'
+import { getValuesAtPath } from '../../core/entity-ref/ref-path.js'
 import type {
   CollectionSignal,
   GetByIdParams,
@@ -401,16 +401,20 @@ export class QueryManagerProxy<TLink extends Link> implements IQueryManager<TLin
         for (const join of joinSources) {
           const referencedSet = new Set<string>()
           for (const row of result.data) {
-            const value = getAtPath(row, join.referencedIdPath)
-            if (typeof value === 'string') referencedSet.add(value)
+            for (const value of getValuesAtPath(row, join.referencedIdPath)) {
+              const id = entityIdToString(value as EntityId | undefined)
+              if (id !== undefined) referencedSet.add(id)
+            }
           }
           referencedIds.set(join.collection, referencedSet)
 
           if (join.referencingIdPath !== undefined) {
             const referencingSet = new Set<string>()
             for (const row of result.data) {
-              const value = getAtPath(row, join.referencingIdPath)
-              if (typeof value === 'string') referencingSet.add(value)
+              for (const value of getValuesAtPath(row, join.referencingIdPath)) {
+                const id = entityIdToString(value as EntityId | undefined)
+                if (id !== undefined) referencingSet.add(id)
+              }
             }
             const existing = referencingIds.get(join.collection)
             if (existing) {

@@ -95,6 +95,12 @@ export async function pull(config: PullConfig): Promise<void> {
   console.log(`Found ${commandResult.commands.size} command(s), fetching schemas...`)
   const rawSchemas = await fetchSchemas(commandResult.commands, repResult.responseSchemas)
 
+  // Detect any URN claimed by more than one URL the server actually served.
+  // Post-extraction the same canonical URN legitimately appears on every
+  // command that shares a core data schema, so this has to run on the raw
+  // fetch — afterwards is structurally noise.
+  warnOnCrossUrlUrnCollisions(rawSchemas)
+
   // Apply envelope extraction: resolve command data schemas from envelope wrappers.
   // Responses are pass-through; common is pruned to what surviving commands still reference.
   const extracted = applyEnvelopeExtraction(
@@ -334,6 +340,47 @@ function applyEnvelopeExtraction(
     common: prunedCommon,
     commonCommands,
   }
+}
+
+function warnOnCrossUrlUrnCollisions(raw: {
+  commands: FetchedSchema[]
+  responses: FetchedSchema[]
+  common: FetchedCommonSchema[]
+}): void {
+  const urlsByUrn = new Map<string, Set<string>>()
+  const record = (url: string, content: string): void => {
+    let schema: JSONSchema7
+    try {
+      schema = JSON.parse(content) as JSONSchema7
+    } catch {
+      return
+    }
+    const urn = readCanonicalUrn(schema)
+    if (urn === undefined) return
+    let urls = urlsByUrn.get(urn)
+    if (urls === undefined) {
+      urls = new Set<string>()
+      urlsByUrn.set(urn, urls)
+    }
+    urls.add(url)
+  }
+  for (const s of raw.commands) record(s.url, s.content)
+  for (const s of raw.responses) record(s.url, s.content)
+  for (const s of raw.common) record(s.id, s.content)
+  for (const [urn, urls] of urlsByUrn) {
+    if (urls.size <= 1) continue
+    const lines = [...urls].map((u) => `  - ${u}`).join('\n')
+    console.warn(
+      `Warning: schema URN '${urn}' is served from ${urls.size} distinct URLs:\n${lines}`,
+    )
+  }
+}
+
+function readCanonicalUrn(schema: JSONSchema7): string | undefined {
+  const svcUrn = (schema as Record<string, unknown>)['svc:urn']
+  if (typeof svcUrn === 'string') return svcUrn
+  if (typeof schema.$id === 'string') return schema.$id
+  return undefined
 }
 
 function formatExtractionError(commandName: string, dataSchemaId: string): string {

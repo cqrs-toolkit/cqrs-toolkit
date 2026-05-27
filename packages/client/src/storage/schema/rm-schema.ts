@@ -7,6 +7,7 @@ import type {
   CollationConfig,
   CustomColumn,
   CustomIndex,
+  JunctionStep,
   LibraryStep,
   ManagedCollectionDef,
   MigrationStep,
@@ -107,6 +108,13 @@ export function validateSchemaMigrations(
         for (const index of step.indexes ?? []) {
           validateCustomIndex(step.name, index, declaredColumns)
         }
+      } else if (step.type === 'junction') {
+        // Junction-step structural validation. The cross-cutting checks
+        // (parent exists, name uniqueness across managed + junction names,
+        // path syntax, [*] wildcard requirement) live in `resolveConfig`'s
+        // `validateRegistrationPaths` — which has the cumulative view across
+        // migration versions that junctions need.
+        assertValidSqlIdentifier(step.name, 'Junction')
       } else {
         // 5. Library steps in ascending version order
         assert(
@@ -329,6 +337,32 @@ function generateCustomIndexDDL(collection: string, index: CustomIndex): string 
 }
 
 /**
+ * Group all {@link JunctionStep} declarations across a migration sequence by
+ * parent collection. Insertion order within a parent matches declaration
+ * order across migration versions.
+ *
+ * Returns an empty map when no junctions are declared — callers can
+ * early-exit on `map.size === 0`.
+ */
+export function getJunctionsByParent(
+  migrations: [SchemaMigration, ...SchemaMigration[]],
+): Map<string, JunctionStep[]> {
+  const map = new Map<string, JunctionStep[]>()
+  for (const migration of migrations) {
+    for (const step of migration.steps) {
+      if (step.type !== 'junction') continue
+      let list = map.get(step.parent)
+      if (!list) {
+        list = []
+        map.set(step.parent, list)
+      }
+      list.push(step)
+    }
+  }
+  return map
+}
+
+/**
  * Extract all managed collection names from the migration sequence, in order.
  */
 export function getCollectionNames(migrations: [SchemaMigration, ...SchemaMigration[]]): string[] {
@@ -359,7 +393,29 @@ export function getSqlForStep(step: MigrationStep, options: GenerateDdlOptions =
   if (step.type === 'library') {
     return (step as LibraryStep).sql
   }
+  if (step.type === 'junction') {
+    return generateJunctionDDL(step)
+  }
   return generateCollectionDDL(step, options)
+}
+
+/**
+ * Generate DDL for a junction table.
+ *
+ * Shape — public contract; the consumer's view SQL joins through these
+ * columns directly. See {@link JunctionStep} for column semantics.
+ */
+export function generateJunctionDDL(step: JunctionStep): string[] {
+  const { name } = step
+  return [
+    `CREATE TABLE rm_${name} (
+  parent_id TEXT NOT NULL,
+  child_id TEXT NOT NULL,
+  child_value TEXT,
+  PRIMARY KEY (parent_id, child_id)
+) STRICT, WITHOUT ROWID`,
+    `CREATE INDEX idx_rm_${name}_child ON rm_${name} (child_id)`,
+  ]
 }
 
 /**

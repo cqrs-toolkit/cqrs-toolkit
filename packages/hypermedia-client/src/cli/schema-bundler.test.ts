@@ -106,13 +106,13 @@ describe('bundleSchemas', () => {
     expect(urnToRole.get('urn:schema:nb.Todo:1.0.0')).toBe('shared')
   })
 
-  it('warns on duplicate URN inputs and keeps the first', () => {
+  it('silently dedupes duplicate URN inputs and keeps the first', () => {
     const { warnings, bundle } = bundleSchemas({
       schemas: [todoSchema(), todoSchema()],
       commandUrns: [],
       representationUrns: ['urn:schema:nb.Todo:1.0.0'],
     })
-    expect(warnings.some((w) => w.includes('Duplicate schema'))).toBe(true)
+    expect(warnings.some((w) => /duplicate/i.test(w))).toBe(false)
     expect(Object.keys(bundle.definitions ?? {})).toHaveLength(1)
   })
 
@@ -233,6 +233,155 @@ describe('bundleSchemas', () => {
         ],
       }),
     ).toThrowError(/has kind 'link' but no 'linkType' configured/)
+  })
+
+  it('applies idReferences kind: "link" over a oneOf — preserves literal branches', () => {
+    const linkLiteralUnion: JSONSchema7 = {
+      $id: 'urn:schema:foo.Asset:1.0.0',
+      title: 'AssetV1_0_0',
+      type: 'object',
+      properties: {
+        association: {
+          description: 'Either the default sentinel or an Asset link.',
+          oneOf: [
+            { const: 'default', type: 'string' },
+            {
+              additionalProperties: false,
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                type: { enum: ['Asset'], type: 'string' },
+              },
+              required: ['type', 'id'],
+            },
+          ],
+        },
+      },
+    }
+    const { bundle, externalsUsed } = bundleSchemas({
+      schemas: [linkLiteralUnion],
+      commandUrns: ['urn:schema:foo.Asset:1.0.0'],
+      representationUrns: [],
+      linkType: 'ServiceLink',
+      idReferences: [
+        { urn: 'urn:schema:foo.Asset:1.0.0', paths: [{ kind: 'link', path: '$.association' }] },
+      ],
+    })
+    const asset = bundle.definitions?.['AssetV1_0_0'] as JSONSchema7
+    const association = asset.properties?.['association'] as JSONSchema7
+    expect(association.oneOf).toBeDefined()
+    expect(association.oneOf?.length).toBe(2)
+    const literal = association.oneOf?.[0] as JSONSchema7
+    expect(literal.const).toBe('default')
+    const link = association.oneOf?.[1] as JSONSchema7
+    expect(link.$ref).toBe('#/definitions/__External_ServiceLink')
+    expect(association.description).toBe('Either the default sentinel or an Asset link.')
+    expect(externalsUsed.has('ServiceLink')).toBe(true)
+  })
+
+  it('applies idReferences kind: "id" over a oneOf — preserves literal branches', () => {
+    const idLiteralUnion: JSONSchema7 = {
+      $id: 'urn:schema:foo.Slot:1.0.0',
+      title: 'SlotV1_0_0',
+      type: 'object',
+      properties: {
+        owner: {
+          oneOf: [{ const: 'unassigned', type: 'string' }, { type: 'string' }],
+        },
+      },
+    }
+    const { bundle, externalsUsed } = bundleSchemas({
+      schemas: [idLiteralUnion],
+      commandUrns: ['urn:schema:foo.Slot:1.0.0'],
+      representationUrns: [],
+      idReferences: [
+        { urn: 'urn:schema:foo.Slot:1.0.0', paths: [{ kind: 'id', path: '$.owner' }] },
+      ],
+    })
+    const slot = bundle.definitions?.['SlotV1_0_0'] as JSONSchema7
+    const owner = slot.properties?.['owner'] as JSONSchema7
+    expect(owner.oneOf?.length).toBe(2)
+    expect((owner.oneOf?.[0] as JSONSchema7).const).toBe('unassigned')
+    expect((owner.oneOf?.[1] as JSONSchema7).$ref).toBe('#/definitions/__External_EntityId')
+    expect(externalsUsed.has('EntityId')).toBe(true)
+  })
+
+  it('collapses a oneOf where every branch matches into a single $ref', () => {
+    const allLinks: JSONSchema7 = {
+      $id: 'urn:schema:foo.Multi:1.0.0',
+      title: 'MultiV1_0_0',
+      type: 'object',
+      properties: {
+        link: {
+          oneOf: [
+            { type: 'object', properties: { id: { type: 'string' }, type: { const: 'A' } } },
+            { type: 'object', properties: { id: { type: 'string' }, type: { const: 'B' } } },
+          ],
+        },
+      },
+    }
+    const { bundle } = bundleSchemas({
+      schemas: [allLinks],
+      commandUrns: ['urn:schema:foo.Multi:1.0.0'],
+      representationUrns: [],
+      linkType: 'ServiceLink',
+      idReferences: [
+        { urn: 'urn:schema:foo.Multi:1.0.0', paths: [{ kind: 'link', path: '$.link' }] },
+      ],
+    })
+    const multi = bundle.definitions?.['MultiV1_0_0'] as JSONSchema7
+    const link = multi.properties?.['link'] as JSONSchema7
+    expect(link.$ref).toBe('#/definitions/__External_ServiceLink')
+    expect(link.oneOf).toBeUndefined()
+  })
+
+  it('throws when a oneOf at an idReferences target has no matching branch', () => {
+    const noMatch: JSONSchema7 = {
+      $id: 'urn:schema:foo.NoMatch:1.0.0',
+      title: 'NoMatchV1_0_0',
+      type: 'object',
+      properties: {
+        ref: {
+          oneOf: [
+            { const: 'a', type: 'string' },
+            { const: 'b', type: 'string' },
+          ],
+        },
+      },
+    }
+    expect(() =>
+      bundleSchemas({
+        schemas: [noMatch],
+        commandUrns: ['urn:schema:foo.NoMatch:1.0.0'],
+        representationUrns: [],
+        linkType: 'ServiceLink',
+        idReferences: [
+          { urn: 'urn:schema:foo.NoMatch:1.0.0', paths: [{ kind: 'link', path: '$.ref' }] },
+        ],
+      }),
+    ).toThrowError(/no branch matching the 'link' shape/)
+  })
+
+  it('throws when an allOf composition is at an idReferences target', () => {
+    const allOfTarget: JSONSchema7 = {
+      $id: 'urn:schema:foo.AllOf:1.0.0',
+      title: 'AllOfV1_0_0',
+      type: 'object',
+      properties: {
+        link: { allOf: [{ type: 'object', properties: { id: { type: 'string' } } }] },
+      },
+    }
+    expect(() =>
+      bundleSchemas({
+        schemas: [allOfTarget],
+        commandUrns: ['urn:schema:foo.AllOf:1.0.0'],
+        representationUrns: [],
+        linkType: 'ServiceLink',
+        idReferences: [
+          { urn: 'urn:schema:foo.AllOf:1.0.0', paths: [{ kind: 'link', path: '$.link' }] },
+        ],
+      }),
+    ).toThrowError(/'allOf' compositions are not supported/)
   })
 
   it('warns when a idReferences URN was not bundled', () => {

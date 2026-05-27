@@ -7,11 +7,12 @@ import type { AuthStrategy } from '../core/auth.js'
 import type {
   CacheKeyIdentity,
   CacheKeyMatcher,
+  CacheKeysFromTopicsCtx,
   CacheKeyTemplate,
 } from '../core/cache-manager/CacheKey.js'
 import type { IAnticipatedEvent } from '../core/command-lifecycle/AnticipatedEventShape.js'
 import type { ICommandSender } from '../core/command-queue/types.js'
-import { validatePath } from '../core/entity-ref/ref-path.js'
+import { pathHasWildcard, validatePath } from '../core/entity-ref/ref-path.js'
 import type { ProcessorRegistration } from '../core/event-processor/types.js'
 import { defaultProblemJsonMapper } from '../core/failure-mapper/index.js'
 import type { Sort } from '../core/query-manager/types.js'
@@ -179,9 +180,58 @@ export interface ManagedCollectionDef {
 }
 
 /**
+ * A many-to-1 junction table declaration.
+ *
+ * Targets the SQL backend; the in-memory backend ignores junction declarations
+ * (the consumer's `memory` view callback iterates the array directly).
+ *
+ * The library creates `rm_<name>` at migration time with shape:
+ *
+ *     CREATE TABLE rm_<name> (
+ *       parent_id   TEXT NOT NULL,
+ *       child_id    TEXT NOT NULL,   -- entityIdToString(element)
+ *       child_value TEXT,            -- JSON.stringify(element) when EntityRef; NULL when plain string
+ *       PRIMARY KEY (parent_id, child_id)
+ *     ) STRICT, WITHOUT ROWID;
+ *     CREATE INDEX idx_rm_<name>_child ON rm_<name>(child_id);
+ *
+ * The columns are public contract — the consumer's view SQL joins against
+ * `child_id` and reads `child_value` (NULL means the element was a plain
+ * string; non-NULL means parse the JSON back to an `EntityRef`).
+ *
+ * Sync happens inside the read-model commit batch: for each created /
+ * updated / deleted row on the `parent` collection, the library walks the
+ * declared `path`, extracts the id set, diffs against the prior state, and
+ * INSERTs / DELETEs in the same transaction.
+ *
+ * Junctions can be declared in any migration version — v1 can create the
+ * parent collection, v2 (or later) can add a junction against it.
+ */
+export interface JunctionStep {
+  type: 'junction'
+  /**
+   * Parent collection — the collection whose writes trigger sync. Must be a
+   * managed collection declared in this or an earlier migration version.
+   */
+  parent: string
+  /**
+   * Full table identifier; library creates `rm_<name>`. Consumer-owned;
+   * uniqueness across managed-collection and junction names is the consumer's
+   * responsibility. Same identifier constraints as `ManagedCollectionDef.name`.
+   */
+  name: string
+  /**
+   * JSONPath on `_effective_data` to the array. Must contain a `[*]` wildcard
+   * (otherwise the path resolves to a single value, not an array). The final
+   * value produced at each match must be an `EntityId` (`string | EntityRef`).
+   */
+  path: JSONPathExpression
+}
+
+/**
  * A step within a schema migration.
  */
-export type MigrationStep = LibraryStep | ManagedCollectionDef
+export type MigrationStep = LibraryStep | ManagedCollectionDef | JunctionStep
 
 /**
  * A versioned schema migration.
@@ -451,12 +501,21 @@ export interface Collection<TLink extends Link> {
    * The returned identities are attached to the event before processing —
    * no further topic resolution happens downstream.
    *
+   * When a topic's scopeId is a direct identifier of a cache key (e.g. a
+   * tenant id matches an entity key's `link.id`), the implementation can
+   * synthesize a template from the topic alone. When the topic carries a
+   * sub-identifier of an aggregate the cache key identity already holds
+   * (e.g. an `anchorRoomId` carried by a workspace-scoped key's
+   * `scopeParams`), iterate `ctx` to find the matching registered identity.
+   *
    * @param topics - Topic strings from the WS event message
+   * @param ctx - Iteration over currently-registered cache key identities
    * @returns Cache key identities or templates. Templates (no `.key`) are resolved
    *   by the caller via `registerCacheKeySync`.
    */
   cacheKeysFromTopics(
     topics: readonly string[],
+    ctx: CacheKeysFromTopicsCtx<TLink>,
   ): (CacheKeyIdentity<TLink> | CacheKeyTemplate<TLink>)[]
 
   /**
@@ -638,14 +697,49 @@ function validateRegistrationPaths<
       }
     }
   }
+  // Track managed / junction names seen so far so we can validate junction
+  // `parent` references and detect name collisions across the cumulative set.
+  const managedNames = new Set<string>()
+  const allTableNames = new Set<string>()
   for (const migration of resolved.storage.migrations) {
     for (const step of migration.steps) {
-      if (step.type !== 'managed' || !step.columns) continue
-      for (const column of step.columns) {
-        if (column.path !== undefined) {
-          tryValidateRegistrationPath(
-            column.path,
-            `Migration v${migration.version} collection '${step.name}' column '${column.name}' path`,
+      if (step.type === 'managed') {
+        if (allTableNames.has(step.name)) {
+          throw new Error(
+            `Migration v${migration.version}: managed collection '${step.name}' collides with an existing table name`,
+          )
+        }
+        managedNames.add(step.name)
+        allTableNames.add(step.name)
+        if (step.columns) {
+          for (const column of step.columns) {
+            if (column.path !== undefined) {
+              tryValidateRegistrationPath(
+                column.path,
+                `Migration v${migration.version} collection '${step.name}' column '${column.name}' path`,
+              )
+            }
+          }
+        }
+      } else if (step.type === 'junction') {
+        if (!managedNames.has(step.parent)) {
+          throw new Error(
+            `Migration v${migration.version}: junction '${step.name}' references parent '${step.parent}' which is not a managed collection declared in this or an earlier migration`,
+          )
+        }
+        if (allTableNames.has(step.name)) {
+          throw new Error(
+            `Migration v${migration.version}: junction '${step.name}' collides with an existing table name`,
+          )
+        }
+        allTableNames.add(step.name)
+        tryValidateRegistrationPath(
+          step.path,
+          `Migration v${migration.version} junction '${step.name}' path`,
+        )
+        if (!pathHasWildcard(step.path)) {
+          throw new Error(
+            `Migration v${migration.version} junction '${step.name}' path '${step.path}': must contain a '[*]' wildcard segment (junction tables exist to fan a row's array into multiple junction rows)`,
           )
         }
       }

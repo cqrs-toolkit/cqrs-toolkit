@@ -642,6 +642,12 @@ export class InMemoryStorage<
     }
   }
 
+  // Junction tables are SQL-only — the in-memory dispatcher iterates each
+  // row's array directly in the consumer's `memory` view callback. Caller
+  // (ReadModelStore) early-exits when no junctions are declared, so this
+  // is only here to satisfy the interface.
+  async syncJunctions(): Promise<void> {}
+
   async deleteReadModelsByCollection(collection: string): Promise<void> {
     for (const [key, record] of this.readModels.entries()) {
       if (record.collection === collection) {

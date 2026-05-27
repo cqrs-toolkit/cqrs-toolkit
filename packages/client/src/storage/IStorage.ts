@@ -263,6 +263,24 @@ export interface AddCacheKeysToReadModelEntry {
 }
 
 /**
+ * One junction-table sync operation, computed during a read-model commit.
+ *
+ * `junctionName` is the consumer-supplied `JunctionStep.name` (table is
+ * `rm_<junctionName>`). `parentId` is the read-model row's id on the parent
+ * collection. `add` and `removeChildIds` carry the diff of the extracted-id
+ * set between the prior and new effective_data. `removeAll: true` is set
+ * when the parent row itself was deleted (clears every junction pair for
+ * the row in one statement).
+ */
+export interface JunctionSyncOp {
+  junctionName: string
+  parentId: string
+  add: readonly { childId: string; childValue: string | null }[]
+  removeChildIds: readonly string[]
+  removeAll: boolean
+}
+
+/**
  * Storage interface.
  * All methods are async to support both sync (in-memory) and async (SQLite) backends.
  */
@@ -630,6 +648,17 @@ export interface IStorage<TLink extends Link, TCommand extends EnqueueCommand> {
    * collection's junction table is written with its subset of rows.
    */
   addCacheKeysToReadModels(entries: readonly AddCacheKeysToReadModelEntry[]): Promise<void>
+
+  /**
+   * Apply a batch of junction-table writes computed by `ReadModelStore.commit`
+   * from the diff between prior and new effective_data per row. No-op for
+   * backends without SQL junction tables (in-memory).
+   *
+   * Implementations should batch by `junctionName` and execute INSERT /
+   * DELETE statements inside the same transaction as the read-model writes
+   * — junction visibility is part of the commit's observable state.
+   */
+  syncJunctions(ops: readonly JunctionSyncOp[]): Promise<void>
 
   /**
    * Delete all read model records for a collection.

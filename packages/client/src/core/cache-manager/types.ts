@@ -234,4 +234,11 @@ export interface ICacheManagerInternal<TLink extends Link> extends ICacheManager
     idMap: Record<string, { serverId: string }>,
     resolveCacheKey?: (cacheKey: CacheKeyIdentity<TLink>) => CacheKeyIdentity<TLink>,
   ): void
+
+  /**
+   * Iterate currently-registered cache key identities. Order is unspecified.
+   * Same-thread callers only (SyncManager builds the consumer-facing
+   * {@link CacheKeysFromTopicsCtx} around this).
+   */
+  iterateIdentities(): IterableIterator<CacheKeyIdentity<TLink>>
 }

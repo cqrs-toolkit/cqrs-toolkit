@@ -463,6 +463,159 @@ describe.each(bootstrapVariants)('$name ws-events', ({ bootstrap }) => {
     )
   })
 
+  describe('cacheKeysFromTopics ctx', () => {
+    it(
+      'collection uses ctx.iterate to resolve a scope key by a sub-identifier carried in the topic',
+      integrationTestOptions,
+      run(
+        {
+          collections: [
+            {
+              name: 'notes',
+              aggregate: NoteAggregate,
+              cacheKeysFromTopics: (topics, ctx) => {
+                const matches: ReturnType<Collection<ServiceLink>['cacheKeysFromTopics']> = []
+                for (const topic of topics) {
+                  const [scopeKind, scopeId] = topic.split(':')
+                  if (scopeKind !== 'parent_room' || !scopeId) continue
+                  for (const key of ctx.iterate()) {
+                    if (
+                      key.kind === 'scope' &&
+                      key.scopeType === 'pms:workspace-scoped' &&
+                      key.scopeParams?.['anchorRoomId'] === scopeId
+                    ) {
+                      matches.push(key)
+                      break
+                    }
+                  }
+                }
+                return matches
+              },
+              seedOnDemand: {
+                keyTypes: [{ kind: 'scope', scopeType: 'pms:workspace-scoped' }],
+                subscribeTopics: () => [],
+              },
+              matchesStream: (s) => s.startsWith('nb.Note-'),
+              fetchSeedRecords: async () => ({ records: [], nextCursor: null }),
+            } satisfies Collection<ServiceLink>,
+          ],
+          processors: [
+            {
+              eventTypes: 'NoteCreated',
+              processor: ({ data }: { data: { id: string } }, _state: unknown, pctx) => ({
+                collection: 'notes',
+                id: data.id,
+                update: { type: 'set' as const, data },
+                isServerUpdate: pctx.persistence !== 'Anticipated',
+              }),
+            },
+          ],
+          SyncManagerClass: TestSyncManager,
+        },
+        async (ctx) => {
+          const workspaceKey = deriveScopeKey({
+            scopeType: 'pms:workspace-scoped',
+            scopeParams: { workspaceId: 'w-1', anchorRoomId: 'r-anchor-1' },
+          })
+          const otherWorkspaceKey = deriveScopeKey({
+            scopeType: 'pms:workspace-scoped',
+            scopeParams: { workspaceId: 'w-2', anchorRoomId: 'r-anchor-2' },
+          })
+          await ctx.cacheManager.acquireKey(workspaceKey)
+          await ctx.cacheManager.acquireKey(otherWorkspaceKey)
+          await ctx.syncManager.seedForKey(workspaceKey)
+          await ctx.syncManager.seedForKey(otherWorkspaceKey)
+
+          const event = ctx.createPersistedEvent('NoteCreated', 'nb.Note-note-1', {
+            id: 'note-1',
+          })
+
+          await ctx.injectWsEventsAndWait([{ event, topics: ['parent_room:r-anchor-1'] }], 'note-1')
+
+          const cachedEvent = await ctx.storage.getCachedEvent(event.id)
+          expect(cachedEvent?.cacheKeys).toContain(workspaceKey.key)
+          expect(cachedEvent?.cacheKeys).not.toContain(otherWorkspaceKey.key)
+        },
+      ),
+    )
+
+    it(
+      'iterate yields no match when no registered identity carries the sub-identifier',
+      integrationTestOptions,
+      run(
+        {
+          collections: [
+            {
+              name: 'notes',
+              aggregate: NoteAggregate,
+              cacheKeysFromTopics: (topics, ctx) => {
+                const matches: ReturnType<Collection<ServiceLink>['cacheKeysFromTopics']> = []
+                for (const topic of topics) {
+                  const [scopeKind, scopeId] = topic.split(':')
+                  if (scopeKind !== 'parent_room' || !scopeId) continue
+                  for (const key of ctx.iterate()) {
+                    if (
+                      key.kind === 'scope' &&
+                      key.scopeType === 'pms:workspace-scoped' &&
+                      key.scopeParams?.['anchorRoomId'] === scopeId
+                    ) {
+                      matches.push(key)
+                      break
+                    }
+                  }
+                }
+                return matches
+              },
+              seedOnDemand: {
+                keyTypes: [{ kind: 'scope', scopeType: 'pms:workspace-scoped' }],
+                subscribeTopics: () => [],
+              },
+              matchesStream: (s) => s.startsWith('nb.Note-'),
+              fetchSeedRecords: async () => ({ records: [], nextCursor: null }),
+            } satisfies Collection<ServiceLink>,
+          ],
+          processors: [
+            {
+              eventTypes: 'NoteCreated',
+              processor: ({ data }: { data: { id: string } }, _state: unknown, pctx) => ({
+                collection: 'notes',
+                id: data.id,
+                update: { type: 'set' as const, data },
+                isServerUpdate: pctx.persistence !== 'Anticipated',
+              }),
+            },
+          ],
+          SyncManagerClass: TestSyncManager,
+        },
+        async (ctx) => {
+          const workspaceKey = deriveScopeKey({
+            scopeType: 'pms:workspace-scoped',
+            scopeParams: { workspaceId: 'w-1', anchorRoomId: 'r-anchor-1' },
+          })
+          await ctx.cacheManager.acquireKey(workspaceKey)
+          await ctx.syncManager.seedForKey(workspaceKey)
+
+          const event = ctx.createPersistedEvent('NoteCreated', 'nb.Note-note-1', {
+            id: 'note-1',
+          })
+
+          // Topic references an anchorRoomId that no registered key carries.
+          const testSyncManager = ctx.syncManager as TestSyncManager
+          testSyncManager.injectWsEvents([{ event, topics: ['parent_room:r-unregistered'] }])
+          await new Promise((resolve) => setTimeout(resolve, 50))
+
+          const cachedEvent = await ctx.storage.getCachedEvent(event.id)
+          // Either the event wasn't cached at all (no matching cache key) or
+          // it was cached with an empty cacheKeys array — both signal the
+          // collection returned no matches.
+          if (cachedEvent) {
+            expect(cachedEvent.cacheKeys).not.toContain(workspaceKey.key)
+          }
+        },
+      ),
+    )
+  })
+
   describe('multi-collection routing', () => {
     it(
       'event routed to multiple cache keys is cached with all key associations',

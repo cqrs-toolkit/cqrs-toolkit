@@ -4,6 +4,8 @@ import {
   extractTopLevelEntityRefs,
   findMatchingPaths,
   getAtPath,
+  getValuesAtPath,
+  pathHasWildcard,
   resolveRefPaths,
   setAtPath,
   stripEntityRefs,
@@ -107,6 +109,61 @@ describe('validatePath', () => {
 
   it('rejects empty member names', () => {
     expect(() => validatePath('$..name')).toThrow('Empty member name')
+  })
+})
+
+describe('pathHasWildcard', () => {
+  it('returns false for paths with no wildcards', () => {
+    expect(pathHasWildcard('$.foo.bar')).toBe(false)
+    expect(pathHasWildcard("$._embedded['pms.Asset'].id")).toBe(false)
+    expect(pathHasWildcard('$.items[3].id')).toBe(false)
+  })
+
+  it('returns true for paths containing [*]', () => {
+    expect(pathHasWildcard('$.tagIds[*]')).toBe(true)
+    expect(pathHasWildcard('$.tags[*].id')).toBe(true)
+    expect(pathHasWildcard('$.a[*].b[*].id')).toBe(true)
+  })
+})
+
+describe('getValuesAtPath', () => {
+  it('returns a single-element list for a wildcard-free path that resolves', () => {
+    expect(getValuesAtPath({ a: { b: 'x' } }, '$.a.b')).toEqual(['x'])
+  })
+
+  it('returns an empty list when a wildcard-free path does not resolve', () => {
+    expect(getValuesAtPath({ a: {} }, '$.a.b')).toEqual([])
+    expect(getValuesAtPath({}, '$.a.b')).toEqual([])
+  })
+
+  it('returns each array element for a `[*]` tail', () => {
+    expect(getValuesAtPath({ tagIds: ['a', 'b', 'c'] }, '$.tagIds[*]')).toEqual(['a', 'b', 'c'])
+  })
+
+  it('returns the navigated field per element for `[*].field`', () => {
+    const data = {
+      tags: [
+        { id: 'a', label: 'A' },
+        { id: 'b', label: 'B' },
+      ],
+    }
+    expect(getValuesAtPath(data, '$.tags[*].id')).toEqual(['a', 'b'])
+  })
+
+  it('returns an empty list when the array is missing or empty', () => {
+    expect(getValuesAtPath({}, '$.tagIds[*]')).toEqual([])
+    expect(getValuesAtPath({ tagIds: [] }, '$.tagIds[*]')).toEqual([])
+  })
+
+  it('skips elements whose subpath does not resolve', () => {
+    const data = { tags: [{ id: 'a' }, { other: 'no-id-here' }, { id: 'c' }] }
+    expect(getValuesAtPath(data, '$.tags[*].id')).toEqual(['a', 'c'])
+  })
+
+  it('returns object values verbatim — caller is responsible for type-narrowing', () => {
+    const ref = { entityId: 'srv-1', commandId: 'cmd-1', state: 'temporary' }
+    const data = { tagIds: [ref, 'plain-string'] }
+    expect(getValuesAtPath(data, '$.tagIds[*]')).toEqual([ref, 'plain-string'])
   })
 })
 

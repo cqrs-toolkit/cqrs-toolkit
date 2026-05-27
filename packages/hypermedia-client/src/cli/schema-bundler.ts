@@ -6,9 +6,9 @@
  * pointer. The bundled document is what the codegen adapter consumes.
  */
 
-import type { JSONSchema7 } from 'json-schema'
+import type { JSONSchema7, JSONSchema7Definition } from 'json-schema'
 import type { IdReferenceEntry, IdReferencesForSchema } from '../config.js'
-import { replaceSchemaAtPath } from './schema-path.js'
+import { findSchemaPathTarget } from './schema-path.js'
 
 export type Role = 'shared' | 'commands' | 'reps'
 
@@ -95,7 +95,6 @@ export function bundleSchemas(input: BundlerInput): BundleResult {
       continue
     }
     if (byUrn.has(canonical)) {
-      warnings.push(`Duplicate schema for URN '${canonical}'; keeping first occurrence`)
       inputIndex++
       continue
     }
@@ -414,7 +413,19 @@ function applyIdReferences(
         externalName = linkType
       }
       try {
-        replaceSchemaAtPath(target, p.path, { $ref: `#/definitions/${externalKey(externalName)}` })
+        const slot = findSchemaPathTarget(target, p.path)
+        const rawCurrent = slot.kind === 'property' ? slot.parent[slot.key] : slot.parent.items
+        // `findSchemaPathTarget` already rejects tuple-style `items` arrays at
+        // runtime, but the JSONSchema7 type doesn't narrow `items` away from
+        // `Definition | Definition[]`. Tuple inputs fall into the bare-$ref
+        // branch of `buildIdReferenceReplacement` via the Array.isArray guard.
+        const current = Array.isArray(rawCurrent) ? undefined : rawCurrent
+        const replacement = buildIdReferenceReplacement(current, externalName, p.kind)
+        if (slot.kind === 'property') {
+          slot.parent[slot.key] = replacement
+        } else {
+          slot.parent.items = replacement
+        }
         externalsUsed.add(externalName)
       } catch (cause) {
         const innerMessage = cause instanceof Error ? cause.message : String(cause)
@@ -445,4 +456,94 @@ function formatPathError(
     `    path:   ${p.path}`,
     `    cause:  ${reason}`,
   ].join('\n')
+}
+
+/**
+ * Build the schema that replaces the slot at an idReferences target.
+ *
+ * Plain (non-composition) targets become a bare `$ref` to the external type,
+ * matching how single-shape annotations have always emitted. Targets shaped
+ * as a `oneOf` / `anyOf` substitute only the branches that fit the kind's
+ * shape: a `kind: 'id'` annotation rewrites open string branches and keeps
+ * any `const` / `enum` literals; a `kind: 'link'` annotation rewrites
+ * object branches that look like links (`properties.id` present) and keeps
+ * everything else. The parent's `description` carries forward to the
+ * composition wrapper so `json-schema-to-typescript` can still emit a JSDoc
+ * block for the property.
+ *
+ * Errors when:
+ * - the slot is an `allOf` composition (intersection semantics make the
+ *   substitution ambiguous);
+ * - the slot is a `oneOf` / `anyOf` whose branches don't include any that
+ *   fit the kind's shape (the annotation lied about the schema's shape).
+ */
+function buildIdReferenceReplacement(
+  current: JSONSchema7Definition | undefined,
+  externalName: ExternalTypeName,
+  kind: IdReferenceEntry['kind'],
+): JSONSchema7 {
+  const externalRef: JSONSchema7 = { $ref: `#/definitions/${externalKey(externalName)}` }
+  if (typeof current !== 'object' || current === null || Array.isArray(current)) {
+    return externalRef
+  }
+  if (current.allOf !== undefined) {
+    throw new Error(`'allOf' compositions are not supported at idReferences targets`)
+  }
+  const compositionKey: 'oneOf' | 'anyOf' | undefined =
+    current.oneOf !== undefined ? 'oneOf' : current.anyOf !== undefined ? 'anyOf' : undefined
+  if (compositionKey === undefined) return externalRef
+  if (current.oneOf !== undefined && current.anyOf !== undefined) {
+    throw new Error(`mixed 'oneOf' + 'anyOf' compositions are not supported`)
+  }
+  const branches = current[compositionKey]
+  if (!Array.isArray(branches) || branches.length === 0) return externalRef
+
+  const branchMatches = kind === 'link' ? isLinkShapedBranch : isOpenStringBranch
+  let matched = 0
+  let preserved = 0
+  const rewritten = branches.map<JSONSchema7Definition>((b) => {
+    if (branchMatches(b)) {
+      matched++
+      return externalRef
+    }
+    preserved++
+    return b
+  })
+  if (matched === 0) {
+    throw new Error(
+      `'${compositionKey}' at target has no branch matching the '${kind}' shape; ` +
+        `cannot apply annotation`,
+    )
+  }
+  if (preserved === 0) return externalRef
+  const wrapper: JSONSchema7 = { [compositionKey]: rewritten }
+  if (typeof current.description === 'string') wrapper.description = current.description
+  return wrapper
+}
+
+/**
+ * A `kind: 'link'` branch substitution target: an object schema carrying an
+ * `id` property. Most generated link shapes also carry `type`, but the
+ * discriminator field name varies, so `properties.id` is the load-bearing
+ * signal.
+ */
+function isLinkShapedBranch(branch: JSONSchema7Definition): boolean {
+  if (typeof branch !== 'object' || branch === null || Array.isArray(branch)) return false
+  if (branch.type !== 'object') return false
+  const props = branch.properties
+  if (typeof props !== 'object' || props === null) return false
+  return 'id' in props
+}
+
+/**
+ * A `kind: 'id'` branch substitution target: an open string schema. Branches
+ * that pin a literal (`const`) or a closed set (`enum`) are sibling literals
+ * (e.g. `'default'`), not ids, and must be preserved.
+ */
+function isOpenStringBranch(branch: JSONSchema7Definition): boolean {
+  if (typeof branch !== 'object' || branch === null || Array.isArray(branch)) return false
+  if (branch.type !== 'string') return false
+  if (branch.const !== undefined) return false
+  if (branch.enum !== undefined) return false
+  return true
 }

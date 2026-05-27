@@ -11,7 +11,7 @@
 import { assert } from '#utils'
 import { Link } from '@meticoeus/ddd-es'
 import { CommandFilter, CommandRecord, CommandStatus, EnqueueCommand } from '../types/commands.js'
-import type { CollationConfig, SchemaMigration } from '../types/config.js'
+import type { CollationConfig, JunctionStep, SchemaMigration } from '../types/config.js'
 import { EntityId, entityIdToString } from '../types/index.js'
 import { execStmt, ISqliteDb, queryStmt, SqliteBatchStatement } from './ISqliteDb.js'
 import {
@@ -23,6 +23,7 @@ import {
   IStorage,
   IStorageListFilter,
   IStorageQueryOptions,
+  JunctionSyncOp,
   MigrateReadModelIdParams,
   ReadModelRecord,
   SessionRecord,
@@ -31,6 +32,7 @@ import {
 import {
   assertNoCustomCollations,
   getCollectionNames,
+  getJunctionsByParent,
   getSqlForStep,
   type UnsupportedCollationsPolicy,
   validateSchemaMigrations,
@@ -95,6 +97,7 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
   private readonly db: ISqliteDb
   private readonly migrations: [SchemaMigration, ...SchemaMigration[]]
   private readonly collections: Set<string>
+  private readonly junctionsByParent: ReadonlyMap<string, readonly JunctionStep[]>
   private readonly stripCustomCollations: boolean
   private initialized = false
 
@@ -107,6 +110,7 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
     this.db = config.db
     this.migrations = config.migrations
     this.collections = new Set(getCollectionNames(config.migrations))
+    this.junctionsByParent = getJunctionsByParent(config.migrations)
   }
 
   // Lifecycle
@@ -135,6 +139,12 @@ export class SQLiteStorage<TLink extends Link, TCommand extends EnqueueCommand> 
     for (const name of this.collections) {
       await this.exec(`DELETE FROM rm_${name}_cache_keys`)
       await this.exec(`DELETE FROM ${this.rmTable(name)}`)
+      const junctions = this.junctionsByParent.get(name)
+      if (junctions) {
+        for (const junction of junctions) {
+          await this.exec(`DELETE FROM rm_${junction.name}`)
+        }
+      }
     }
   }
 
@@ -1269,6 +1279,23 @@ ON CONFLICT(id) DO UPDATE SET
     for (const collection of this.collections) {
       const table = this.rmTable(collection)
       const cacheKeyTable = this.rmCacheKeyTable(collection)
+      // Junction cleanup must precede the cache_keys delete so the JOIN can
+      // still see which parent rows are about to be orphaned. Targets parents
+      // whose only remaining cache key is the evicting one.
+      const junctions = this.junctionsByParent.get(collection)
+      if (junctions) {
+        for (const junction of junctions) {
+          statements.push({
+            sql: `DELETE FROM rm_${junction.name}
+WHERE parent_id IN (
+  SELECT entity_id FROM ${cacheKeyTable} WHERE cache_key = ?
+  EXCEPT
+  SELECT entity_id FROM ${cacheKeyTable} WHERE cache_key != ?
+)`,
+            bind: [cacheKey, cacheKey],
+          })
+        }
+      }
       statements.push({
         sql: `DELETE FROM ${cacheKeyTable} WHERE cache_key = ?`,
         bind: [cacheKey],
@@ -1323,14 +1350,65 @@ ON CONFLICT(id) DO UPDATE SET
     }
   }
 
+  async syncJunctions(ops: readonly JunctionSyncOp[]): Promise<void> {
+    this.assertInitialized()
+    if (ops.length === 0) return
+
+    const statements: SqliteBatchStatement[] = []
+    // Batch INSERTs per junction so we issue one statement per junction
+    // regardless of how many parents contributed pairs in this commit.
+    const insertsByJunction = new Map<string, unknown[][]>()
+
+    for (const op of ops) {
+      const table = `rm_${op.junctionName}`
+      if (op.removeAll) {
+        statements.push({ sql: `DELETE FROM ${table} WHERE parent_id = ?`, bind: [op.parentId] })
+      } else if (op.removeChildIds.length > 0) {
+        const placeholders = op.removeChildIds.map(() => '?').join(', ')
+        statements.push({
+          sql: `DELETE FROM ${table} WHERE parent_id = ? AND child_id IN (${placeholders})`,
+          bind: [op.parentId, ...op.removeChildIds],
+        })
+      }
+      if (op.add.length > 0) {
+        let rows = insertsByJunction.get(op.junctionName)
+        if (!rows) {
+          rows = []
+          insertsByJunction.set(op.junctionName, rows)
+        }
+        for (const pair of op.add) {
+          rows.push([op.parentId, pair.childId, pair.childValue])
+        }
+      }
+    }
+
+    for (const [junctionName, rows] of insertsByJunction) {
+      const stmt = this.buildJunctionInsert(
+        `rm_${junctionName}`,
+        '(parent_id, child_id, child_value)',
+        rows,
+      )
+      if (stmt) statements.push(stmt)
+    }
+
+    if (statements.length > 0) {
+      await this.db.execBatch(statements)
+    }
+  }
+
   async deleteReadModelsByCollection(collection: string): Promise<void> {
     this.assertInitialized()
     const table = this.rmTable(collection)
     const cacheKeyTable = this.rmCacheKeyTable(collection)
-    await this.db.execBatch([
-      { sql: `DELETE FROM ${cacheKeyTable}` },
-      { sql: `DELETE FROM ${table}` },
-    ])
+    const statements: SqliteBatchStatement[] = []
+    const junctions = this.junctionsByParent.get(collection)
+    if (junctions) {
+      for (const junction of junctions) {
+        statements.push({ sql: `DELETE FROM rm_${junction.name}` })
+      }
+    }
+    statements.push({ sql: `DELETE FROM ${cacheKeyTable}` }, { sql: `DELETE FROM ${table}` })
+    await this.db.execBatch(statements)
   }
 
   async getReadModelCount(): Promise<number> {

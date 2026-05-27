@@ -39,4 +39,5 @@ Archive (rejected) keeps the entry indexed but marked, so it remains discoverabl
 - [`query-collection-metadata.md`](query-collection-metadata.md) — sync getter vs observable signals for query-level collection metadata access.
 - [`serverdata-drop-when-no-overlay.md`](serverdata-drop-when-no-overlay.md) — dropping `_server_data` when it's identical to `_effective_data` (no overlay) to halve per-record storage.
 - [`stateful-event-redesign.md`](stateful-event-redesign.md) — replacing the seed-re-execution stateful invalidation behaviour with a more targeted design.
+- [`view-array-joins.md`](view-array-joins.md) — multi-value gate extraction for array-shaped `referencedIdPath` / `referencingIdPath` plus a library-managed junction table primitive (`JunctionStep`) for SQL-backed views at scale; documents the `json_each` fallback for small tables.
 - [`view-predicate-dependencies.md`](view-predicate-dependencies.md) — collection-level `cacheKeysFromRow` (inverse of `cacheKeysFromTopics`) for view dependencies that match a filter rather than specific ids; deferred until a view of that shape lands.

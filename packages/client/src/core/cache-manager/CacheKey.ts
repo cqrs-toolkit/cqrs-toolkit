@@ -68,6 +68,42 @@ export function isScopeCacheKey<TLink extends Link>(
   return key.kind === 'scope'
 }
 
+/**
+ * Read-only view of a {@link CacheKeyIdentity}. Used at API boundaries where
+ * the caller is given access to identities held by the library and must not
+ * mutate them in place. Library-internal callers continue to use the mutable
+ * {@link CacheKeyIdentity}.
+ */
+export type ReadonlyCacheKeyIdentity<TLink extends Link> =
+  | {
+      readonly kind: 'entity'
+      readonly key: string
+      readonly link: Readonly<TLink>
+      readonly parentKey?: string
+    }
+  | {
+      readonly kind: 'scope'
+      readonly key: string
+      readonly service?: string
+      readonly scopeType: string
+      readonly scopeParams?: Readonly<Record<string, unknown>>
+      readonly parentKey?: string
+    }
+
+/**
+ * Context passed to {@link Collection.cacheKeysFromTopics}.
+ *
+ * `iterate()` yields each currently-registered cache key identity once, in
+ * unspecified order. Consumers compose their own predicates against the
+ * yielded identities — the library does not pre-bucket by scopeType, link
+ * fields, or scopeParams. Useful when a topic's scopeId is a sub-identifier
+ * of an aggregate the cache key identity already carries (e.g. a workspace
+ * cache key keyed by `anchorRoomId` matched from a room topic).
+ */
+export interface CacheKeysFromTopicsCtx<TLink extends Link> {
+  iterate(): Iterable<ReadonlyCacheKeyIdentity<TLink>>
+}
+
 // ---------------------------------------------------------------------------
 // Cache key templates (identity without key — input to registerCacheKey)
 // ---------------------------------------------------------------------------

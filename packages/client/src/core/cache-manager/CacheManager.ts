@@ -887,6 +887,12 @@ export class CacheManager<
     return keys.filter((k) => this.uuidToIdentity.has(k))
   }
 
+  *iterateIdentities(): IterableIterator<CacheKeyIdentity<TLink>> {
+    for (const registration of this.registry.values()) {
+      yield registration.identity
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------

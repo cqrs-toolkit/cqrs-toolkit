@@ -5,7 +5,9 @@ import type { LibraryStep, SchemaMigration } from '../../types/config.js'
 import { clientSchema } from './client-schema.js'
 import {
   generateCollectionDDL,
+  generateJunctionDDL,
   getCollectionNames,
+  getJunctionsByParent,
   getSqlForStep,
   validateSchemaMigrations,
 } from './rm-schema.js'
@@ -620,5 +622,102 @@ describe('getSqlForStep', () => {
     } finally {
       db.close()
     }
+  })
+})
+
+describe('generateJunctionDDL', () => {
+  it('emits the junction table + reverse index', () => {
+    const ddl = generateJunctionDDL({
+      type: 'junction',
+      parent: 'projects',
+      name: 'project_tags',
+      path: '$.tagIds[*]',
+    })
+    expect(ddl).toEqual([
+      expect.stringContaining('CREATE TABLE rm_project_tags'),
+      expect.stringMatching(/CREATE INDEX idx_rm_project_tags_child ON rm_project_tags/),
+    ])
+    expect(ddl[0]).toMatch(/parent_id TEXT NOT NULL/)
+    expect(ddl[0]).toMatch(/child_id TEXT NOT NULL/)
+    expect(ddl[0]).toMatch(/child_value TEXT/)
+    expect(ddl[0]).toMatch(/PRIMARY KEY \(parent_id, child_id\)/)
+    expect(ddl[0]).toMatch(/STRICT, WITHOUT ROWID/)
+  })
+
+  it('runs cleanly against better-sqlite3', () => {
+    const db = new Database(':memory:')
+    try {
+      const ddl = generateJunctionDDL({
+        type: 'junction',
+        parent: 'projects',
+        name: 'project_tags',
+        path: '$.tagIds[*]',
+      })
+      for (const stmt of ddl) db.exec(stmt)
+
+      const tables = db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='rm_project_tags'")
+        .all() as { name: string }[]
+      expect(tables).toHaveLength(1)
+
+      const indexes = db
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_rm_project_tags_child'",
+        )
+        .all() as { name: string }[]
+      expect(indexes).toHaveLength(1)
+    } finally {
+      db.close()
+    }
+  })
+
+  it('routes through getSqlForStep', () => {
+    const ddl = getSqlForStep({
+      type: 'junction',
+      parent: 'projects',
+      name: 'project_tags',
+      path: '$.tagIds[*]',
+    })
+    expect(ddl[0]).toMatch(/CREATE TABLE rm_project_tags/)
+  })
+})
+
+describe('getJunctionsByParent', () => {
+  it('groups junctions across migrations by parent collection', () => {
+    const migrations: [SchemaMigration, ...SchemaMigration[]] = [
+      {
+        version: 1,
+        message: 'v1',
+        steps: [
+          clientSchema.init,
+          { type: 'managed', name: 'projects' },
+          { type: 'managed', name: 'notes' },
+        ],
+      },
+      {
+        version: 2,
+        message: 'v2',
+        steps: [
+          { type: 'junction', parent: 'projects', name: 'project_tags', path: '$.tagIds[*]' },
+          { type: 'junction', parent: 'notes', name: 'note_tags', path: '$.tagIds[*]' },
+          { type: 'junction', parent: 'projects', name: 'project_assets', path: '$.assetIds[*]' },
+        ],
+      },
+    ]
+    const map = getJunctionsByParent(migrations)
+    expect([...map.keys()].sort()).toEqual(['notes', 'projects'])
+    expect(map.get('projects')?.map((j) => j.name)).toEqual(['project_tags', 'project_assets'])
+    expect(map.get('notes')?.map((j) => j.name)).toEqual(['note_tags'])
+  })
+
+  it('returns an empty map when no junctions are declared', () => {
+    const migrations: [SchemaMigration, ...SchemaMigration[]] = [
+      {
+        version: 1,
+        message: 'v1',
+        steps: [clientSchema.init, { type: 'managed', name: 'projects' }],
+      },
+    ]
+    expect(getJunctionsByParent(migrations).size).toBe(0)
   })
 })

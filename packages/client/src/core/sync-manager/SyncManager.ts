@@ -28,7 +28,11 @@ import { createEntityRef, entityIdToString } from '../../types/entities.js'
 import { hydrateSerializedEvent, normalizeEventPersistence } from '../../types/events.js'
 import { EnqueueCommand, type IDomainExecutor } from '../../types/index.js'
 import type { AuthStrategy } from '../auth.js'
-import { type CacheKeyIdentity, matchesCacheKey } from '../cache-manager/CacheKey.js'
+import {
+  type CacheKeyIdentity,
+  type CacheKeysFromTopicsCtx,
+  matchesCacheKey,
+} from '../cache-manager/CacheKey.js'
 import type { ICacheManagerInternal } from '../cache-manager/types.js'
 import type { ICommandIdMappingStore } from '../command-id-mapping-store/ICommandIdMappingStore.js'
 import type { IAnticipatedEvent } from '../command-lifecycle/AnticipatedEventShape.js'
@@ -1212,8 +1216,11 @@ export class SyncManager<
     const matchingCollections = this.getMatchingCollections(streamId)
     const seen = new Set<string>()
     const keys: CacheKeyIdentity<TLink>[] = []
+    const ctx: CacheKeysFromTopicsCtx<TLink> = {
+      iterate: () => this.cacheManager.iterateIdentities(),
+    }
     for (const collection of matchingCollections) {
-      for (const keyOrTemplate of collection.cacheKeysFromTopics(topics)) {
+      for (const keyOrTemplate of collection.cacheKeysFromTopics(topics, ctx)) {
         // Templates don't have a .key — resolve them through the registry
         const cacheKey =
           'key' in keyOrTemplate

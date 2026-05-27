@@ -33,7 +33,7 @@ import { entityIdToString } from '../../types/entities.js'
 import { EnqueueCommand } from '../../types/index.js'
 import type { CacheKeyIdentity, CacheKeyTemplate } from '../cache-manager/CacheKey.js'
 import type { ICacheManagerInternal } from '../cache-manager/types.js'
-import { getAtPath } from '../entity-ref/ref-path.js'
+import { getValuesAtPath } from '../entity-ref/ref-path.js'
 import type { EventBus } from '../events/EventBus.js'
 import type { ReadModelStore } from '../read-model-store/index.js'
 import type { ViewExecutor } from '../views/ViewExecutor.js'
@@ -591,16 +591,20 @@ export class QueryManager<
         for (const join of joinSources) {
           const referencedSet = new Set<string>()
           for (const row of result.data) {
-            const value = getAtPath(row, join.referencedIdPath)
-            if (typeof value === 'string') referencedSet.add(value)
+            for (const value of getValuesAtPath(row, join.referencedIdPath)) {
+              const id = entityIdToString(value as EntityId | undefined)
+              if (id !== undefined) referencedSet.add(id)
+            }
           }
           referencedIds.set(join.collection, referencedSet)
 
           if (join.referencingIdPath) {
             const referencingSet = new Set<string>()
             for (const row of result.data) {
-              const value = getAtPath(row, join.referencingIdPath)
-              if (typeof value === 'string') referencingSet.add(value)
+              for (const value of getValuesAtPath(row, join.referencingIdPath)) {
+                const id = entityIdToString(value as EntityId | undefined)
+                if (id !== undefined) referencingSet.add(id)
+              }
             }
             const existing = referencingIds.get(join.collection)
             if (existing) {

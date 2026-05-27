@@ -144,4 +144,107 @@ describe('resolveConfig — registration path validation', () => {
       /Migration v1 collection 'todos' column 'title' path:/,
     )
   })
+
+  it('accepts a junction step alongside its parent managed collection in the same migration', () => {
+    const config = baseConfig()
+    config.storage = {
+      migrations: [
+        {
+          version: 1,
+          message: 'init',
+          steps: [
+            { type: 'managed', name: 'todos' },
+            { type: 'junction', parent: 'todos', name: 'todo_tags', path: '$.tagIds[*]' },
+          ],
+        },
+      ],
+    }
+    expect(() => resolveConfig(config)).not.toThrow()
+  })
+
+  it('accepts a junction declared in a later migration than its parent', () => {
+    const config = baseConfig()
+    config.storage = {
+      migrations: [
+        { version: 1, message: 'v1', steps: [{ type: 'managed', name: 'todos' }] },
+        {
+          version: 2,
+          message: 'v2',
+          steps: [{ type: 'junction', parent: 'todos', name: 'todo_tags', path: '$.tagIds[*]' }],
+        },
+      ],
+    }
+    expect(() => resolveConfig(config)).not.toThrow()
+  })
+
+  it('throws when a junction references an unknown parent collection', () => {
+    const config = baseConfig()
+    config.storage = {
+      migrations: [
+        {
+          version: 1,
+          message: 'init',
+          steps: [{ type: 'junction', parent: 'nope', name: 'todo_tags', path: '$.tagIds[*]' }],
+        },
+      ],
+    }
+    expect(() => resolveConfig(config)).toThrow(
+      /junction 'todo_tags' references parent 'nope' which is not a managed collection/,
+    )
+  })
+
+  it("throws when a junction's name collides with an existing managed collection", () => {
+    const config = baseConfig()
+    config.storage = {
+      migrations: [
+        {
+          version: 1,
+          message: 'init',
+          steps: [
+            { type: 'managed', name: 'todos' },
+            { type: 'junction', parent: 'todos', name: 'todos', path: '$.tagIds[*]' },
+          ],
+        },
+      ],
+    }
+    expect(() => resolveConfig(config)).toThrow(
+      /junction 'todos' collides with an existing table name/,
+    )
+  })
+
+  it('throws when a junction path lacks a [*] wildcard', () => {
+    const config = baseConfig()
+    config.storage = {
+      migrations: [
+        {
+          version: 1,
+          message: 'init',
+          steps: [
+            { type: 'managed', name: 'todos' },
+            { type: 'junction', parent: 'todos', name: 'todo_tags', path: '$.tagIds' },
+          ],
+        },
+      ],
+    }
+    expect(() => resolveConfig(config)).toThrow(
+      /junction 'todo_tags' path '\$\.tagIds': must contain a '\[\*\]' wildcard/,
+    )
+  })
+
+  it('throws when a junction path is syntactically invalid', () => {
+    const config = baseConfig()
+    config.storage = {
+      migrations: [
+        {
+          version: 1,
+          message: 'init',
+          steps: [
+            { type: 'managed', name: 'todos' },
+            { type: 'junction', parent: 'todos', name: 'todo_tags', path: '$.tagIds[' },
+          ],
+        },
+      ],
+    }
+    expect(() => resolveConfig(config)).toThrow(/junction 'todo_tags' path:/)
+  })
 })

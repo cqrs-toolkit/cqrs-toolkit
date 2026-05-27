@@ -135,6 +135,64 @@ export function validatePath(path: JSONPathExpression): void {
 }
 
 /**
+ * True when the JSONPath contains a `[*]` wildcard segment — i.e., the path
+ * may resolve to more than one value when walked.
+ */
+export function pathHasWildcard(path: JSONPathExpression): boolean {
+  for (const seg of parsePath(path)) {
+    if (seg.type === 'wildcard') return true
+  }
+  return false
+}
+
+/**
+ * Read every leaf value matched by a path that may contain `[*]` wildcards.
+ * Returns a flat list of present values (skips array elements that are
+ * undefined or whose required subpaths don't exist). For wildcard-free paths,
+ * returns a one-element list (or empty when the path doesn't resolve), which
+ * makes this a drop-in replacement for {@link getAtPath} at extraction sites
+ * that want to handle both single-value and array-shaped paths uniformly.
+ */
+export function getValuesAtPath(obj: unknown, path: JSONPathExpression): unknown[] {
+  const segments = parsePath(path)
+  const out: unknown[] = []
+  collectValues(obj, segments, 0, out)
+  return out
+}
+
+function collectValues(
+  current: unknown,
+  segments: PathSegment[],
+  index: number,
+  out: unknown[],
+): void {
+  if (index === segments.length) {
+    if (current !== undefined) out.push(current)
+    return
+  }
+  if (typeof current !== 'object' || current === null) return
+
+  const seg = segments[index]
+  if (!seg) return
+
+  switch (seg.type) {
+    case 'member':
+      collectValues((current as Record<string, unknown>)[seg.name], segments, index + 1, out)
+      return
+    case 'index':
+      if (!Array.isArray(current)) return
+      collectValues(current[seg.index], segments, index + 1, out)
+      return
+    case 'wildcard':
+      if (!Array.isArray(current)) return
+      for (const element of current) {
+        collectValues(element, segments, index + 1, out)
+      }
+      return
+  }
+}
+
+/**
  * Read a value at a concrete path (no wildcards).
  */
 export function getAtPath(obj: unknown, path: JSONPathExpression): unknown {

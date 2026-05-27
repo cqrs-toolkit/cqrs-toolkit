@@ -13,11 +13,14 @@ import type {
   IStorage,
   IStorageListFilter,
   IStorageQueryOptions,
+  JunctionSyncOp,
   MigrateReadModelIdParams,
   ReadModelRecord,
 } from '../../storage/IStorage.js'
-import { EnqueueCommand, EntityId, entityIdToString } from '../../types/index.js'
+import type { JunctionStep } from '../../types/config.js'
+import { EnqueueCommand, EntityId, entityIdToString, isEntityRef } from '../../types/index.js'
 import type { ICommandIdMappingStore } from '../command-id-mapping-store/ICommandIdMappingStore.js'
+import { getValuesAtPath } from '../entity-ref/ref-path.js'
 import type { EventBus } from '../events/EventBus.js'
 
 /**
@@ -96,11 +99,22 @@ export interface ReadModelQueryOptions extends IStorageQueryOptions {
  * Read model store implementation.
  */
 export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand> {
+  /**
+   * Junction declarations indexed by parent collection. Empty when the active
+   * backend doesn't need junction sync (in-memory mode) — the orchestrator
+   * populates this only on SQL-backed deployments. When empty, the entire
+   * junction-diff pass in {@link commit} early-exits before any work.
+   */
+  private readonly junctionsByParent: ReadonlyMap<string, readonly JunctionStep[]>
+
   constructor(
     private readonly eventBus: EventBus<TLink>,
     private readonly storage: IStorage<TLink, TCommand>,
     private readonly mappingStore: ICommandIdMappingStore,
-  ) {}
+    junctionsByParent: ReadonlyMap<string, readonly JunctionStep[]> = new Map(),
+  ) {
+    this.junctionsByParent = junctionsByParent
+  }
 
   /**
    * Get a read model by ID.
@@ -1026,6 +1040,61 @@ export class ReadModelStore<TLink extends Link, TCommand extends EnqueueCommand>
     await this.storage.deleteReadModels(toDelete)
     await this.storage.addCacheKeysToReadModels(toAssociate)
 
+    // 8. Junction sync — fast early-exit when no junctions are declared
+    //    (online-only mode, or SQL deployments with no array joins). When
+    //    junctions are declared, diff the extracted-id set per row touched
+    //    and emit INSERT / DELETE ops against the storage layer.
+    if (this.junctionsByParent.size > 0) {
+      const junctionOps: JunctionSyncOp[] = []
+      for (const state of rowState.values()) {
+        if (!state.touched) continue
+        const junctions = this.junctionsByParent.get(state.collection)
+        if (!junctions || junctions.length === 0) continue
+
+        const oldData = parseEffectiveData(state.baseline)
+        const newData = parseEffectiveData(state.current ?? undefined)
+
+        for (const junction of junctions) {
+          if (newData === undefined && oldData === undefined) continue
+
+          if (newData === undefined) {
+            junctionOps.push({
+              junctionName: junction.name,
+              parentId: state.id,
+              add: [],
+              removeChildIds: [],
+              removeAll: true,
+            })
+            continue
+          }
+
+          const newPairs = extractJunctionPairs(newData, junction.path)
+          const oldPairs = oldData === undefined ? [] : extractJunctionPairs(oldData, junction.path)
+          const oldIds = new Set(oldPairs.map((p) => p.childId))
+          const newIds = new Set(newPairs.map((p) => p.childId))
+
+          const add = newPairs.filter((p) => !oldIds.has(p.childId))
+          const removeChildIds: string[] = []
+          for (const id of oldIds) {
+            if (!newIds.has(id)) removeChildIds.push(id)
+          }
+
+          if (add.length === 0 && removeChildIds.length === 0) continue
+
+          junctionOps.push({
+            junctionName: junction.name,
+            parentId: state.id,
+            add,
+            removeChildIds,
+            removeAll: false,
+          })
+        }
+      }
+      if (junctionOps.length > 0) {
+        await this.storage.syncJunctions(junctionOps)
+      }
+    }
+
     return classification
   }
 
@@ -1218,6 +1287,38 @@ export type ReadModelMutation =
  * set is the source of truth for new associations), so this function
  * intentionally ignores them.
  */
+/**
+ * Parse a record's `effectiveData` JSON, returning `undefined` when the record
+ * itself is undefined (e.g., a deleted row's `current`). Throws on parse
+ * failure — effectiveData is always library-controlled JSON.
+ */
+function parseEffectiveData(record: ReadModelRecord | undefined): unknown {
+  if (record === undefined) return undefined
+  return JSON.parse(record.effectiveData)
+}
+
+/**
+ * Walk a junction's declared path against a row's effective_data, producing
+ * one `(childId, childValue)` pair per matched leaf value. Plain-string
+ * elements yield `(value, null)`; `EntityRef` elements yield
+ * `(entityId, JSON.stringify(ref))`. Non-EntityId values are silently
+ * dropped — the JSONPath should target EntityIds by contract.
+ */
+function extractJunctionPairs(
+  data: unknown,
+  path: string,
+): { childId: string; childValue: string | null }[] {
+  const pairs: { childId: string; childValue: string | null }[] = []
+  for (const value of getValuesAtPath(data, path)) {
+    if (typeof value === 'string') {
+      pairs.push({ childId: value, childValue: null })
+    } else if (isEntityRef(value)) {
+      pairs.push({ childId: value.entityId, childValue: JSON.stringify(value) })
+    }
+  }
+  return pairs
+}
+
 function recordsEqual(a: ReadModelRecord, b: ReadModelRecord): boolean {
   return (
     a.id === b.id &&

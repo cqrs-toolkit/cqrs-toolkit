@@ -35,6 +35,7 @@ import type { WorkerMessageHandler } from '../../protocol/MessageChannel.js'
 import type { ISqliteDb } from '../../storage/ISqliteDb.js'
 import type { IStorage } from '../../storage/IStorage.js'
 import { loadAndOpenDb } from '../../storage/LocalSqliteDb.js'
+import { getJunctionsByParent } from '../../storage/schema/index.js'
 import { SQLiteStorage } from '../../storage/SQLiteStorage.js'
 import { DEFAULT_CONFIG } from '../../types/config.js'
 import { createDomainExecutor } from '../../types/domain.js'
@@ -166,7 +167,12 @@ export class WorkerOrchestrator<
     await mappingStore.initialize()
     this.mappingStore = mappingStore
 
-    const readModelStore = new ReadModelStore(eventBus, storage, mappingStore)
+    const readModelStore = new ReadModelStore(
+      eventBus,
+      storage,
+      mappingStore,
+      getJunctionsByParent(config.storage.migrations),
+    )
     this.readModelStore = readModelStore
 
     // 9. Create and initialize CommandStore
